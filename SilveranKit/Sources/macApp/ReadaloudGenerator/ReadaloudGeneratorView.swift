@@ -49,7 +49,7 @@ public struct ReadaloudGeneratorView: View {
             Divider()
             footerView
         }
-        .frame(width: 500, height: 650)
+        .frame(width: 500, height: 750)
     }
 
     private var headerView: some View {
@@ -336,7 +336,6 @@ public struct ReadaloudGeneratorView: View {
     ) -> some View {
         HStack {
             Text(label)
-                .frame(width: 80, alignment: .trailing)
 
             Text(url?.lastPathComponent ?? placeholder)
                 .frame(maxWidth: .infinity, alignment: .leading)
