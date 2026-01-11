@@ -57,6 +57,7 @@ struct SilveranReaderApp: App {
         ebookScene
         settingsScene
         debugLogScene
+        readaloudGeneratorScene
         #endif
     }
 
@@ -120,6 +121,21 @@ struct SilveranReaderApp: App {
     private var settingsScene: some Scene {
         Settings {
             SettingsView()
+        }
+    }
+
+    private var readaloudGeneratorScene: some Scene {
+        Window("Create Readaloud", id: "ReadaloudGenerator") {
+            ReadaloudGeneratorView()
+        }
+        .windowResizability(.contentSize)
+        .commands {
+            CommandMenu("Utilities") {
+                Button("Create Readaloud...") {
+                    openWindow(id: "ReadaloudGenerator")
+                }
+                .keyboardShortcut("R", modifiers: [.command, .shift])
+            }
         }
     }
 }

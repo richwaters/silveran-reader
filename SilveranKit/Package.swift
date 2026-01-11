@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "SilveranKit",
     platforms: [
-        .macOS(.v14),
+        .macOS(.v15),
         .iOS(.v17),
         .watchOS(.v10),
         .tvOS(.v17),
@@ -28,6 +28,7 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0"),
+        .package(path: "../storyalign"),
     ],
     targets: [
         .target(
@@ -77,6 +78,7 @@ let package = Package(
             dependencies: [
                 "SilveranKitCommon",
                 "SilveranKitSwiftUI",
+                .product(name: "StoryAlignCore", package: "StoryAlign"),
             ],
             path: "Sources/macApp"
         ),
