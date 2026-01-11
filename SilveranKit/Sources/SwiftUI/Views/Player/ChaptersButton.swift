@@ -99,23 +99,31 @@ public struct ChaptersButton: View {
     #if os(iOS)
     private var chaptersSheet: some View {
         NavigationStack {
-            List(chapters, id: \.id) { chapter in
-                Button(action: {
-                    onChapterSelected(chapter.href)
-                    showSheet = false
-                }) {
-                    HStack {
-                        Text(String(repeating: "  ", count: chapter.level))
-                            .font(.system(size: 1))
-                        Text(chapter.label)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if selectedChapterId == chapter.id {
-                            Image(systemName: "checkmark")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(Color.accentColor)
+            ScrollViewReader { proxy in
+                List(chapters, id: \.id) { chapter in
+                    Button(action: {
+                        onChapterSelected(chapter.href)
+                        showSheet = false
+                    }) {
+                        HStack {
+                            Text(String(repeating: "  ", count: chapter.level))
+                                .font(.system(size: 1))
+                            Text(chapter.label)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if selectedChapterId == chapter.id {
+                                Image(systemName: "checkmark")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Color.accentColor)
+                            }
                         }
+                    }
+                    .id(chapter.id)
+                }
+                .onAppear {
+                    if let selectedId = selectedChapterId {
+                        proxy.scrollTo(selectedId, anchor: .center)
                     }
                 }
             }

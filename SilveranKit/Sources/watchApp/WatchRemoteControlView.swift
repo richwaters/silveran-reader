@@ -284,24 +284,30 @@ private struct RemoteChapterListView: View {
     let onBack: () -> Void
 
     var body: some View {
-        List {
-            ForEach(state.chapters, id: \.index) { chapter in
-                Button {
-                    viewModel.sendPlaybackCommand(
-                        .seekToChapter(sectionIndex: chapter.sectionIndex)
-                    )
-                    onBack()
-                } label: {
-                    HStack {
-                        Text(chapter.title)
-                            .lineLimit(2)
-                        Spacer()
-                        if chapter.index == state.currentChapterIndex {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundStyle(.secondary)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(state.chapters, id: \.index) { chapter in
+                    Button {
+                        viewModel.sendPlaybackCommand(
+                            .seekToChapter(sectionIndex: chapter.sectionIndex)
+                        )
+                        onBack()
+                    } label: {
+                        HStack {
+                            Text(chapter.title)
+                                .lineLimit(2)
+                            Spacer()
+                            if chapter.index == state.currentChapterIndex {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+                    .id(chapter.index)
                 }
+            }
+            .onAppear {
+                proxy.scrollTo(state.currentChapterIndex, anchor: .center)
             }
         }
         .toolbar {
@@ -326,21 +332,31 @@ private struct SpeedPickerSheet: View {
 
     private let speeds: [Double] = [0.5, 0.75, 1.0, 1.1, 1.2, 1.25, 1.3, 1.5, 1.75, 2.0]
 
+    private var currentSpeedIndex: Int {
+        speeds.firstIndex { abs($0 - currentRate) < 0.01 } ?? 2
+    }
+
     var body: some View {
-        List {
-            ForEach(speeds, id: \.self) { speed in
-                Button {
-                    onSelect(speed)
-                } label: {
-                    HStack {
-                        Text(formatSpeedPickerLabel(speed, includeNormalLabel: true))
-                        Spacer()
-                        if abs(currentRate - speed) < 0.01 {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.accentColor)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(Array(speeds.enumerated()), id: \.offset) { index, speed in
+                    Button {
+                        onSelect(speed)
+                    } label: {
+                        HStack {
+                            Text(formatSpeedPickerLabel(speed, includeNormalLabel: true))
+                            Spacer()
+                            if abs(currentRate - speed) < 0.01 {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.accentColor)
+                            }
                         }
                     }
+                    .id(index)
                 }
+            }
+            .onAppear {
+                proxy.scrollTo(currentSpeedIndex, anchor: .center)
             }
         }
         .navigationTitle("Speed")

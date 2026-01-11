@@ -3,31 +3,42 @@ import SwiftUI
 struct TVChapterListView: View {
     let viewModel: TVPlayerViewModel
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var focusedIndex: Int?
+
+    private var currentChapterArrayIndex: Int? {
+        viewModel.chapters.firstIndex { $0.index == viewModel.currentSectionIndex }
+    }
 
     var body: some View {
         NavigationStack {
-            List(viewModel.chapters) { chapter in
-                Button {
-                    Task {
-                        await viewModel.jumpToChapter(chapter.index)
-                    }
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(chapter.label)
-                            .font(.headline)
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.chapters.enumerated()), id: \.offset) { arrayIndex, chapter in
+                        Button {
+                            Task {
+                                await viewModel.jumpToChapter(chapter.index)
+                            }
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Text(chapter.label)
+                                    .font(.headline)
 
-                        Spacer()
+                                Spacer()
 
-                        if chapter.index == viewModel.currentSectionIndex {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundStyle(.blue)
+                                if chapter.index == viewModel.currentSectionIndex {
+                                    Image(systemName: "speaker.wave.2.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .padding()
                         }
+                        .buttonStyle(.plain)
+                        .focused($focusedIndex, equals: arrayIndex)
                     }
                 }
-                // Workaround: default button style causes blurred text on focus in tvOS Lists
-                .buttonStyle(.plain)
             }
+            .defaultFocus($focusedIndex, currentChapterArrayIndex)
             .navigationTitle("Chapters")
         }
     }

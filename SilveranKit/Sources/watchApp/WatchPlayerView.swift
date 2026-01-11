@@ -78,21 +78,27 @@ private struct ChapterListView: View {
     let onSelectChapter: (Int) -> Void
 
     var body: some View {
-        List {
-            ForEach(viewModel.chapters) { chapter in
-                Button {
-                    onSelectChapter(chapter.index)
-                } label: {
-                    HStack {
-                        Text(chapter.label)
-                            .lineLimit(2)
-                        Spacer()
-                        if chapter.index == viewModel.currentSectionIndex {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundStyle(.secondary)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(viewModel.chapters) { chapter in
+                    Button {
+                        onSelectChapter(chapter.index)
+                    } label: {
+                        HStack {
+                            Text(chapter.label)
+                                .lineLimit(2)
+                            Spacer()
+                            if chapter.index == viewModel.currentSectionIndex {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+                    .id(chapter.index)
                 }
+            }
+            .onAppear {
+                proxy.scrollTo(viewModel.currentSectionIndex, anchor: .center)
             }
         }
         .navigationTitle("Chapters")
@@ -374,24 +380,34 @@ private struct SpeedPickerSheet: View {
 
     private let speeds: [Double] = [0.75, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 5.0]
 
+    private var currentSpeedIndex: Int {
+        speeds.firstIndex { abs($0 - currentRate) < 0.01 } ?? 1
+    }
+
     var body: some View {
-        List {
-            ForEach(speeds, id: \.self) { speed in
-                Button {
-                    Task {
-                        try? await SettingsActor.shared.updateConfig(defaultPlaybackSpeed: speed)
-                    }
-                    onSelect(speed)
-                } label: {
-                    HStack {
-                        Text(formatSpeedPickerLabel(speed, includeNormalLabel: true))
-                        Spacer()
-                        if abs(currentRate - speed) < 0.01 {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.accentColor)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(Array(speeds.enumerated()), id: \.offset) { index, speed in
+                    Button {
+                        Task {
+                            try? await SettingsActor.shared.updateConfig(defaultPlaybackSpeed: speed)
+                        }
+                        onSelect(speed)
+                    } label: {
+                        HStack {
+                            Text(formatSpeedPickerLabel(speed, includeNormalLabel: true))
+                            Spacer()
+                            if abs(currentRate - speed) < 0.01 {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.accentColor)
+                            }
                         }
                     }
+                    .id(index)
                 }
+            }
+            .onAppear {
+                proxy.scrollTo(currentSpeedIndex, anchor: .center)
             }
         }
         .navigationTitle("Speed")
