@@ -145,6 +145,10 @@ public final class ReadaloudGeneratorViewModel {
         defer { if access { epubURL.stopAccessingSecurityScopedResource() } }
 
         do {
+            // Use SMILParser for proper chapter names (display)
+            let sections = try SMILParser.parseEPUB(at: epubURL)
+
+            // Also get StoryAlign's manifest IDs for filtering
             let logger = ReadaloudLogger(minLevel: .error)
             let sessionConfig = try SessionConfig(
                 sessionDir: nil,
@@ -166,10 +170,16 @@ public final class ReadaloudGeneratorViewModel {
             defer { sessionConfig.cleanup() }
 
             let epub = try await EpubParser(sessionConfig: sessionConfig).parse(url: epubURL)
-            let chapters = epub.manifest
+            let storyAlignItems = epub.manifest
                 .sorted { $0.spineItemIndex < $1.spineItemIndex }
                 .filter { $0.spineItemIndex >= 0 }
-                .map { (name: $0.nameOrId, id: $0.id) }
+
+            // Combine: SMILParser labels for display, StoryAlign nameOrId for filtering
+            let chapters = sections.enumerated().map { (index, section) in
+                let displayName = section.label ?? "[Section \(index + 1)] (Unknown)"
+                let filterId = index < storyAlignItems.count ? storyAlignItems[index].nameOrId : displayName
+                return (name: displayName, id: filterId)
+            }
 
             await MainActor.run {
                 self.availableChapters = chapters
@@ -226,8 +236,8 @@ public final class ReadaloudGeneratorViewModel {
         let startIdx = await self.startChapterIndex
         let endIdx = await self.endChapterIndex
 
-        let startChapter = startIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].name : nil }
-        let endChapter = endIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].name : nil }
+        let startChapter = startIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].id : nil }
+        let endChapter = endIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].id : nil }
 
         guard let modelPath else {
             await MainActor.run { self.state = .error("Whisper model not found. Please download it first.") }
