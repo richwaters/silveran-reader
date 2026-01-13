@@ -232,8 +232,10 @@ class MediaOverlayManager {
             if total > 0 && elapsed >= total - 0.5 {
                 debugLog("[MOM] End of chapter reached - sleep timer pausing playback")
                 Task {
-                    cancelSleepTimer()
-                    await progressManager?.togglePlaying()
+                    self.cancelSleepTimer()
+                    if self.isPlaying {
+                        await self.progressManager?.togglePlaying()
+                    }
                 }
             }
         }
@@ -631,7 +633,7 @@ class MediaOverlayManager {
 
     /// Internal: Update sleep timer countdown
     private func updateSleepTimer() async {
-        guard sleepTimerActive else { return }
+        guard sleepTimerActive, isPlaying else { return }
 
         if sleepTimerType == .endOfChapter {
             return
@@ -665,8 +667,10 @@ class MediaOverlayManager {
         if chapterElapsed >= chapterTotal - 0.5 {
             debugLog("[MOM] End of chapter reached - sleep timer pausing playback")
             Task {
-                cancelSleepTimer()
-                await progressManager?.togglePlaying()
+                self.cancelSleepTimer()
+                if self.isPlaying {
+                    await self.progressManager?.togglePlaying()
+                }
             }
         }
     }

@@ -16,6 +16,7 @@ public struct AudiobookPlayerView: View {
     @State private var sleepTimerActive = false
     @State private var sleepTimerRemaining: TimeInterval? = nil
     @State private var sleepTimerType: SleepTimerType? = nil
+    @State private var sleepTimer: Timer? = nil
     @State private var settingsInitialized = false
 
     @State private var metadata: AudiobookMetadata?
@@ -96,6 +97,8 @@ public struct AudiobookPlayerView: View {
                 progressTimer = nil
                 syncTimer?.invalidate()
                 syncTimer = nil
+                sleepTimer?.invalidate()
+                sleepTimer = nil
 
                 positionObserverRegistrationTask?.cancel()
 
@@ -215,14 +218,10 @@ public struct AudiobookPlayerView: View {
                 volume = newVolume
             },
             onSleepTimerStart: { duration, type in
-                sleepTimerActive = true
-                sleepTimerRemaining = duration
-                sleepTimerType = type
+                startSleepTimer(duration: duration, type: type)
             },
             onSleepTimerCancel: {
-                sleepTimerActive = false
-                sleepTimerRemaining = nil
-                sleepTimerType = nil
+                cancelSleepTimer()
             },
             onProgressSeek: { fraction in
                 Task {
@@ -364,6 +363,12 @@ public struct AudiobookPlayerView: View {
         }
 
         totalRemaining = max(0, totalDuration - currentTime)
+
+        if let index = chapterIndex, index < metadata.chapters.count {
+            let chapter = metadata.chapters[index]
+            let timeInChapter = currentTime - chapter.startTime
+            checkChapterEndForSleepTimer(elapsed: timeInChapter, total: chapter.duration)
+        }
     }
 
     private func startProgressTimer() {
@@ -612,6 +617,81 @@ public struct AudiobookPlayerView: View {
                 incomingPositionObserverId = observerId
             }
             debugLog("[AudiobookPlayerView] Registered incoming position observer for \(bookId)")
+        }
+    }
+
+    // MARK: - Sleep Timer
+
+    private func startSleepTimer(duration: TimeInterval?, type: SleepTimerType) {
+        cancelSleepTimer()
+
+        sleepTimerType = type
+
+        if type == .endOfChapter {
+            debugLog("[AudiobookPlayerView] Sleep timer: will pause at end of current chapter")
+            sleepTimerActive = true
+            sleepTimerRemaining = nil
+        } else if let duration = duration {
+            debugLog("[AudiobookPlayerView] Sleep timer: starting \(Int(duration))s countdown")
+            sleepTimerActive = true
+            sleepTimerRemaining = duration
+
+            let timer = Timer(timeInterval: 1.0, repeats: true) { _ in
+                Task { @MainActor in
+                    updateSleepTimer()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            sleepTimer = timer
+        }
+    }
+
+    private func cancelSleepTimer() {
+        debugLog("[AudiobookPlayerView] Sleep timer cancelled")
+        sleepTimer?.invalidate()
+        sleepTimer = nil
+        sleepTimerActive = false
+        sleepTimerRemaining = nil
+        sleepTimerType = nil
+    }
+
+    private func updateSleepTimer() {
+        guard sleepTimerActive, isPlaying else { return }
+
+        if sleepTimerType == .endOfChapter {
+            return
+        }
+
+        guard var remaining = sleepTimerRemaining else {
+            cancelSleepTimer()
+            return
+        }
+
+        remaining -= 1.0
+        sleepTimerRemaining = remaining
+
+        if remaining <= 0 {
+            debugLog("[AudiobookPlayerView] Sleep timer expired - pausing playback")
+            cancelSleepTimer()
+            Task {
+                await AudiobookActor.shared.pause()
+            }
+        }
+    }
+
+    private func checkChapterEndForSleepTimer(elapsed: TimeInterval, total: TimeInterval) {
+        guard sleepTimerActive,
+            sleepTimerType == .endOfChapter,
+            isPlaying,
+            total > 0
+        else { return }
+
+        if elapsed >= total - 0.5 {
+            debugLog("[AudiobookPlayerView] End of chapter reached - sleep timer pausing playback")
+            cancelSleepTimer()
+            Task {
+                await AudiobookActor.shared.pause()
+            }
         }
     }
 }
