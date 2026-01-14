@@ -69,7 +69,7 @@ public struct ReadingSidebarView: View {
 
     @State private var showVolumePopover = false
     @State private var showSleepTimerPopover = false
-    @State private var currentPlayerHeight: CGFloat = 0
+    @State private var currentPlayerHeight: CGFloat = 800
     @State private var isDraggingSlider = false
     @State private var draggedSliderValue: Double = 0.0
     @State private var seekDebounceUntil: Date?
@@ -135,11 +135,10 @@ public struct ReadingSidebarView: View {
             statsSection
             secondaryControls
         }
-        .frame(minHeight: 400)
-        .frame(maxHeight: .infinity)
         .padding(.top, 2)
-        .padding(.bottom, 12)
-        .padding(.horizontal, 20)
+        .padding(.bottom, 25)
+        .frame(minHeight: 400)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backgroundColor)
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.height
@@ -151,7 +150,7 @@ public struct ReadingSidebarView: View {
 
     private var coverScale: CGFloat? {
         let upperThreshold: CGFloat = 800
-        let lowerThreshold: CGFloat = 650
+        let lowerThreshold: CGFloat = 450
 
         if currentPlayerHeight >= upperThreshold {
             return 1.0
@@ -161,7 +160,7 @@ public struct ReadingSidebarView: View {
             let range = upperThreshold - lowerThreshold
             let position = currentPlayerHeight - lowerThreshold
             let fraction = position / range
-            return 0.4 + (0.6 * fraction)
+            return 0.15 + (0.85 * fraction)
         }
     }
 
@@ -183,14 +182,15 @@ public struct ReadingSidebarView: View {
     private var metadataSection: some View {
         VStack(spacing: 12) {
             if let coverArt = displayedCover, let scale = coverScale {
+                let cornerRadius = max(8.0, 12.0 * scale)
                 let coverView = Group {
                     if isSquareCover && !showEbookCover {
                         coverArt
                             .resizable()
                             .aspectRatio(1, contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                             .shadow(radius: 8)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     } else if isSquareCover && showEbookCover {
                         Color.clear
                             .aspectRatio(1, contentMode: .fit)
@@ -199,7 +199,7 @@ public struct ReadingSidebarView: View {
                                 coverArt
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                                     .shadow(radius: 8)
                             }
                     } else {
@@ -207,8 +207,8 @@ public struct ReadingSidebarView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 180 * scale, height: 180 * scale)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .shadow(radius: 8)
+                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                            .shadow(radius: 8 * scale)
                     }
                 }
 
@@ -242,6 +242,7 @@ public struct ReadingSidebarView: View {
                     .multilineTextAlignment(.center)
             }
         }
+        .padding(.horizontal, 20)
     }
 
     private var progressSection: some View {
@@ -301,7 +302,6 @@ public struct ReadingSidebarView: View {
                 }
             )
             .tint(Color.primary)
-            .padding(.horizontal, 8)
 
             HStack {
                 Text(formatOptionalTime(chapterElapsed))
@@ -316,8 +316,8 @@ public struct ReadingSidebarView: View {
             }
             .font(.footnote.monospacedDigit())
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
         }
+        .padding(.horizontal, 20)
     }
 
     private var transportControls: some View {
@@ -386,7 +386,7 @@ public struct ReadingSidebarView: View {
             .help("Next chapter")
         }
         .foregroundStyle(Color.primary)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 20)
     }
 
     private var secondaryControls: some View {
@@ -441,6 +441,7 @@ public struct ReadingSidebarView: View {
                 sleepTimerButton
             }
         }
+        .padding(.horizontal, 20)
     }
 
     @ViewBuilder
@@ -490,7 +491,7 @@ public struct ReadingSidebarView: View {
                     )
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 20)
         }
     }
 

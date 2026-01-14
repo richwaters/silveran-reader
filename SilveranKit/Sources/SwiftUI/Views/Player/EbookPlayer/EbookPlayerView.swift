@@ -23,6 +23,8 @@ public struct EbookPlayerView: View {
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
+    @State private var baseContentWidth: CGFloat?
+    @State private var isAnimatingSidebar = false
     #else
     @Environment(\.dismiss) private var dismiss
     #endif
@@ -209,19 +211,51 @@ public struct EbookPlayerView: View {
 
     private var readerLayout: some View {
         #if os(macOS)
-        HStack(spacing: 0) {
-            readerContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GeometryReader { geometry in
+            let contentWidth = baseContentWidth ?? (viewModel.showAudioSidebar ? geometry.size.width - 361 : geometry.size.width)
 
-            if viewModel.showAudioSidebar {
-                Rectangle()
-                    .fill(separatorColor)
-                    .frame(width: 1)
-                    .ignoresSafeArea()
-                audiobookSidebar
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            HStack(spacing: 0) {
+                readerContent
+                    .frame(width: contentWidth, height: geometry.size.height)
+                    .zIndex(1)
+
+                if viewModel.showAudioSidebar {
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(separatorColor)
+                            .frame(width: 1)
+                        audiobookSidebar
+                            .frame(width: 360)
+                    }
+                    .compositingGroup()
+                    .transition(.offset(x: -361))
+                    .zIndex(0)
+                }
+            }
+            .onAppear {
+                if baseContentWidth == nil {
+                    baseContentWidth = viewModel.showAudioSidebar ? geometry.size.width - 361 : geometry.size.width
+                }
+            }
+            .onChange(of: geometry.size.width) { _, newWidth in
+                if !isAnimatingSidebar {
+                    baseContentWidth = viewModel.showAudioSidebar ? newWidth - 361 : newWidth
+                }
+            }
+            .onChange(of: viewModel.showAudioSidebar) { _, _ in
+                isAnimatingSidebar = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    isAnimatingSidebar = false
+                }
             }
         }
+        .clipped()
+        .background(
+            WindowWidthAdjuster(
+                expand: viewModel.showAudioSidebar,
+                amount: 361
+            )
+        )
         #else
         readerContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -229,11 +263,18 @@ public struct EbookPlayerView: View {
     }
 
     private var readerBackgroundColor: Color {
-        #if os(macOS)
-        Color(nsColor: .windowBackgroundColor)
-        #else
-        Color(uiColor: .systemBackground)
-        #endif
+        if let bgColor = viewModel.settingsVM.backgroundColor, let color = Color(hex: bgColor) {
+            return color
+        }
+        let defaultHex =
+            colorScheme == .dark ? kDefaultBackgroundColorDark : kDefaultBackgroundColorLight
+        return Color(hex: defaultHex) ?? {
+            #if os(macOS)
+            Color(nsColor: .windowBackgroundColor)
+            #else
+            Color(uiColor: .systemBackground)
+            #endif
+        }()
     }
 
     private var separatorColor: Color {
@@ -244,21 +285,10 @@ public struct EbookPlayerView: View {
         #endif
     }
 
-    #if os(iOS)
-    private var webViewBackgroundColor: Color {
-        if let bgColor = viewModel.settingsVM.backgroundColor, let color = Color(hex: bgColor) {
-            return color
-        }
-        let defaultHex =
-            colorScheme == .dark ? kDefaultBackgroundColorDark : kDefaultBackgroundColorLight
-        return Color(hex: defaultHex) ?? .white
-    }
-    #endif
-
     private var readerContent: some View {
         ZStack(alignment: .bottom) {
             #if os(iOS)
-            webViewBackgroundColor
+            readerBackgroundColor
                 .ignoresSafeArea(.all)
             #endif
 
@@ -632,17 +662,83 @@ public struct EbookPlayerView: View {
                 viewModel.handleProgressSeek(fraction)
             }
         )
-        .frame(
-            minWidth: 300,
-            idealWidth: 320,
-            maxWidth: 360,
-            maxHeight: .infinity,
-            alignment: .trailing
-        )
     }
 }
 
 #if os(macOS)
+private struct WindowWidthAdjuster: NSViewRepresentable {
+    let expand: Bool
+    let amount: CGFloat
+
+    private static let savedWidthKey = "EbookPlayerWindowWidth"
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = nsView.window else { return }
+
+            let coordinator = context.coordinator
+
+            if !coordinator.initialized {
+                coordinator.initialized = true
+                coordinator.lastExpanded = expand
+                setupResizeObserver(window: window, coordinator: coordinator)
+
+                if let savedWidth = UserDefaults.standard.object(forKey: Self.savedWidthKey) as? CGFloat,
+                   savedWidth > 0,
+                   window.frame.width != savedWidth {
+                    var frame = window.frame
+                    frame.size.width = savedWidth
+                    window.setFrame(frame, display: true, animate: false)
+                }
+                return
+            }
+
+            if expand != coordinator.lastExpanded {
+                var frame = window.frame
+                if expand {
+                    frame.size.width += amount
+                } else {
+                    frame.size.width -= amount
+                }
+                window.setFrame(frame, display: true, animate: true)
+                coordinator.lastExpanded = expand
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var initialized = false
+        var lastExpanded = false
+        var resizeObserver: Any?
+
+        deinit {
+            if let observer = resizeObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
+    private func setupResizeObserver(window: NSWindow, coordinator: Coordinator) {
+        guard coordinator.resizeObserver == nil else { return }
+
+        coordinator.resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { _ in
+            UserDefaults.standard.set(window.frame.width, forKey: WindowWidthAdjuster.savedWidthKey)
+        }
+    }
+}
+
 private class TitleBarDoubleClickGestureRecognizer: NSClickGestureRecognizer {
     var titlebarHeight: CGFloat = 52
 }

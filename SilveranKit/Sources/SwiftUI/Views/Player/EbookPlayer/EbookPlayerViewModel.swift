@@ -34,7 +34,15 @@ class EbookPlayerViewModel {
     var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     #if os(macOS)
-    var showAudioSidebar = true
+    private var _sidebarInitialized = false
+    var showAudioSidebar: Bool = false {
+        didSet {
+            if _sidebarInitialized && oldValue != showAudioSidebar {
+                debugLog("[EbookPlayerViewModel] Sidebar changed: \(oldValue) -> \(showAudioSidebar), saving...")
+                UserDefaults.standard.set(showAudioSidebar, forKey: "EbookPlayerShowAudioSidebar")
+            }
+        }
+    }
     var isTitleBarHovered = true
     #else
     var showAudioSidebar = false
@@ -113,6 +121,12 @@ class EbookPlayerViewModel {
     init(bookData: PlayerBookData?, settingsVM: SettingsViewModel = SettingsViewModel()) {
         self.bookData = bookData
         self.settingsVM = settingsVM
+        #if os(macOS)
+        let savedSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowAudioSidebar") as? Bool
+        self.showAudioSidebar = savedSidebarState ?? true
+        self._sidebarInitialized = true
+        debugLog("[EbookPlayerViewModel] Init - saved sidebar state: \(String(describing: savedSidebarState)), using: \(self.showAudioSidebar)")
+        #endif
     }
 
     func handleChapterSelectionByHref(_ href: String) {
@@ -275,9 +289,6 @@ class EbookPlayerViewModel {
             } else {
                 debugLog("[EbookPlayerViewModel] Synced audio playback mode")
                 hasAudioNarration = true
-                #if os(macOS)
-                showAudioSidebar = true
-                #endif
             }
             if let localPath = data.localMediaPath {
                 debugLog("[EbookPlayerViewModel] Local ebook file available")
