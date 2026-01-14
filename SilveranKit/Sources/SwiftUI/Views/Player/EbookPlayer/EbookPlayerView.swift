@@ -24,7 +24,8 @@ public struct EbookPlayerView: View {
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     @State private var baseContentWidth: CGFloat?
-    @State private var isAnimatingSidebar = false
+    @State private var isAnimatingRightSidebar = false
+    @State private var isAnimatingLeftSidebar = false
     #else
     @Environment(\.dismiss) private var dismiss
     #endif
@@ -37,15 +38,7 @@ public struct EbookPlayerView: View {
     public var body: some View {
         Group {
             #if os(macOS)
-            NavigationSplitView(columnVisibility: $viewModel.columnVisibility) {
-                EbookChapterSidebar(
-                    selectedChapterId: viewModel.uiSelectedChapterIdBinding,
-                    bookStructure: viewModel.bookStructure,
-                    onChapterSelected: { _ in }
-                )
-            } detail: {
-                readerLayout
-            }
+            mainLayout
             #else
             readerLayout
             #endif
@@ -209,12 +202,30 @@ public struct EbookPlayerView: View {
         }
     }
 
-    private var readerLayout: some View {
-        #if os(macOS)
+    #if os(macOS)
+    private let leftSidebarWidth: CGFloat = 260
+    private let leftSidebarTotalWidth: CGFloat = 261
+
+    private var mainLayout: some View {
         GeometryReader { geometry in
-            let contentWidth = baseContentWidth ?? (viewModel.showAudioSidebar ? geometry.size.width - 361 : geometry.size.width)
+            let rightAdjustment: CGFloat = viewModel.showAudioSidebar ? 361 : 0
+            let leftAdjustment: CGFloat = viewModel.showChapterSidebar ? leftSidebarTotalWidth : 0
+            let contentWidth = baseContentWidth ?? (geometry.size.width - rightAdjustment - leftAdjustment)
 
             HStack(spacing: 0) {
+                if viewModel.showChapterSidebar {
+                    HStack(spacing: 0) {
+                        chapterSidebar
+                            .frame(width: leftSidebarWidth)
+                        Rectangle()
+                            .fill(separatorColor)
+                            .frame(width: 1)
+                    }
+                    .compositingGroup()
+                    .transition(.offset(x: leftSidebarTotalWidth))
+                    .zIndex(0)
+                }
+
                 readerContent
                     .frame(width: contentWidth, height: geometry.size.height)
                     .zIndex(1)
@@ -234,28 +245,56 @@ public struct EbookPlayerView: View {
             }
             .onAppear {
                 if baseContentWidth == nil {
-                    baseContentWidth = viewModel.showAudioSidebar ? geometry.size.width - 361 : geometry.size.width
+                    let rightAdj: CGFloat = viewModel.showAudioSidebar ? 361 : 0
+                    let leftAdj: CGFloat = viewModel.showChapterSidebar ? leftSidebarTotalWidth : 0
+                    baseContentWidth = geometry.size.width - rightAdj - leftAdj
                 }
             }
             .onChange(of: geometry.size.width) { _, newWidth in
-                if !isAnimatingSidebar {
-                    baseContentWidth = viewModel.showAudioSidebar ? newWidth - 361 : newWidth
+                if !isAnimatingRightSidebar && !isAnimatingLeftSidebar {
+                    let rightAdj: CGFloat = viewModel.showAudioSidebar ? 361 : 0
+                    let leftAdj: CGFloat = viewModel.showChapterSidebar ? leftSidebarTotalWidth : 0
+                    baseContentWidth = newWidth - rightAdj - leftAdj
                 }
             }
             .onChange(of: viewModel.showAudioSidebar) { _, _ in
-                isAnimatingSidebar = true
+                isAnimatingRightSidebar = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    isAnimatingSidebar = false
+                    isAnimatingRightSidebar = false
+                }
+            }
+            .onChange(of: viewModel.showChapterSidebar) { _, _ in
+                isAnimatingLeftSidebar = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    isAnimatingLeftSidebar = false
                 }
             }
         }
         .clipped()
         .background(
-            WindowWidthAdjuster(
-                expand: viewModel.showAudioSidebar,
-                amount: 361
+            WindowFrameAdjuster(
+                expandRight: viewModel.showAudioSidebar,
+                expandLeft: viewModel.showChapterSidebar,
+                rightAmount: 361,
+                leftAmount: leftSidebarTotalWidth
             )
         )
+    }
+
+    private var chapterSidebar: some View {
+        EbookChapterSidebar(
+            selectedChapterId: viewModel.uiSelectedChapterIdBinding,
+            bookStructure: viewModel.bookStructure,
+            backgroundColor: readerBackgroundColor,
+            onChapterSelected: { _ in }
+        )
+    }
+    #endif
+
+    private var readerLayout: some View {
+        #if os(macOS)
+        readerContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
         readerContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -666,9 +705,11 @@ public struct EbookPlayerView: View {
 }
 
 #if os(macOS)
-private struct WindowWidthAdjuster: NSViewRepresentable {
-    let expand: Bool
-    let amount: CGFloat
+private struct WindowFrameAdjuster: NSViewRepresentable {
+    let expandRight: Bool
+    let expandLeft: Bool
+    let rightAmount: CGFloat
+    let leftAmount: CGFloat
 
     private static let savedWidthKey = "EbookPlayerWindowWidth"
 
@@ -684,7 +725,8 @@ private struct WindowWidthAdjuster: NSViewRepresentable {
 
             if !coordinator.initialized {
                 coordinator.initialized = true
-                coordinator.lastExpanded = expand
+                coordinator.lastExpandedRight = expandRight
+                coordinator.lastExpandedLeft = expandLeft
                 setupResizeObserver(window: window, coordinator: coordinator)
 
                 if let savedWidth = UserDefaults.standard.object(forKey: Self.savedWidthKey) as? CGFloat,
@@ -697,15 +739,33 @@ private struct WindowWidthAdjuster: NSViewRepresentable {
                 return
             }
 
-            if expand != coordinator.lastExpanded {
-                var frame = window.frame
-                if expand {
-                    frame.size.width += amount
+            var frame = window.frame
+            var needsUpdate = false
+
+            if expandRight != coordinator.lastExpandedRight {
+                if expandRight {
+                    frame.size.width += rightAmount
                 } else {
-                    frame.size.width -= amount
+                    frame.size.width -= rightAmount
                 }
+                coordinator.lastExpandedRight = expandRight
+                needsUpdate = true
+            }
+
+            if expandLeft != coordinator.lastExpandedLeft {
+                if expandLeft {
+                    frame.size.width += leftAmount
+                    frame.origin.x -= leftAmount
+                } else {
+                    frame.size.width -= leftAmount
+                    frame.origin.x += leftAmount
+                }
+                coordinator.lastExpandedLeft = expandLeft
+                needsUpdate = true
+            }
+
+            if needsUpdate {
                 window.setFrame(frame, display: true, animate: true)
-                coordinator.lastExpanded = expand
             }
         }
     }
@@ -716,7 +776,8 @@ private struct WindowWidthAdjuster: NSViewRepresentable {
 
     class Coordinator {
         var initialized = false
-        var lastExpanded = false
+        var lastExpandedRight = false
+        var lastExpandedLeft = false
         var resizeObserver: Any?
 
         deinit {
@@ -734,7 +795,7 @@ private struct WindowWidthAdjuster: NSViewRepresentable {
             object: window,
             queue: .main
         ) { _ in
-            UserDefaults.standard.set(window.frame.width, forKey: WindowWidthAdjuster.savedWidthKey)
+            UserDefaults.standard.set(window.frame.width, forKey: WindowFrameAdjuster.savedWidthKey)
         }
     }
 }

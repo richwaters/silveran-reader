@@ -31,10 +31,17 @@ class EbookPlayerViewModel {
     }
 
     var hasAudioNarration: Bool = false
-    var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     #if os(macOS)
     private var _sidebarInitialized = false
+    var showChapterSidebar: Bool = false {
+        didSet {
+            if _sidebarInitialized && oldValue != showChapterSidebar {
+                debugLog("[EbookPlayerViewModel] Chapter sidebar changed: \(oldValue) -> \(showChapterSidebar), saving...")
+                UserDefaults.standard.set(showChapterSidebar, forKey: "EbookPlayerShowChapterSidebar")
+            }
+        }
+    }
     var showAudioSidebar: Bool = false {
         didSet {
             if _sidebarInitialized && oldValue != showAudioSidebar {
@@ -122,10 +129,12 @@ class EbookPlayerViewModel {
         self.bookData = bookData
         self.settingsVM = settingsVM
         #if os(macOS)
-        let savedSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowAudioSidebar") as? Bool
-        self.showAudioSidebar = savedSidebarState ?? true
+        let savedAudioSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowAudioSidebar") as? Bool
+        self.showAudioSidebar = savedAudioSidebarState ?? true
+        let savedChapterSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowChapterSidebar") as? Bool
+        self.showChapterSidebar = savedChapterSidebarState ?? false
         self._sidebarInitialized = true
-        debugLog("[EbookPlayerViewModel] Init - saved sidebar state: \(String(describing: savedSidebarState)), using: \(self.showAudioSidebar)")
+        debugLog("[EbookPlayerViewModel] Init - audio sidebar: \(self.showAudioSidebar), chapter sidebar: \(self.showChapterSidebar)")
         #endif
     }
 

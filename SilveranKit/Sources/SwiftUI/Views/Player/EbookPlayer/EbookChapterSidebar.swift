@@ -4,6 +4,7 @@ import SwiftUI
 struct EbookChapterSidebar: View {
     @Binding var selectedChapterId: Int?
     let bookStructure: [SectionInfo]
+    let backgroundColor: Color
     let onChapterSelected: (Int?) -> Void
 
     private var chaptersWithIndices: [(index: Int, chapter: SectionInfo)] {
@@ -27,7 +28,8 @@ struct EbookChapterSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 280)
+        .scrollContentBackground(.hidden)
+        .background(backgroundColor)
         .onChange(of: selectedChapterId) { oldValue, newValue in
             debugLog(
                 "[EbookPlayerView] EbookChapterSidebar - selectedChapterId changed from \(oldValue?.description ?? "nil") to \(newValue?.description ?? "nil")"

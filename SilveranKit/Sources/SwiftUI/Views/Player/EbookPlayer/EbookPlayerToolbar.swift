@@ -21,6 +21,16 @@ struct EbookPlayerToolbar: ToolbarContent {
     @Bindable var viewModel: EbookPlayerViewModel
 
     var body: some ToolbarContent {
+        ToolbarItem(id: "chapter-sidebar-toggle", placement: .navigation) {
+            Button {
+                withAnimation(.easeInOut) { viewModel.showChapterSidebar.toggle() }
+            } label: {
+                Label("Toggle chapters", systemImage: "sidebar.leading")
+                    .labelStyle(.iconOnly)
+                    .symbolVariant(viewModel.showChapterSidebar ? .fill : .none)
+            }
+            .help("Toggle chapters")
+        }
         ToolbarItem {
             Spacer()
         }
