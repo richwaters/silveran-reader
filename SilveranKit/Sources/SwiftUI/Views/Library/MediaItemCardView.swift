@@ -77,9 +77,9 @@ struct MediaItemCardView: View {
     let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
+    let isHovered: Bool
     let isInfoHovered: Bool
     let onInfoHoverChanged: (Bool) -> Void
-    @State private var isHoveringCard: Bool = false
     #endif
 
     var body: some View {
@@ -215,13 +215,28 @@ struct MediaItemCardView: View {
                     }
                     Spacer(minLength: 0)
                 }
+                #if os(macOS)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture()
+                        .onEnded { _ in
+                            onSelect(item)
+                        }
+                )
+                .simultaneousGesture(
+                    TapGesture(count: 2)
+                        .onEnded { _ in
+                            onInfo(item)
+                        }
+                )
+                #endif
 
                 #if os(macOS)
                 MediaItemCardTopTabsButtonOverlay(
                     item: item,
                     coverWidth: metrics.coverWidth,
                     isSelected: isSelected,
-                    isHoveringCard: isHoveringCard
+                    isHoveringCard: isHovered
                 )
                 .environment(mediaViewModel)
                 #endif
@@ -250,6 +265,21 @@ struct MediaItemCardView: View {
                 authorRow
                     .padding(.top, metrics.titleToAuthorGap)
             }
+            #if os(macOS)
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded { _ in
+                        onSelect(item)
+                    }
+            )
+            .simultaneousGesture(
+                TapGesture(count: 2)
+                    .onEnded { _ in
+                        onInfo(item)
+                    }
+            )
+            #endif
         }
         .padding(
             EdgeInsets(
@@ -268,23 +298,9 @@ struct MediaItemCardView: View {
             .fill(Color.secondary.opacity(0.08))
                 #endif
         )
+        .drawingGroup()
         .contentShape(Rectangle())
         #if os(macOS)
-        .simultaneousGesture(
-            TapGesture()
-                .onEnded { _ in
-                    onSelect(item)
-                }
-        )
-        .simultaneousGesture(
-            TapGesture(count: 2)
-                .onEnded { _ in
-                    onInfo(item)
-                }
-        )
-        .onHover { hovering in
-            isHoveringCard = hovering
-        }
         .contextMenu {
             cardContextMenu
         }
@@ -359,11 +375,6 @@ struct MediaItemCardView: View {
                 #endif
         }
         .buttonStyle(.plain)
-        #if os(macOS)
-        .onHover { hovering in
-            onInfoHoverChanged(hovering)
-        }
-        #endif
     }
 }
 

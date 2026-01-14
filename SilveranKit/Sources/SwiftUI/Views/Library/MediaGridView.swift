@@ -1,4 +1,33 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+
+private struct ScrollWheelMonitor: ViewModifier {
+    let onScroll: () -> Void
+    @State private var monitor: Any?
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                    onScroll()
+                    return event
+                }
+            }
+            .onDisappear {
+                if let monitor {
+                    NSEvent.removeMonitor(monitor)
+                }
+            }
+    }
+}
+
+extension View {
+    func onScrollWheel(perform action: @escaping () -> Void) -> some View {
+        modifier(ScrollWheelMonitor(onScroll: action))
+    }
+}
+#endif
 
 extension MediaKind {
     var coverAspectRatio: CGFloat {
@@ -60,6 +89,10 @@ struct MediaGridView: View {
 
     #if os(macOS)
     @State private var hoveredInfoItemID: BookMetadata.ID? = nil
+    @State private var hoveredCardID: BookMetadata.ID? = nil
+    @State private var isScrolling: Bool = false
+    @State private var scrollEndWorkItem: DispatchWorkItem? = nil
+    @State private var pendingHoverCardID: BookMetadata.ID? = nil
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
     #endif
@@ -79,6 +112,15 @@ struct MediaGridView: View {
     @State private var shouldEnsureActiveItemVisible: Bool = false
     @State private var showSourceBadge: Bool = false
     @State private var showSeriesPositionBadge: Bool
+
+    @State private var cachedDisplayItems: [BookMetadata] = []
+    @State private var cachedAvailableTags: [String] = []
+    @State private var cachedAvailableSeries: [String] = []
+    @State private var cachedAvailableAuthors: [String] = []
+    @State private var cachedAvailableNarrators: [String] = []
+    @State private var cachedAvailableStatuses: [String] = []
+    @State private var cachedFiltersSummary: String = ""
+    @State private var lastCachedLibraryVersion: Int = -1
 
     private static let defaultHorizontalSpacing: CGFloat = 16
     private let horizontalSpacing: CGFloat = MediaGridView.defaultHorizontalSpacing
@@ -317,8 +359,28 @@ struct MediaGridView: View {
             }
             return .ignored
         }
+        .onScrollWheel {
+            handleScrollWheelEvent()
+        }
         #endif
     }
+
+    #if os(macOS)
+    private func handleScrollWheelEvent() {
+        if !isScrolling {
+            isScrolling = true
+            hoveredCardID = nil
+        }
+
+        scrollEndWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [self] in
+            isScrolling = false
+            hoveredCardID = pendingHoverCardID
+        }
+        scrollEndWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
+    }
+    #endif
 
     @ViewBuilder
     private func content(for containerWidth: CGFloat) -> some View {
@@ -349,18 +411,18 @@ struct MediaGridView: View {
                     ),
                     showSourceBadge: $showSourceBadge,
                     showSeriesPositionBadge: $showSeriesPositionBadge,
-                    availableTags: availableTags,
-                    availableSeries: availableSeries,
-                    availableAuthors: availableAuthors,
-                    availableNarrators: availableNarrators,
-                    availableStatuses: availableStatuses,
-                    filtersSummaryText: filtersSummaryText
+                    availableTags: cachedAvailableTags,
+                    availableSeries: cachedAvailableSeries,
+                    availableAuthors: cachedAvailableAuthors,
+                    availableNarrators: cachedAvailableNarrators,
+                    availableStatuses: cachedAvailableStatuses,
+                    filtersSummaryText: cachedFiltersSummary
                 )
             }
             .padding(.horizontal, gridHorizontalPadding)
             .padding(.leading, 8)
 
-            if displayItems.isEmpty {
+            if cachedDisplayItems.isEmpty {
                 VStack(spacing: 12) {
                     Text("No media is available here yet!")
                         .font(.title)
@@ -385,8 +447,23 @@ struct MediaGridView: View {
                 .padding(.horizontal, gridHorizontalPadding)
             } else {
                 LazyVGrid(columns: layout.columns, alignment: .leading, spacing: verticalSpacing) {
-                    ForEach(displayItems) { item in
+                    ForEach(cachedDisplayItems) { item in
                         card(for: item, metrics: tileMetrics)
+                            #if os(macOS)
+                            .onHover { hovering in
+                                if isScrolling {
+                                    pendingHoverCardID = hovering ? item.id : nil
+                                    return
+                                }
+                                if hovering {
+                                    if hoveredCardID != item.id {
+                                        hoveredCardID = item.id
+                                    }
+                                } else if hoveredCardID == item.id {
+                                    hoveredCardID = nil
+                                }
+                            }
+                            #endif
                     }
                 }
                 .scrollTargetLayout()
@@ -396,37 +473,57 @@ struct MediaGridView: View {
         .padding(.vertical)
         .onAppear {
             lastKnownColumnCount = columnCount
+            recomputeAllCaches()
         }
         .onChange(of: columnCount) { oldValue, newValue in
             lastKnownColumnCount = newValue
         }
+        .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            recomputeAllCaches()
+        }
         .onChange(of: selectedFormatFilter) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedTag) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedSeries) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedStatus) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedLocation) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedNarrator) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedAuthor) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: selectedSortOption) { _, _ in
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
         .onChange(of: mediaKind) { _, _ in
+            recomputeAllCaches()
             reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: searchText) { _, _ in
+            recomputeDisplayItems()
         }
         .onChange(of: initialNarrationFilterOption) { _, _ in
             selectedFormatFilter =
                 MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+            recomputeDisplayItems()
             reconcileSelectionAfterFiltering()
         }
     }
@@ -463,6 +560,7 @@ struct MediaGridView: View {
             onInfo: { selected in
                 openSidebar(for: selected)
             },
+            isHovered: hoveredCardID == item.id,
             isInfoHovered: hoveredInfoItemID == item.id,
             onInfoHoverChanged: { hovering in
                 if hovering {
@@ -501,8 +599,7 @@ struct MediaGridView: View {
         #if os(macOS)
         cardTapInProgress = true
         #endif
-        let visibleItems = displayItems
-        guard visibleItems.contains(where: { $0.id == item.id }) else { return }
+        guard cachedDisplayItems.contains(where: { $0.id == item.id }) else { return }
         shouldEnsureActiveItemVisible = ensureVisible
         activeInfoItem = item
     }
@@ -524,8 +621,7 @@ struct MediaGridView: View {
 
     private func reconcileSelectionAfterFiltering() {
         guard let activeInfoItem else { return }
-        let visibleItems = displayItems
-        if !visibleItems.contains(where: { $0.id == activeInfoItem.id }) {
+        if !cachedDisplayItems.contains(where: { $0.id == activeInfoItem.id }) {
             clearSelection()
         }
     }
@@ -533,6 +629,129 @@ struct MediaGridView: View {
     private func clearSelection() {
         activeInfoItem = nil
         isSidebarVisible = false
+    }
+
+    private struct ItemLocationInfo: Sendable {
+        let isDownloaded: Bool
+        let isLocalStandalone: Bool
+    }
+
+    private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID: ItemLocationInfo] {
+        var info: [BookMetadata.ID: ItemLocationInfo] = [:]
+        for item in items {
+            let isDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+                || mediaViewModel.isCategoryDownloaded(.audio, for: item)
+                || mediaViewModel.isCategoryDownloaded(.synced, for: item)
+            let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
+            info[item.id] = ItemLocationInfo(isDownloaded: isDownloaded, isLocalStandalone: isLocal)
+        }
+        return info
+    }
+
+    private func recomputeDisplayItems() {
+        let baseItems = itemsForCurrentFormatSelection()
+        let locationInfo = captureLocationInfo(for: baseItems)
+        let formatFilter = selectedFormatFilter
+        let tagSel = selectedTag
+        let seriesSel = selectedSeries
+        let collectionSel = selectedCollection
+        let authorSel = selectedAuthor
+        let narratorSel = selectedNarrator
+        let statusSel = selectedStatus
+        let locationSel = selectedLocation
+        let search = searchText
+        let sortOpt = selectedSortOption
+        let filtersSummary = computeFiltersSummary()
+
+        Task.detached(priority: .userInitiated) {
+            let result = Self.computeDisplayItemsOffThread(
+                base: baseItems,
+                locationInfo: locationInfo,
+                formatFilter: formatFilter,
+                tagFilter: tagSel,
+                seriesFilter: seriesSel,
+                collectionFilter: collectionSel,
+                authorFilter: authorSel,
+                narratorFilter: narratorSel,
+                statusFilter: statusSel,
+                locationFilter: locationSel,
+                searchText: search,
+                sortOption: sortOpt
+            )
+            await MainActor.run {
+                self.cachedDisplayItems = result
+                self.cachedFiltersSummary = filtersSummary
+            }
+        }
+    }
+
+    private func recomputeFilterOptions() {
+        let catalog = catalogItemsForFilters
+
+        Task.detached(priority: .userInitiated) {
+            let newTags = Self.computeAvailableTagsOffThread(from: catalog)
+            let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
+            let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
+            let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
+            let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
+            await MainActor.run {
+                self.cachedAvailableTags = newTags
+                self.cachedAvailableSeries = newSeries
+                self.cachedAvailableAuthors = newAuthors
+                self.cachedAvailableNarrators = newNarrators
+                self.cachedAvailableStatuses = newStatuses
+                self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
+            }
+        }
+    }
+
+    private func recomputeAllCaches() {
+        let catalog = catalogItemsForFilters
+        let baseItems = itemsForCurrentFormatSelection()
+        let locationInfo = captureLocationInfo(for: baseItems)
+        let formatFilter = selectedFormatFilter
+        let tagSel = selectedTag
+        let seriesSel = selectedSeries
+        let collectionSel = selectedCollection
+        let authorSel = selectedAuthor
+        let narratorSel = selectedNarrator
+        let statusSel = selectedStatus
+        let locationSel = selectedLocation
+        let search = searchText
+        let sortOpt = selectedSortOption
+        let filtersSummary = computeFiltersSummary()
+
+        Task.detached(priority: .userInitiated) {
+            let newTags = Self.computeAvailableTagsOffThread(from: catalog)
+            let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
+            let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
+            let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
+            let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
+            let newDisplayItems = Self.computeDisplayItemsOffThread(
+                base: baseItems,
+                locationInfo: locationInfo,
+                formatFilter: formatFilter,
+                tagFilter: tagSel,
+                seriesFilter: seriesSel,
+                collectionFilter: collectionSel,
+                authorFilter: authorSel,
+                narratorFilter: narratorSel,
+                statusFilter: statusSel,
+                locationFilter: locationSel,
+                searchText: search,
+                sortOption: sortOpt
+            )
+            await MainActor.run {
+                self.cachedAvailableTags = newTags
+                self.cachedAvailableSeries = newSeries
+                self.cachedAvailableAuthors = newAuthors
+                self.cachedAvailableNarrators = newNarrators
+                self.cachedAvailableStatuses = newStatuses
+                self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
+                self.cachedDisplayItems = newDisplayItems
+                self.cachedFiltersSummary = filtersSummary
+            }
+        }
     }
 
     private func scrollToActiveItem(using proxy: ScrollViewProxy) {
@@ -555,7 +774,7 @@ struct MediaGridView: View {
         }
     }
 
-    private var displayItems: [BookMetadata] {
+    private func computeDisplayItems() -> [BookMetadata] {
         let base = itemsForCurrentFormatSelection()
         let formatFiltered = base.filter { selectedFormatFilter.matches($0) }
         let tagFiltered = formatFiltered.filter { matchesSelectedTag($0) }
@@ -720,10 +939,10 @@ struct MediaGridView: View {
         return true
     }
 
-    private var availableTags: [String] {
+    private func computeAvailableTags(from catalog: [BookMetadata]) -> [String] {
         var unique: [String: String] = [:]
         for rawTag
-            in catalogItemsForFilters
+            in catalog
             .flatMap(\.tagNames)
             .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter({ !$0.isEmpty })
@@ -737,9 +956,9 @@ struct MediaGridView: View {
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private var availableStatuses: [String] {
+    private func computeAvailableStatuses(from catalog: [BookMetadata]) -> [String] {
         let statuses =
-            catalogItemsForFilters
+            catalog
             .compactMap { metadata in
                 metadata.status?.name.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -755,10 +974,10 @@ struct MediaGridView: View {
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private var availableSeries: [String] {
+    private func computeAvailableSeries(from catalog: [BookMetadata]) -> [String] {
         var unique: [String: String] = [:]
         for rawSeries
-            in catalogItemsForFilters
+            in catalog
             .compactMap(\.series)
             .flatMap({ $0 })
             .map({ $0.name.trimmingCharacters(in: .whitespacesAndNewlines) })
@@ -773,10 +992,10 @@ struct MediaGridView: View {
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private var availableAuthors: [String] {
+    private func computeAvailableAuthors(from catalog: [BookMetadata]) -> [String] {
         var unique: [String: String] = [:]
         for rawAuthor
-            in catalogItemsForFilters
+            in catalog
             .compactMap(\.authors)
             .flatMap({ $0 })
             .compactMap({ $0.name?.trimmingCharacters(in: .whitespacesAndNewlines) })
@@ -791,10 +1010,10 @@ struct MediaGridView: View {
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private var availableNarrators: [String] {
+    private func computeAvailableNarrators(from catalog: [BookMetadata]) -> [String] {
         var unique: [String: String] = [:]
         var hasUnknown = false
-        for item in catalogItemsForFilters {
+        for item in catalog {
             if let narrators = item.narrators, !narrators.isEmpty {
                 for narrator in narrators {
                     if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
@@ -818,7 +1037,7 @@ struct MediaGridView: View {
         return result
     }
 
-    private var filtersSummaryText: String {
+    private func computeFiltersSummary() -> String {
         var parts: [String] = [selectedFormatFilter.shortLabel]
         if let status = selectedStatus {
             parts.append(status)
@@ -841,9 +1060,228 @@ struct MediaGridView: View {
         return parts.joined(separator: " • ")
     }
 
+    private static nonisolated func computeDisplayItemsOffThread(
+        base: [BookMetadata],
+        locationInfo: [BookMetadata.ID: ItemLocationInfo],
+        formatFilter: FormatFilterOption,
+        tagFilter: String?,
+        seriesFilter: String?,
+        collectionFilter: String?,
+        authorFilter: String?,
+        narratorFilter: String?,
+        statusFilter: String?,
+        locationFilter: LocationFilterOption,
+        searchText: String,
+        sortOption: SortOption
+    ) -> [BookMetadata] {
+        var filtered = base.filter { formatFilter.matches($0) }
+
+        if let tag = tagFilter {
+            let lowercasedTag = tag.lowercased()
+            filtered = filtered.filter { item in
+                item.tagNames.contains { $0.lowercased() == lowercasedTag }
+            }
+        }
+
+        if let series = seriesFilter {
+            if series == "No Series" {
+                filtered = filtered.filter { $0.series?.isEmpty ?? true }
+            } else {
+                let lowercasedSeries = series.lowercased()
+                filtered = filtered.filter { item in
+                    guard let seriesList = item.series else { return false }
+                    for s in seriesList {
+                        if s.name.lowercased() == lowercasedSeries { return true }
+                    }
+                    return false
+                }
+            }
+        }
+
+        if let collection = collectionFilter {
+            filtered = filtered.filter { item in
+                guard let collections = item.collections else { return false }
+                for col in collections {
+                    if col.uuid == collection || col.name == collection {
+                        return true
+                    }
+                }
+                return false
+            }
+        }
+
+        if let author = authorFilter {
+            let lowercasedAuthor = author.lowercased()
+            filtered = filtered.filter { item in
+                guard let authors = item.authors else { return false }
+                for a in authors {
+                    if a.name?.lowercased() == lowercasedAuthor { return true }
+                }
+                return false
+            }
+        }
+
+        if let narrator = narratorFilter {
+            if narrator == "Unknown Narrator" {
+                filtered = filtered.filter { item in
+                    guard let narrators = item.narrators else { return true }
+                    if narrators.isEmpty { return true }
+                    for n in narrators {
+                        if let name = n.name, !name.isEmpty { return false }
+                    }
+                    return true
+                }
+            } else {
+                let lowercasedNarrator = narrator.lowercased()
+                filtered = filtered.filter { item in
+                    guard let narrators = item.narrators else { return false }
+                    for n in narrators {
+                        if n.name?.lowercased() == lowercasedNarrator { return true }
+                    }
+                    return false
+                }
+            }
+        }
+
+        if let status = statusFilter {
+            let lowercasedStatus = status.lowercased()
+            filtered = filtered.filter { $0.status?.name.lowercased() == lowercasedStatus }
+        }
+
+        switch locationFilter {
+        case .all:
+            break
+        case .downloaded:
+            filtered = filtered.filter { locationInfo[$0.id]?.isDownloaded ?? false }
+        case .serverOnly:
+            filtered = filtered.filter {
+                let info = locationInfo[$0.id]
+                return !(info?.isDownloaded ?? false) && !(info?.isLocalStandalone ?? false)
+            }
+        case .localFiles:
+            filtered = filtered.filter { locationInfo[$0.id]?.isLocalStandalone ?? false }
+        }
+
+        if !searchText.isEmpty && searchText.count >= 2 {
+            let terms = searchText.lowercased().split(separator: " ").map(String.init)
+            filtered = filtered.filter { item in
+                let title = item.title.lowercased()
+                let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
+                let seriesNames = (item.series ?? []).compactMap { $0.name.lowercased() }
+
+                for term in terms {
+                    let matchesTitle = title.contains(term)
+                    let matchesAuthor = authorNames.contains { $0.contains(term) }
+                    let matchesSeries = seriesNames.contains { $0.contains(term) }
+                    if !matchesTitle && !matchesAuthor && !matchesSeries {
+                        return false
+                    }
+                }
+                return true
+            }
+        }
+
+        return filtered.sorted { lhs, rhs in
+            if lhs.id == rhs.id { return false }
+            let result = sortOption.comparison(lhs, rhs)
+            if result == .orderedSame {
+                return lhs.id < rhs.id
+            }
+            return result == .orderedAscending
+        }
+    }
+
+    private static nonisolated func computeAvailableTagsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            for rawTag in item.tagNames {
+                let trimmed = rawTag.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if unique[key] == nil {
+                    unique[key] = trimmed
+                }
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private static nonisolated func computeAvailableSeriesOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            guard let seriesList = item.series else { continue }
+            for series in seriesList {
+                let trimmed = series.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if unique[key] == nil {
+                    unique[key] = trimmed
+                }
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private static nonisolated func computeAvailableAuthorsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            guard let authors = item.authors else { continue }
+            for author in authors {
+                guard let name = author.name else { continue }
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if unique[key] == nil {
+                    unique[key] = trimmed
+                }
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private static nonisolated func computeAvailableNarratorsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        var hasUnknown = false
+        for item in catalog {
+            if let narrators = item.narrators, !narrators.isEmpty {
+                for narrator in narrators {
+                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                        let key = name.lowercased()
+                        if unique[key] == nil {
+                            unique[key] = name
+                        }
+                    } else {
+                        hasUnknown = true
+                    }
+                }
+            } else {
+                hasUnknown = true
+            }
+        }
+        var result = unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        if hasUnknown {
+            result.append("Unknown Narrator")
+        }
+        return result
+    }
+
+    private static nonisolated func computeAvailableStatusesOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            guard let statusName = item.status?.name else { continue }
+            let trimmed = statusName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            if unique[key] == nil {
+                unique[key] = trimmed
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
     #if os(macOS)
     private func handleMoveCommand(_ direction: MoveCommandDirection) {
-        let visibleItems = displayItems
+        let visibleItems = cachedDisplayItems
         guard !visibleItems.isEmpty else {
             clearSelection()
             return

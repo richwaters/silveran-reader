@@ -45,6 +45,8 @@ struct HomeView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
+    @State private var isScrolling: Bool = false
+    @State private var scrollEndWorkItem: DispatchWorkItem? = nil
     #endif
     @State private var navigationPath = NavigationPath()
 
@@ -215,7 +217,8 @@ struct HomeView: View {
                                         sidebarSections: $sidebarSections,
                                         selectedSidebarItem: $selectedSidebarItem,
                                         showAudioIndicator: settingsViewModel.showAudioIndicator,
-                                        cardTapInProgress: $cardTapInProgress
+                                        cardTapInProgress: $cardTapInProgress,
+                                        isScrolling: isScrolling
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -271,6 +274,9 @@ struct HomeView: View {
                 return .handled
             }
             return .ignored
+        }
+        .onScrollWheel {
+            handleScrollWheelEvent()
         }
         #endif
         .onAppear {
@@ -449,6 +455,17 @@ struct HomeView: View {
         if newSelection != selection {
             selection = newSelection
         }
+    }
+
+    private func handleScrollWheelEvent() {
+        isScrolling = true
+
+        scrollEndWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [self] in
+            isScrolling = false
+        }
+        scrollEndWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
     }
     #endif
 
@@ -661,6 +678,7 @@ private struct HomeSectionRow: View {
     let showAudioIndicator: Bool
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
+    let isScrolling: Bool
     #endif
     #if os(iOS)
     let onNavigateToSection: (HomeView.HomeSection) -> Void
@@ -671,6 +689,7 @@ private struct HomeSectionRow: View {
 
     #if os(macOS)
     @State private var hoveredInfoItemID: BookMetadata.ID? = nil
+    @State private var hoveredCardID: BookMetadata.ID? = nil
     #endif
 
     @State private var scrollProxy: ScrollViewProxy? = nil
@@ -829,6 +848,7 @@ private struct HomeSectionRow: View {
             onInfo: { selected in
                 openInfo(for: selected)
             },
+            isHovered: hoveredCardID == item.id,
             isInfoHovered: hoveredInfoItemID == item.id,
             onInfoHoverChanged: { hovering in
                 if hovering {
@@ -838,6 +858,16 @@ private struct HomeSectionRow: View {
                 }
             }
         )
+        .onHover { hovering in
+            guard !isScrolling else { return }
+            if hovering {
+                if hoveredCardID != item.id {
+                    hoveredCardID = item.id
+                }
+            } else if hoveredCardID == item.id {
+                hoveredCardID = nil
+            }
+        }
         #else
         MediaItemCardView(
             item: item,
