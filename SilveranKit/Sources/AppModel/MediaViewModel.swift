@@ -1059,6 +1059,7 @@ public final class MediaViewModel {
                         )
                         self.registerCover(cover, for: item, variant: variant)
                     } else {
+                        debugLog("[MediaViewModel] ensureCoverLoaded: no cover found for local book '\(item.title)' (\(item.id))")
                         self.missingCoverKeys.insert(key)
                     }
                     self.coverTasks[key] = nil

@@ -392,6 +392,7 @@ public final class LocalLibraryManager: Sendable {
         do {
             archive = try Archive(url: epubURL, accessMode: .read)
         } catch {
+            debugLog("[LocalLibraryManager] extractCoverFromEpub: failed to open archive at \(epubURL.lastPathComponent): \(error)")
             return nil
         }
 
@@ -399,12 +400,14 @@ public final class LocalLibraryManager: Sendable {
             let opfData = try? extractFile(archive: archive, path: opfPath),
             let opfString = String(data: opfData, encoding: .utf8)
         else {
+            debugLog("[LocalLibraryManager] extractCoverFromEpub: failed to read OPF")
             return nil
         }
 
         let opfDir = (opfPath as NSString).deletingLastPathComponent
 
         if let coverHref = findCoverHref(in: opfString) {
+            debugLog("[LocalLibraryManager] extractCoverFromEpub: found coverHref=\(coverHref)")
             let coverPath = opfDir.isEmpty ? coverHref : "\(opfDir)/\(coverHref)"
             if let data = try? extractFile(archive: archive, path: coverPath) {
                 return data
@@ -412,6 +415,9 @@ public final class LocalLibraryManager: Sendable {
             if let data = try? extractFile(archive: archive, path: coverHref) {
                 return data
             }
+            debugLog("[LocalLibraryManager] extractCoverFromEpub: coverHref not extractable")
+        } else {
+            debugLog("[LocalLibraryManager] extractCoverFromEpub: no coverHref in OPF")
         }
 
         let commonCoverPaths = [
@@ -425,10 +431,12 @@ public final class LocalLibraryManager: Sendable {
 
         for path in commonCoverPaths {
             if let data = try? extractFile(archive: archive, path: path) {
+                debugLog("[LocalLibraryManager] extractCoverFromEpub: found at common path \(path)")
                 return data
             }
         }
 
+        debugLog("[LocalLibraryManager] extractCoverFromEpub: no cover found in any location")
         return nil
     }
 

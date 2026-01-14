@@ -531,6 +531,7 @@ public actor LocalMediaActor: GlobalActor {
 
     public func extractLocalCover(for bookId: String) async -> Data? {
         guard let paths = localStandaloneBookPaths[bookId] else {
+            debugLog("[LocalMediaActor] extractLocalCover failed: no paths for bookId=\(bookId)")
             return nil
         }
 
@@ -552,6 +553,7 @@ public actor LocalMediaActor: GlobalActor {
             }
         }
 
+        debugLog("[LocalMediaActor] extractLocalCover failed: ebookPath=\(paths.ebookPath?.lastPathComponent ?? "nil"), syncedPath=\(paths.syncedPath?.lastPathComponent ?? "nil"), audioPath=\(paths.audioPath?.lastPathComponent ?? "nil")")
         return nil
     }
 
