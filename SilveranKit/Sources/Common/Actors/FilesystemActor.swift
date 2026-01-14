@@ -1,9 +1,15 @@
+import Dispatch
 import Foundation
 import ZIPFoundation
 
 /// Handles filesystem storage for local media, including directory management and metadata persistence.
 public actor FilesystemActor {
     public static let shared = FilesystemActor()
+    private let ioQueue = DispatchQueue(label: "FilesystemActor.ioQueue", qos: .utility)
+    private var pendingQueueWriteTask: Task<Void, Error>?
+    private var pendingQueueWriteId: Int = 0
+    private var pendingHistoryWriteTask: Task<Void, Error>?
+    private var pendingHistoryWriteId: Int = 0
 
     public init() {}
 
@@ -244,7 +250,8 @@ public actor FilesystemActor {
             .appendingPathComponent("Config", isDirectory: true)
     }
 
-    public func loadProgressQueue() throws -> [PendingProgressSync] {
+    public func loadProgressQueue() async throws -> [PendingProgressSync] {
+        await waitForPendingQueueWrite()
         let configDir = getConfigDirectory()
         let queueURL = configDir.appendingPathComponent(
             "offline_progress_queue.json",
@@ -262,7 +269,7 @@ public actor FilesystemActor {
         return try decoder.decode([PendingProgressSync].self, from: data)
     }
 
-    public func saveProgressQueue(_ queue: [PendingProgressSync]) throws {
+    public func saveProgressQueue(_ queue: [PendingProgressSync]) async throws {
         let configDir = getConfigDirectory()
         try ensureDirectoryExists(at: configDir)
 
@@ -270,25 +277,48 @@ public actor FilesystemActor {
             "offline_progress_queue.json",
             isDirectory: false
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(queue)
-
         let tempURL = configDir.appendingPathComponent(
             "offline_progress_queue.tmp",
             isDirectory: false
         )
-        try data.write(to: tempURL, options: .atomic)
+        let queueSnapshot = queue
+        let writeId = pendingQueueWriteId + 1
+        pendingQueueWriteId = writeId
+        let task = Task {
+            try await withCheckedThrowingContinuation { continuation in
+                ioQueue.async {
+                    do {
+                        let encoder = JSONEncoder()
+                        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                        encoder.dateEncodingStrategy = .iso8601
+                        let data = try encoder.encode(queueSnapshot)
+                        try data.write(to: tempURL, options: .atomic)
 
-        let fm = FileManager.default
-        if fm.fileExists(atPath: queueURL.path) {
-            try fm.removeItem(at: queueURL)
+                        let fm = FileManager.default
+                        if fm.fileExists(atPath: queueURL.path) {
+                            try fm.removeItem(at: queueURL)
+                        }
+                        try fm.moveItem(at: tempURL, to: queueURL)
+                        continuation.resume()
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         }
-        try fm.moveItem(at: tempURL, to: queueURL)
+        pendingQueueWriteTask = task
+
+        defer {
+            if pendingQueueWriteId == writeId {
+                pendingQueueWriteTask = nil
+            }
+        }
+
+        try await task.value
     }
 
-    public func loadSyncHistory() throws -> [String: [SyncHistoryEntry]] {
+    public func loadSyncHistory() async throws -> [String: [SyncHistoryEntry]] {
+        await waitForPendingHistoryWrite()
         let configDir = getConfigDirectory()
         let historyURL = configDir.appendingPathComponent(
             "sync_history.json",
@@ -305,7 +335,7 @@ public actor FilesystemActor {
         return try decoder.decode([String: [SyncHistoryEntry]].self, from: data)
     }
 
-    public func saveSyncHistory(_ history: [String: [SyncHistoryEntry]]) throws {
+    public func saveSyncHistory(_ history: [String: [SyncHistoryEntry]]) async throws {
         let configDir = getConfigDirectory()
         try ensureDirectoryExists(at: configDir)
 
@@ -313,21 +343,63 @@ public actor FilesystemActor {
             "sync_history.json",
             isDirectory: false
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(history)
-
         let tempURL = configDir.appendingPathComponent(
             "sync_history.tmp",
             isDirectory: false
         )
-        try data.write(to: tempURL, options: .atomic)
+        let historySnapshot = history
+        let writeId = pendingHistoryWriteId + 1
+        pendingHistoryWriteId = writeId
+        let task = Task {
+            try await withCheckedThrowingContinuation { continuation in
+                ioQueue.async {
+                    do {
+                        let encoder = JSONEncoder()
+                        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                        let data = try encoder.encode(historySnapshot)
+                        try data.write(to: tempURL, options: .atomic)
 
-        let fm = FileManager.default
-        if fm.fileExists(atPath: historyURL.path) {
-            try fm.removeItem(at: historyURL)
+                        let fm = FileManager.default
+                        if fm.fileExists(atPath: historyURL.path) {
+                            try fm.removeItem(at: historyURL)
+                        }
+                        try fm.moveItem(at: tempURL, to: historyURL)
+                        continuation.resume()
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         }
-        try fm.moveItem(at: tempURL, to: historyURL)
+        pendingHistoryWriteTask = task
+
+        defer {
+            if pendingHistoryWriteId == writeId {
+                pendingHistoryWriteTask = nil
+            }
+        }
+
+        try await task.value
+    }
+
+    private func waitForPendingQueueWrite() async {
+        while let task = pendingQueueWriteTask {
+            let currentId = pendingQueueWriteId
+            _ = try? await task.value
+            if pendingQueueWriteId == currentId {
+                break
+            }
+        }
+    }
+
+    private func waitForPendingHistoryWrite() async {
+        while let task = pendingHistoryWriteTask {
+            let currentId = pendingHistoryWriteId
+            _ = try? await task.value
+            if pendingHistoryWriteId == currentId {
+                break
+            }
+        }
     }
 
     public func saveCoverImage(uuid: String, data: Data, variant: String) throws {

@@ -21,6 +21,14 @@ class MediaOverlayManager {
     private let bookId: String
     private let reloadBookIntoActor: () async -> Void
     private let settingsVM: SettingsViewModel
+    /// Section indices that contain at least one SMIL entry (used to skip non-audio sections).
+    private let audioSectionIndices: [Int]
+    /// Map from section index → position in audioSectionIndices for fast prev/next audio section jumps.
+    private let audioSectionIndexBySection: [Int: Int]
+    /// Map from section index → (textId → first entry index) for fast fragment lookups.
+    private let textIdIndexBySection: [Int: [String: Int]]
+    /// Cached TOC sections (labelled sections) to avoid refiltering on every access.
+    private let tocSectionsCache: [SectionInfo]
 
     weak var commsBridge: WebViewCommsBridge?
     weak var progressManager: EbookProgressManager?
@@ -85,12 +93,12 @@ class MediaOverlayManager {
 
     /// Returns true if the book has any SMIL entries
     var hasMediaOverlay: Bool {
-        bookStructure.contains { !$0.mediaOverlay.isEmpty }
+        !audioSectionIndices.isEmpty
     }
 
     /// Returns sections that are in the TOC (have labels)
     var tocSections: [SectionInfo] {
-        bookStructure.filter { $0.label != nil }
+        tocSectionsCache
     }
 
     var chapterTimeRemaining: TimeInterval? {
@@ -129,6 +137,13 @@ class MediaOverlayManager {
         self.commsBridge = bridge
         self.settingsVM = settingsVM
         self.reloadBookIntoActor = reloadBookIntoActor
+        let audioSections = Self.buildAudioSectionIndices(bookStructure: bookStructure)
+        audioSectionIndices = audioSections
+        audioSectionIndexBySection = Self.buildAudioSectionIndexMap(
+            audioSectionIndices: audioSections
+        )
+        textIdIndexBySection = Self.buildTextIdIndexBySection(bookStructure: bookStructure)
+        tocSectionsCache = bookStructure.filter { $0.label != nil }
         debugLog("[MOM] MediaOverlayManager initialized for book: \(bookId)")
         debugLog("[MOM]   Total sections: \(bookStructure.count)")
         debugLog(
@@ -334,12 +349,31 @@ class MediaOverlayManager {
             return false
         }
 
-        for smilEntry in sectionInfo.mediaOverlay {
-            if visibleIds.contains(smilEntry.textId) {
-                debugLog("[MOM] Syncing audio to first visible SMIL element: \(smilEntry.textId)")
-                await handleSeekEvent(sectionIndex: section, anchor: smilEntry.textId)
-                return true
+        guard let indexMap = textIdIndexBySection[section], !indexMap.isEmpty else {
+            debugLog("[MOM] No SMIL index map for section, skipping audio sync")
+            return false
+        }
+
+        var bestIndex: Int? = nil
+        var bestTextId: String? = nil
+
+        for textId in visibleIds {
+            guard let entryIndex = indexMap[textId] else { continue }
+            if let currentBest = bestIndex {
+                if entryIndex < currentBest {
+                    bestIndex = entryIndex
+                    bestTextId = textId
+                }
+            } else {
+                bestIndex = entryIndex
+                bestTextId = textId
             }
+        }
+
+        if let textId = bestTextId {
+            debugLog("[MOM] Syncing audio to first visible SMIL element: \(textId)")
+            await handleSeekEvent(sectionIndex: section, anchor: textId)
+            return true
         }
 
         debugLog("[MOM] No SMIL match found on page, audio position unchanged")
@@ -495,6 +529,31 @@ class MediaOverlayManager {
                 if wasPlaying { try? await SMILPlayerActor.shared.play() }
             }
         } else {
+            if let position = audioSectionIndexBySection[sectionIndex] {
+                let nextPosition = position + 1
+                if nextPosition < audioSectionIndices.count {
+                    let nextSectionIndex = audioSectionIndices[nextPosition]
+                    let entry = bookStructure[nextSectionIndex].mediaOverlay[0]
+                    debugLog("[MOM] nextSentence() - advancing to section \(nextSectionIndex)")
+                    Task {
+                        let wasPlaying = isPlaying
+                        _ = await SMILPlayerActor.shared.seekToFragment(
+                            sectionIndex: nextSectionIndex,
+                            textId: entry.textId
+                        )
+                        await sendHighlightCommand(
+                            sectionIndex: nextSectionIndex,
+                            textId: entry.textId,
+                            seekToLocation: true
+                        )
+                        if wasPlaying { try? await SMILPlayerActor.shared.play() }
+                    }
+                    return
+                }
+                debugLog("[MOM] nextSentence() - at end of book")
+                return
+            }
+
             for nextSectionIndex in (sectionIndex + 1)..<bookStructure.count {
                 let nextSection = bookStructure[nextSectionIndex]
                 if !nextSection.mediaOverlay.isEmpty {
@@ -552,6 +611,34 @@ class MediaOverlayManager {
                 if wasPlaying { try? await SMILPlayerActor.shared.play() }
             }
         } else {
+            if let position = audioSectionIndexBySection[sectionIndex] {
+                let prevPosition = position - 1
+                if prevPosition >= 0 {
+                    let prevSectionIndex = audioSectionIndices[prevPosition]
+                    let lastEntryIndex = bookStructure[prevSectionIndex].mediaOverlay.count - 1
+                    let entry = bookStructure[prevSectionIndex].mediaOverlay[lastEntryIndex]
+                    debugLog(
+                        "[MOM] prevSentence() - going to section \(prevSectionIndex), entry \(lastEntryIndex)"
+                    )
+                    Task {
+                        let wasPlaying = isPlaying
+                        _ = await SMILPlayerActor.shared.seekToFragment(
+                            sectionIndex: prevSectionIndex,
+                            textId: entry.textId
+                        )
+                        await sendHighlightCommand(
+                            sectionIndex: prevSectionIndex,
+                            textId: entry.textId,
+                            seekToLocation: true
+                        )
+                        if wasPlaying { try? await SMILPlayerActor.shared.play() }
+                    }
+                    return
+                }
+                debugLog("[MOM] prevSentence() - at beginning of book")
+                return
+            }
+
             for prevSectionIndex in (0..<sectionIndex).reversed() {
                 let prevSection = bookStructure[prevSectionIndex]
                 if !prevSection.mediaOverlay.isEmpty {
@@ -744,6 +831,53 @@ class MediaOverlayManager {
 
     // MARK: - Helpers
 
+    private static func buildAudioSectionIndices(bookStructure: [SectionInfo]) -> [Int] {
+        var indices: [Int] = []
+        indices.reserveCapacity(bookStructure.count)
+
+        for (index, section) in bookStructure.enumerated() {
+            if !section.mediaOverlay.isEmpty {
+                indices.append(index)
+            }
+        }
+
+        return indices
+    }
+
+    private static func buildAudioSectionIndexMap(audioSectionIndices: [Int]) -> [Int: Int] {
+        var map: [Int: Int] = [:]
+        map.reserveCapacity(audioSectionIndices.count)
+
+        for (position, sectionIndex) in audioSectionIndices.enumerated() {
+            map[sectionIndex] = position
+        }
+
+        return map
+    }
+
+    private static func buildTextIdIndexBySection(
+        bookStructure: [SectionInfo]
+    ) -> [Int: [String: Int]] {
+        var result: [Int: [String: Int]] = [:]
+        result.reserveCapacity(bookStructure.count)
+
+        for (sectionIndex, section) in bookStructure.enumerated() {
+            guard !section.mediaOverlay.isEmpty else { continue }
+            var indexMap: [String: Int] = [:]
+            indexMap.reserveCapacity(section.mediaOverlay.count)
+
+            for (entryIndex, entry) in section.mediaOverlay.enumerated() {
+                if indexMap[entry.textId] == nil {
+                    indexMap[entry.textId] = entryIndex
+                }
+            }
+
+            result[sectionIndex] = indexMap
+        }
+
+        return result
+    }
+
     func getSection(byId id: String) -> SectionInfo? {
         bookStructure.first { $0.id == id }
     }
@@ -756,6 +890,11 @@ class MediaOverlayManager {
     /// Find SMIL entry by text ID in a specific section
     func findSMILEntry(textId: String, in sectionIndex: Int) -> SMILEntry? {
         guard let section = getSection(at: sectionIndex) else { return nil }
+        if let entryIndex = textIdIndexBySection[sectionIndex]?[textId],
+            entryIndex < section.mediaOverlay.count
+        {
+            return section.mediaOverlay[entryIndex]
+        }
         return section.mediaOverlay.first { $0.textId == textId }
     }
 
