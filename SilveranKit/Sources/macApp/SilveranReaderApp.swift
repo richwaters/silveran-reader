@@ -58,6 +58,7 @@ struct SilveranReaderApp: App {
         settingsScene
         debugLogScene
         readaloudGeneratorScene
+        mp3ToM4BConverterScene
         #endif
     }
 
@@ -129,13 +130,27 @@ struct SilveranReaderApp: App {
             ReadaloudGeneratorView()
         }
         .windowResizability(.contentSize)
+        .disableWindowRestoration()
         .commands {
             CommandMenu("Utilities") {
                 Button("Create Readaloud...") {
                     openWindow(id: "ReadaloudGenerator")
                 }
                 .keyboardShortcut("R", modifiers: [.command, .shift])
+
+                Button("MP3 to M4B...") {
+                    openWindow(id: "MP3ToM4BConverter")
+                }
+                .keyboardShortcut("M", modifiers: [.command, .shift])
             }
         }
+    }
+
+    private var mp3ToM4BConverterScene: some Scene {
+        Window("MP3 to M4B Converter", id: "MP3ToM4BConverter") {
+            MP3ToM4BConverterView()
+        }
+        .windowResizability(.contentSize)
+        .disableWindowRestoration()
     }
 }
