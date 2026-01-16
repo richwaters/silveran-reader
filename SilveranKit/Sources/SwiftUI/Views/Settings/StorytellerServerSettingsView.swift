@@ -13,6 +13,9 @@ public struct StorytellerServerSettingsView: View {
     @State private var hasSavedCredentials = false
 
     @Environment(MediaViewModel.self) private var mediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     private enum ConnectionTestStatus: Equatable {
         case notTested
@@ -178,6 +181,18 @@ public struct StorytellerServerSettingsView: View {
                     }
                 }
             }
+
+            #if os(macOS)
+            if isConnected {
+                Section {
+                    Button("Upload New Book to Server...") {
+                        openWindow(id: "UploadNewBook", value: UploadNewBookData())
+                    }
+                } header: {
+                    Text("Upload")
+                }
+            }
+            #endif
         }
         .formStyle(.grouped)
         .confirmationDialog(
@@ -302,5 +317,11 @@ public struct StorytellerServerSettingsView: View {
                 connectionStatus = .failure("Failed to remove: \(error.localizedDescription)")
             }
         }
+    }
+
+    private var isConnected: Bool {
+        if connectionStatus == .success { return true }
+        if hasSavedCredentials && mediaViewModel.lastNetworkOpSucceeded == true { return true }
+        return false
     }
 }

@@ -58,6 +58,7 @@ public struct ServerMediaManagementView: View {
                     }
                 }
                 .formStyle(.grouped)
+                .scrollDisabled(true)
                 .scrollContentBackground(.hidden)
 
                 if let error = errorMessage {
@@ -73,7 +74,7 @@ public struct ServerMediaManagementView: View {
                 invalidBookView
             }
         }
-        .frame(width: 480, height: 520)
+        .frame(width: 480, height: 540)
         .confirmationDialog(
             "Delete Book from Server?",
             isPresented: $showDeleteConfirmation,

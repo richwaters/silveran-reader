@@ -60,6 +60,7 @@ struct SilveranReaderApp: App {
         readaloudGeneratorScene
         mp3ToM4BConverterScene
         serverMediaManagementScene
+        uploadNewBookScene
         #endif
     }
 
@@ -161,6 +162,15 @@ struct SilveranReaderApp: App {
                 ServerMediaManagementView(bookId: bookId)
                     .environment(mediaViewModel)
             }
+        }
+        .windowResizability(.contentSize)
+        .disableWindowRestoration()
+    }
+
+    private var uploadNewBookScene: some Scene {
+        WindowGroup("Upload New Book", id: "UploadNewBook", for: UploadNewBookData.self) { _ in
+            UploadNewBookView()
+                .environment(mediaViewModel)
         }
         .windowResizability(.contentSize)
         .disableWindowRestoration()
