@@ -4,7 +4,7 @@ struct MediaGridDownloadSection: View {
     let item: BookMetadata
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
-    @State private var showServerMediaManagement = false
+    @Environment(\.openWindow) private var openWindow
     #endif
 
     var body: some View {
@@ -16,12 +16,6 @@ struct MediaGridDownloadSection: View {
                 content(with: options)
             }
         }
-        #if os(macOS)
-        .sheet(isPresented: $showServerMediaManagement) {
-            ServerMediaManagementView(item: item)
-                .environment(mediaViewModel)
-        }
-        #endif
     }
 
     private var isServerBook: Bool {
@@ -38,8 +32,8 @@ struct MediaGridDownloadSection: View {
                 Spacer()
                 #if os(macOS)
                 if isServerBook {
-                    Button("Manage...") {
-                        showServerMediaManagement = true
+                    Button("Manage Server Media...") {
+                        openWindow(id: "ServerMediaManagement", value: ServerMediaManagementData(bookId: item.id))
                     }
                     .font(.callout)
                     .buttonStyle(.plain)

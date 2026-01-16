@@ -59,6 +59,7 @@ struct SilveranReaderApp: App {
         debugLogScene
         readaloudGeneratorScene
         mp3ToM4BConverterScene
+        serverMediaManagementScene
         #endif
     }
 
@@ -149,6 +150,17 @@ struct SilveranReaderApp: App {
     private var mp3ToM4BConverterScene: some Scene {
         Window("MP3 to M4B Converter", id: "MP3ToM4BConverter") {
             MP3ToM4BConverterView()
+        }
+        .windowResizability(.contentSize)
+        .disableWindowRestoration()
+    }
+
+    private var serverMediaManagementScene: some Scene {
+        WindowGroup("Server Media Management", id: "ServerMediaManagement", for: ServerMediaManagementData.self) { data in
+            if let bookId = data.wrappedValue?.bookId {
+                ServerMediaManagementView(bookId: bookId)
+                    .environment(mediaViewModel)
+            }
         }
         .windowResizability(.contentSize)
         .disableWindowRestoration()

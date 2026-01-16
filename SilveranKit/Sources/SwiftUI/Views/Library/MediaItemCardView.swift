@@ -90,10 +90,10 @@ struct MediaItemCardView: View {
     let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
     let isHovered: Bool
     let isInfoHovered: Bool
     let onInfoHoverChanged: (Bool) -> Void
-    @State private var showServerMediaManagement = false
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
@@ -404,10 +404,6 @@ struct MediaItemCardView: View {
         .contextMenu {
             cardContextMenu
         }
-        .sheet(isPresented: $showServerMediaManagement) {
-            ServerMediaManagementView(item: item)
-                .environment(mediaViewModel)
-        }
         #endif
     }
 
@@ -421,7 +417,7 @@ struct MediaItemCardView: View {
 
         if isServerBook {
             Button {
-                showServerMediaManagement = true
+                openWindow(id: "ServerMediaManagement", value: ServerMediaManagementData(bookId: item.id))
             } label: {
                 Label("Manage Server Media...", systemImage: "server.rack")
             }
