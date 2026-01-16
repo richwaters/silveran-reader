@@ -2,7 +2,7 @@ import SwiftUI
 
 #if os(iOS)
 private struct MediaNavigationPathKey: EnvironmentKey {
-    static let defaultValue: Binding<NavigationPath>? = nil
+    nonisolated(unsafe) static let defaultValue: Binding<NavigationPath>? = nil
 }
 
 extension EnvironmentValues {
