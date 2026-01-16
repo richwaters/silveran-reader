@@ -276,12 +276,13 @@ public struct ServerMediaManagementView: View {
                     }
                     .frame(width: 130, alignment: .trailing)
 
+                    // TODO: Enable replace once server supports it (needs new endpoint)
                     Button("Replace") {
                         selectAndUploadFile(format: format, types: types, item: item)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(isUploading || isDeleting)
+                    .disabled(true)
                     .frame(width: 80)
                 } else {
                     HStack(spacing: 6) {
@@ -330,12 +331,13 @@ public struct ServerMediaManagementView: View {
                         }
                         .frame(width: 130, alignment: .trailing)
 
+                        // TODO: Enable replace once server supports it (needs new endpoint)
                         Button("Replace") {
                             selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(isUploading || isDeleting)
+                        .disabled(true)
                         .frame(width: 80)
                     } else if let status = readaloud.status?.uppercased() {
                         switch status {
@@ -348,12 +350,13 @@ public struct ServerMediaManagementView: View {
                             }
                             .frame(width: 130, alignment: .trailing)
 
+                            // TODO: Enable replace once server supports it (needs new endpoint)
                             Button("Replace") {
                                 selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
-                            .disabled(isUploading || isDeleting)
+                            .disabled(true)
                             .frame(width: 80)
                         case "PROCESSING":
                             HStack(spacing: 6) {
