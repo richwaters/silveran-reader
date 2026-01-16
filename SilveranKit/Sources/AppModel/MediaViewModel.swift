@@ -36,6 +36,7 @@ public final class MediaViewModel {
     var downloadStatuses: [String: DownloadProgressState] = [:]
     private var cachedBookPaths: [String: MediaPaths] = [:]
     private var localStandaloneBookIds: Set<String> = []
+    private var storytellerBookIds: Set<String> = []
     @ObservationIgnored private var metadataRefreshTask: Task<Void, Never>?
 
     public struct DownloadProgressState: Equatable {
@@ -233,6 +234,7 @@ public final class MediaViewModel {
         applyLibraryMetadata(metadata)
         cachedBookPaths = paths
         localStandaloneBookIds = Set(standaloneMetadata.map { $0.uuid })
+        storytellerBookIds = Set(storytellerMetadata.map { $0.uuid })
         connectionStatus = status
         lastNetworkOpSucceeded = await StorytellerActor.shared.lastNetworkOpSucceeded
         isReady = true
@@ -829,6 +831,10 @@ public final class MediaViewModel {
         } else {
             return "Storyteller"
         }
+    }
+
+    public func isServerBook(_ bookID: String) -> Bool {
+        storytellerBookIds.contains(bookID)
     }
 
     // MARK: - Progress from PSA

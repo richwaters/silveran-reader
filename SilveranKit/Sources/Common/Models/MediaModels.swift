@@ -180,7 +180,7 @@ public struct BookAsset: Codable, Sendable, Hashable {
     public let createdAt: String?
     public let updatedAt: String?
 
-    var isMissing: Bool {
+    public var isMissing: Bool {
         return missing == 1
     }
 

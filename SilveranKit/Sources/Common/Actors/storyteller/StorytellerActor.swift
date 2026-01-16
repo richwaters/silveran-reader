@@ -752,10 +752,9 @@ public actor StorytellerActor {
 
     /// Deletes a book using `/api/v2/books/{bookId}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/route.ts` (DELETE handler).
-    /// TODO: UNTESTED
-    func deleteBook(
+    public func deleteBook(
         _ bookId: String,
-        includeAssets option: StorytellerIncludeAssetsOption? = nil,
+        includeAssets option: StorytellerIncludeAssetsOption? = nil
     ) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let deleteURL =
@@ -791,6 +790,84 @@ public actor StorytellerActor {
             ) == .success
         } catch {
             logStorytellerError("deleteBook", error: error)
+            return false
+        }
+    }
+
+    /// Starts alignment processing for a book (creates readaloud from ebook + audiobook).
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (POST handler).
+    public func startAlignment(for bookId: String, restart: Bool = false) async -> Bool {
+        guard let (baseURL, token) = await ensureAuthentication() else { return false }
+        let processURL =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("process")
+
+        var queryParameters: [String: String] = [:]
+        if restart {
+            queryParameters["restart"] = "true"
+        }
+
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+        allowedStatuses.insert(404)
+
+        do {
+            let response = try await httpPost(
+                processURL.absoluteString,
+                headers: [
+                    "Authorization": authorizationHeaderValue(for: token)
+                ],
+                queryParameters: queryParameters,
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            return evaluateResponse(
+                response,
+                methodName: "startAlignment",
+                context: "book \(bookId)"
+            ) == .success
+        } catch {
+            logStorytellerError("startAlignment", error: error)
+            return false
+        }
+    }
+
+    /// Cancels alignment processing for a book.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (DELETE handler).
+    public func cancelAlignment(for bookId: String) async -> Bool {
+        guard let (baseURL, token) = await ensureAuthentication() else { return false }
+        let processURL =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("process")
+
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+        allowedStatuses.insert(404)
+
+        do {
+            let response = try await httpDelete(
+                processURL.absoluteString,
+                headers: [
+                    "Authorization": authorizationHeaderValue(for: token)
+                ],
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            return evaluateResponse(
+                response,
+                methodName: "cancelAlignment",
+                context: "book \(bookId)"
+            ) == .success
+        } catch {
+            logStorytellerError("cancelAlignment", error: error)
             return false
         }
     }
@@ -902,13 +979,12 @@ public actor StorytellerActor {
 
     /// Uploads one or more assets for a book using the Tus protocol exposed at `/api/v2/books/upload`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/upload/[[...path]]/route.ts`.
-    /// TODO: UNTESTED
-    func uploadBookAssets(
+    public func uploadBookAssets(
         bookUUID: String,
         ebook: StorytellerUploadAsset? = nil,
         audiobook: StorytellerUploadAsset? = nil,
         readaloud: StorytellerUploadAsset? = nil,
-        collectionUUID: String? = nil,
+        collectionUUID: String? = nil
     ) async -> Bool {
         let assets = [ebook, audiobook, readaloud].compactMap(\.self)
         guard !assets.isEmpty else {
@@ -2075,7 +2151,6 @@ public actor StorytellerActor {
     // - `/api/v2/books/events` (storyteller/web/src/app/api/v2/books/events/route.ts) – real-time catalogue updates.
     // - `/api/v2/books` POST/DELETE (storyteller/web/src/app/api/v2/books/route.ts) – server-side ingest utilities.
     // - `/api/v2/books/[bookId]/cache` (storyteller/web/src/app/api/v2/books/[bookId]/cache/route.ts) – purge cached assets.
-    // - `/api/v2/books/[bookId]/process` DELETE (storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts) – cancel processing jobs.
     // - `/api/v2/series` & `/api/v2/series/books` (storyteller/web/src/app/api/v2/series/**/*.ts) – manage series metadata.
     // - `/api/v2/settings` & `/api/v2/settings/maxUploadChunkSize` (storyteller/web/src/app/api/v2/settings/**/*.ts) – admin settings.
     // - `/api/v2/creators` (storyteller/web/src/app/api/v2/creators/route.ts) – creator directory.

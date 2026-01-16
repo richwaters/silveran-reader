@@ -93,6 +93,7 @@ struct MediaItemCardView: View {
     let isHovered: Bool
     let isInfoHovered: Bool
     let onInfoHoverChanged: (Bool) -> Void
+    @State private var showServerMediaManagement = false
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
@@ -403,6 +404,10 @@ struct MediaItemCardView: View {
         .contextMenu {
             cardContextMenu
         }
+        .sheet(isPresented: $showServerMediaManagement) {
+            ServerMediaManagementView(item: item)
+                .environment(mediaViewModel)
+        }
         #endif
     }
 
@@ -412,8 +417,21 @@ struct MediaItemCardView: View {
         let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
         let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
         let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
+        let isServerBook = mediaViewModel.isServerBook(item.id)
+
+        if isServerBook {
+            Button {
+                showServerMediaManagement = true
+            } label: {
+                Label("Manage Server Media...", systemImage: "server.rack")
+            }
+        }
 
         if ebookDownloaded || audioDownloaded || syncedDownloaded {
+            if isServerBook {
+                Divider()
+            }
+
             if ebookDownloaded {
                 Button(role: .destructive) {
                     mediaViewModel.deleteDownload(for: item, category: .ebook)

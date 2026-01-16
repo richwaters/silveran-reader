@@ -140,7 +140,7 @@ struct StorytellerCollectionUpdatePayload: Codable {
     }
 }
 
-enum StorytellerIncludeAssetsOption: String {
+public enum StorytellerIncludeAssetsOption: String {
     case internalOnly = "internal"
     case all
 }
@@ -170,16 +170,30 @@ struct StorytellerBookDownload: Sendable {
     let cancel: @Sendable () -> Void
 }
 
-enum StorytellerBookFormat: String, Sendable {
+public enum StorytellerBookFormat: String, Sendable {
     case ebook
     case audiobook
     case readaloud
 }
 
-struct StorytellerUploadAsset {
-    let format: StorytellerBookFormat
-    let filename: String
-    let data: Data
-    let contentType: String? = nil
-    let relativePath: String? = nil
+public struct StorytellerUploadAsset {
+    public let format: StorytellerBookFormat
+    public let filename: String
+    public let data: Data
+    public let contentType: String?
+    public let relativePath: String?
+
+    public init(
+        format: StorytellerBookFormat,
+        filename: String,
+        data: Data,
+        contentType: String? = nil,
+        relativePath: String? = nil
+    ) {
+        self.format = format
+        self.filename = filename
+        self.data = data
+        self.contentType = contentType
+        self.relativePath = relativePath
+    }
 }
