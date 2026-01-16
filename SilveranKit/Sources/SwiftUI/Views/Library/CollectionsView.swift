@@ -103,6 +103,9 @@ struct CollectionsView: View {
             }
             #endif
         }
+        #if os(iOS)
+        .environment(\.mediaNavigationPath, $navigationPath)
+        #endif
         #if os(macOS)
         .onKeyPress(.escape) {
             if isSidebarVisible {

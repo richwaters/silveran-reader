@@ -127,6 +127,7 @@ struct HomeView: View {
                 playerView(for: bookData)
             }
         }
+        .environment(\.mediaNavigationPath, $navigationPath)
         #else
         NavigationStack(path: $navigationPath) {
             ZStack {

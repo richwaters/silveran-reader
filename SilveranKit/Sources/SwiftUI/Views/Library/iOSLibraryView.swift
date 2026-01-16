@@ -46,6 +46,8 @@ public struct iOSLibraryView: View {
     @State private var selectedItem: SidebarItemDescription? = nil
     @State private var moreNavigationPath = NavigationPath()
     @State private var collectionsNavigationPath = NavigationPath()
+    @State private var booksNavigationPath = NavigationPath()
+    @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
     @State private var settingsViewModel = SettingsViewModel()
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
@@ -257,7 +259,7 @@ public struct iOSLibraryView: View {
     }
 
     private var booksTabContent: some View {
-        NavigationStack {
+        NavigationStack(path: $booksNavigationPath) {
             BooksContentView(searchText: searchText)
                 .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
                 .searchable(
@@ -267,6 +269,7 @@ public struct iOSLibraryView: View {
                 )
                 .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
         }
+        .environment(\.mediaNavigationPath, $booksNavigationPath)
     }
 
     private var seriesTabContent: some View {
@@ -327,10 +330,11 @@ public struct iOSLibraryView: View {
             )
             .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
         }
+        .environment(\.mediaNavigationPath, $collectionsNavigationPath)
     }
 
     private var downloadedTabContent: some View {
-        NavigationStack {
+        NavigationStack(path: $downloadedNavigationPath) {
             DownloadedContentView(searchText: searchText)
                 .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
                 .searchable(
@@ -340,6 +344,7 @@ public struct iOSLibraryView: View {
                 )
                 .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
         }
+        .environment(\.mediaNavigationPath, $downloadedNavigationPath)
     }
 
     private var moreTab: some View {
@@ -352,6 +357,7 @@ public struct iOSLibraryView: View {
                 excludedTabs: [slot1Tab, slot2Tab]
             )
         }
+        .environment(\.mediaNavigationPath, $moreNavigationPath)
     }
 
     @ViewBuilder
