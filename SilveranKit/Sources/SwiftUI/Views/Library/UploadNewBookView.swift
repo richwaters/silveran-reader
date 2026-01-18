@@ -261,26 +261,19 @@ public struct UploadNewBookView: View {
                 readaloud: readaloudAsset
             )
 
-            if success {
-                await MainActor.run {
-                    isUploading = false
-                    uploadProgress = nil
-                    uploadResult = .success
-                }
-                await mediaViewModel.refreshMetadata(source: "uploadNewBook")
-            } else {
-                await MainActor.run {
-                    isUploading = false
-                    uploadProgress = nil
-                    uploadResult = .failure("Upload failed. Please try again with a new upload.")
-                }
+            await MainActor.run {
+                isUploading = false
+                uploadProgress = nil
+                uploadResult = success ? .success : .failure("Upload failed. Your server may not support this feature yet. Please ensure you're running the latest server version.")
             }
+            await StorytellerActor.shared.fetchLibraryInformation()
         } catch {
             await MainActor.run {
                 isUploading = false
                 uploadProgress = nil
                 uploadResult = .failure("Failed to read files: \(error.localizedDescription)")
             }
+            await StorytellerActor.shared.fetchLibraryInformation()
         }
     }
 }

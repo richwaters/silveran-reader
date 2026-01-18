@@ -77,7 +77,8 @@ public actor StorytellerActor {
             diskPath: nil
         )
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.timeoutIntervalForRequest = 10
+        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForResource = 600
 
         urlSession = URLSession(
             configuration: configuration,
@@ -794,6 +795,81 @@ public actor StorytellerActor {
         }
     }
 
+    /// Result of a deleteBookAsset operation.
+    public enum DeleteAssetResult: Sendable {
+        case success(BookMetadata)
+        case notSupported
+        case failed
+    }
+
+    /// Deletes a specific asset type from a book using `/api/v2/books/{bookId}/upload/{type}`.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upload/[type]/[[...path]]/route.ts` (DELETE handler).
+    /// Returns `.notSupported` if the server doesn't have this endpoint (mainline servers).
+    public func deleteBookAsset(
+        _ bookId: String,
+        type: StorytellerBookFormat,
+        deleteFromDisk: Bool = false
+    ) async -> DeleteAssetResult {
+        guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
+        let deleteURL =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("upload")
+            .appendingPathComponent(type.rawValue)
+
+        var queryParameters: [String: String] = [:]
+        if deleteFromDisk {
+            queryParameters["deleteFromDisk"] = "true"
+        }
+
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+        allowedStatuses.insert(404)
+        allowedStatuses.insert(405)
+
+        do {
+            let response = try await httpDelete(
+                deleteURL.absoluteString,
+                headers: [
+                    "Authorization": authorizationHeaderValue(for: token),
+                    "Accept": "application/json",
+                ],
+                queryParameters: queryParameters,
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            let status = response.statusCode
+            if status == 404 || status == 405 {
+                debugLog("[StorytellerActor] deleteBookAsset: endpoint not supported (status \(status))")
+                return .notSupported
+            }
+
+            guard
+                case .success = evaluateResponse(
+                    response,
+                    methodName: "deleteBookAsset",
+                    context: "\(type.rawValue) for book \(bookId)"
+                )
+            else {
+                return .failed
+            }
+
+            do {
+                let updatedBook = try decoder.decode(BookMetadata.self, from: response.data)
+                return .success(updatedBook)
+            } catch {
+                logStorytellerError("deleteBookAsset decode", error: error)
+                return .failed
+            }
+        } catch {
+            logStorytellerError("deleteBookAsset", error: error)
+            return .failed
+        }
+    }
+
     /// Starts alignment processing for a book (creates readaloud from ebook + audiobook).
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (POST handler).
     public func startAlignment(for bookId: String, restart: Bool = false) async -> Bool {
@@ -1181,6 +1257,7 @@ public actor StorytellerActor {
             }
 
             let uploadURL = resolveUploadLocation(locationHeader, relativeTo: uploadBaseURL)
+            debugLog("[StorytellerActor] uploadAsset: POST succeeded, Location=\(locationHeader), PATCH URL=\(uploadURL.absoluteString), dataSize=\(asset.data.count)")
 
             var patchAllowedStatuses = Set(200..<300)
             patchAllowedStatuses.insert(401)
@@ -1220,6 +1297,155 @@ public actor StorytellerActor {
             return false
         }
         return true
+    }
+
+    /// Result of a replaceBookAsset operation.
+    public enum ReplaceAssetResult: Sendable {
+        case success
+        case notSupported
+        case failed
+    }
+
+    /// Replaces a specific asset type on an existing book using `/api/v2/books/{bookId}/upload/{type}`.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upload/[type]/[[...path]]/route.ts`.
+    /// Returns `.notSupported` if the server doesn't have this endpoint (mainline servers).
+    /// - Parameters:
+    ///   - asset: The asset to upload.
+    ///   - bookUUID: The UUID of the book to replace the asset on.
+    ///   - deleteOldFile: If true, deletes the old file from disk when replacing. Defaults to true.
+    ///   - replaceMetadata: If true, updates book metadata from the new file. Defaults to false.
+    public func replaceBookAsset(
+        _ asset: StorytellerUploadAsset,
+        bookUUID: String,
+        deleteOldFile: Bool = true,
+        replaceMetadata: Bool = false
+    ) async -> ReplaceAssetResult {
+        guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
+
+        let uploadBaseURL =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookUUID)
+            .appendingPathComponent("upload")
+            .appendingPathComponent(asset.format.rawValue)
+
+        var metadata: [String: String] = [
+            "bookUuid": bookUUID,
+            "filename": asset.filename,
+            "deleteOldFile": deleteOldFile ? "true" : "false",
+            "replaceMetadata": replaceMetadata ? "true" : "false",
+        ]
+
+        if let contentType = asset.contentType {
+            metadata["filetype"] = contentType
+        } else if let guessedType = defaultMimeType(for: asset.format, filename: asset.filename) {
+            metadata["filetype"] = guessedType
+        }
+
+        if let relativePath = asset.relativePath {
+            metadata["relativePath"] = relativePath
+        }
+
+        let metadataHeader =
+            metadata
+            .map { key, value in
+                let encodedValue = Data(value.utf8).base64EncodedString()
+                return "\(key) \(encodedValue)"
+            }
+            .joined(separator: ",")
+
+        guard !asset.data.isEmpty else {
+            debugLog("[StorytellerActor] replaceBookAsset received empty data for \(asset.filename).")
+            return .failed
+        }
+
+        debugLog("[StorytellerActor] replaceBookAsset: URL=\(uploadBaseURL.absoluteString), bookUUID=\(bookUUID), metadata=\(metadata)")
+
+        do {
+            var createAllowedStatuses = Set(200..<300)
+            createAllowedStatuses.insert(401)
+            createAllowedStatuses.insert(403)
+            createAllowedStatuses.insert(404)
+            createAllowedStatuses.insert(405)
+
+            let createResponse = try await httpPost(
+                uploadBaseURL.absoluteString,
+                headers: [
+                    "Tus-Resumable": "1.0.0",
+                    "Authorization": authorizationHeaderValue(for: token),
+                    "Upload-Length": "\(asset.data.count)",
+                    "Upload-Metadata": metadataHeader,
+                    "Content-Length": "0",
+                ],
+                body: Data(),
+                session: urlSession,
+                allowedStatusCodes: createAllowedStatuses
+            )
+
+            let status = createResponse.statusCode
+            if status == 404 || status == 405 {
+                debugLog("[StorytellerActor] replaceBookAsset: endpoint not supported (status \(status))")
+                return .notSupported
+            }
+
+            guard
+                case .success = evaluateResponse(
+                    createResponse,
+                    methodName: "replaceBookAsset",
+                    context: "create for \(asset.filename)"
+                )
+            else {
+                return .failed
+            }
+
+            guard
+                let locationHeader = createResponse.response.value(forHTTPHeaderField: "Location")
+            else {
+                debugLog("[StorytellerActor] replaceBookAsset missing Location header.")
+                return .failed
+            }
+
+            let uploadURL = resolveUploadLocation(locationHeader, relativeTo: uploadBaseURL)
+
+            var patchAllowedStatuses = Set(200..<300)
+            patchAllowedStatuses.insert(401)
+            patchAllowedStatuses.insert(403)
+
+            let patchResponse = try await httpPatch(
+                uploadURL.absoluteString,
+                headers: [
+                    "Tus-Resumable": "1.0.0",
+                    "Content-Type": "application/offset+octet-stream",
+                    "Authorization": authorizationHeaderValue(for: token),
+                    "Upload-Offset": "0",
+                    "Content-Length": "\(asset.data.count)",
+                ],
+                body: asset.data,
+                session: urlSession,
+                allowedStatusCodes: patchAllowedStatuses
+            )
+
+            guard
+                case .success = evaluateResponse(
+                    patchResponse,
+                    methodName: "replaceBookAsset",
+                    context: "patch for \(asset.filename)"
+                )
+            else {
+                return .failed
+            }
+
+            let offset = patchResponse.response.value(forHTTPHeaderField: "Upload-Offset")
+            if Int(offset ?? "") != asset.data.count {
+                debugLog("[StorytellerActor] replaceBookAsset patch offset mismatch.")
+                return .failed
+            }
+
+            return .success
+        } catch {
+            logStorytellerError("replaceBookAsset", error: error)
+            return .failed
+        }
     }
 
     /// Retrieves available reading statuses from `/api/v2/statuses`.

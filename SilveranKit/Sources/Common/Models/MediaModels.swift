@@ -639,6 +639,13 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
         hasAvailableEbook && hasAvailableAudiobook && !hasAvailableReadaloud
     }
 
+    public var canShowCreateReadaloud: Bool {
+        guard hasAvailableEbook && hasAvailableAudiobook else { return false }
+        guard let readaloud else { return true }
+        let status = readaloud.status?.uppercased() ?? ""
+        return status == "PROCESSING" || status == "QUEUED" || status == "ERROR" || status == "STOPPED"
+    }
+
     public var progress: Double {
         let raw =
             position?.locator?.locations?.totalProgression

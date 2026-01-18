@@ -20,9 +20,175 @@ struct MediaDownloadOptionsList: View {
             ForEach(options) { option in
                 MediaDownloadOptionRow(item: item, option: option, onAction: onAction)
             }
+            #if os(macOS)
+            if item.canShowCreateReadaloud {
+                CreateReadaloudRow(item: item)
+            }
+            #endif
         }
     }
 }
+
+#if os(macOS)
+struct CreateReadaloudRow: View {
+    let item: BookMetadata
+    @State private var isStartingAlignment = false
+    @State private var isCancelingAlignment = false
+
+    private var readaloudStatus: String? {
+        item.readaloud?.status?.uppercased()
+    }
+
+    private var isProcessingOrQueued: Bool {
+        readaloudStatus == "PROCESSING" || readaloudStatus == "QUEUED"
+    }
+
+    private var isErrorOrStopped: Bool {
+        readaloudStatus == "ERROR" || readaloudStatus == "STOPPED"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                createMenuWithLabel
+
+                Spacer()
+
+                if isProcessingOrQueued {
+                    cancelButton
+                } else if isErrorOrStopped {
+                    errorStatusView
+                }
+            }
+
+            if isProcessingOrQueued {
+                progressStatusView
+                    .padding(.leading, 28)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: isProcessingOrQueued ? [] : [5]))
+                .foregroundStyle(Color.secondary.opacity(0.3))
+        )
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var createMenuWithLabel: some View {
+        if isProcessingOrQueued {
+            HStack(spacing: 8) {
+                Image("readalong")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(.green)
+                Text("Creating Readaloud...")
+                    .foregroundStyle(.green)
+            }
+            .font(.body)
+        } else {
+            Menu {
+                Button {
+                    Task {
+                        isStartingAlignment = true
+                        _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
+                        await StorytellerActor.shared.fetchLibraryInformation()
+                        isStartingAlignment = false
+                    }
+                } label: {
+                    Label("Create on Server", systemImage: "server.rack")
+                }
+                .disabled(isStartingAlignment)
+
+                Button {
+                } label: {
+                    Label("Create Locally", systemImage: "desktopcomputer")
+                }
+                .disabled(true)
+            } label: {
+                HStack(spacing: 8) {
+                    if isStartingAlignment {
+                        ProgressView()
+                            .progressViewStyle(ThinCircularProgressViewStyle())
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image("readalong")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(.green)
+                    }
+                    Text("Create Readaloud")
+                        .foregroundStyle(.green)
+                    Image(systemName: "plus")
+                        .imageScale(.small)
+                        .foregroundStyle(.green)
+                }
+                .font(.body)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private var progressStatusView: some View {
+        Group {
+            if let readaloud = item.readaloud {
+                if let stage = readaloud.currentStage, let progress = readaloud.stageProgress {
+                    Text("\(stage): \(Int(progress * 100))%")
+                } else if let pos = readaloud.queuePosition {
+                    Text("Queued (#\(pos))")
+                } else if readaloudStatus == "QUEUED" {
+                    Text("Queued")
+                } else {
+                    Text("Processing...")
+                }
+            }
+        }
+        .foregroundStyle(.secondary)
+        .font(.caption)
+    }
+
+    @ViewBuilder
+    private var errorStatusView: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.red)
+            Text(readaloudStatus?.capitalized ?? "Error")
+                .foregroundStyle(.secondary)
+        }
+        .font(.body)
+    }
+
+    @ViewBuilder
+    private var cancelButton: some View {
+        Button {
+            Task {
+                isCancelingAlignment = true
+                _ = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
+                await StorytellerActor.shared.fetchLibraryInformation()
+                isCancelingAlignment = false
+            }
+        } label: {
+            if isCancelingAlignment {
+                ProgressView()
+                    .progressViewStyle(ThinCircularProgressViewStyle())
+            } else {
+                Image(systemName: "xmark.circle")
+                    .imageScale(.large)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isCancelingAlignment)
+    }
+}
+#endif
 
 struct MediaDownloadOptionRow: View {
     let item: BookMetadata
@@ -390,49 +556,3 @@ struct MediaDownloadOptionRow: View {
     }
 }
 
-struct ThinCircularProgressViewStyle: ProgressViewStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        ThinCircularProgressBody(configuration: configuration)
-    }
-
-    private struct ThinCircularProgressBody: View {
-        let configuration: Configuration
-        @State private var rotation: Double = 0
-        @State private var animating = false
-
-        private let lineWidth: CGFloat = 1.3
-
-        var body: some View {
-            Group {
-                if let fraction = configuration.fractionCompleted {
-                    Circle()
-                        .trim(from: 0, to: max(0.02, CGFloat(fraction)))
-                        .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                } else {
-                    Circle()
-                        .trim(from: 0, to: 0.55)
-                        .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                        .rotationEffect(.degrees(rotation))
-                        .onAppear { startAnimating() }
-                        .onDisappear { stopAnimating() }
-                }
-            }
-            .frame(width: 12, height: 12)
-            .foregroundStyle(.secondary)
-        }
-
-        private func startAnimating() {
-            guard !animating else { return }
-            animating = true
-            withAnimation(Animation.linear(duration: 0.8).repeatForever(autoreverses: false)) {
-                rotation = 360
-            }
-        }
-
-        private func stopAnimating() {
-            animating = false
-            rotation = 0
-        }
-    }
-}

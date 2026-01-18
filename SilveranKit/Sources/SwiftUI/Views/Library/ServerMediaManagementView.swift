@@ -20,10 +20,13 @@ public struct ServerMediaManagementView: View {
     @State private var uploadingFormat: StorytellerBookFormat?
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var deletingAssetFormat: StorytellerBookFormat?
     @State private var isStartingAlignment = false
     @State private var isCancelingAlignment = false
     @State private var errorMessage: String?
     @State private var hoveredDownloadCategory: LocalMediaCategory?
+    @State private var experimentalModeEnabled = false
+    @State private var showExperimentalWarning = false
 
     public init(bookId: String) {
         self.bookId = bookId
@@ -56,6 +59,20 @@ public struct ServerMediaManagementView: View {
                         serverMediaRow(item: item, format: .audiobook, label: "Audiobook", asset: item.audiobook)
                         serverReadaloudRow(item: item)
                     }
+
+                    Section {
+                        Toggle("Enable experimental server media modification", isOn: Binding(
+                            get: { experimentalModeEnabled },
+                            set: { newValue in
+                                if newValue {
+                                    showExperimentalWarning = true
+                                } else {
+                                    experimentalModeEnabled = false
+                                }
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                    }
                 }
                 .formStyle(.grouped)
                 .scrollDisabled(true)
@@ -74,7 +91,7 @@ public struct ServerMediaManagementView: View {
                 invalidBookView
             }
         }
-        .frame(width: 480, height: 540)
+        .frame(width: 480, height: 590)
         .confirmationDialog(
             "Delete Book from Server?",
             isPresented: $showDeleteConfirmation,
@@ -88,6 +105,18 @@ public struct ServerMediaManagementView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete the book and all its media from the server and remove any local downloads. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Enable Experimental Features?",
+            isPresented: $showExperimentalWarning,
+            titleVisibility: .visible
+        ) {
+            Button("Enable") {
+                experimentalModeEnabled = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Server media modification is experimental and requires a server running the latest development branch. Please back up your server data before using these features.")
         }
     }
 
@@ -149,77 +178,91 @@ public struct ServerMediaManagementView: View {
         let isHovered = hoveredDownloadCategory == category
 
         LabeledContent(label) {
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 if isDownloading {
-                    Button {
-                        mediaViewModel.cancelDownload(for: item, category: category)
-                    } label: {
-                        HStack(spacing: 6) {
-                            if isHovered {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.blue)
-                            } else if let progress {
-                                ZStack {
-                                    Circle()
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 2)
-                                    Circle()
-                                        .trim(from: 0, to: progress)
-                                        .stroke(Color.blue, lineWidth: 2)
-                                        .rotationEffect(.degrees(-90))
-                                }
-                                .frame(width: 14, height: 14)
-                            } else {
-                                ProgressView()
-                                    .scaleEffect(0.5)
+                    HStack(spacing: 6) {
+                        if let progress {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+                                Circle()
+                                    .trim(from: 0, to: progress)
+                                    .stroke(Color.blue, lineWidth: 2)
+                                    .rotationEffect(.degrees(-90))
                             }
-                            Text("Downloading...")
+                            .frame(width: 14, height: 14)
+                        } else {
+                            ProgressView()
+                                .scaleEffect(0.5)
                         }
-                        .foregroundStyle(.secondary)
+                        Text("Downloading...")
                     }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        hoveredDownloadCategory = hovering ? category : nil
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Button {
+                            mediaViewModel.cancelDownload(for: item, category: category)
+                        } label: {
+                            Image(systemName: isHovered ? "xmark.circle.fill" : "xmark.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { hovering in
+                            hoveredDownloadCategory = hovering ? category : nil
+                        }
+                        .help("Cancel")
                     }
                 } else if isDownloaded {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Downloaded")
-                            .foregroundStyle(.secondary)
                     }
-                    .frame(width: 130, alignment: .trailing)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Button("Delete", role: .destructive) {
-                        mediaViewModel.deleteDownload(for: item, category: category)
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Button {
+                            mediaViewModel.deleteDownload(for: item, category: category)
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Delete")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .frame(width: 80)
                 } else if serverHasMedia {
                     HStack(spacing: 6) {
                         Image(systemName: "circle")
                             .foregroundStyle(.tertiary)
                         Text("Not downloaded")
-                            .foregroundStyle(.secondary)
                     }
-                    .frame(width: 130, alignment: .trailing)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Button("Download") {
-                        mediaViewModel.startDownload(for: item, category: category)
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Button {
+                            mediaViewModel.startDownload(for: item, category: category)
+                        } label: {
+                            Image(systemName: "icloud.and.arrow.down")
+                        }
+                        .buttonStyle(.plain)
+                        .help("Download")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .frame(width: 80)
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark.circle")
                             .foregroundStyle(.tertiary)
                         Text("Not on server")
-                            .foregroundStyle(.secondary)
                     }
-                    .frame(width: 130, alignment: .trailing)
-
-                    Spacer().frame(width: 80)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -242,64 +285,74 @@ public struct ServerMediaManagementView: View {
     @ViewBuilder
     private func serverMediaRow(item: BookMetadata, format: StorytellerBookFormat, label: String, asset: BookAsset?) -> some View {
         let isUploadingThis = isUploading && uploadingFormat == format
+        let isDeletingThis = deletingAssetFormat == format
         let types: [UTType] = format == .ebook ? [.epub] : audioTypes
+        let isBusy = isUploading || isDeleting || deletingAssetFormat != nil
 
         LabeledContent(label) {
-            HStack(spacing: 12) {
-                if isUploadingThis {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                        Text("Uploading...")
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(width: 130, alignment: .trailing)
-
-                    Spacer().frame(width: 80)
-                } else if let asset {
-                    Group {
+            HStack(spacing: 16) {
+                Group {
+                    if isUploadingThis {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .progressViewStyle(ThinCircularProgressViewStyle())
+                            Text("Uploading...")
+                        }
+                    } else if isDeletingThis {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .progressViewStyle(ThinCircularProgressViewStyle())
+                            Text("Deleting...")
+                        }
+                    } else if let asset {
                         if asset.isMissing {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundStyle(.yellow)
                                 Text("Missing")
-                                    .foregroundStyle(.secondary)
                             }
                         } else {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
                                 Text("Available")
-                                    .foregroundStyle(.secondary)
                             }
                         }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "circle")
+                                .foregroundStyle(.tertiary)
+                            Text("Not on server")
+                        }
                     }
-                    .frame(width: 130, alignment: .trailing)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // TODO: Enable replace once server supports it (needs new endpoint)
-                    Button("Replace") {
-                        selectAndUploadFile(format: format, types: types, item: item)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(true)
-                    .frame(width: 80)
-                } else {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle")
-                            .foregroundStyle(.tertiary)
-                        Text("Not on server")
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 130, alignment: .trailing)
+                Spacer()
 
-                    Button("Upload") {
-                        selectAndUploadFile(format: format, types: types, item: item)
+                HStack(spacing: 12) {
+                    if asset != nil {
+                        Button {
+                            Task { await deleteAsset(format: format, item: item) }
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(experimentalModeEnabled ? Color.red : Color.secondary)
+                        .disabled(isBusy || !experimentalModeEnabled)
+                        .help(experimentalModeEnabled ? "Delete" : "Enable experimental mode to delete")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isUploading || isDeleting)
-                    .frame(width: 80)
+
+                    Button {
+                        selectAndUploadFile(format: format, types: types, item: item)
+                    } label: {
+                        Image(systemName: "icloud.and.arrow.up")
+                            .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isBusy || !experimentalModeEnabled)
+                    .help(experimentalModeEnabled ? (asset != nil ? "Replace" : "Upload") : "Enable experimental mode to upload")
                 }
             }
         }
@@ -308,207 +361,223 @@ public struct ServerMediaManagementView: View {
     @ViewBuilder
     private func serverReadaloudRow(item: BookMetadata) -> some View {
         let isUploadingThis = isUploading && uploadingFormat == .readaloud
+        let isDeletingThis = deletingAssetFormat == .readaloud
+        let isBusy = isUploading || isDeleting || deletingAssetFormat != nil
 
         LabeledContent("Readaloud") {
-            HStack(spacing: 12) {
-                if isUploadingThis {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                        Text("Uploading...")
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(width: 130, alignment: .trailing)
+            HStack(spacing: 16) {
+                readaloudStatusView(item: item, isUploadingThis: isUploadingThis, isDeletingThis: isDeletingThis)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer().frame(width: 80)
-                } else if let readaloud = item.readaloud {
-                    if readaloud.isMissing {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.yellow)
-                            Text("Missing")
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(width: 130, alignment: .trailing)
+                Spacer()
 
-                        // TODO: Enable replace once server supports it (needs new endpoint)
-                        Button("Replace") {
-                            selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(true)
-                        .frame(width: 80)
-                    } else if let status = readaloud.status?.uppercased() {
-                        switch status {
-                        case "ALIGNED":
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Available")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(width: 130, alignment: .trailing)
-
-                            // TODO: Enable replace once server supports it (needs new endpoint)
-                            Button("Replace") {
-                                selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(true)
-                            .frame(width: 80)
-                        case "PROCESSING":
-                            HStack(spacing: 6) {
-                                ProgressView()
-                                    .scaleEffect(0.5)
-                                if let stage = readaloud.currentStage, let progress = readaloud.stageProgress {
-                                    Text("\(stage): \(Int(progress * 100))%")
-                                        .lineLimit(1)
-                                } else {
-                                    Text("Processing...")
-                                }
-                            }
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 130, alignment: .trailing)
-
-                            Button {
-                                Task { await cancelAlignment(item: item) }
-                            } label: {
-                                if isCancelingAlignment {
-                                    ProgressView().scaleEffect(0.5)
-                                } else {
-                                    Text("Cancel")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isCancelingAlignment)
-                            .frame(width: 80)
-                        case "QUEUED":
-                            HStack(spacing: 6) {
-                                Image(systemName: "clock")
-                                    .foregroundStyle(.orange)
-                                if let pos = readaloud.queuePosition {
-                                    Text("Queued (#\(pos))")
-                                } else {
-                                    Text("Queued")
-                                }
-                            }
-                            .foregroundStyle(.secondary)
-                            .frame(width: 130, alignment: .trailing)
-
-                            Button {
-                                Task { await cancelAlignment(item: item) }
-                            } label: {
-                                if isCancelingAlignment {
-                                    ProgressView().scaleEffect(0.5)
-                                } else {
-                                    Text("Cancel")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isCancelingAlignment)
-                            .frame(width: 80)
-                        case "ERROR", "STOPPED":
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                Text(status.capitalized)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(width: 130, alignment: .trailing)
-
-                            Button {
-                                Task { await startAlignment(item: item, restart: true) }
-                            } label: {
-                                if isStartingAlignment {
-                                    ProgressView().scaleEffect(0.5)
-                                } else {
-                                    Text("Restart Alignment")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isStartingAlignment || isUploading)
-
-                            Button("Upload") {
-                                selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isUploading || isDeleting)
-                            .frame(width: 65)
-                        default:
-                            HStack(spacing: 6) {
-                                Image(systemName: "questionmark.circle")
-                                Text(status)
-                            }
-                            .foregroundStyle(.secondary)
-                            .frame(width: 130, alignment: .trailing)
-
-                            Spacer().frame(width: 80)
-                        }
-                    } else {
-                        HStack(spacing: 6) {
-                            Image(systemName: "questionmark.circle")
-                            Text("Unknown")
-                        }
-                        .foregroundStyle(.secondary)
-                        .frame(width: 130, alignment: .trailing)
-
-                        Spacer().frame(width: 80)
-                    }
-                } else if canStartAlignment(item: item) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle")
-                            .foregroundStyle(.tertiary)
-                        Text("Not aligned")
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 130, alignment: .trailing)
-
-                    Button {
-                        Task { await startAlignment(item: item, restart: false) }
-                    } label: {
-                        if isStartingAlignment {
-                            ProgressView().scaleEffect(0.5)
-                        } else {
-                            Text("Align")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isStartingAlignment || isUploading)
-                    .frame(width: 60)
-
-                    Button("Upload") {
-                        selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isUploading || isDeleting)
-                    .frame(width: 65)
-                } else {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle")
-                            .foregroundStyle(.tertiary)
-                        Text("Not on server")
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 130, alignment: .trailing)
-
-                    Button("Upload") {
-                        selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isUploading || isDeleting)
-                    .frame(width: 80)
-                }
+                readaloudActionsView(item: item, isBusy: isBusy)
             }
         }
+    }
+
+    @ViewBuilder
+    private func readaloudStatusView(item: BookMetadata, isUploadingThis: Bool, isDeletingThis: Bool) -> some View {
+        if isUploadingThis {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .progressViewStyle(ThinCircularProgressViewStyle())
+                Text("Uploading...")
+            }
+            .foregroundStyle(.secondary)
+        } else if isDeletingThis {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .progressViewStyle(ThinCircularProgressViewStyle())
+                Text("Deleting...")
+            }
+            .foregroundStyle(.secondary)
+        } else if let readaloud = item.readaloud {
+            if readaloud.isMissing {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.yellow)
+                    Text("Missing")
+                }
+                .foregroundStyle(.secondary)
+            } else if let status = readaloud.status?.uppercased() {
+                switch status {
+                case "ALIGNED":
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Available")
+                    }
+                    .foregroundStyle(.secondary)
+                case "PROCESSING":
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .progressViewStyle(ThinCircularProgressViewStyle())
+                        if let stage = readaloud.currentStage, let progress = readaloud.stageProgress {
+                            Text("\(stage): \(Int(progress * 100))%")
+                                .lineLimit(1)
+                        } else {
+                            Text("Processing...")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
+                case "QUEUED":
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
+                            .foregroundStyle(.orange)
+                        if let pos = readaloud.queuePosition {
+                            Text("Queued (#\(pos))")
+                        } else {
+                            Text("Queued")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
+                case "ERROR", "STOPPED":
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(status.capitalized)
+                    }
+                    .foregroundStyle(.secondary)
+                default:
+                    HStack(spacing: 6) {
+                        Image(systemName: "questionmark.circle")
+                        Text(status)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "questionmark.circle")
+                    Text("Unknown")
+                }
+                .foregroundStyle(.secondary)
+            }
+        } else if canStartAlignment(item: item) {
+            HStack(spacing: 6) {
+                Image(systemName: "circle")
+                    .foregroundStyle(.tertiary)
+                Text("Not aligned")
+            }
+            .foregroundStyle(.secondary)
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle")
+                    .foregroundStyle(.tertiary)
+                Text("Not on server")
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func readaloudActionsView(item: BookMetadata, isBusy: Bool) -> some View {
+        let readaloud = item.readaloud
+        let status = readaloud?.status?.uppercased()
+        let isProcessingOrQueued = status == "PROCESSING" || status == "QUEUED"
+        let isErrorOrStopped = status == "ERROR" || status == "STOPPED"
+        let hasReadaloud = readaloud != nil
+
+        HStack(spacing: 12) {
+            if isProcessingOrQueued {
+                Button {
+                    Task { await cancelAlignment(item: item) }
+                } label: {
+                    if isCancelingAlignment {
+                        ProgressView()
+                            .progressViewStyle(ThinCircularProgressViewStyle())
+                    } else {
+                        Image(systemName: "xmark.circle")
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isCancelingAlignment)
+                .help("Cancel alignment")
+            } else if isErrorOrStopped {
+                alignmentMenu(item: item, restart: true, isBusy: isBusy)
+
+                Button {
+                    selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
+                } label: {
+                    Image(systemName: "icloud.and.arrow.up")
+                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBusy || !experimentalModeEnabled)
+                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+            } else if canStartAlignment(item: item) && !hasReadaloud {
+                alignmentMenu(item: item, restart: false, isBusy: isBusy)
+
+                Button {
+                    selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
+                } label: {
+                    Image(systemName: "icloud.and.arrow.up")
+                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBusy || !experimentalModeEnabled)
+                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+            } else if hasReadaloud {
+                Button {
+                    Task { await deleteAsset(format: .readaloud, item: item) }
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(experimentalModeEnabled ? Color.red : Color.secondary)
+                .disabled(isBusy || !experimentalModeEnabled)
+                .help(experimentalModeEnabled ? "Delete" : "Enable experimental mode to delete")
+
+                Button {
+                    selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
+                } label: {
+                    Image(systemName: "icloud.and.arrow.up")
+                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBusy || !experimentalModeEnabled)
+                .help(experimentalModeEnabled ? "Replace" : "Enable experimental mode to replace")
+            } else {
+                Button {
+                    selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
+                } label: {
+                    Image(systemName: "icloud.and.arrow.up")
+                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBusy || !experimentalModeEnabled)
+                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func alignmentMenu(item: BookMetadata, restart: Bool, isBusy: Bool) -> some View {
+        Menu {
+            Button {
+                Task { await startAlignment(item: item, restart: restart) }
+            } label: {
+                Label("Create on Server", systemImage: "server.rack")
+            }
+            .disabled(isStartingAlignment || isBusy)
+
+            Button {
+            } label: {
+                Label("Create Locally", systemImage: "desktopcomputer")
+            }
+            .disabled(true)
+        } label: {
+            if isStartingAlignment {
+                ProgressView()
+                    .progressViewStyle(ThinCircularProgressViewStyle())
+            } else {
+                Image(systemName: "plus")
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(restart ? "Restart alignment" : "Start alignment")
     }
 
     private func footerView(item: BookMetadata) -> some View {
@@ -606,6 +675,17 @@ public struct ServerMediaManagementView: View {
         }
     }
 
+    private func hasExistingAsset(format: StorytellerBookFormat, item: BookMetadata) -> Bool {
+        switch format {
+        case .ebook:
+            return item.ebook != nil
+        case .audiobook:
+            return item.audiobook != nil
+        case .readaloud:
+            return item.readaloud != nil
+        }
+    }
+
     private func uploadFile(url: URL, format: StorytellerBookFormat, item: BookMetadata) async {
         isUploading = true
         uploadingFormat = format
@@ -619,18 +699,24 @@ public struct ServerMediaManagementView: View {
                 data: data
             )
 
-            let success = await StorytellerActor.shared.uploadBookAssets(
-                bookUUID: item.uuid,
-                ebook: format == .ebook ? asset : nil,
-                audiobook: format == .audiobook ? asset : nil,
-                readaloud: format == .readaloud ? asset : nil
-            )
+            let isReplace = hasExistingAsset(format: format, item: item)
 
-            if success {
-                await refreshBookMetadata()
-            } else {
-                errorMessage = "Upload failed"
+            let result = await StorytellerActor.shared.replaceBookAsset(
+                asset,
+                bookUUID: item.uuid,
+                deleteOldFile: isReplace,
+                replaceMetadata: false
+            )
+            switch result {
+            case .success:
+                break
+            case .notSupported:
+                errorMessage = "Server does not support this operation yet"
+            case .failed:
+                errorMessage = isReplace ? "Replace failed" : "Upload failed"
             }
+
+            await refreshBookMetadata()
         } catch {
             errorMessage = "Failed to read file: \(error.localizedDescription)"
         }
@@ -644,12 +730,11 @@ public struct ServerMediaManagementView: View {
         errorMessage = nil
 
         let success = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: restart)
-        if success {
-            await refreshBookMetadata()
-        } else {
+        if !success {
             errorMessage = "Failed to start alignment"
         }
 
+        await refreshBookMetadata()
         isStartingAlignment = false
     }
 
@@ -658,13 +743,30 @@ public struct ServerMediaManagementView: View {
         errorMessage = nil
 
         let success = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
-        if success {
-            await refreshBookMetadata()
-        } else {
+        if !success {
             errorMessage = "Failed to cancel alignment"
         }
 
+        await refreshBookMetadata()
         isCancelingAlignment = false
+    }
+
+    private func deleteAsset(format: StorytellerBookFormat, item: BookMetadata) async {
+        deletingAssetFormat = format
+        errorMessage = nil
+
+        let result = await StorytellerActor.shared.deleteBookAsset(item.uuid, type: format, deleteFromDisk: true)
+        switch result {
+        case .success:
+            break
+        case .notSupported:
+            errorMessage = "Server does not support deleting media yet"
+        case .failed:
+            errorMessage = "Failed to delete \(format.rawValue)"
+        }
+
+        await refreshBookMetadata()
+        deletingAssetFormat = nil
     }
 
     private func deleteBook(item: BookMetadata) async {
@@ -678,8 +780,9 @@ public struct ServerMediaManagementView: View {
         }
 
         let success = await StorytellerActor.shared.deleteBook(item.uuid, includeAssets: .all)
+        await refreshBookMetadata()
+
         if success {
-            await StorytellerActor.shared.fetchLibraryInformation()
             dismiss()
         } else {
             errorMessage = "Failed to delete book from server"
