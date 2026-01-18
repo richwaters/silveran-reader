@@ -109,47 +109,69 @@ struct MediaItemCardView: View {
             }
             .buttonStyle(.plain)
             .background(deferredNavigationLinks)
-            .contextMenu {
-                Button {
-                    handleDetailsNavigation()
-                } label: {
-                    Label("View Details", systemImage: "info.circle")
-                }
-
-                Divider()
-
-                if mediaViewModel.isCategoryDownloaded(.synced, for: item) {
-                    Button {
-                        handlePlayerNavigation(.synced)
-                    } label: {
-                        Label("Read Readaloud", systemImage: "text.book.closed")
-                    }
-                }
-                if mediaViewModel.isCategoryDownloaded(.ebook, for: item) {
-                    Button {
-                        handlePlayerNavigation(.ebook)
-                    } label: {
-                        Label("Read Ebook", systemImage: "book.fill")
-                    }
-                }
-                if mediaViewModel.isCategoryDownloaded(.audio, for: item) {
-                    Button {
-                        handlePlayerNavigation(.audio)
-                    } label: {
-                        Label("Play Audiobook", systemImage: "headphones")
-                    }
-                }
-            }
+            .contextMenu { iOSCardContextMenu }
         } else {
             NavigationLink(value: item) {
                 cardContent
             }
             .buttonStyle(.plain)
+            .background(deferredNavigationLinks)
+            .contextMenu { iOSCardContextMenu }
         }
         #else
         cardContent
         #endif
     }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var iOSCardContextMenu: some View {
+        Button {
+            handleDetailsNavigation()
+        } label: {
+            Label("View Details", systemImage: "info.circle")
+        }
+
+        Divider()
+
+        iOSContextMenuMediaOption(for: .ebook, label: "Ebook")
+        iOSContextMenuMediaOption(for: .audio, label: "Audiobook")
+        iOSContextMenuMediaOption(for: .synced, label: "Readaloud")
+    }
+
+    @ViewBuilder
+    private func iOSContextMenuMediaOption(for category: LocalMediaCategory, label: String) -> some View {
+        let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
+        let isDownloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let isAvailable: Bool = {
+            switch category {
+            case .ebook: return item.hasAvailableEbook
+            case .audio: return item.hasAvailableAudiobook
+            case .synced: return item.hasAvailableReadaloud
+            }
+        }()
+
+        if isDownloaded {
+            Button(role: .destructive) {
+                mediaViewModel.deleteDownload(for: item, category: category)
+            } label: {
+                Label("Local \(label)", systemImage: "trash")
+            }
+        } else if isDownloading {
+            Button(role: .destructive) {
+                mediaViewModel.cancelDownload(for: item, category: category)
+            } label: {
+                Label("Cancel \(label)", systemImage: "xmark.circle")
+            }
+        } else if isAvailable {
+            Button {
+                mediaViewModel.startDownload(for: item, category: category)
+            } label: {
+                Label(label, systemImage: "arrow.down.circle")
+            }
+        }
+    }
+    #endif
 
     #if os(iOS)
     private var preferredPlayerBookData: PlayerBookData? {
@@ -432,7 +454,7 @@ struct MediaItemCardView: View {
                 Button(role: .destructive) {
                     mediaViewModel.deleteDownload(for: item, category: .ebook)
                 } label: {
-                    Label("Delete Ebook", systemImage: "trash")
+                    Label("Local Ebook", systemImage: "trash")
                 }
             }
 
@@ -440,7 +462,7 @@ struct MediaItemCardView: View {
                 Button(role: .destructive) {
                     mediaViewModel.deleteDownload(for: item, category: .audio)
                 } label: {
-                    Label("Delete Audiobook", systemImage: "trash")
+                    Label("Local Audiobook", systemImage: "trash")
                 }
             }
 
@@ -448,7 +470,7 @@ struct MediaItemCardView: View {
                 Button(role: .destructive) {
                     mediaViewModel.deleteDownload(for: item, category: .synced)
                 } label: {
-                    Label("Delete Readaloud", systemImage: "trash")
+                    Label("Local Readaloud", systemImage: "trash")
                 }
             }
         }
