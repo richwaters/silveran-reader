@@ -242,21 +242,25 @@ struct iOSBookDetailView: View {
                 .multilineTextAlignment(.center)
                 .textSelection(.enabled)
 
-            if let series = item.series?.first {
-                NavigationLink(value: SeriesNavIdentifier(name: series.name)) {
-                    HStack(spacing: 4) {
-                        Text(series.name)
-                            .font(.subheadline)
-                        if let position = series.position {
-                            Text("•")
-                                .font(.subheadline)
-                            Text("Book \(position)")
-                                .font(.subheadline)
+            if let seriesList = item.series, !seriesList.isEmpty {
+                VStack(spacing: 4) {
+                    ForEach(seriesList, id: \.name) { series in
+                        NavigationLink(value: SeriesNavIdentifier(name: series.name)) {
+                            HStack(spacing: 4) {
+                                Text(series.name)
+                                    .font(.subheadline)
+                                if let position = series.position {
+                                    Text("•")
+                                        .font(.subheadline)
+                                    Text("Book \(position)")
+                                        .font(.subheadline)
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity)

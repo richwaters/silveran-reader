@@ -591,7 +591,17 @@ struct MediaGridView: View {
 
     private func seriesPositionBadge(for item: BookMetadata) -> String? {
         guard showSeriesPositionBadge else { return nil }
-        guard let series = item.series?.first, let position = series.position else { return nil }
+        guard let seriesList = item.series else { return nil }
+
+        let matchingSeries: BookSeries?
+        if let filter = selectedSeries {
+            let normalizedFilter = filter.lowercased()
+            matchingSeries = seriesList.first(where: { $0.name.lowercased() == normalizedFilter })
+        } else {
+            matchingSeries = seriesList.first
+        }
+
+        guard let series = matchingSeries, let position = series.position else { return nil }
         return "#\(position)"
     }
 
@@ -788,7 +798,19 @@ struct MediaGridView: View {
         let sorted =
             searchFiltered.sorted { lhs, rhs in
                 if lhs.id == rhs.id { return false }
-                let result = selectedSortOption.comparison(lhs, rhs)
+                let result: ComparisonResult
+                if selectedSortOption == .seriesPosition, let filter = selectedSeries {
+                    let normalizedFilter = filter.lowercased()
+                    let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                    let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                    if lhsPosition == rhsPosition {
+                        result = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                    } else {
+                        result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
+                    }
+                } else {
+                    result = selectedSortOption.comparison(lhs, rhs)
+                }
                 if result == .orderedSame {
                     return lhs.id < rhs.id
                 }
@@ -1183,7 +1205,19 @@ struct MediaGridView: View {
 
         return filtered.sorted { lhs, rhs in
             if lhs.id == rhs.id { return false }
-            let result = sortOption.comparison(lhs, rhs)
+            let result: ComparisonResult
+            if sortOption == .seriesPosition, let filter = seriesFilter {
+                let normalizedFilter = filter.lowercased()
+                let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                if lhsPosition == rhsPosition {
+                    result = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                } else {
+                    result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
+                }
+            } else {
+                result = sortOption.comparison(lhs, rhs)
+            }
             if result == .orderedSame {
                 return lhs.id < rhs.id
             }

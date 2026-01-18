@@ -436,13 +436,15 @@ public final class MediaViewModel {
         var seriesMap: [String: (series: BookSeries?, books: [BookMetadata])] = [:]
 
         for book in allBooks {
-            if let seriesList = book.series, let firstSeries = seriesList.first {
-                let key = firstSeries.uuid ?? firstSeries.name
-                if var existing = seriesMap[key] {
-                    existing.books.append(book)
-                    seriesMap[key] = existing
-                } else {
-                    seriesMap[key] = (series: firstSeries, books: [book])
+            if let seriesList = book.series, !seriesList.isEmpty {
+                for series in seriesList {
+                    let key = series.uuid ?? series.name
+                    if var existing = seriesMap[key] {
+                        existing.books.append(book)
+                        seriesMap[key] = existing
+                    } else {
+                        seriesMap[key] = (series: series, books: [book])
+                    }
                 }
             } else {
                 if var existing = seriesMap["__no_series__"] {
@@ -455,9 +457,10 @@ public final class MediaViewModel {
         }
 
         for key in seriesMap.keys {
+            let seriesName = seriesMap[key]?.series?.name.lowercased()
             seriesMap[key]?.books.sort { a, b in
-                let posA = a.series?.first?.position ?? Int.max
-                let posB = b.series?.first?.position ?? Int.max
+                let posA = a.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? Int.max
+                let posB = b.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? Int.max
                 return posA < posB
             }
         }

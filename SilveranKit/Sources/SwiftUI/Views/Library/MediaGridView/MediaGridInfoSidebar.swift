@@ -66,41 +66,45 @@ struct MediaGridInfoSidebar: View {
                     .fontWeight(.semibold)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
-                if let series = item.series?.first {
-                    if let onSeriesSelected {
-                        Button {
-                            onSeriesSelected(series.name)
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text(series.name)
-                                    .font(.subheadline)
-                                if let position = series.position {
-                                    Text("•")
-                                        .font(.subheadline)
-                                    Text("Book \(position)")
-                                        .font(.subheadline)
+                if let seriesList = item.series, !seriesList.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(seriesList, id: \.name) { series in
+                            if let onSeriesSelected {
+                                Button {
+                                    onSeriesSelected(series.name)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(series.name)
+                                            .font(.subheadline)
+                                        if let position = series.position {
+                                            Text("•")
+                                                .font(.subheadline)
+                                            Text("Book \(position)")
+                                                .font(.subheadline)
+                                        }
+                                    }
+                                    .foregroundStyle(.secondary)
                                 }
+                                .buttonStyle(.plain)
+                                .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                HStack(spacing: 4) {
+                                    Text(series.name)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    if let position = series.position {
+                                        Text("•")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Text("Book \(position)")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
                             }
-                            .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        HStack(spacing: 4) {
-                            Text(series.name)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            if let position = series.position {
-                                Text("•")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                Text("Book \(position)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
                     }
                 }
                 if let authors = item.authors, let first = authors.first?.name {
