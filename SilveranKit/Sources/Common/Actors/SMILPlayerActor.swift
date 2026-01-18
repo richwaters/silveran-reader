@@ -762,7 +762,9 @@ public actor SMILPlayerActor {
         let reachedEntryEnd = currentTime >= currentEntryEndTime - tolerance
         let reachedFileEnd = duration > 0 && currentTime >= duration - tolerance
 
-        if isPlaying && (reachedEntryEnd || reachedFileEnd) {
+        let shouldAdvanceForEntryEnd = reachedEntryEnd && nextEntryUsingSameAudioFile()
+
+        if isPlaying && (shouldAdvanceForEntryEnd || reachedFileEnd) {
             await advanceToNextEntry()
         } else if !isPlaying && reachedFileEnd && !playerIsPlaying {
             debugLog("[SMILPlayerActor] Audio file ended naturally, advancing...")
@@ -885,6 +887,26 @@ public actor SMILPlayerActor {
         )
     }
 
+    private func nextEntryUsingSameAudioFile() -> Bool {
+        guard currentSectionIndex < bookStructure.count else { return false }
+
+        let section = bookStructure[currentSectionIndex]
+        let nextEntryIndex = currentEntryIndex + 1
+
+        if nextEntryIndex < section.mediaOverlay.count {
+            return section.mediaOverlay[nextEntryIndex].audioFile == currentAudioFile
+        }
+
+        let nextSectionIndex = currentSectionIndex + 1
+        if let nextSection = bookStructure.first(where: {
+            $0.index >= nextSectionIndex && !$0.mediaOverlay.isEmpty
+        }) {
+            return nextSection.mediaOverlay[0].audioFile == currentAudioFile
+        }
+
+        return false
+    }
+
     // MARK: - Private: State Building
 
     private func buildCurrentState() -> SMILPlaybackState? {
@@ -916,8 +938,9 @@ public actor SMILPlayerActor {
                         currentEntryIndex > 0
                         ? section.mediaOverlay[currentEntryIndex - 1].cumSumAtEnd
                         : chapterStartCumSum
-                    let timeInEntry = currentTime - entry.begin
-                    bookElapsed = entryCumSum + max(0, timeInEntry)
+                    let entryDuration = max(0, entry.end - entry.begin)
+                    let timeInEntry = min(max(0, currentTime - entry.begin), entryDuration)
+                    bookElapsed = entryCumSum + timeInEntry
                     chapterElapsed = bookElapsed - chapterStartCumSum
                 }
             }
