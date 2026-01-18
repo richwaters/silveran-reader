@@ -65,6 +65,7 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
     let onNavigationFinished: () -> Void
     var commsBridge: WebViewCommsBridge?
     var onContentPurged: (() -> Void)?
+    var onReaderReady: (() -> Void)?
 
     init(onNavigationFinished: @escaping () -> Void) {
         self.onNavigationFinished = onNavigationFinished
@@ -79,8 +80,29 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
+        switch message.name {
+            case "ConsoleLog":
+                if let body = message.body as? [String: Any],
+                    let level = body["level"] as? String,
+                    let msg = body["message"] as? String
+                {
+                    let prefix =
+                        level == "error" ? "JS ERROR: " : level == "warn" ? "JS WARN: " : "JS: "
+                    debugLog("[EbookPlayerWebView] \(prefix)\(msg)")
+                }
+                return
+
+            case "ReaderReady":
+                debugLog("[EbookPlayerWebView] Reader JS modules initialized")
+                onReaderReady?()
+                return
+
+            default:
+                break
+        }
+
         guard let bridge = commsBridge else {
-            debugLog("[EbookPlayerWebView] CommsBridge not initialized")
+            debugLog("[EbookPlayerWebView] CommsBridge not initialized for message: \(message.name)")
             return
         }
 
@@ -88,16 +110,6 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
 
         do {
             switch message.name {
-                case "ConsoleLog":
-                    if let body = message.body as? [String: Any],
-                        let level = body["level"] as? String,
-                        let msg = body["message"] as? String
-                    {
-                        let prefix =
-                            level == "error" ? "JS ERROR: " : level == "warn" ? "JS WARN: " : "JS: "
-                        debugLog("[EbookPlayerWebView] \(prefix)\(msg)")
-                    }
-
                 case "BookStructureReady":
                     let data = try JSONSerialization.data(withJSONObject: message.body)
                     let msg = try decoder.decode(BookStructureReadyMessage.self, from: data)
@@ -264,6 +276,7 @@ private func makeWebViewConfiguration2(coordinator: WebViewCoordinator2) -> WKWe
     contentController.add(coordinator, name: "SearchError")
     contentController.add(coordinator, name: "TextSelection")
     contentController.add(coordinator, name: "HighlightTapped")
+    contentController.add(coordinator, name: "ReaderReady")
 
     contentController.addUserScript(consoleOverrideScript)
     config.userContentController = contentController
@@ -309,7 +322,7 @@ private struct WebViewWrapper2: View {
     let onBridgeReady: ((WebViewCommsBridge) -> Void)?
     let onContentPurged: (() -> Void)?
     @State private var webView: WKWebView?
-    @State private var readerLoaded = false
+    @State private var epubLoaded = false
 
     var body: some View {
         WebViewRepresentable2(
@@ -317,12 +330,10 @@ private struct WebViewWrapper2: View {
             commsBridge: $commsBridge,
             ebookPath: ebookPath,
             onBridgeReady: onBridgeReady,
-            onNavigationFinished: {
-                if !readerLoaded {
-                    readerLoaded = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        loadEpub()
-                    }
+            onReaderReady: {
+                if !epubLoaded {
+                    epubLoaded = true
+                    loadEpub()
                 }
             },
             onContentPurged: onContentPurged
@@ -399,7 +410,7 @@ private struct WebViewRepresentable2: PlatformViewRepresentable {
     @Binding var commsBridge: WebViewCommsBridge?
     let ebookPath: URL?
     let onBridgeReady: ((WebViewCommsBridge) -> Void)?
-    let onNavigationFinished: () -> Void
+    let onReaderReady: () -> Void
     let onContentPurged: (() -> Void)?
 
     #if os(macOS)
@@ -452,13 +463,28 @@ private struct WebViewRepresentable2: PlatformViewRepresentable {
                 wkWebView.window?.makeFirstResponder(wkWebView)
             }
             #endif
+
+            Task { @MainActor in
+                do {
+                    let ready = try await wkWebView.evaluateJavaScript(
+                        "window.bookLoader !== undefined"
+                    ) as? Bool ?? false
+                    if ready {
+                        debugLog("[EbookPlayerWebView] JS already ready on bridge setup")
+                        self.onReaderReady()
+                    }
+                } catch {
+                    // JS not ready yet, will wait for ReaderReady message
+                }
+            }
         }
 
         return wkWebView
     }
 
     func makeCoordinator() -> WebViewCoordinator2 {
-        let coordinator = WebViewCoordinator2(onNavigationFinished: onNavigationFinished)
+        let coordinator = WebViewCoordinator2(onNavigationFinished: {})
+        coordinator.onReaderReady = onReaderReady
         coordinator.onContentPurged = onContentPurged
         return coordinator
     }

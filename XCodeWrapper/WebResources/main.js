@@ -8,3 +8,4 @@ window.foliateManager = new FoliateManager();
 window.bookLoader = new BookLoader(window.foliateManager);
 
 debugLog("Main", "Initialization complete");
+window.webkit?.messageHandlers?.ReaderReady?.postMessage({});
