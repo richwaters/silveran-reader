@@ -319,6 +319,7 @@ public actor StorytellerActor {
                 await attemptReconnect()
             }
         } else if path.status != .satisfied {
+            lastNetworkOpSucceeded = false
             await updateConnectionStatus(.error("No network"))
         }
     }
