@@ -118,6 +118,7 @@ struct SilveranReaderApp: App {
         .background(Color(uiColor: .systemBackground))
             #endif
             .task {
+                await StorytellerActor.shared.setActive(true, source: .mac)
                 guard !didOpenSecondaryWindows else { return }
                 didOpenSecondaryWindows = true
             }

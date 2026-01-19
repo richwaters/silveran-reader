@@ -80,6 +80,7 @@ public actor ProgressSyncActor {
             await loadQueueFromDisk()
             await loadHistoryFromDisk()
         }
+        startPolling()
     }
 
     private func ensureQueueLoaded() async {
@@ -605,7 +606,12 @@ public actor ProgressSyncActor {
         pollingTask = Task {
             while !Task.isCancelled {
                 await pollServerPositions()
-                try? await Task.sleep(for: .seconds(3))
+                let status = await StorytellerActor.shared.connectionStatus
+                let sleepInterval: Duration =
+                    status == .connected
+                    ? .seconds(3)
+                    : .seconds(15)
+                try? await Task.sleep(for: sleepInterval)
             }
             pollingTask = nil
             debugLog("[PSA] polling task ended")

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Notification.Name {
     static let appWillResignActive = Notification.Name("appWillResignActive")
@@ -6,8 +7,6 @@ extension Notification.Name {
 
 struct SilveranReaderApp: App {
     @State private var mediaViewModel: MediaViewModel
-
-    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let vm = MediaViewModel()
@@ -46,34 +45,42 @@ struct SilveranReaderApp: App {
         WindowGroup("Library", id: "MyLibrary") {
             iOSLibraryView()
                 .environment(mediaViewModel)
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            handleScenePhaseChange(newPhase)
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: UIApplication.didEnterBackgroundNotification
+                    )
+                ) { _ in
+                    handleDidEnterBackground()
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: UIApplication.didBecomeActiveNotification
+                    )
+                ) { _ in
+                    handleDidBecomeActive()
+                }
+                .task {
+                    if UIApplication.shared.applicationState == .active {
+                        handleDidBecomeActive()
+                    }
+                }
         }
     }
 
-    private func handleScenePhaseChange(_ phase: ScenePhase) {
-        switch phase {
-            case .background:
-                debugLog(
-                    "[SilveranReaderApp] App entering background - posting resign notification"
-                )
-                NotificationCenter.default.post(name: .appWillResignActive, object: nil)
-                Task {
-                    await StorytellerActor.shared.setActive(false, source: .app)
-                }
+    private func handleDidEnterBackground() {
+        debugLog(
+            "[SilveranReaderApp] App entering background - posting resign notification"
+        )
+        NotificationCenter.default.post(name: .appWillResignActive, object: nil)
+        Task {
+            await StorytellerActor.shared.setActive(false, source: .app)
+        }
+    }
 
-            case .active:
-                debugLog("[SilveranReaderApp] App becoming active")
-                Task {
-                    await StorytellerActor.shared.setActive(true, source: .app)
-                }
-
-            case .inactive:
-                break
-
-            @unknown default:
-                break
+    private func handleDidBecomeActive() {
+        debugLog("[SilveranReaderApp] App becoming active")
+        Task {
+            await StorytellerActor.shared.setActive(true, source: .app)
         }
     }
 }

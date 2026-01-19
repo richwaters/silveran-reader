@@ -15,6 +15,7 @@ struct SilveranWatchApp: App {
             ContentView()
                 .environment(watchViewModel)
                 .task {
+                    await StorytellerActor.shared.setActive(true, source: .watch)
                     await initializeStorytellerConnection()
                 }
         }

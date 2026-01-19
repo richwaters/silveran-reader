@@ -166,7 +166,6 @@ public actor StorytellerActor {
     }
 
     private func handleDeactivation() async {
-        await ProgressSyncActor.shared.stopPolling()
     }
 
     private func startMonitoring() {
@@ -219,6 +218,7 @@ public actor StorytellerActor {
             if response.statusCode == 401 || response.statusCode == 403 {
                 debugLog("[StorytellerActor] verifyConnection: token expired/invalid, clearing")
                 accessToken = nil
+                lastNetworkOpSucceeded = false
                 await updateConnectionStatus(.error("Session expired"))
             } else {
                 debugLog("[StorytellerActor] verifyConnection: connection verified")
@@ -229,6 +229,7 @@ public actor StorytellerActor {
             if await recordNetworkError(error) {
                 return
             }
+            lastNetworkOpSucceeded = false
             await updateConnectionStatus(.error("Connection lost"))
         }
     }
@@ -313,6 +314,7 @@ public actor StorytellerActor {
     private func handleNetworkPathUpdate(_ path: NWPath) async {
         debugLog("[StorytellerActor] network path update: status=\(path.status)")
         if path.status == .satisfied && isAppActive {
+            resetReconnectBackoff()
             if connectionStatus == .connected {
                 await verifyConnection()
             } else {

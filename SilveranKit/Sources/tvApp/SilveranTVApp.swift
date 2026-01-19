@@ -11,6 +11,7 @@ struct SilveranTVApp: App {
             TVContentView()
                 .environment(mediaViewModel)
                 .task {
+                    await StorytellerActor.shared.setActive(true, source: .tv)
                     await initializeStorytellerConnection()
                 }
         }

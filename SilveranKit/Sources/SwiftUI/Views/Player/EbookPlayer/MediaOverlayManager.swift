@@ -188,7 +188,7 @@ class MediaOverlayManager {
         }
 
         if bookStructure.count > sectionsToShow {
-            debugLog("[MOM]   ... and \(bookStructure.count - sectionsToShow) more sections")
+        debugLog("[MOM]   ... and \(bookStructure.count - sectionsToShow) more sections")
         }
 
         Task {
@@ -219,6 +219,7 @@ class MediaOverlayManager {
         cachedEntryIndex = state.currentEntryIndex
         lastObservedFragment = state.currentFragment
 
+        let wasPlaying = isPlaying
         isPlaying = state.isPlaying
         if isInBackground && state.isPlaying {
             backgroundAudioPlayed = true
@@ -239,6 +240,13 @@ class MediaOverlayManager {
                 sectionIndex: state.currentSectionIndex,
                 entryIndex: state.currentEntryIndex
             )
+        }
+
+        if wasPlaying && !state.isPlaying {
+            debugLog("[MOM] Audio paused - syncing progress")
+            Task {
+                await progressManager?.syncProgressToServer(reason: .userPausedPlayback)
+            }
         }
 
         if sleepTimerActive && sleepTimerType == .endOfChapter && state.isPlaying {
