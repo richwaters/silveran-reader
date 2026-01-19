@@ -19,8 +19,10 @@ public struct ServerMediaManagementView: View {
     @State private var isUploading = false
     @State private var uploadingFormat: StorytellerBookFormat?
     @State private var showDeleteConfirmation = false
+    @State private var showDeleteAssetConfirmation = false
     @State private var isDeleting = false
     @State private var deletingAssetFormat: StorytellerBookFormat?
+    @State private var pendingDeleteAssetFormat: StorytellerBookFormat?
     @State private var isStartingAlignment = false
     @State private var isCancelingAlignment = false
     @State private var errorMessage: String?
@@ -105,6 +107,22 @@ public struct ServerMediaManagementView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete the book and all its media from the server and remove any local downloads. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Delete \(pendingDeleteAssetLabel) from Server?",
+            isPresented: $showDeleteAssetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let format = pendingDeleteAssetFormat, let item else { return }
+                pendingDeleteAssetFormat = nil
+                Task { await deleteAsset(format: format, item: item) }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteAssetFormat = nil
+            }
+        } message: {
+            Text("This will permanently delete the \(pendingDeleteAssetLabel.lowercased()) file from the server. This cannot be undone.")
         }
         .confirmationDialog(
             "Enable Experimental Features?",
@@ -334,7 +352,7 @@ public struct ServerMediaManagementView: View {
                 HStack(spacing: 12) {
                     if asset != nil {
                         Button {
-                            Task { await deleteAsset(format: format, item: item) }
+                            requestDeleteAsset(format: format)
                         } label: {
                             Image(systemName: "trash")
                         }
@@ -519,7 +537,7 @@ public struct ServerMediaManagementView: View {
                 .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
             } else if hasReadaloud {
                 Button {
-                    Task { await deleteAsset(format: .readaloud, item: item) }
+                    requestDeleteAsset(format: .readaloud)
                 } label: {
                     Image(systemName: "trash")
                 }
@@ -659,6 +677,24 @@ public struct ServerMediaManagementView: View {
         guard let readaloud = item.readaloud else { return false }
         let status = readaloud.status?.uppercased() ?? ""
         return status == "PROCESSING" || status == "QUEUED"
+    }
+
+    private var pendingDeleteAssetLabel: String {
+        switch pendingDeleteAssetFormat {
+        case .ebook:
+            return "Ebook"
+        case .audiobook:
+            return "Audiobook"
+        case .readaloud:
+            return "Readaloud"
+        case .none:
+            return "Media"
+        }
+    }
+
+    private func requestDeleteAsset(format: StorytellerBookFormat) {
+        pendingDeleteAssetFormat = format
+        showDeleteAssetConfirmation = true
     }
 
     private func selectAndUploadFile(format: StorytellerBookFormat, types: [UTType], item: BookMetadata) {
