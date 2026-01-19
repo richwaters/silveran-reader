@@ -20,6 +20,14 @@ public enum HTTPResult: Sendable {
     case noConnection
 }
 
+public enum ActivitySource: String, Hashable, Sendable {
+    case app
+    case mac
+    case tv
+    case watch
+    case carPlay
+}
+
 @globalActor
 public actor StorytellerActor {
 
@@ -55,6 +63,10 @@ public actor StorytellerActor {
     private var authenticationTask: Task<Bool, Never>? = nil
 
     private var monitoringTask: Task<Void, Never>? = nil
+    private var isAppActive: Bool = false
+    private var activeSources: Set<ActivitySource> = []
+    private var reconnectFailureCount: Int = 0
+    private var reconnectCooldownUntil: Date? = nil
     public private(set) var lastNetworkOpSucceeded: Bool? = nil
 #if canImport(Network)
     private var networkMonitor: NWPathMonitor? = nil
@@ -95,6 +107,27 @@ public actor StorytellerActor {
         self.observers = callback
     }
 
+    public func setActive(_ active: Bool, source: ActivitySource) async {
+        if active {
+            activeSources.insert(source)
+        } else {
+            activeSources.remove(source)
+        }
+
+        let wasActive = isAppActive
+        isAppActive = !activeSources.isEmpty
+
+        debugLog(
+            "[StorytellerActor] setActive: source=\(source.rawValue), active=\(active), activeSources=\(activeSources.map { $0.rawValue }.sorted())"
+        )
+
+        if active && !wasActive {
+            await handleActivation()
+        } else if wasActive && !isAppActive {
+            await handleDeactivation()
+        }
+    }
+
     private func updateConnectionStatus(_ status: ConnectionStatus) async {
         let wasNotConnected = connectionStatus != .connected
         debugLog(
@@ -110,6 +143,32 @@ public actor StorytellerActor {
         }
     }
 
+    private func handleActivation() async {
+        guard isConfigured else { return }
+
+        await ProgressSyncActor.shared.recordWakeEvent()
+        await ProgressSyncActor.shared.startPolling()
+
+        var reconnected = false
+        if connectionStatus != .connected {
+            reconnected = await attemptReconnect()
+        } else {
+            await verifyConnection()
+        }
+
+        if connectionStatus == .connected, !reconnected {
+            let _ = await fetchLibraryInformation()
+            let (synced, failed) = await ProgressSyncActor.shared.syncPendingQueue()
+            debugLog(
+                "[StorytellerActor] handleActivation: queue sync synced=\(synced), failed=\(failed)"
+            )
+        }
+    }
+
+    private func handleDeactivation() async {
+        await ProgressSyncActor.shared.stopPolling()
+    }
+
     private func startMonitoring() {
         startNetworkMonitoring()
         monitoringTask?.cancel()
@@ -117,13 +176,117 @@ public actor StorytellerActor {
             guard let self else { return }
 
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
+                let currentStatus = await self.connectionStatus
+                let sleepInterval: Duration = if currentStatus == .connected {
+                    .seconds(30)
+                } else {
+                    .seconds(3)
+                }
 
+                try? await Task.sleep(for: sleepInterval)
                 guard !Task.isCancelled else { break }
 
-                await self.checkConnection()
+                guard await self.isAppActive else {
+                    continue
+                }
+
+                if await self.connectionStatus != .connected {
+                    await self.attemptReconnect()
+                }
             }
         }
+    }
+
+    private func verifyConnection() async {
+        guard let apiBaseURL = apiBaseURL, let token = accessToken else {
+            debugLog("[StorytellerActor] verifyConnection: no credentials, marking disconnected")
+            await updateConnectionStatus(.disconnected)
+            return
+        }
+
+        let statusesURL = apiBaseURL.appendingPathComponent("statuses")
+        do {
+            let response = try await httpGet(
+                statusesURL.absoluteString,
+                headers: [
+                    "Accept": "application/json",
+                    "Authorization": authorizationHeaderValue(for: token),
+                ],
+                session: urlSession,
+                allowedStatusCodes: Set(200..<300).union([401, 403])
+            )
+
+            if response.statusCode == 401 || response.statusCode == 403 {
+                debugLog("[StorytellerActor] verifyConnection: token expired/invalid, clearing")
+                accessToken = nil
+                await updateConnectionStatus(.error("Session expired"))
+            } else {
+                debugLog("[StorytellerActor] verifyConnection: connection verified")
+                await recordNetworkSuccess()
+            }
+        } catch {
+            debugLog("[StorytellerActor] verifyConnection: failed - \(error)")
+            if await recordNetworkError(error) {
+                return
+            }
+            await updateConnectionStatus(.error("Connection lost"))
+        }
+    }
+
+    private func canAttemptReconnect() -> Bool {
+        guard let cooldownUntil = reconnectCooldownUntil else { return true }
+        if cooldownUntil > Date() {
+            let remaining = Int(cooldownUntil.timeIntervalSinceNow)
+            debugLog("[StorytellerActor] attemptReconnect: cooling down (\(remaining)s)")
+            return false
+        }
+        return true
+    }
+
+    private func scheduleReconnectBackoff() {
+        reconnectFailureCount += 1
+        let delay = min(60.0, Double(reconnectFailureCount) * 5.0)
+        reconnectCooldownUntil = Date().addingTimeInterval(delay)
+        debugLog("[StorytellerActor] attemptReconnect: backoff \(Int(delay))s")
+    }
+
+    private func resetReconnectBackoff() {
+        reconnectFailureCount = 0
+        reconnectCooldownUntil = nil
+    }
+
+    @discardableResult
+    private func attemptReconnect() async -> Bool {
+        guard username != nil, password != nil, apiBaseURL != nil else {
+            return false
+        }
+        guard canAttemptReconnect() else { return false }
+
+        debugLog("[StorytellerActor] attemptReconnect: trying to reconnect...")
+        if connectionStatus != .connecting {
+            await updateConnectionStatus(.connecting)
+        }
+
+        if await authenticate() {
+            debugLog("[StorytellerActor] attemptReconnect: success")
+            await recordNetworkSuccess()
+            let _ = await fetchLibraryInformation()
+            return true
+        } else {
+            debugLog("[StorytellerActor] attemptReconnect: failed")
+            scheduleReconnectBackoff()
+            return false
+        }
+    }
+
+    public func appDidBecomeActive() async {
+        debugLog("[StorytellerActor] appDidBecomeActive")
+        await setActive(true, source: .app)
+    }
+
+    public func appWillResignActive() async {
+        debugLog("[StorytellerActor] appWillResignActive")
+        await setActive(false, source: .app)
     }
 
     private func startNetworkMonitoring() {
@@ -149,8 +312,14 @@ public actor StorytellerActor {
 #if canImport(Network)
     private func handleNetworkPathUpdate(_ path: NWPath) async {
         debugLog("[StorytellerActor] network path update: status=\(path.status)")
-        if path.status == .satisfied {
-            await checkConnection(force: true)
+        if path.status == .satisfied && isAppActive {
+            if connectionStatus == .connected {
+                await verifyConnection()
+            } else {
+                await attemptReconnect()
+            }
+        } else if path.status != .satisfied {
+            await updateConnectionStatus(.error("No network"))
         }
     }
 #endif
@@ -160,24 +329,44 @@ public actor StorytellerActor {
         Task { await observers?() }
     }
 
-    private func checkConnection(force: Bool = false) async {
-        guard username != nil, password != nil, apiBaseURL != nil else {
-            await updateConnectionStatus(.disconnected)
-            return
+    private func isConnectivityError(_ error: URLError) -> Bool {
+        switch error.code {
+            case .notConnectedToInternet,
+                .networkConnectionLost,
+                .cannotFindHost,
+                .cannotConnectToHost,
+                .timedOut,
+                .dnsLookupFailed:
+                return true
+            default:
+                return false
         }
+    }
 
-        if !force && connectionStatus == .connected {
-            return
-        }
-
-        await updateConnectionStatus(.connecting)
-
-        if await ensureAuthentication() != nil {
+    private func recordNetworkSuccess() async {
+        lastNetworkOpSucceeded = true
+        resetReconnectBackoff()
+        if connectionStatus != .connected {
             await updateConnectionStatus(.connected)
-            let _ = await fetchLibraryInformation()
         } else {
-            await updateConnectionStatus(.error("Connection check failed"))
+            await observers?()
         }
+    }
+
+    @discardableResult
+    func recordNetworkError(_ error: Error) async -> Bool {
+        guard let urlError = error as? URLError, isConnectivityError(urlError) else {
+            return false
+        }
+
+        lastNetworkOpSucceeded = false
+        switch connectionStatus {
+            case .connected, .connecting:
+                await updateConnectionStatus(.error("Connection lost"))
+            default:
+                await observers?()
+        }
+        return true
     }
 
     public func setLogin(
@@ -204,6 +393,9 @@ public actor StorytellerActor {
         }
 
         startMonitoring()
+        if isAppActive {
+            await ProgressSyncActor.shared.startPolling()
+        }
         return success
     }
 
@@ -270,16 +462,24 @@ public actor StorytellerActor {
     @discardableResult
     private func ensureAuthentication(forceReauth: Bool = false) async -> (URL, AccessToken)? {
         if forceReauth {
-            // TODO: implement this.
-            return nil
+            accessToken = nil
         }
+
         if let accessToken = accessToken, let apiBaseURL = apiBaseURL {
             return (apiBaseURL, accessToken)
         }
+
+        guard username != nil, password != nil, apiBaseURL != nil else {
+            debugLog("[StorytellerActor] ensureAuthentication: not configured")
+            return nil
+        }
+
         if await authenticate(), let accessToken = accessToken, let apiBaseURL = apiBaseURL {
+            await updateConnectionStatus(.connected)
             return (apiBaseURL, accessToken)
         }
-        debugLog("[StorytellerActor] Missing authentication and automatic login failed.")
+
+        debugLog("[StorytellerActor] ensureAuthentication: authentication failed")
         return nil
     }
 
@@ -343,8 +543,7 @@ public actor StorytellerActor {
 
             try? await LocalMediaActor.shared.updateStorytellerMetadata(libraryMetadata)
 
-            lastNetworkOpSucceeded = true
-            await observers?()
+            await recordNetworkSuccess()
             return libraryMetadata
         } catch {
             logStorytellerError("fetchLibraryInformation", error: error)
@@ -2366,6 +2565,7 @@ public actor StorytellerActor {
                 return nil
             }
 
+            await recordNetworkSuccess()
             return try decoder.decode(BookReadingPosition.self, from: response.data)
         } catch {
             logStorytellerError("fetchBookPosition", error: error)
@@ -2577,18 +2777,8 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         guard let error else { return }
 
         if let urlError = error as? URLError {
-            switch urlError.code {
-                case .notConnectedToInternet,
-                    .networkConnectionLost,
-                    .cannotFindHost,
-                    .cannotConnectToHost,
-                    .timedOut,
-                    .dnsLookupFailed:
-                    Task {
-                        await StorytellerActor.shared.setLastNetworkOpSucceeded(false)
-                    }
-                default:
-                    break
+            Task {
+                await StorytellerActor.shared.recordNetworkError(urlError)
             }
         }
 
@@ -2625,21 +2815,8 @@ extension StorytellerDownloadDelegate: @unchecked Sendable {}
 
 func logStorytellerError(_ message: String, error: Error) {
     debugLog("[StorytellerActor] \(message): \(error)")
-
-    if let urlError = error as? URLError {
-        switch urlError.code {
-            case .notConnectedToInternet,
-                .networkConnectionLost,
-                .cannotFindHost,
-                .cannotConnectToHost,
-                .timedOut,
-                .dnsLookupFailed:
-                Task {
-                    await StorytellerActor.shared.setLastNetworkOpSucceeded(false)
-                }
-            default:
-                break
-        }
+    Task {
+        await StorytellerActor.shared.recordNetworkError(error)
     }
 }
 

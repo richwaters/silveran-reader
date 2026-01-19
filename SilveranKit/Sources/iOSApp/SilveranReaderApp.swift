@@ -59,21 +59,14 @@ struct SilveranReaderApp: App {
                     "[SilveranReaderApp] App entering background - posting resign notification"
                 )
                 NotificationCenter.default.post(name: .appWillResignActive, object: nil)
+                Task {
+                    await StorytellerActor.shared.setActive(false, source: .app)
+                }
 
             case .active:
-                debugLog("[SilveranReaderApp] App becoming active - recording wake event")
+                debugLog("[SilveranReaderApp] App becoming active")
                 Task {
-                    await ProgressSyncActor.shared.recordWakeEvent()
-
-                    debugLog("[SilveranReaderApp] Syncing pending progress queue")
-                    let (synced, failed) = await ProgressSyncActor.shared.syncPendingQueue()
-                    debugLog("[SilveranReaderApp] Queue sync: synced=\(synced), failed=\(failed)")
-
-                    let status = await StorytellerActor.shared.connectionStatus
-                    if status == .connected {
-                        debugLog("[SilveranReaderApp] Fetching library information from server")
-                        let _ = await StorytellerActor.shared.fetchLibraryInformation()
-                    }
+                    await StorytellerActor.shared.setActive(true, source: .app)
                 }
 
             case .inactive:

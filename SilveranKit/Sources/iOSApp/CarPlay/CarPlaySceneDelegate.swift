@@ -30,8 +30,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         }
 
         Task {
-            debugLog("[CarPlay] Triggering library sync on connect")
-            let _ = await StorytellerActor.shared.fetchLibraryInformation()
+            await StorytellerActor.shared.setActive(true, source: .carPlay)
         }
     }
 
@@ -45,6 +44,9 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             CarPlayCoordinator.shared.isCarPlayConnected = false
             CarPlayCoordinator.shared.onLibraryUpdated = nil
             CarPlayCoordinator.shared.onChaptersUpdated = nil
+        }
+        Task {
+            await StorytellerActor.shared.setActive(false, source: .carPlay)
         }
     }
 

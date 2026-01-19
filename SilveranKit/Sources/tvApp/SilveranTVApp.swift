@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SilveranTVApp: App {
     @State private var mediaViewModel = MediaViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +13,28 @@ struct SilveranTVApp: App {
                 .task {
                     await initializeStorytellerConnection()
                 }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhaseChange(newPhase)
+        }
+    }
+
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+            case .background:
+                debugLog("[TVApp] App entering background")
+                Task {
+                    await StorytellerActor.shared.setActive(false, source: .tv)
+                }
+            case .active:
+                debugLog("[TVApp] App becoming active")
+                Task {
+                    await StorytellerActor.shared.setActive(true, source: .tv)
+                }
+            case .inactive:
+                break
+            @unknown default:
+                break
         }
     }
 

@@ -16,6 +16,7 @@ extension Scene {
 struct SilveranReaderApp: App {
     @State private var mediaViewModel = MediaViewModel()
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.scenePhase) private var scenePhase
     @State private var didOpenSecondaryWindows = false
 
     init() {
@@ -64,6 +65,25 @@ struct SilveranReaderApp: App {
         #endif
     }
 
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+            case .background:
+                debugLog("[macApp] App entering background")
+                Task {
+                    await StorytellerActor.shared.setActive(false, source: .mac)
+                }
+            case .active:
+                debugLog("[macApp] App becoming active")
+                Task {
+                    await StorytellerActor.shared.setActive(true, source: .mac)
+                }
+            case .inactive:
+                break
+            @unknown default:
+                break
+        }
+    }
+
     private var debugLogScene: some Scene {
         Window("Debug Log", id: "DebugLog") {
             DebugLogView()
@@ -84,6 +104,9 @@ struct SilveranReaderApp: App {
             libraryViewContent
         }
         .windowStyle(.hiddenTitleBar)
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhaseChange(newPhase)
+        }
     }
 
     private var libraryViewContent: some View {

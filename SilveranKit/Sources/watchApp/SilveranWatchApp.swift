@@ -4,6 +4,7 @@ import WatchConnectivity
 
 struct SilveranWatchApp: App {
     @State private var watchViewModel = WatchViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         WatchSessionManager.shared.activate()
@@ -17,6 +18,31 @@ struct SilveranWatchApp: App {
                     await initializeStorytellerConnection()
                 }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhaseChange(newPhase)
+        }
+    }
+
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            debugLog("[WatchApp] App entering background")
+            Task {
+                await StorytellerActor.shared.setActive(false, source: .watch)
+            }
+
+        case .active:
+            debugLog("[WatchApp] App becoming active")
+            Task {
+                await StorytellerActor.shared.setActive(true, source: .watch)
+            }
+
+        case .inactive:
+            break
+
+        @unknown default:
+            break
+        }
     }
 
     private func initializeStorytellerConnection() async {
@@ -29,7 +55,6 @@ struct SilveranWatchApp: App {
                 )
                 if success {
                     debugLog("[WatchApp] Storyteller connected successfully")
-                    await ProgressSyncActor.shared.startPolling()
                     await syncOnLaunch()
                 } else {
                     debugLog("[WatchApp] Storyteller connection failed")
