@@ -80,7 +80,7 @@ public actor ProgressSyncActor {
             await loadQueueFromDisk()
             await loadHistoryFromDisk()
         }
-        startPolling()
+        Task { await self.startPolling() }
     }
 
     private func ensureQueueLoaded() async {
