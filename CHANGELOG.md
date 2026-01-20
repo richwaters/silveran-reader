@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1-67] -> [0.1-69]
+
+### Features
+
+#### macOS
+- M4b creator utility added
+- Local readaloud creation utility added (via storyalign)
+- Left and right sidebars now expand outwards
+- Server media management support for modifying and uploading books (experimental)
+
+### Bug Fixes
+
+- Better multi-series support
+- iOS delete buttons made more discoverable
+- Chapter and speed menus now scroll to current selection
+- Fixes for sync and backgrounding edge cases
+- UI elements now check network operation succeeded for status display
+- Simplified reconnect, refresh, and phase handling
+- Fixed book loading race condition
+- Fixed playback of linear audio not in a SMIL entry
+- Fixed concurrency issues
+- Fixed crashes on long press -> details view
+- macOS books view scrolling optimization
+- Performance improvements while reading
+- Sleep timer fixes
+- Fixed incorrect page count on resize
+
+---
+
 ## [0.1-58] -> [0.1-67]
 
 ### Features
