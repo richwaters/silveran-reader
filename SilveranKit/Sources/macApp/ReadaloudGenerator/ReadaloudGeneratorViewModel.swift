@@ -72,6 +72,8 @@ public enum WhisperModelSize: String, CaseIterable, Identifiable, Sendable {
     case tiny = "tiny.en"
     case base = "base.en"
     case small = "small.en"
+    case largeV3Turbo = "large-v3-turbo"
+    case custom = "custom"
 
     public var id: String { rawValue }
 
@@ -79,19 +81,24 @@ public enum WhisperModelSize: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .tiny: return "Tiny (fastest, ~75MB)"
         case .base: return "Base (balanced, ~142MB)"
-        case .small: return "Small (best quality, ~466MB)"
+        case .small: return "Small (good quality, ~466MB)"
+        case .largeV3Turbo: return "Large v3 Turbo (best, multilingual, ~809MB)"
+        case .custom: return "Custom..."
         }
     }
 
     var binFileName: String { "ggml-\(rawValue).bin" }
     var mlmodelFileName: String { "ggml-\(rawValue)-encoder.mlmodelc" }
 
-    var downloadURLs: [URL] {
-        [
-            // Hugging Face is much faster than GitHub releases
-            URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue).bin")!,
-            URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue)-encoder.mlmodelc.zip")!
-        ]
+    var downloadURLs: [URL]? {
+        switch self {
+        case .custom: return nil
+        default:
+            return [
+                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue).bin")!,
+                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue)-encoder.mlmodelc.zip")!,
+            ]
+        }
     }
 }
 
@@ -102,6 +109,7 @@ public final class ReadaloudGeneratorViewModel {
     public var audioURL: URL?
     public var outputURL: URL?
     public var selectedModelSize: WhisperModelSize = .tiny
+    public var customModelPath: URL?
     public var selectedGranularity: Granularity = .sentence
 
     public private(set) var state: ReadaloudGeneratorState = .idle
@@ -123,7 +131,11 @@ public final class ReadaloudGeneratorViewModel {
     }
 
     public var isModelDownloaded: Bool {
-        modelPath(for: selectedModelSize) != nil
+        if selectedModelSize == .custom {
+            guard let customModelPath else { return false }
+            return FileManager.default.fileExists(atPath: customModelPath.path)
+        }
+        return modelPath(for: selectedModelSize) != nil
     }
 
     public func loadChapters() {
@@ -230,7 +242,10 @@ public final class ReadaloudGeneratorViewModel {
     }
 
     private nonisolated func runAlignment(epubURL: URL, audioURL: URL, outputURL: URL) async {
-        let modelPath: String? = await self.modelPath(for: selectedModelSize)
+        let customPath = await self.customModelPath
+        let selectedSize = await self.selectedModelSize
+        let builtInModelPath = await self.modelPath(for: selectedSize)
+        let modelPath: String? = customPath?.path ?? builtInModelPath
         let granularity = await self.selectedGranularity
         let chapters = await self.availableChapters
         let startIdx = await self.startChapterIndex
@@ -360,6 +375,13 @@ public final class ReadaloudGeneratorViewModel {
 
     private nonisolated func downloadModelFiles(for modelSize: WhisperModelSize) async {
         debugLog("[ReadaloudGenerator] downloadModelFiles started for \(modelSize.rawValue)")
+
+        guard let urls = modelSize.downloadURLs else {
+            debugLog("[ReadaloudGenerator] No download URLs for model size \(modelSize.rawValue)")
+            await MainActor.run { self.state = .idle }
+            return
+        }
+
         let fm = FileManager.default
         let modelsDir = await modelsDirectory()
         debugLog("[ReadaloudGenerator] Models directory: \(modelsDir.path)")
@@ -373,7 +395,6 @@ public final class ReadaloudGeneratorViewModel {
             return
         }
 
-        let urls = modelSize.downloadURLs
         debugLog("[ReadaloudGenerator] Will download \(urls.count) files")
 
         for (index, url) in urls.enumerated() {

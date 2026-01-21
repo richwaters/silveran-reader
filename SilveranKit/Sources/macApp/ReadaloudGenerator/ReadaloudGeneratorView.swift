@@ -102,7 +102,17 @@ public struct ReadaloudGeneratorView: View {
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                if viewModel.isModelDownloaded {
+                if viewModel.selectedModelSize == .custom {
+                    Button("Browse...") {
+                        let panel = NSOpenPanel()
+                        panel.allowedContentTypes = [UTType(filenameExtension: "bin")!]
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseDirectories = false
+                        if panel.runModal() == .OK {
+                            viewModel.customModelPath = panel.url
+                        }
+                    }
+                } else if viewModel.isModelDownloaded {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Text("Downloaded")
@@ -114,6 +124,14 @@ public struct ReadaloudGeneratorView: View {
                     }
                     .disabled(viewModel.state == .processing)
                 }
+            }
+
+            if viewModel.selectedModelSize == .custom, let customPath = viewModel.customModelPath {
+                Text(customPath.path)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             if case .downloading(let progress) = viewModel.state {
@@ -320,6 +338,12 @@ public struct ReadaloudGeneratorView: View {
             return "Select output location"
         }
         if !viewModel.isModelDownloaded {
+            if viewModel.selectedModelSize == .custom {
+                if viewModel.customModelPath == nil {
+                    return "Select a custom model file"
+                }
+                return "Custom model file not found"
+            }
             return "Download the Whisper model first"
         }
         return ""
