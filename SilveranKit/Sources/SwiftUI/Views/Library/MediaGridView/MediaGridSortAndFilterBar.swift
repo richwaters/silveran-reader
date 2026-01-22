@@ -22,6 +22,10 @@ struct MediaGridSortAndFilterBar: View {
     let availableStatuses: [String]
     let filtersSummaryText: String
     let showLayoutOption: Bool
+    #if os(macOS)
+    var columnVisibility: Binding<TableColumnVisibility>? = nil
+    var onResetColumns: (() -> Void)? = nil
+    #endif
 
     var body: some View {
         HStack(spacing: 12) {
@@ -281,8 +285,19 @@ struct MediaGridSortAndFilterBar: View {
         selectedLocation = .all
     }
 
+    #if os(macOS)
+    private var isListLayout: Bool {
+        layoutStyle == .list || layoutStyle == .compactList
+    }
+    #endif
+
     @ViewBuilder
     private var viewOptionsMenu: some View {
+        #if os(macOS)
+        if isListLayout {
+            columnsMenuButton
+        }
+        #endif
         Menu {
             if showLayoutOption {
                 layoutSection
@@ -301,6 +316,35 @@ struct MediaGridSortAndFilterBar: View {
         .menuStyle(.borderlessButton)
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private var columnsMenuButton: some View {
+        if let columnVisibility {
+            Menu {
+                Section("Columns") {
+                    Toggle("Cover", isOn: columnVisibility.cover)
+                    Toggle("Title", isOn: columnVisibility.title)
+                    Toggle("Author", isOn: columnVisibility.author)
+                    Toggle("Series", isOn: columnVisibility.series)
+                    Toggle("Progress", isOn: columnVisibility.progress)
+                    Toggle("Media", isOn: columnVisibility.media)
+                    Toggle("Narrator", isOn: columnVisibility.narrator)
+                    Toggle("Status", isOn: columnVisibility.status)
+                    Toggle("Added", isOn: columnVisibility.added)
+                    Toggle("Tags", isOn: columnVisibility.tags)
+                }
+                if let onResetColumns {
+                    Divider()
+                    Button("Reset to Defaults", action: onResetColumns)
+                }
+            } label: {
+                Label("Columns", systemImage: "tablecells")
+            }
+            .menuStyle(.borderlessButton)
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var layoutSection: some View {

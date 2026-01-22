@@ -110,6 +110,9 @@ struct MediaGridView: View {
     @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("coverSize.global") private var coverSizeRaw: String = CoverSize.medium.rawValue
+    #if os(macOS)
+    @AppStorage("library.table.columnVisibility") private var columnVisibility: TableColumnVisibility = .defaultVisibility(compact: false)
+    #endif
 
     private var layoutStyle: LibraryLayoutStyle {
         get { LibraryLayoutStyle(rawValue: layoutStyleRaw) ?? .grid }
@@ -292,6 +295,7 @@ struct MediaGridView: View {
         GeometryReader { geometry in
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
+            let usesTableLayout = layoutStyle == .list || layoutStyle == .compactList
             #else
             let shouldShowSidebar = false
             #endif
@@ -304,50 +308,16 @@ struct MediaGridView: View {
 
             ZStack(alignment: .topLeading) {
                 HStack(spacing: 0) {
-                    ScrollViewReader { proxy in
-                        ScrollView(.vertical, showsIndicators: true) {
-                            content(for: max(contentWidth, minimumTileWidth))
-                        }
-                        .frame(width: max(contentWidth, minimumTileWidth))
-                        .contentMargins(.trailing, 10, for: .scrollIndicators)
-                        .scrollClipDisabled(true)
-                        .modifier(SoftScrollEdgeModifier())
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            #if os(macOS)
-                            if cardTapInProgress {
-                                cardTapInProgress = false
-                                return
-                            }
-                            #endif
-                            activeInfoItem = nil
-                            dismissSidebar()
-                        }
-                        #if os(macOS)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in }
-                        )
-                        #endif
-                        #if os(iOS)
-                        .overlay(alignment: .trailing) {
-                            if shouldShowAlphabetScrubber {
-                                AlphabetScrubber(
-                                    items: cachedDisplayItems,
-                                    textForItem: { item in
-                                        selectedSortOption == .authorAZ
-                                            ? (item.authors?.first?.name ?? item.title)
-                                            : item.title
-                                    },
-                                    idForItem: { $0.id },
-                                    proxy: proxy
-                                )
-                                .padding(.top, 120)
-                                .padding(.bottom, 40)
-                            }
-                        }
-                        #endif
+                    #if os(macOS)
+                    if usesTableLayout {
+                        tableContent(for: max(contentWidth, minimumTileWidth))
+                            .frame(width: max(contentWidth, minimumTileWidth))
+                    } else {
+                        scrollableContent(for: max(contentWidth, minimumTileWidth))
                     }
+                    #else
+                    scrollableContent(for: max(contentWidth, minimumTileWidth))
+                    #endif
 
                     #if os(macOS)
                     if shouldShowSidebar, let activeInfoItem {
@@ -393,6 +363,247 @@ struct MediaGridView: View {
         #endif
     }
 
+    @ViewBuilder
+    private func scrollableContent(for contentWidth: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                content(for: contentWidth)
+            }
+            .frame(width: contentWidth)
+            .contentMargins(.trailing, 10, for: .scrollIndicators)
+            .scrollClipDisabled(true)
+            .modifier(SoftScrollEdgeModifier())
+            .contentShape(Rectangle())
+            .onTapGesture {
+                #if os(macOS)
+                if cardTapInProgress {
+                    cardTapInProgress = false
+                    return
+                }
+                #endif
+                activeInfoItem = nil
+                dismissSidebar()
+            }
+            #if os(macOS)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in }
+            )
+            #endif
+            #if os(iOS)
+            .overlay(alignment: .trailing) {
+                if shouldShowAlphabetScrubber {
+                    AlphabetScrubber(
+                        items: cachedDisplayItems,
+                        textForItem: { item in
+                            selectedSortOption == .authorAZ
+                                ? (item.authors?.first?.name ?? item.title)
+                                : item.title
+                        },
+                        idForItem: { $0.id },
+                        proxy: proxy
+                    )
+                    .padding(.top, 120)
+                    .padding(.bottom, 40)
+                }
+            }
+            #endif
+        }
+    }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func tableContent(for contentWidth: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            tableHeader
+                .padding(.horizontal, gridHorizontalPadding)
+                .padding(.leading, 8)
+                .padding(.top)
+
+            if cachedDisplayItems.isEmpty {
+                emptyStateView
+                    .padding(.horizontal, gridHorizontalPadding)
+            } else {
+                MediaTableView(
+                    items: cachedDisplayItems,
+                    mediaKind: mediaKind,
+                    coverPreference: coverPreference,
+                    showAudioIndicator: settingsViewModel.showAudioIndicator,
+                    compact: layoutStyle == .compactList,
+                    selection: Binding(
+                        get: { activeInfoItem?.id },
+                        set: { newID in
+                            activeInfoItem = cachedDisplayItems.first { $0.id == newID }
+                        }
+                    ),
+                    columnVisibility: $columnVisibility,
+                    onSelect: { selectItem($0) },
+                    onInfo: { openSidebar(for: $0) }
+                )
+            }
+        }
+        .onAppear {
+            recomputeAllCaches()
+        }
+        .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            recomputeAllCaches()
+        }
+        .onChange(of: selectedFormatFilter) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedTag) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedSeries) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedStatus) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedLocation) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedNarrator) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedAuthor) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: selectedSortOption) { _, _ in
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: mediaKind) { _, _ in
+            recomputeAllCaches()
+            reconcileSelectionAfterFiltering()
+        }
+        .onChange(of: searchText) { _, _ in
+            recomputeDisplayItems()
+        }
+        .onChange(of: initialNarrationFilterOption) { _, _ in
+            selectedFormatFilter =
+                MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+            recomputeDisplayItems()
+            reconcileSelectionAfterFiltering()
+        }
+    }
+
+    private var tableHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+
+            MediaGridSortAndFilterBar(
+                selectedSortOption: $selectedSortOption,
+                selectedFormatFilter: $selectedFormatFilter,
+                selectedTag: $selectedTag,
+                selectedSeries: $selectedSeries,
+                selectedAuthor: $selectedAuthor,
+                selectedNarrator: $selectedNarrator,
+                selectedStatus: $selectedStatus,
+                selectedLocation: $selectedLocation,
+                layoutStyle: Binding(
+                    get: { layoutStyle },
+                    set: { layoutStyleRaw = $0.rawValue }
+                ),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                coverSize: Binding(
+                    get: { coverSize },
+                    set: { coverSizeRaw = $0.rawValue }
+                ),
+                showAudioIndicator: Binding(
+                    get: { settingsViewModel.showAudioIndicator },
+                    set: { newValue in
+                        settingsViewModel.showAudioIndicator = newValue
+                        Task { try? await settingsViewModel.save() }
+                    }
+                ),
+                showSourceBadge: $showSourceBadge,
+                showSeriesPositionBadge: $showSeriesPositionBadge,
+                availableTags: cachedAvailableTags,
+                availableSeries: cachedAvailableSeries,
+                availableAuthors: cachedAvailableAuthors,
+                availableNarrators: cachedAvailableNarrators,
+                availableStatuses: cachedAvailableStatuses,
+                filtersSummaryText: cachedFiltersSummary,
+                showLayoutOption: true,
+                columnVisibility: $columnVisibility,
+                onResetColumns: {
+                    columnVisibility = .defaultVisibility(compact: layoutStyle == .compactList)
+                }
+            )
+        }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 12) {
+            Text("No media is available here yet!")
+                .font(.title)
+                .foregroundStyle(.secondary)
+            Text(
+                "To add some media, use the Media Sources on the left to load either local files or a remote Storyteller server."
+            )
+            .font(.body)
+            .foregroundStyle(.tertiary)
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 500)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 60)
+    }
+    #endif
+
+
+    private var contentFilterBar: some View {
+        MediaGridSortAndFilterBar(
+            selectedSortOption: $selectedSortOption,
+            selectedFormatFilter: $selectedFormatFilter,
+            selectedTag: $selectedTag,
+            selectedSeries: $selectedSeries,
+            selectedAuthor: $selectedAuthor,
+            selectedNarrator: $selectedNarrator,
+            selectedStatus: $selectedStatus,
+            selectedLocation: $selectedLocation,
+            layoutStyle: Binding(
+                get: { layoutStyle },
+                set: { layoutStyleRaw = $0.rawValue }
+            ),
+            coverPreference: Binding(
+                get: { coverPreference },
+                set: { coverPrefRaw = $0.rawValue }
+            ),
+            coverSize: Binding(
+                get: { coverSize },
+                set: { coverSizeRaw = $0.rawValue }
+            ),
+            showAudioIndicator: Binding(
+                get: { settingsViewModel.showAudioIndicator },
+                set: { newValue in
+                    settingsViewModel.showAudioIndicator = newValue
+                    Task { await settingsViewModel.save() }
+                }
+            ),
+            showSourceBadge: $showSourceBadge,
+            showSeriesPositionBadge: $showSeriesPositionBadge,
+            availableTags: cachedAvailableTags,
+            availableSeries: cachedAvailableSeries,
+            availableAuthors: cachedAvailableAuthors,
+            availableNarrators: cachedAvailableNarrators,
+            availableStatuses: cachedAvailableStatuses,
+            filtersSummaryText: cachedFiltersSummary,
+            showLayoutOption: true
+        )
+    }
 
     @ViewBuilder
     private func content(for containerWidth: CGFloat) -> some View {
@@ -405,44 +616,7 @@ struct MediaGridView: View {
                 Text(title)
                     .font(.system(size: headerFontSize, weight: .regular, design: .serif))
 
-                MediaGridSortAndFilterBar(
-                    selectedSortOption: $selectedSortOption,
-                    selectedFormatFilter: $selectedFormatFilter,
-                    selectedTag: $selectedTag,
-                    selectedSeries: $selectedSeries,
-                    selectedAuthor: $selectedAuthor,
-                    selectedNarrator: $selectedNarrator,
-                    selectedStatus: $selectedStatus,
-                    selectedLocation: $selectedLocation,
-                    layoutStyle: Binding(
-                        get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
-                    ),
-                    coverPreference: Binding(
-                        get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
-                    ),
-                    coverSize: Binding(
-                        get: { coverSize },
-                        set: { coverSizeRaw = $0.rawValue }
-                    ),
-                    showAudioIndicator: Binding(
-                        get: { settingsViewModel.showAudioIndicator },
-                        set: { newValue in
-                            settingsViewModel.showAudioIndicator = newValue
-                            Task { try? await settingsViewModel.save() }
-                        }
-                    ),
-                    showSourceBadge: $showSourceBadge,
-                    showSeriesPositionBadge: $showSeriesPositionBadge,
-                    availableTags: cachedAvailableTags,
-                    availableSeries: cachedAvailableSeries,
-                    availableAuthors: cachedAvailableAuthors,
-                    availableNarrators: cachedAvailableNarrators,
-                    availableStatuses: cachedAvailableStatuses,
-                    filtersSummaryText: cachedFiltersSummary,
-                    showLayoutOption: true
-                )
+                contentFilterBar
             }
             .padding(.horizontal, gridHorizontalPadding)
             .padding(.leading, 8)
