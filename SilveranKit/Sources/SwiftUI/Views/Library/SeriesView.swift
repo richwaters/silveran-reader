@@ -133,19 +133,34 @@ struct SeriesView: View {
                 : containerWidth
 
             HStack(spacing: 0) {
-                ScrollView(.vertical, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: sectionSpacing) {
-                        headerView
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: true) {
+                        VStack(alignment: .leading, spacing: sectionSpacing) {
+                            headerView
 
-                        seriesContent(contentWidth: contentWidth)
+                            seriesContent(contentWidth: contentWidth)
+                        }
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, 24)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, 24)
-                    .padding(.bottom, 40)
+                    .frame(width: contentWidth)
+                    .contentMargins(.trailing, 10, for: .scrollIndicators)
+                    .modifier(SoftScrollEdgeModifier())
+                    #if os(iOS)
+                    .overlay(alignment: .trailing) {
+                        let groups = mediaViewModel.booksBySeries(for: mediaKind)
+                        AlphabetScrubber(
+                            items: groups,
+                            textForItem: { $0.series?.name ?? "No Series" },
+                            idForItem: { $0.series?.name ?? Self.noSeriesFilterKey },
+                            proxy: proxy
+                        )
+                        .padding(.top, 120)
+                        .padding(.bottom, 40)
+                    }
+                    #endif
                 }
-                .frame(width: contentWidth)
-                .contentMargins(.trailing, 10, for: .scrollIndicators)
-                .modifier(SoftScrollEdgeModifier())
 
                 if isSidebarVisible, let item = activeInfoItem {
                     MediaGridInfoSidebar(
@@ -275,6 +290,7 @@ struct SeriesView: View {
                         navigateToSeries(navigationKey)
                     }
                 )
+                .id(navigationKey)
             }
         }
     }
@@ -293,6 +309,7 @@ struct SeriesView: View {
                         navigateToSeries(navigationKey)
                     }
                 )
+                .id(navigationKey)
             }
         }
     }
@@ -460,4 +477,5 @@ struct SeriesView: View {
                     #endif
         }
     }
+
 }

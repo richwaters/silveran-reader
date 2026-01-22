@@ -70,7 +70,12 @@ struct MediaCompactListRowView: View {
             .buttonStyle(.plain)
             #endif
         }
+        #if os(iOS)
+        .padding(.leading, 12)
+        .padding(.trailing, 28)
+        #else
         .padding(.horizontal, 12)
+        #endif
         .frame(height: rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 4, style: .continuous)

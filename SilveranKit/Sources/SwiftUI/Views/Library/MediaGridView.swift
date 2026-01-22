@@ -329,6 +329,24 @@ struct MediaGridView: View {
                                 .onChanged { _ in }
                         )
                         #endif
+                        #if os(iOS)
+                        .overlay(alignment: .trailing) {
+                            if shouldShowAlphabetScrubber {
+                                AlphabetScrubber(
+                                    items: cachedDisplayItems,
+                                    textForItem: { item in
+                                        selectedSortOption == .authorAZ
+                                            ? (item.authors?.first?.name ?? item.title)
+                                            : item.title
+                                    },
+                                    idForItem: { $0.id },
+                                    proxy: proxy
+                                )
+                                .padding(.top, 120)
+                                .padding(.bottom, 40)
+                            }
+                        }
+                        #endif
                     }
 
                     #if os(macOS)
@@ -687,6 +705,13 @@ struct MediaGridView: View {
             isSidebarVisible = false
         }
     }
+
+    #if os(iOS)
+    private var shouldShowAlphabetScrubber: Bool {
+        let isAlphabeticalSort = selectedSortOption == .titleAZ || selectedSortOption == .authorAZ
+        return isAlphabeticalSort
+    }
+    #endif
 
     private func reconcileSelectionAfterFiltering() {
         guard let activeInfoItem else { return }

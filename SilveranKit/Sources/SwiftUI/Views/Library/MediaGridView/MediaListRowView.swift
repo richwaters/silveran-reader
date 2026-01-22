@@ -96,7 +96,12 @@ struct MediaListRowView: View {
             Spacer(minLength: 0)
             trailingView
         }
+        #if os(iOS)
+        .padding(.leading, horizontalPadding)
+        .padding(.trailing, 28)
+        #else
         .padding(.horizontal, horizontalPadding)
+        #endif
         .padding(.vertical, 8)
         .frame(height: rowHeight)
         .background(

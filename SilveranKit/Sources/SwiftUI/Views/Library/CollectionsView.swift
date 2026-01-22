@@ -140,18 +140,33 @@ struct CollectionsView: View {
                 : containerWidth
 
             HStack(spacing: sidebarSpacing) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: sectionSpacing) {
-                        headerView
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: sectionSpacing) {
+                            headerView
 
-                        collectionsContent(contentWidth: contentWidth)
+                            collectionsContent(contentWidth: contentWidth)
+                        }
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, 24)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, 24)
-                    .padding(.bottom, 40)
+                    .modifier(SoftScrollEdgeModifier())
+                    .frame(width: contentWidth)
+                    #if os(iOS)
+                    .overlay(alignment: .trailing) {
+                        let groups = mediaViewModel.booksByCollection(for: mediaKind)
+                        AlphabetScrubber(
+                            items: groups,
+                            textForItem: { $0.collection?.name ?? "Unknown Collection" },
+                            idForItem: { $0.collection?.uuid ?? $0.collection?.name ?? "unknown" },
+                            proxy: proxy
+                        )
+                        .padding(.top, 120)
+                        .padding(.bottom, 40)
+                    }
+                    #endif
                 }
-                .modifier(SoftScrollEdgeModifier())
-                .frame(width: contentWidth)
 
                 if isSidebarVisible, let item = activeInfoItem {
                     MediaGridInfoSidebar(
@@ -271,17 +286,17 @@ struct CollectionsView: View {
 
         LazyVGrid(columns: columns, spacing: 20) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                let collectionId = group.collection?.uuid ?? group.collection?.name ?? "unknown"
                 CollectionCardView(
                     collection: group.collection,
                     books: group.books,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,
                     onTap: {
-                        if let collectionId = group.collection?.uuid ?? group.collection?.name {
-                            navigateToCollection(collectionId)
-                        }
+                        navigateToCollection(collectionId)
                     }
                 )
+                .id(collectionId)
             }
         }
     }
@@ -290,17 +305,17 @@ struct CollectionsView: View {
     private func collectionsListLayout(groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]) -> some View {
         LazyVStack(alignment: .leading, spacing: 1) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                let collectionId = group.collection?.uuid ?? group.collection?.name ?? "unknown"
                 CollectionRowView(
                     collection: group.collection,
                     books: group.books,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,
                     onTap: {
-                        if let collectionId = group.collection?.uuid ?? group.collection?.name {
-                            navigateToCollection(collectionId)
-                        }
+                        navigateToCollection(collectionId)
                     }
                 )
+                .id(collectionId)
             }
         }
     }
@@ -527,4 +542,5 @@ struct CollectionsView: View {
                     #endif
         }
     }
+
 }
