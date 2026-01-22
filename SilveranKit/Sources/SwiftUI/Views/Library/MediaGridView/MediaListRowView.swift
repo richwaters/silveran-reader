@@ -300,6 +300,11 @@ struct MediaListRowView: View {
                                 .trim(from: 0, to: progress)
                                 .stroke(color, lineWidth: 2)
                                 .rotationEffect(.degrees(-90))
+                            #if os(iOS)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(color)
+                            #endif
                         }
                         .frame(width: 18, height: 18)
                     } else {

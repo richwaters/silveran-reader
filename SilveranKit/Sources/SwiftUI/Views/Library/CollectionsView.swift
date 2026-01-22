@@ -376,6 +376,7 @@ struct CollectionsView: View {
                 mediaKind: mediaKind,
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
+                coverPreference: coverPreference,
                 onSelect: { book in
                     if let collectionId = collection?.uuid ?? collection?.name {
                         navigateToCollection(collectionId)

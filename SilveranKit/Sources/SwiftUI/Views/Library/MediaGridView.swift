@@ -458,7 +458,12 @@ struct MediaGridView: View {
                     let gridTileSize = coverSize.gridTileWidth
                     let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridTileSize + 40), spacing: horizontalSpacing)]
                     let gridMetrics = MediaItemCardMetrics.make(for: gridTileSize, mediaKind: mediaKind, coverPreference: coverPreference)
-                    LazyVGrid(columns: gridColumns, alignment: .leading, spacing: verticalSpacing) {
+                    #if os(iOS)
+                    let gridAlignment: HorizontalAlignment = .center
+                    #else
+                    let gridAlignment: HorizontalAlignment = .leading
+                    #endif
+                    LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: verticalSpacing) {
                         ForEach(cachedDisplayItems) { item in
                             card(for: item, metrics: gridMetrics)
                         }
@@ -468,7 +473,12 @@ struct MediaGridView: View {
                 case .compactGrid:
                     let compactTileSize = coverSize.gridTileWidth
                     let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactTileSize + 20), spacing: 4)]
-                    LazyVGrid(columns: compactColumns, alignment: .leading, spacing: 4) {
+                    #if os(iOS)
+                    let compactGridAlignment: HorizontalAlignment = .center
+                    #else
+                    let compactGridAlignment: HorizontalAlignment = .leading
+                    #endif
+                    LazyVGrid(columns: compactColumns, alignment: compactGridAlignment, spacing: 4) {
                         ForEach(cachedDisplayItems) { item in
                             MediaCompactCardView(
                                 item: item,

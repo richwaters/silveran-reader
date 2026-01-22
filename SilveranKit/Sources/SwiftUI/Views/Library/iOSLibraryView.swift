@@ -50,7 +50,12 @@ public struct iOSLibraryView: View {
     @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
     @State private var settingsViewModel = SettingsViewModel()
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     public init() {}
 
@@ -317,20 +322,14 @@ public struct iOSLibraryView: View {
     }
 
     private var collectionsTabContent: some View {
-        NavigationStack(path: $collectionsNavigationPath) {
-            CollectionsListView(
-                searchText: $searchText,
-                navigationPath: $collectionsNavigationPath
-            )
-            .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-            .searchable(
-                text: $searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
-            )
-            .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        }
-        .environment(\.mediaNavigationPath, $collectionsNavigationPath)
+        CollectionsView(
+            mediaKind: .ebook,
+            searchText: $searchText,
+            sidebarSections: $sections,
+            selectedSidebarItem: $selectedItem,
+            showSettings: $showSettings,
+            showOfflineSheet: $showOfflineSheet
+        )
     }
 
     private var downloadedTabContent: some View {
@@ -614,6 +613,11 @@ struct CollectionsListView: View {
     @Binding var navigationPath: NavigationPath
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
@@ -717,6 +721,7 @@ struct CollectionsListView: View {
                 mediaKind: .ebook,
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
+                coverPreference: coverPreference,
                 onSelect: { _ in
                     navigateToCollection(navIdentifier)
                 },
@@ -800,6 +805,11 @@ struct SeriesContentView: View {
     @Binding var searchText: String
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
@@ -893,6 +903,7 @@ struct SeriesContentView: View {
                 mediaKind: .ebook,
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
+                coverPreference: coverPreference,
                 onSelect: { _ in },
                 onInfo: { _ in }
             )

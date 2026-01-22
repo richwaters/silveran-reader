@@ -364,6 +364,7 @@ struct SeriesView: View {
                 mediaKind: mediaKind,
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
+                coverPreference: coverPreference,
                 onSelect: { _ in
                     navigateToSeries(navigationKey)
                 },

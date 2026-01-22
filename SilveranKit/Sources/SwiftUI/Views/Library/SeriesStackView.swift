@@ -5,6 +5,7 @@ struct SeriesStackView: View {
     let mediaKind: MediaKind
     let availableWidth: CGFloat
     let showAudioIndicator: Bool
+    let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
@@ -26,7 +27,7 @@ struct SeriesStackView: View {
     }
 
     private func coverView(for book: BookMetadata, index: Int, layout: LayoutInfo) -> some View {
-        let coverVariant = mediaViewModel.coverVariant(for: book)
+        let coverVariant = resolveCoverVariant(for: book)
         let coverWidth = coverHeight * coverVariant.preferredAspectRatio
         let placeholderColor = Color(white: 0.2)
         let coverState = mediaViewModel.coverState(for: book, variant: coverVariant)
@@ -72,7 +73,7 @@ struct SeriesStackView: View {
 
         var coverWidths: [CGFloat] = []
         for book in books {
-            let variant = mediaViewModel.coverVariant(for: book)
+            let variant = resolveCoverVariant(for: book)
             let width = coverHeight * variant.preferredAspectRatio
             coverWidths.append(width)
         }
@@ -135,6 +136,21 @@ struct SeriesStackView: View {
         func offset(for index: Int) -> CGFloat {
             guard index < offsets.count else { return 0 }
             return offsets[index]
+        }
+    }
+
+    private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
+        switch coverPreference {
+        case .preferEbook:
+            if item.hasAvailableEbook {
+                return .standard
+            }
+            return item.hasAvailableAudiobook ? .audioSquare : .standard
+        case .preferAudiobook:
+            if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                return .audioSquare
+            }
+            return .standard
         }
     }
 }

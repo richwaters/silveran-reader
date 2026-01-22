@@ -8,9 +8,18 @@ struct MediaCompactListRowView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredMediaType: MediaType?
-    #endif
-
     private let rowHeight: CGFloat = 32
+    private let titleFontSize: CGFloat = 13
+    private let iconSize: CGFloat = 11
+    private let buttonSize: CGFloat = 22
+    private let progressIconSize: CGFloat = 6
+    #else
+    private let rowHeight: CGFloat = 44
+    private let titleFontSize: CGFloat = 15
+    private let iconSize: CGFloat = 14
+    private let buttonSize: CGFloat = 32
+    private let progressIconSize: CGFloat = 8
+    #endif
 
     var body: some View {
         #if os(iOS)
@@ -29,10 +38,11 @@ struct MediaCompactListRowView: View {
             progressBar(progress: progress)
 
             Text(item.title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: titleFontSize, weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
+            #if os(macOS)
             if let authorName = item.authors?.first?.name {
                 Text("—")
                     .font(.system(size: 13))
@@ -42,6 +52,7 @@ struct MediaCompactListRowView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+            #endif
 
             Spacer(minLength: 4)
 
@@ -166,7 +177,7 @@ struct MediaCompactListRowView: View {
                 if status.downloading {
                     if isHovered {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.system(size: iconSize + 3))
                             .foregroundStyle(color)
                     } else if let progress = status.progress {
                         ZStack {
@@ -176,30 +187,35 @@ struct MediaCompactListRowView: View {
                                 .trim(from: 0, to: progress)
                                 .stroke(color, lineWidth: 1.5)
                                 .rotationEffect(.degrees(-90))
+                            #if os(iOS)
+                            Image(systemName: "xmark")
+                                .font(.system(size: progressIconSize, weight: .bold))
+                                .foregroundStyle(color)
+                            #endif
                         }
-                        .frame(width: 14, height: 14)
+                        .frame(width: iconSize + 3, height: iconSize + 3)
                     } else {
                         ProgressView()
                             .controlSize(.mini)
                     }
                 } else if isHovered && status.available && !status.downloaded {
                     Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: iconSize + 3))
                         .foregroundStyle(color)
                 } else if isHovered && status.downloaded {
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: iconSize + 3))
                         .foregroundStyle(color)
                 } else if type == .synced {
-                    ReadaloudIcon(size: 12)
+                    ReadaloudIcon(size: iconSize + 1)
                         .foregroundStyle(color)
                 } else {
                     Image(systemName: type.iconName)
-                        .font(.system(size: 11))
+                        .font(.system(size: iconSize))
                         .foregroundStyle(color)
                 }
             }
-            .frame(width: 22, height: 22)
+            .frame(width: buttonSize, height: buttonSize)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
