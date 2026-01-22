@@ -158,9 +158,12 @@ struct iOSBookDetailView: View {
     }
 
     private var mediaButtonsRow: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             ForEach(mediaOptions) { option in
                 iOSMediaButton(item: item, option: option)
+            }
+            if currentItem.canShowCreateReadaloud {
+                iOSCreateReadaloudButton(item: currentItem)
             }
         }
     }
@@ -697,6 +700,145 @@ private struct iOSCircularProgress: View {
                     }
             }
         }
+    }
+}
+
+private struct iOSCreateReadaloudButton: View {
+    let item: BookMetadata
+    @State private var isStartingAlignment = false
+    @State private var isCancelingAlignment = false
+    @State private var showConfirmation = false
+
+    private var readaloudStatus: String? {
+        item.readaloud?.status?.uppercased()
+    }
+
+    private var isProcessingOrQueued: Bool {
+        readaloudStatus == "PROCESSING" || readaloudStatus == "QUEUED"
+    }
+
+    private var isErrorOrStopped: Bool {
+        readaloudStatus == "ERROR" || readaloudStatus == "STOPPED"
+    }
+
+    private var statusText: String? {
+        guard let readaloud = item.readaloud else { return nil }
+        if let stage = readaloud.currentStage, let progress = readaloud.stageProgress {
+            return "\(stage): \(Int(progress * 100))%"
+        } else if let pos = readaloud.queuePosition {
+            return "Queued (#\(pos))"
+        } else if readaloudStatus == "QUEUED" {
+            return "Queued"
+        } else if readaloudStatus == "PROCESSING" {
+            return "Processing..."
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            if isProcessingOrQueued {
+                processingButton
+            } else {
+                createButton
+            }
+            if isProcessingOrQueued, let status = statusText {
+                Text(status)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.green.opacity(0.7))
+            } else if isErrorOrStopped {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 10))
+                    Text(readaloudStatus?.capitalized ?? "Error")
+                        .font(.system(size: 11))
+                }
+                .foregroundStyle(.red)
+            }
+        }
+        .alert("Create Readaloud", isPresented: $showConfirmation) {
+            Button("Create") {
+                Task {
+                    isStartingAlignment = true
+                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
+                    await StorytellerActor.shared.fetchLibraryInformation()
+                    isStartingAlignment = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will create a synchronized readaloud on the server by aligning the audiobook with the ebook.")
+        }
+    }
+
+    private var createButton: some View {
+        Button {
+            showConfirmation = true
+        } label: {
+            HStack(spacing: 6) {
+                if isStartingAlignment {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.green)
+                } else {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                Text("Readaloud")
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(.green)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .foregroundStyle(.green.opacity(0.5))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isStartingAlignment)
+    }
+
+    private var processingButton: some View {
+        Button {
+            Task {
+                isCancelingAlignment = true
+                _ = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
+                await StorytellerActor.shared.fetchLibraryInformation()
+                isCancelingAlignment = false
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if isCancelingAlignment {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.green)
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.green)
+                }
+                Text("Readaloud")
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Spacer(minLength: 0)
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(.green)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
+            .background(.green.opacity(0.15))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isCancelingAlignment)
     }
 }
 
