@@ -48,8 +48,8 @@ public enum CoverSize: String, CaseIterable, Identifiable, Sendable {
     public var gridTileWidth: CGFloat {
         switch self {
         case .small: 100
-        case .medium: 140
-        case .large: 180
+        case .medium: 125
+        case .large: 160
         }
     }
 }
