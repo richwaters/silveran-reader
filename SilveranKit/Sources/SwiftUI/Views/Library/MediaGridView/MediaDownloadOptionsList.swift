@@ -48,92 +48,79 @@ struct CreateReadaloudRow: View {
     }
 
     var body: some View {
+        if isProcessingOrQueued {
+            processingRow
+        } else {
+            menuRow
+        }
+    }
+
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: isProcessingOrQueued ? [] : [5]))
+            .foregroundStyle(Color.secondary.opacity(0.3))
+            .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var processingRow: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
-                createMenuWithLabel
+                HStack(spacing: 8) {
+                    Image("readalong")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 20, height: 20)
+                        .foregroundStyle(.green)
+                    Text("Creating Readaloud...")
+                        .foregroundStyle(.green)
+                }
+                .font(.body)
 
                 Spacer()
 
-                if isProcessingOrQueued {
-                    cancelButton
-                } else if isErrorOrStopped {
-                    errorStatusView
-                }
+                cancelButton
             }
 
-            if isProcessingOrQueued {
-                progressStatusView
-                    .padding(.leading, 28)
-            }
+            progressStatusView
+                .padding(.leading, 28)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: isProcessingOrQueued ? [] : [5]))
-                .foregroundStyle(Color.secondary.opacity(0.3))
-        )
-        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+        .background(rowBackground)
     }
 
-    @ViewBuilder
-    private var createMenuWithLabel: some View {
-        if isProcessingOrQueued {
+    private var menuRow: some View {
+        HStack(spacing: 12) {
             HStack(spacing: 8) {
                 Image("readalong")
                     .renderingMode(.template)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
-                    .foregroundStyle(.green)
-                Text("Creating Readaloud...")
+                    .foregroundColor(.green)
+                Text("Create Readaloud")
                     .foregroundStyle(.green)
             }
             .font(.body)
-        } else {
-            Menu {
-                Button {
-                    Task {
-                        isStartingAlignment = true
-                        _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
-                        await StorytellerActor.shared.fetchLibraryInformation()
-                        isStartingAlignment = false
-                    }
-                } label: {
-                    Label("Create on Server", systemImage: "server.rack")
-                }
-                .disabled(isStartingAlignment)
 
-                Button {
-                } label: {
-                    Label("Create Locally", systemImage: "desktopcomputer")
-                }
-                .disabled(true)
-            } label: {
-                HStack(spacing: 8) {
-                    if isStartingAlignment {
-                        ProgressView()
-                            .progressViewStyle(ThinCircularProgressViewStyle())
-                            .frame(width: 20, height: 20)
-                    } else {
-                        Image("readalong")
-                            .renderingMode(.template)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 20, height: 20)
-                            .foregroundColor(.green)
-                    }
-                    Text("Create Readaloud")
-                        .foregroundStyle(.green)
-                    Image(systemName: "plus")
-                        .imageScale(.small)
-                        .foregroundStyle(.green)
+            Spacer()
+
+            if isErrorOrStopped {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(.red)
+                    Text(readaloudStatus?.capitalized ?? "Error")
+                        .foregroundStyle(.secondary)
                 }
                 .font(.body)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
+
+            createMenu
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(rowBackground)
     }
 
     @ViewBuilder
@@ -155,15 +142,40 @@ struct CreateReadaloudRow: View {
         .font(.caption)
     }
 
-    @ViewBuilder
-    private var errorStatusView: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-            Text(readaloudStatus?.capitalized ?? "Error")
-                .foregroundStyle(.secondary)
+    private var createMenu: some View {
+        ZStack {
+            if isStartingAlignment {
+                ProgressView()
+                    .progressViewStyle(ThinCircularProgressViewStyle())
+            } else {
+                Image(systemName: "plus.circle")
+                    .imageScale(.large)
+            }
+
+            Menu {
+                Button {
+                    Task {
+                        isStartingAlignment = true
+                        _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
+                        await StorytellerActor.shared.fetchLibraryInformation()
+                        isStartingAlignment = false
+                    }
+                } label: {
+                    Label("Create on Server", systemImage: "server.rack")
+                }
+                .disabled(isStartingAlignment)
+
+                Button {
+                } label: {
+                    Label("Create Locally", systemImage: "desktopcomputer")
+                }
+                .disabled(true)
+            } label: {
+                Color.clear
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
         }
-        .font(.body)
     }
 
     @ViewBuilder
@@ -201,6 +213,7 @@ struct MediaDownloadOptionRow: View {
 
     @State private var showConnectionAlert = false
     @State private var isHovered = false
+    @State private var isDownloadAreaHovered = false
 
     private var hasConnectionError: Bool {
         if mediaViewModel.lastNetworkOpSucceeded == false { return true }
@@ -469,56 +482,58 @@ struct MediaDownloadOptionRow: View {
             }
         }
         #else
-        HStack(spacing: 10) {
-            if !isDownloadInProgress {
-                Button {
-                    if hasConnectionError {
-                        showConnectionAlert = true
-                    } else {
-                        mediaViewModel.startDownload(for: item, category: option.category)
-                        onAction?()
-                    }
-                } label: {
-                    if isHovered && hasConnectionError {
+        Button {
+            if isDownloadInProgress {
+                cancelDownload()
+            } else if hasConnectionError {
+                showConnectionAlert = true
+            } else {
+                mediaViewModel.startDownload(for: item, category: option.category)
+                onAction?()
+            }
+        } label: {
+            Group {
+                if isDownloadInProgress {
+                    if isDownloadAreaHovered {
+                        Image(systemName: "xmark.circle.fill")
+                            .imageScale(.large)
+                    } else if let fraction = mediaViewModel.downloadProgressFraction(
+                        for: item,
+                        category: option.category
+                    ) {
                         ZStack {
                             Circle()
-                                .fill(.red)
-                                .frame(width: 20, height: 20)
-                            Image(systemName: "exclamationmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+                            Circle()
+                                .trim(from: 0, to: fraction)
+                                .stroke(Color.blue, lineWidth: 2)
+                                .rotationEffect(.degrees(-90))
                         }
+                        .frame(width: 17, height: 17)
                     } else {
-                        Image(systemName: "arrow.down.circle")
-                            .imageScale(.large)
+                        ProgressView()
+                            .progressViewStyle(ThinCircularProgressViewStyle())
                     }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(option.downloadTitle)
-            }
-
-            if let fraction = mediaViewModel.downloadProgressFraction(
-                for: item,
-                category: option.category
-            ) {
-                ProgressView(value: fraction, total: 1)
-                    .progressViewStyle(ThinCircularProgressViewStyle())
-            } else if isDownloadInProgress {
-                ProgressView()
-                    .progressViewStyle(ThinCircularProgressViewStyle())
-            }
-
-            if isDownloadInProgress {
-                Button {
-                    cancelDownload()
-                } label: {
-                    Image(systemName: "xmark.circle")
+                } else if isHovered && hasConnectionError {
+                    ZStack {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 20, height: 20)
+                        Image(systemName: "exclamationmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                } else {
+                    Image(systemName: "arrow.down.circle")
                         .imageScale(.large)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Cancel \(option.downloadTitle)")
             }
         }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isDownloadAreaHovered = hovering
+        }
+        .accessibilityLabel(isDownloadInProgress ? "Cancel \(option.downloadTitle)" : option.downloadTitle)
         #endif
     }
 
