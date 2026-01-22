@@ -183,7 +183,6 @@ public struct SettingsView: View {
                     showAudioIndicator: newValue.library.showAudioIndicator,
                     tapToPlayPreferredPlayer: newValue.library.tapToPlayPreferredPlayer,
                     preferAudioOverEbook: newValue.library.preferAudioOverEbook,
-                    showTabsOnHover: newValue.library.showTabsOnHover,
                     userHighlightColor1: newValue.reading.userHighlightColor1,
                     userHighlightColor2: newValue.reading.userHighlightColor2,
                     userHighlightColor3: newValue.reading.userHighlightColor3,
@@ -510,20 +509,6 @@ private struct MacGeneralSettingsView: View {
                     isOn: $sync.autoSyncToNewerServerPosition
                 )
                 .help("When the server has a newer reading position (from another device), automatically jump to that position.")
-            }
-
-            Divider()
-                .padding(.vertical, 8)
-
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Library")
-                    .font(.headline)
-
-                Toggle(
-                    "Show media tabs on hover",
-                    isOn: $library.showTabsOnHover
-                )
-                .help("Show the ebook/audiobook/readaloud tabs when hovering over a book cover instead of requiring a click")
             }
 
         }

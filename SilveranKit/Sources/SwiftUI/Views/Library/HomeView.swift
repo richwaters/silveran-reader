@@ -45,10 +45,13 @@ struct HomeView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
-    @State private var isScrolling: Bool = false
-    @State private var scrollEndWorkItem: DispatchWorkItem? = nil
     #endif
     @State private var navigationPath = NavigationPath()
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private let sidebarWidth: CGFloat = 340
     private let sidebarSpacing: CGFloat = 1
@@ -205,6 +208,7 @@ struct HomeView: View {
                                         sidebarSections: $sidebarSections,
                                         selectedSidebarItem: $selectedSidebarItem,
                                         showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                        coverPreference: coverPreference,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
                                     .id(section.id)
@@ -218,8 +222,8 @@ struct HomeView: View {
                                         sidebarSections: $sidebarSections,
                                         selectedSidebarItem: $selectedSidebarItem,
                                         showAudioIndicator: settingsViewModel.showAudioIndicator,
-                                        cardTapInProgress: $cardTapInProgress,
-                                        isScrolling: isScrolling
+                                        coverPreference: coverPreference,
+                                        cardTapInProgress: $cardTapInProgress
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -275,9 +279,6 @@ struct HomeView: View {
                 return .handled
             }
             return .ignored
-        }
-        .onScrollWheel {
-            handleScrollWheelEvent()
         }
         #endif
         .onAppear {
@@ -458,16 +459,6 @@ struct HomeView: View {
         }
     }
 
-    private func handleScrollWheelEvent() {
-        isScrolling = true
-
-        scrollEndWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [self] in
-            isScrolling = false
-        }
-        scrollEndWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
-    }
     #endif
 
     private func makeSection(
@@ -677,9 +668,9 @@ private struct HomeSectionRow: View {
     @Binding var sidebarSections: [SidebarSectionDescription]
     @Binding var selectedSidebarItem: SidebarItemDescription?
     let showAudioIndicator: Bool
+    let coverPreference: CoverPreference
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
-    let isScrolling: Bool
     #endif
     #if os(iOS)
     let onNavigateToSection: (HomeView.HomeSection) -> Void
@@ -687,11 +678,6 @@ private struct HomeSectionRow: View {
 
     private let horizontalSpacing: CGFloat = 14
     private let tileWidth: CGFloat = 125
-
-    #if os(macOS)
-    @State private var hoveredInfoItemID: BookMetadata.ID? = nil
-    @State private var hoveredCardID: BookMetadata.ID? = nil
-    #endif
 
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var canScrollLeft: Bool = false
@@ -750,7 +736,7 @@ private struct HomeSectionRow: View {
                 .foregroundStyle(Color.accentColor)
             }
 
-            let metrics = MediaItemCardMetrics.make(for: tileWidth, mediaKind: section.mediaKind)
+            let metrics = MediaItemCardMetrics.make(for: tileWidth, mediaKind: section.mediaKind, coverPreference: coverPreference)
 
             if section.items.isEmpty {
                 VStack {
@@ -834,7 +820,6 @@ private struct HomeSectionRow: View {
 
     @ViewBuilder
     private func card(for item: BookMetadata, metrics: MediaItemCardMetrics) -> some View {
-        #if os(macOS)
         MediaItemCardView(
             item: item,
             mediaKind: section.mediaKind,
@@ -843,41 +828,7 @@ private struct HomeSectionRow: View {
             showAudioIndicator: showAudioIndicator,
             sourceLabel: nil,
             seriesPositionBadge: nil,
-            onSelect: { selected in
-                select(selected)
-            },
-            onInfo: { selected in
-                openInfo(for: selected)
-            },
-            isHovered: hoveredCardID == item.id,
-            isInfoHovered: hoveredInfoItemID == item.id,
-            onInfoHoverChanged: { hovering in
-                if hovering {
-                    hoveredInfoItemID = item.id
-                } else if hoveredInfoItemID == item.id {
-                    hoveredInfoItemID = nil
-                }
-            }
-        )
-        .onHover { hovering in
-            guard !isScrolling else { return }
-            if hovering {
-                if hoveredCardID != item.id {
-                    hoveredCardID = item.id
-                }
-            } else if hoveredCardID == item.id {
-                hoveredCardID = nil
-            }
-        }
-        #else
-        MediaItemCardView(
-            item: item,
-            mediaKind: section.mediaKind,
-            metrics: metrics,
-            isSelected: isItemSelected(item.id),
-            showAudioIndicator: showAudioIndicator,
-            sourceLabel: nil,
-            seriesPositionBadge: nil,
+            coverPreference: coverPreference,
             onSelect: { selected in
                 select(selected)
             },
@@ -885,7 +836,6 @@ private struct HomeSectionRow: View {
                 openInfo(for: selected)
             }
         )
-        #endif
     }
 
     @Environment(MediaViewModel.self) private var mediaViewModel
@@ -903,13 +853,6 @@ private struct HomeSectionRow: View {
         if selection != newSelection {
             selection = newSelection
         }
-        #if os(macOS)
-        if mediaViewModel.cachedConfig.library.showTabsOnHover && !isSidebarVisible {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isSidebarVisible = true
-            }
-        }
-        #endif
     }
 
     private func openInfo(for item: BookMetadata) {

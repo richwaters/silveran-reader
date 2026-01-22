@@ -150,17 +150,9 @@ struct MediaItemCardTopTabsButtonOverlay: View {
             "Cannot download media while disconnected from the server. Please check your connection and try again."
     }
 
-    private var shouldShowTabs: Bool {
-        let showOnHover = mediaViewModel.cachedConfig.library.showTabsOnHover
-        if showOnHover {
-            return isHoveringCard
-        }
-        return isSelected
-    }
-
     var body: some View {
         Group {
-            if shouldShowTabs {
+            if isHoveringCard {
                 HStack(spacing: 0) {
                     ForEach(MediaItemCardTopTabs.TabCategory.allCases, id: \.self) { tab in
                         tabButton(for: tab)
@@ -168,10 +160,8 @@ struct MediaItemCardTopTabsButtonOverlay: View {
                 }
                 .frame(width: coverWidth, height: buttonHeight)
                 .background(Color.black.opacity(0.7))
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: shouldShowTabs)
         .alert(connectionAlertTitle, isPresented: $showConnectionAlert) {
             Button("OK", role: .cancel) {}
         } message: {

@@ -88,11 +88,6 @@ struct MediaGridView: View {
     private let headerScrollID = "media-grid-header"
 
     #if os(macOS)
-    @State private var hoveredInfoItemID: BookMetadata.ID? = nil
-    @State private var hoveredCardID: BookMetadata.ID? = nil
-    @State private var isScrolling: Bool = false
-    @State private var scrollEndWorkItem: DispatchWorkItem? = nil
-    @State private var pendingHoverCardID: BookMetadata.ID? = nil
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
     #endif
@@ -112,6 +107,24 @@ struct MediaGridView: View {
     @State private var shouldEnsureActiveItemVisible: Bool = false
     @State private var showSourceBadge: Bool = false
     @State private var showSeriesPositionBadge: Bool
+    @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverSize.global") private var coverSizeRaw: String = CoverSize.medium.rawValue
+
+    private var layoutStyle: LibraryLayoutStyle {
+        get { LibraryLayoutStyle(rawValue: layoutStyleRaw) ?? .grid }
+        set { layoutStyleRaw = newValue.rawValue }
+    }
+
+    private var coverPreference: CoverPreference {
+        get { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+        set { coverPrefRaw = newValue.rawValue }
+    }
+
+    private var coverSize: CoverSize {
+        get { CoverSize(rawValue: coverSizeRaw) ?? .medium }
+        set { coverSizeRaw = newValue.rawValue }
+    }
 
     @State private var cachedDisplayItems: [BookMetadata] = []
     @State private var cachedAvailableTags: [String] = []
@@ -359,33 +372,14 @@ struct MediaGridView: View {
             }
             return .ignored
         }
-        .onScrollWheel {
-            handleScrollWheelEvent()
-        }
         #endif
     }
 
-    #if os(macOS)
-    private func handleScrollWheelEvent() {
-        if !isScrolling {
-            isScrolling = true
-            hoveredCardID = nil
-        }
-
-        scrollEndWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [self] in
-            isScrolling = false
-            hoveredCardID = pendingHoverCardID
-        }
-        scrollEndWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
-    }
-    #endif
 
     @ViewBuilder
     private func content(for containerWidth: CGFloat) -> some View {
         let layout = resolvedLayout(for: containerWidth)
-        let tileMetrics = MediaItemCardMetrics.make(for: layout.tileWidth, mediaKind: mediaKind)
+        let tileMetrics = MediaItemCardMetrics.make(for: layout.tileWidth, mediaKind: mediaKind, coverPreference: coverPreference)
         let columnCount = max(layout.columns.count, 1)
 
         VStack(alignment: .leading, spacing: verticalSpacing) {
@@ -402,6 +396,18 @@ struct MediaGridView: View {
                     selectedNarrator: $selectedNarrator,
                     selectedStatus: $selectedStatus,
                     selectedLocation: $selectedLocation,
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    coverSize: Binding(
+                        get: { coverSize },
+                        set: { coverSizeRaw = $0.rawValue }
+                    ),
                     showAudioIndicator: Binding(
                         get: { settingsViewModel.showAudioIndicator },
                         set: { newValue in
@@ -416,7 +422,8 @@ struct MediaGridView: View {
                     availableAuthors: cachedAvailableAuthors,
                     availableNarrators: cachedAvailableNarrators,
                     availableStatuses: cachedAvailableStatuses,
-                    filtersSummaryText: cachedFiltersSummary
+                    filtersSummaryText: cachedFiltersSummary,
+                    showLayoutOption: true
                 )
             }
             .padding(.horizontal, gridHorizontalPadding)
@@ -446,28 +453,82 @@ struct MediaGridView: View {
                 .padding(.top, 60)
                 .padding(.horizontal, gridHorizontalPadding)
             } else {
-                LazyVGrid(columns: layout.columns, alignment: .leading, spacing: verticalSpacing) {
-                    ForEach(cachedDisplayItems) { item in
-                        card(for: item, metrics: tileMetrics)
-                            #if os(macOS)
-                            .onHover { hovering in
-                                if isScrolling {
-                                    pendingHoverCardID = hovering ? item.id : nil
-                                    return
-                                }
-                                if hovering {
-                                    if hoveredCardID != item.id {
-                                        hoveredCardID = item.id
-                                    }
-                                } else if hoveredCardID == item.id {
-                                    hoveredCardID = nil
-                                }
-                            }
-                            #endif
+                switch layoutStyle {
+                case .grid, .fan:
+                    let gridTileSize = coverSize.gridTileWidth
+                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridTileSize + 40), spacing: horizontalSpacing)]
+                    let gridMetrics = MediaItemCardMetrics.make(for: gridTileSize, mediaKind: mediaKind, coverPreference: coverPreference)
+                    LazyVGrid(columns: gridColumns, alignment: .leading, spacing: verticalSpacing) {
+                        ForEach(cachedDisplayItems) { item in
+                            card(for: item, metrics: gridMetrics)
+                        }
                     }
+                    .scrollTargetLayout()
+                    .padding(.horizontal, gridHorizontalPadding)
+                case .compactGrid:
+                    let compactTileSize = coverSize.gridTileWidth
+                    let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactTileSize + 20), spacing: 4)]
+                    LazyVGrid(columns: compactColumns, alignment: .leading, spacing: 4) {
+                        ForEach(cachedDisplayItems) { item in
+                            MediaCompactCardView(
+                                item: item,
+                                coverPreference: coverPreference,
+                                tileSize: compactTileSize,
+                                showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                seriesPositionBadge: seriesPositionBadge(for: item),
+                                isSelected: activeInfoItem?.id == item.id,
+                                onSelect: { selected in
+                                    selectItem(selected)
+                                },
+                                onInfo: { selected in
+                                    openSidebar(for: selected)
+                                }
+                            )
+                        }
+                    }
+                    .scrollTargetLayout()
+                    .padding(.horizontal, gridHorizontalPadding)
+                case .list:
+                    LazyVStack(alignment: .leading, spacing: 1) {
+                        ForEach(cachedDisplayItems) { item in
+                            MediaListRowView(
+                                item: item,
+                                mediaKind: mediaKind,
+                                coverPreference: coverPreference,
+                                showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                seriesPositionBadge: seriesPositionBadge(for: item),
+                                isSelected: activeInfoItem?.id == item.id,
+                                onSelect: { selected in
+                                    selectItem(selected)
+                                },
+                                onInfo: { selected in
+                                    openSidebar(for: selected)
+                                }
+                            )
+                        }
+                    }
+                    .scrollTargetLayout()
+                    .padding(.horizontal, gridHorizontalPadding)
+                case .compactList:
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(cachedDisplayItems) { item in
+                            MediaCompactListRowView(
+                                item: item,
+                                isSelected: activeInfoItem?.id == item.id,
+                                onSelect: { selected in
+                                    selectItem(selected)
+                                },
+                                onInfo: { selected in
+                                    openSidebar(for: selected)
+                                }
+                            )
+                        }
+                    }
+                    .scrollTargetLayout()
+                    .padding(.horizontal, gridHorizontalPadding)
                 }
-                .scrollTargetLayout()
-                .padding(.horizontal, gridHorizontalPadding)
             }
         }
         .padding(.vertical)
@@ -549,25 +610,12 @@ struct MediaGridView: View {
             showAudioIndicator: settingsViewModel.showAudioIndicator,
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
-            onSelect: { [self] selected in
+            coverPreference: coverPreference,
+            onSelect: { selected in
                 selectItem(selected)
-                if mediaViewModel.cachedConfig.library.showTabsOnHover && !isSidebarVisible {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isSidebarVisible = true
-                    }
-                }
             },
             onInfo: { selected in
                 openSidebar(for: selected)
-            },
-            isHovered: hoveredCardID == item.id,
-            isInfoHovered: hoveredInfoItemID == item.id,
-            onInfoHoverChanged: { hovering in
-                if hovering {
-                    hoveredInfoItemID = item.id
-                } else if hoveredInfoItemID == item.id {
-                    hoveredInfoItemID = nil
-                }
             }
         )
         #else
@@ -579,6 +627,7 @@ struct MediaGridView: View {
             showAudioIndicator: settingsViewModel.showAudioIndicator,
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
+            coverPreference: coverPreference,
             onSelect: { selected in
                 selectItem(selected)
             },

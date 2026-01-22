@@ -18,6 +18,18 @@ struct SeriesView: View {
     @State private var activeInfoItem: BookMetadata? = nil
     @State private var isSidebarVisible: Bool = false
     @State private var navigationPath = NavigationPath()
+    @AppStorage("viewLayout.series") private var layoutStyleRaw: String = LibraryLayoutStyle.fan.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+
+    private var layoutStyle: LibraryLayoutStyle {
+        get { LibraryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
+        set { layoutStyleRaw = newValue.rawValue }
+    }
+
+    private var coverPreference: CoverPreference {
+        get { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+        set { coverPrefRaw = newValue.rawValue }
+    }
 
     private let sidebarWidth: CGFloat = 340
     private let sidebarSpacing: CGFloat = 1
@@ -162,11 +174,62 @@ struct SeriesView: View {
     }
 
     private var headerView: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Books by Series")
                 .font(.system(size: 32, weight: .regular, design: .serif))
-            Spacer()
+
+            HStack {
+                viewOptionsMenu
+                Spacer()
+            }
+            .font(.callout)
         }
+    }
+
+    @ViewBuilder
+    private var viewOptionsMenu: some View {
+        Menu {
+            Section("Layout") {
+                ForEach([LibraryLayoutStyle.fan, LibraryLayoutStyle.grid, LibraryLayoutStyle.list], id: \.self) { style in
+                    Button {
+                        layoutStyleRaw = style.rawValue
+                    } label: {
+                        HStack {
+                            Label(style.label, systemImage: style.iconName)
+                            Spacer()
+                            if layoutStyle == style {
+                                Image(systemName: "checkmark")
+                                    .imageScale(.small)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Section("Cover Style") {
+                ForEach(CoverPreference.allCases) { preference in
+                    Button {
+                        coverPrefRaw = preference.rawValue
+                    } label: {
+                        HStack {
+                            Text(preference.label)
+                            Spacer()
+                            if coverPreference == preference {
+                                Image(systemName: "checkmark")
+                                    .imageScale(.small)
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label("View Options", systemImage: "ellipsis.circle")
+        }
+        #if os(macOS)
+        .menuStyle(.borderlessButton)
+        #endif
     }
 
     @ViewBuilder
@@ -177,11 +240,58 @@ struct SeriesView: View {
         if filteredGroups.isEmpty {
             emptyStateView
         } else {
-            ForEach(Array(filteredGroups.enumerated()), id: \.offset) { _, group in
-                seriesSection(
+            switch layoutStyle {
+            case .fan:
+                ForEach(Array(filteredGroups.enumerated()), id: \.offset) { _, group in
+                    seriesSection(
+                        series: group.series,
+                        books: group.books,
+                        contentWidth: contentWidth
+                    )
+                }
+            case .grid, .compactGrid:
+                seriesGridLayout(groups: filteredGroups, contentWidth: contentWidth)
+            case .list, .compactList:
+                seriesListLayout(groups: filteredGroups)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func seriesGridLayout(groups: [(series: BookSeries?, books: [BookMetadata])], contentWidth: CGFloat) -> some View {
+        let columns = [
+            GridItem(.adaptive(minimum: 180, maximum: 280), spacing: 16)
+        ]
+
+        LazyVGrid(columns: columns, spacing: 20) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                let navigationKey = group.series?.name ?? Self.noSeriesFilterKey
+                SeriesCardView(
                     series: group.series,
                     books: group.books,
-                    contentWidth: contentWidth
+                    mediaKind: mediaKind,
+                    coverPreference: coverPreference,
+                    onTap: {
+                        navigateToSeries(navigationKey)
+                    }
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func seriesListLayout(groups: [(series: BookSeries?, books: [BookMetadata])]) -> some View {
+        LazyVStack(alignment: .leading, spacing: 1) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                let navigationKey = group.series?.name ?? Self.noSeriesFilterKey
+                SeriesRowView(
+                    series: group.series,
+                    books: group.books,
+                    mediaKind: mediaKind,
+                    coverPreference: coverPreference,
+                    onTap: {
+                        navigateToSeries(navigationKey)
+                    }
                 )
             }
         }

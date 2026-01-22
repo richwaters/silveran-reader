@@ -32,6 +32,7 @@ struct MediaItemCardMetrics {
     static func make(
         for tileWidth: CGFloat,
         mediaKind: MediaKind,
+        coverPreference: CoverPreference = .preferEbook
     ) -> MediaItemCardMetrics {
         let cardPadding = 4.0
         let coverWidth = max(tileWidth - (cardPadding * 2), tileWidth * 0.90)
@@ -39,7 +40,7 @@ struct MediaItemCardMetrics {
         let infoIconSize = max(18, tileWidth * 0.12)
         let contentSpacing = max(8, tileWidth * 0.06)
 
-        let tallestCoverAspectRatio: CGFloat = 1.5
+        let tallestCoverAspectRatio: CGFloat = 1.0 / coverPreference.preferredContainerAspectRatio
         let tallestCoverHeight = coverWidth * tallestCoverAspectRatio
 
         let progressBarHeight: CGFloat = 3
@@ -86,14 +87,13 @@ struct MediaItemCardView: View {
     let showAudioIndicator: Bool
     let sourceLabel: String?
     let seriesPositionBadge: String?
+    let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
-    let isHovered: Bool
-    let isInfoHovered: Bool
-    let onInfoHoverChanged: (Bool) -> Void
+    @State private var isHovered = false
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
@@ -291,8 +291,8 @@ struct MediaItemCardView: View {
 
     private var cardContent: some View {
         let placeholderColor = Color(white: 0.2)
-        let coverVariant = mediaViewModel.coverVariant(for: item)
-        let containerAspectRatio: CGFloat = coverVariant.preferredAspectRatio
+        let coverVariant = resolveCoverVariant(for: item)
+        let containerAspectRatio: CGFloat = coverPreference.preferredContainerAspectRatio
 
         return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .top) {
@@ -335,6 +335,22 @@ struct MediaItemCardView: View {
                                 .padding(4)
                         }
                     }
+                    #if os(macOS)
+                    .overlay(alignment: .bottomTrailing) {
+                        if isHovered {
+                            Button {
+                                onInfo(item)
+                            } label: {
+                                Image(systemName: "info.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.5), radius: 2)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(6)
+                        }
+                    }
+                    #endif
                     Spacer(minLength: 0)
                 }
                 #if os(macOS)
@@ -423,6 +439,9 @@ struct MediaItemCardView: View {
         .drawingGroup()
         .contentShape(Rectangle())
         #if os(macOS)
+        .onHover { hovering in
+            isHovered = hovering
+        }
         .contextMenu {
             cardContextMenu
         }
@@ -501,15 +520,24 @@ struct MediaItemCardView: View {
         } label: {
             Image(systemName: "info.circle")
                 .font(.system(size: metrics.infoIconSize))
-                #if os(macOS)
-            .foregroundStyle(
-                isInfoHovered ? Color.accentColor : Color.primary.opacity(0.8)
-            )
-                #else
-            .foregroundStyle(Color.primary.opacity(0.8))
-                #endif
+                .foregroundStyle(Color.primary.opacity(0.8))
         }
         .buttonStyle(.plain)
+    }
+
+    private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
+        switch coverPreference {
+        case .preferEbook:
+            if item.hasAvailableEbook {
+                return .standard
+            }
+            return item.hasAvailableAudiobook ? .audioSquare : .standard
+        case .preferAudiobook:
+            if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                return .audioSquare
+            }
+            return .standard
+        }
     }
 }
 
@@ -545,12 +573,11 @@ private struct MediaItemCoverImage: View {
                 image
                     .resizable()
                     .interpolation(.medium)
-                    .scaledToFill()
+                    .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity.combined(with: .scale))
             }
         }
-        .clipped()
         .animation(.easeInOut(duration: 0.2), value: coverState.image != nil)
         .task(id: taskIdentifier) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: variant)
@@ -571,7 +598,7 @@ private struct MediaItemCoverImage: View {
     }
 }
 
-private struct SourceBadge: View {
+struct SourceBadge: View {
     let label: String
 
     var body: some View {

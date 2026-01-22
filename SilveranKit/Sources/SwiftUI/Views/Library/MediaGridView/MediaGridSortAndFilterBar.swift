@@ -9,6 +9,9 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var selectedNarrator: String?
     @Binding var selectedStatus: String?
     @Binding var selectedLocation: MediaGridView.LocationFilterOption
+    @Binding var layoutStyle: LibraryLayoutStyle
+    @Binding var coverPreference: CoverPreference
+    @Binding var coverSize: CoverSize
     @Binding var showAudioIndicator: Bool
     @Binding var showSourceBadge: Bool
     @Binding var showSeriesPositionBadge: Bool
@@ -18,6 +21,7 @@ struct MediaGridSortAndFilterBar: View {
     let availableNarrators: [String]
     let availableStatuses: [String]
     let filtersSummaryText: String
+    let showLayoutOption: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -280,6 +284,66 @@ struct MediaGridSortAndFilterBar: View {
     @ViewBuilder
     private var viewOptionsMenu: some View {
         Menu {
+            if showLayoutOption {
+                layoutSection
+                Divider()
+            }
+
+            coverStyleSection
+            Divider()
+            coverSizeSection
+            Divider()
+            displaySection
+        } label: {
+            Label("View Options", systemImage: "ellipsis.circle")
+        }
+        #if os(macOS)
+        .menuStyle(.borderlessButton)
+        #endif
+    }
+
+    @ViewBuilder
+    private var layoutSection: some View {
+        Section("Layout") {
+            ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.list, LibraryLayoutStyle.compactList], id: \.self) { style in
+                Button {
+                    layoutStyle = style
+                } label: {
+                    menuRowLabel(text: style.label, isSelected: layoutStyle == style)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var coverStyleSection: some View {
+        Section("Cover Style") {
+            ForEach(CoverPreference.allCases) { preference in
+                Button {
+                    coverPreference = preference
+                } label: {
+                    menuRowLabel(text: preference.label, isSelected: coverPreference == preference)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var coverSizeSection: some View {
+        Section("Cover Size") {
+            ForEach(CoverSize.allCases) { size in
+                Button {
+                    coverSize = size
+                } label: {
+                    menuRowLabel(text: size.label, isSelected: coverSize == size)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var displaySection: some View {
+        Section("Display") {
             Button {
                 showAudioIndicator.toggle()
             } label: {
@@ -318,11 +382,6 @@ struct MediaGridSortAndFilterBar: View {
                     }
                 }
             }
-        } label: {
-            Label("View Options", systemImage: "ellipsis.circle")
         }
-        #if os(macOS)
-        .menuStyle(.borderlessButton)
-        #endif
     }
 }
