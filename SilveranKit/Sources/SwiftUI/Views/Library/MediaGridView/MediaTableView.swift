@@ -1,86 +1,6 @@
 #if os(macOS)
 import SwiftUI
 
-public struct TableColumnVisibility: Equatable, Hashable {
-    public var cover: Bool
-    public var title: Bool
-    public var author: Bool
-    public var series: Bool
-    public var progress: Bool
-    public var media: Bool
-    public var narrator: Bool
-    public var status: Bool
-    public var added: Bool
-    public var tags: Bool
-
-    public static func defaultVisibility(compact: Bool) -> TableColumnVisibility {
-        TableColumnVisibility(
-            cover: true,
-            title: true,
-            author: compact,
-            series: true,
-            progress: true,
-            media: true,
-            narrator: false,
-            status: false,
-            added: false,
-            tags: false
-        )
-    }
-
-    public static var allVisible: TableColumnVisibility {
-        TableColumnVisibility(
-            cover: true,
-            title: true,
-            author: true,
-            series: true,
-            progress: true,
-            media: true,
-            narrator: true,
-            status: true,
-            added: true,
-            tags: true
-        )
-    }
-}
-
-extension TableColumnVisibility: RawRepresentable {
-    public init?(rawValue: String) {
-        guard let data = rawValue.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Bool]
-        else { return nil }
-        self.cover = json["cover"] ?? true
-        self.title = json["title"] ?? true
-        self.author = json["author"] ?? true
-        self.series = json["series"] ?? true
-        self.progress = json["progress"] ?? true
-        self.media = json["media"] ?? true
-        self.narrator = json["narrator"] ?? false
-        self.status = json["status"] ?? false
-        self.added = json["added"] ?? false
-        self.tags = json["tags"] ?? false
-    }
-
-    public var rawValue: String {
-        let dict: [String: Bool] = [
-            "cover": cover,
-            "title": title,
-            "author": author,
-            "series": series,
-            "progress": progress,
-            "media": media,
-            "narrator": narrator,
-            "status": status,
-            "added": added,
-            "tags": tags
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: dict),
-              let string = String(data: data, encoding: .utf8)
-        else { return "{}" }
-        return string
-    }
-}
-
 struct MediaTableView: View {
     let items: [BookMetadata]
     let mediaKind: MediaKind
@@ -88,7 +8,8 @@ struct MediaTableView: View {
     let showAudioIndicator: Bool
     let compact: Bool
     @Binding var selection: BookMetadata.ID?
-    @Binding var columnVisibility: TableColumnVisibility
+    @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
+    @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
 
@@ -97,111 +18,115 @@ struct MediaTableView: View {
     private var coverHeight: CGFloat { compact ? 24 : 40 }
 
     var body: some View {
-        Table(items, selection: $selection) {
-            if columnVisibility.cover {
-                TableColumn("") { item in
-                    TableCoverCell(
-                        item: item,
-                        coverPreference: coverPreference,
-                        height: coverHeight,
-                        mediaViewModel: mediaViewModel
-                    )
-                }
-                .width(min: 30, ideal: compact ? 36 : 50, max: 70)
+        Table(of: BookMetadata.self, selection: $selection, sortOrder: $sortOrder, columnCustomization: $columnCustomization) {
+            TableColumn("") { item in
+                TableCoverCell(
+                    item: item,
+                    coverPreference: coverPreference,
+                    height: coverHeight,
+                    mediaViewModel: mediaViewModel
+                )
             }
+            .width(min: 30, ideal: compact ? 36 : 50, max: 70)
+            .customizationID("cover")
+            .defaultVisibility(.visible)
 
-            if columnVisibility.title {
-                TableColumn("Title") { item in
-                    if compact {
+            TableColumn("Title", value: \.title) { item in
+                if compact {
+                    Text(item.title)
+                        .lineLimit(1)
+                } else {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(item.title)
                             .lineLimit(1)
-                    } else {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title)
+                        if let author = item.authors?.first?.name {
+                            Text(author)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
                                 .lineLimit(1)
-                            if let author = item.authors?.first?.name {
-                                Text(author)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
                         }
                     }
                 }
-                .width(min: 100, ideal: 200)
             }
+            .width(min: 100, ideal: 200)
+            .customizationID("title")
+            .defaultVisibility(.visible)
 
-            if columnVisibility.author {
-                TableColumn("Author") { item in
-                    Text(item.authors?.first?.name ?? "")
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 80, ideal: 150)
+            TableColumn("Author", value: \.sortableAuthor) { item in
+                Text(item.authors?.first?.name ?? "")
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
             }
+            .width(min: 80, ideal: 150)
+            .customizationID("author")
+            .defaultVisibility(.visible)
 
-            if columnVisibility.series {
-                TableColumn("Series") { item in
-                    TableSeriesCell(item: item)
-                }
-                .width(min: 80, ideal: 140)
+            TableColumn("Series", value: \.sortableSeries) { item in
+                TableSeriesCell(item: item)
             }
+            .width(min: 80, ideal: 140)
+            .customizationID("series")
+            .defaultVisibility(.visible)
 
-            if columnVisibility.progress {
-                TableColumn("Progress") { item in
-                    TableProgressCell(
-                        item: item,
-                        compact: compact,
-                        mediaViewModel: mediaViewModel
-                    )
-                }
-                .width(min: 60, ideal: 100, max: 140)
+            TableColumn("Progress", value: \.progress) { item in
+                TableProgressCell(
+                    item: item,
+                    compact: compact,
+                    mediaViewModel: mediaViewModel
+                )
             }
+            .width(min: 60, ideal: 100, max: 140)
+            .customizationID("progress")
+            .defaultVisibility(.hidden)
 
-            if columnVisibility.media {
-                TableColumn("Media") { item in
-                    TableMediaIndicatorCell(
-                        item: item,
-                        mediaViewModel: mediaViewModel,
-                        onInfo: { onInfo(item) }
-                    )
-                }
-                .width(min: 100, ideal: 120, max: 150)
+            TableColumn("Narrator", value: \.sortableNarrator) { item in
+                Text(item.narrators?.first?.name ?? "")
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
             }
+            .width(min: 80, ideal: 120)
+            .customizationID("narrator")
+            .defaultVisibility(.hidden)
 
-            if columnVisibility.narrator {
-                TableColumn("Narrator") { item in
-                    Text(item.narrators?.first?.name ?? "")
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 80, ideal: 120)
+            TableColumn("Status", value: \.sortableStatus) { item in
+                Text(item.status?.name ?? "")
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
             }
+            .width(min: 60, ideal: 80)
+            .customizationID("status")
+            .defaultVisibility(.hidden)
 
-            if columnVisibility.status {
-                TableColumn("Status") { item in
-                    Text(item.status?.name ?? "")
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 60, ideal: 80)
+            TableColumn("Added", value: \.sortableAdded) { item in
+                Text(formatDate(item.createdAt))
+                    .foregroundStyle(.secondary)
             }
+            .width(min: 80, ideal: 100)
+            .customizationID("added")
+            .defaultVisibility(.hidden)
 
-            if columnVisibility.added {
-                TableColumn("Added") { item in
-                    Text(formatDate(item.createdAt))
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 80, ideal: 100)
+            TableColumn("Tags") { item in
+                Text(item.tagNames.joined(separator: ", "))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
             }
+            .width(min: 80, ideal: 120)
+            .customizationID("tags")
+            .defaultVisibility(.hidden)
 
-            if columnVisibility.tags {
-                TableColumn("Tags") { item in
-                    Text(item.tagNames.joined(separator: ", "))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 80, ideal: 120)
+            TableColumn("Media") { item in
+                TableMediaIndicatorCell(
+                    item: item,
+                    mediaViewModel: mediaViewModel,
+                    onInfo: { onInfo(item) }
+                )
+            }
+            .width(min: 100, ideal: 120, max: 150)
+            .customizationID("media")
+            .defaultVisibility(.visible)
+        } rows: {
+            ForEach(items) { item in
+                TableRow(item)
             }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
@@ -222,7 +147,7 @@ struct MediaTableView: View {
                 onInfo(item)
             }
         }
-        .id(columnVisibility)
+        .id(TableIdentity(sortOrder: sortOrder))
     }
 
     private func formatDate(_ dateString: String?) -> String {
@@ -553,6 +478,21 @@ private struct TableMediaIndicatorCell: View {
             ebookCoverArt: ebookCover
         )
         openWindow(id: windowID, value: bookData)
+    }
+}
+
+private struct TableIdentity: Hashable {
+    let sortKeyPath: String
+    let sortOrder: SortOrder
+
+    init(sortOrder: [KeyPathComparator<BookMetadata>]) {
+        if let first = sortOrder.first {
+            self.sortKeyPath = String(describing: first.keyPath)
+            self.sortOrder = first.order
+        } else {
+            self.sortKeyPath = ""
+            self.sortOrder = .forward
+        }
     }
 }
 #endif

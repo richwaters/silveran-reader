@@ -111,7 +111,25 @@ struct MediaGridView: View {
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("coverSize.global") private var coverSizeRaw: String = CoverSize.medium.rawValue
     #if os(macOS)
-    @AppStorage("library.table.columnVisibility") private var columnVisibility: TableColumnVisibility = .defaultVisibility(compact: false)
+    @State private var columnCustomization: TableColumnCustomization<BookMetadata> = Self.loadColumnCustomization()
+    @State private var tableSortOrder: [KeyPathComparator<BookMetadata>] = [KeyPathComparator(\BookMetadata.title)]
+    @State private var tableSortedItems: [BookMetadata] = []
+    @State private var lastSortKeyPath: AnyKeyPath? = \BookMetadata.title
+
+    private static let columnCustomizationKey = "library.table.columnCustomization"
+
+    private static func loadColumnCustomization() -> TableColumnCustomization<BookMetadata> {
+        guard let data = UserDefaults.standard.data(forKey: columnCustomizationKey),
+              let customization = try? JSONDecoder().decode(TableColumnCustomization<BookMetadata>.self, from: data) else {
+            return TableColumnCustomization<BookMetadata>()
+        }
+        return customization
+    }
+
+    private func saveColumnCustomization() {
+        guard let data = try? JSONEncoder().encode(columnCustomization) else { return }
+        UserDefaults.standard.set(data, forKey: Self.columnCustomizationKey)
+    }
     #endif
 
     private var layoutStyle: LibraryLayoutStyle {
@@ -425,7 +443,7 @@ struct MediaGridView: View {
                     .padding(.horizontal, gridHorizontalPadding)
             } else {
                 MediaTableView(
-                    items: cachedDisplayItems,
+                    items: tableSortedItems,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,
                     showAudioIndicator: settingsViewModel.showAudioIndicator,
@@ -433,10 +451,11 @@ struct MediaGridView: View {
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in
-                            activeInfoItem = cachedDisplayItems.first { $0.id == newID }
+                            activeInfoItem = tableSortedItems.first { $0.id == newID }
                         }
                     ),
-                    columnVisibility: $columnVisibility,
+                    columnCustomization: $columnCustomization,
+                    sortOrder: $tableSortOrder,
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) }
                 )
@@ -444,9 +463,19 @@ struct MediaGridView: View {
         }
         .onAppear {
             recomputeAllCaches()
+            updateTableSortedItems()
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
             recomputeAllCaches()
+        }
+        .onChange(of: tableSortOrder) { _, _ in
+            updateTableSortedItems()
+        }
+        .onChange(of: cachedDisplayItems) { _, _ in
+            updateTableSortedItems(forceResort: true)
+        }
+        .onChange(of: columnCustomization) { _, _ in
+            saveColumnCustomization()
         }
         .onChange(of: selectedFormatFilter) { _, _ in
             recomputeDisplayItems()
@@ -495,6 +524,24 @@ struct MediaGridView: View {
         }
     }
 
+    private func updateTableSortedItems(forceResort: Bool = false) {
+        guard let comparator = tableSortOrder.first else {
+            tableSortedItems = cachedDisplayItems
+            lastSortKeyPath = nil
+            return
+        }
+
+        let currentKeyPath = comparator.keyPath
+        let sameKeyPath = currentKeyPath == lastSortKeyPath
+
+        if sameKeyPath && !tableSortedItems.isEmpty && !forceResort {
+            tableSortedItems = Array(tableSortedItems.reversed())
+        } else {
+            tableSortedItems = cachedDisplayItems.sorted(using: comparator)
+        }
+        lastSortKeyPath = currentKeyPath
+    }
+
     private var tableHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -537,9 +584,11 @@ struct MediaGridView: View {
                 availableStatuses: cachedAvailableStatuses,
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
-                columnVisibility: $columnVisibility,
+                showSortOption: false,
+                columnCustomization: $columnCustomization,
                 onResetColumns: {
-                    columnVisibility = .defaultVisibility(compact: layoutStyle == .compactList)
+                    columnCustomization = TableColumnCustomization<BookMetadata>()
+                    UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
                 }
             )
         }

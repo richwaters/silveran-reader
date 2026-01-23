@@ -22,16 +22,24 @@ struct MediaGridSortAndFilterBar: View {
     let availableStatuses: [String]
     let filtersSummaryText: String
     let showLayoutOption: Bool
+    var showSortOption: Bool = true
     #if os(macOS)
-    var columnVisibility: Binding<TableColumnVisibility>? = nil
+    var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
     var onResetColumns: (() -> Void)? = nil
     #endif
 
     var body: some View {
         HStack(spacing: 12) {
-            sortMenu
+            if showSortOption {
+                sortMenu
+            }
             formatMenu
             Spacer()
+            #if os(macOS)
+            if isListLayout, columnCustomization != nil {
+                columnsMenu
+            }
+            #endif
             viewOptionsMenu
         }
         .font(.callout)
@@ -285,19 +293,8 @@ struct MediaGridSortAndFilterBar: View {
         selectedLocation = .all
     }
 
-    #if os(macOS)
-    private var isListLayout: Bool {
-        layoutStyle == .list || layoutStyle == .compactList
-    }
-    #endif
-
     @ViewBuilder
     private var viewOptionsMenu: some View {
-        #if os(macOS)
-        if isListLayout {
-            columnsMenuButton
-        }
-        #endif
         Menu {
             if showLayoutOption {
                 layoutSection
@@ -318,30 +315,64 @@ struct MediaGridSortAndFilterBar: View {
     }
 
     #if os(macOS)
+    private var isListLayout: Bool {
+        layoutStyle == .list || layoutStyle == .compactList
+    }
+
     @ViewBuilder
-    private var columnsMenuButton: some View {
-        if let columnVisibility {
-            Menu {
-                Section("Columns") {
-                    Toggle("Cover", isOn: columnVisibility.cover)
-                    Toggle("Title", isOn: columnVisibility.title)
-                    Toggle("Author", isOn: columnVisibility.author)
-                    Toggle("Series", isOn: columnVisibility.series)
-                    Toggle("Progress", isOn: columnVisibility.progress)
-                    Toggle("Media", isOn: columnVisibility.media)
-                    Toggle("Narrator", isOn: columnVisibility.narrator)
-                    Toggle("Status", isOn: columnVisibility.status)
-                    Toggle("Added", isOn: columnVisibility.added)
-                    Toggle("Tags", isOn: columnVisibility.tags)
-                }
-                if let onResetColumns {
-                    Divider()
-                    Button("Reset to Defaults", action: onResetColumns)
-                }
-            } label: {
-                Label("Columns", systemImage: "tablecells")
+    private var columnsMenu: some View {
+        Menu {
+            columnToggle(id: "cover", label: "Cover")
+            columnToggle(id: "title", label: "Title")
+            columnToggle(id: "author", label: "Author")
+            columnToggle(id: "series", label: "Series")
+            columnToggle(id: "progress", label: "Progress")
+            columnToggle(id: "narrator", label: "Narrator")
+            columnToggle(id: "status", label: "Status")
+            columnToggle(id: "added", label: "Added")
+            columnToggle(id: "tags", label: "Tags")
+            columnToggle(id: "media", label: "Media")
+            Divider()
+            Button("Reset to Defaults") {
+                onResetColumns?()
             }
-            .menuStyle(.borderlessButton)
+        } label: {
+            Label("Columns", systemImage: "rectangle.split.3x1")
+        }
+        .menuStyle(.borderlessButton)
+    }
+
+    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "author", "series", "media"]
+
+    private func isColumnVisible(_ id: String) -> Bool {
+        guard let binding = columnCustomization else { return false }
+        let visibility = binding.wrappedValue[visibility: id]
+        switch visibility {
+        case .visible:
+            return true
+        case .hidden:
+            return false
+        default:
+            return Self.defaultVisibleColumns.contains(id)
+        }
+    }
+
+    @ViewBuilder
+    private func columnToggle(id: String, label: String) -> some View {
+        if let binding = columnCustomization {
+            let isVisible = isColumnVisible(id)
+            Button {
+                binding.wrappedValue[visibility: id] = isVisible ? .hidden : .visible
+            } label: {
+                HStack {
+                    Text(label)
+                    Spacer()
+                    if isVisible {
+                        Image(systemName: "checkmark")
+                            .imageScale(.small)
+                    }
+                }
+            }
         }
     }
     #endif

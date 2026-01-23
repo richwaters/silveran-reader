@@ -582,6 +582,18 @@ public struct PlayerBookData: Codable, Hashable, Sendable {
     }
 }
 
+public struct SeriesSortKey: Comparable, Hashable, Sendable {
+    public let name: String
+    public let position: Int
+
+    public static func < (lhs: SeriesSortKey, rhs: SeriesSortKey) -> Bool {
+        if lhs.name != rhs.name {
+            return lhs.name < rhs.name
+        }
+        return lhs.position < rhs.position
+    }
+}
+
 @PublicInit
 public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public let uuid: String
@@ -658,6 +670,29 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
         tags?.compactMap { tag in
             return tag.name.trimmingCharacters(in: .whitespacesAndNewlines)
         } ?? []
+    }
+
+    public var sortableAuthor: String {
+        authors?.first?.name ?? ""
+    }
+
+    public var sortableSeries: SeriesSortKey {
+        SeriesSortKey(
+            name: series?.first?.name ?? "",
+            position: series?.first?.position ?? Int.max
+        )
+    }
+
+    public var sortableNarrator: String {
+        narrators?.first?.name ?? ""
+    }
+
+    public var sortableStatus: String {
+        status?.name ?? ""
+    }
+
+    public var sortableAdded: String {
+        createdAt ?? ""
     }
 }
 
