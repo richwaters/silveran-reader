@@ -9,6 +9,9 @@ struct SeriesStackView: View {
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
+    #if os(macOS)
+    @State private var hoveredBookID: BookMetadata.ID? = nil
+    #endif
 
     private let coverHeight: CGFloat = 220
     private let minOverlapRatio: CGFloat = 0.0
@@ -31,6 +34,9 @@ struct SeriesStackView: View {
         let coverWidth = coverHeight * coverVariant.preferredAspectRatio
         let placeholderColor = Color(white: 0.2)
         let coverState = mediaViewModel.coverState(for: book, variant: coverVariant)
+        #if os(macOS)
+        let isHovered = hoveredBookID == book.id
+        #endif
 
         return Button {
             onSelect(book)
@@ -57,9 +63,20 @@ struct SeriesStackView: View {
             }
             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
             .contentShape(Rectangle())
+            #if os(macOS)
+            .scaleEffect(isHovered ? 1.08 : 1.0, anchor: .bottom)
+            .animation(.easeOut(duration: 0.2), value: isHovered)
+            #endif
         }
         .buttonStyle(.plain)
+        #if os(macOS)
+        .zIndex(isHovered ? 1000 : Double(index))
+        .onHover { hovering in
+            hoveredBookID = hovering ? book.id : nil
+        }
+        #else
         .zIndex(Double(index))
+        #endif
         .offset(x: layout.offset(for: index), y: 0)
         .task {
             mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)

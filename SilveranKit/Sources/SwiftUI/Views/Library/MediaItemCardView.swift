@@ -335,39 +335,8 @@ struct MediaItemCardView: View {
                                 .padding(4)
                         }
                     }
-                    #if os(macOS)
-                    .overlay(alignment: .bottomTrailing) {
-                        if isHovered {
-                            Button {
-                                onInfo(item)
-                            } label: {
-                                Image(systemName: "info.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(.white)
-                                    .shadow(color: .black.opacity(0.5), radius: 2)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(6)
-                        }
-                    }
-                    #endif
                     Spacer(minLength: 0)
                 }
-                #if os(macOS)
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    TapGesture()
-                        .onEnded { _ in
-                            onSelect(item)
-                        }
-                )
-                .simultaneousGesture(
-                    TapGesture(count: 2)
-                        .onEnded { _ in
-                            onInfo(item)
-                        }
-                )
-                #endif
 
                 #if os(macOS)
                 MediaItemCardTopTabsButtonOverlay(
@@ -403,21 +372,6 @@ struct MediaItemCardView: View {
                 authorRow
                     .padding(.top, metrics.titleToAuthorGap)
             }
-            #if os(macOS)
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                TapGesture()
-                    .onEnded { _ in
-                        onSelect(item)
-                    }
-            )
-            .simultaneousGesture(
-                TapGesture(count: 2)
-                    .onEnded { _ in
-                        onInfo(item)
-                    }
-            )
-            #endif
         }
         .padding(
             EdgeInsets(
@@ -439,6 +393,12 @@ struct MediaItemCardView: View {
         .drawingGroup()
         .contentShape(Rectangle())
         #if os(macOS)
+        .onTapGesture {
+            onSelect(item)
+            onInfo(item)
+        }
+        .scaleEffect(isHovered ? 1.05 : 1.0)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -504,25 +464,10 @@ struct MediaItemCardView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 4)
-            #if os(macOS)
-            infoButton
-            #endif
         }
         .padding(.leading, 8)
         .padding(.trailing, 2)
         .padding(.bottom, 4)
-    }
-
-    private var infoButton: some View {
-        Button {
-            onSelect(item)
-            onInfo(item)
-        } label: {
-            Image(systemName: "info.circle")
-                .font(.system(size: metrics.infoIconSize))
-                .foregroundStyle(Color.primary.opacity(0.8))
-        }
-        .buttonStyle(.plain)
     }
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {

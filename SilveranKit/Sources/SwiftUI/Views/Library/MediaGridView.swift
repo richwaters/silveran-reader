@@ -459,6 +459,7 @@ struct MediaGridView: View {
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) }
                 )
+                .padding(.top, 8)
             }
         }
         .onAppear {

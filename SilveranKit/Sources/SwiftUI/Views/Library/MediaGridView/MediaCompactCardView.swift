@@ -92,20 +92,6 @@ struct MediaCompactCardView: View {
                     topTabBar
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
-                if isHovered {
-                    Button {
-                        onInfo(item)
-                    } label: {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.5), radius: 2)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(4)
-                }
-            }
             #endif
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -114,15 +100,12 @@ struct MediaCompactCardView: View {
         }
         .contentShape(Rectangle())
         #if os(macOS)
+        .scaleEffect(isHovered ? 1.05 : 1.0)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
         .onTapGesture {
             onSelect(item)
+            onInfo(item)
         }
-        .simultaneousGesture(
-            TapGesture(count: 2)
-                .onEnded { _ in
-                    onInfo(item)
-                }
-        )
         .onHover { hovering in
             isHovered = hovering
         }
@@ -176,14 +159,7 @@ struct MediaCompactCardView: View {
         }
         .frame(width: tileSize, height: 40)
         .background(Color.black.opacity(0.7))
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 6,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: 6
-            )
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private enum TabStatus: Equatable {
@@ -259,7 +235,7 @@ struct MediaCompactCardView: View {
                     Image(systemName: "play.circle.fill")
                         .font(.system(size: 24))
                 } else if tab == .synced {
-                    ReadaloudIcon(size: 20)
+                    ReadaloudIcon(size: 26)
                 } else {
                     Image(systemName: tab.iconName)
                         .font(.system(size: 20))
