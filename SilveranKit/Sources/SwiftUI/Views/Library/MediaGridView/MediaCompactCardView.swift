@@ -159,7 +159,7 @@ struct MediaCompactCardView: View {
         }
         .frame(width: tileSize, height: 40)
         .background(Color.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private enum TabStatus: Equatable {
