@@ -33,7 +33,7 @@ struct SeriesView: View {
 
     private let sidebarWidth: CGFloat = 340
     private let sidebarSpacing: CGFloat = 1
-    private let horizontalPadding: CGFloat = 24
+    private let horizontalPadding: CGFloat = 6
     private let sectionSpacing: CGFloat = 32
 
     static let noSeriesFilterKey = "__no_series__"
@@ -205,7 +205,7 @@ struct SeriesView: View {
     private var viewOptionsMenu: some View {
         Menu {
             Section("Layout") {
-                ForEach([LibraryLayoutStyle.fan, LibraryLayoutStyle.grid, LibraryLayoutStyle.list], id: \.self) { style in
+                ForEach([LibraryLayoutStyle.fan, LibraryLayoutStyle.grid], id: \.self) { style in
                     Button {
                         layoutStyleRaw = style.rawValue
                     } label: {
@@ -264,10 +264,8 @@ struct SeriesView: View {
                         contentWidth: contentWidth
                     )
                 }
-            case .grid, .compactGrid:
+            case .grid, .compactGrid, .list, .compactList:
                 seriesGridLayout(groups: filteredGroups, contentWidth: contentWidth)
-            case .list, .compactList:
-                seriesListLayout(groups: filteredGroups)
             }
         }
     }
@@ -275,32 +273,13 @@ struct SeriesView: View {
     @ViewBuilder
     private func seriesGridLayout(groups: [(series: BookSeries?, books: [BookMetadata])], contentWidth: CGFloat) -> some View {
         let columns = [
-            GridItem(.adaptive(minimum: 180, maximum: 280), spacing: 16)
+            GridItem(.adaptive(minimum: 125, maximum: 140), spacing: 16)
         ]
 
-        LazyVGrid(columns: columns, spacing: 20) {
+        LazyVGrid(columns: columns, spacing: 14) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 let navigationKey = group.series?.name ?? Self.noSeriesFilterKey
                 SeriesCardView(
-                    series: group.series,
-                    books: group.books,
-                    mediaKind: mediaKind,
-                    coverPreference: coverPreference,
-                    onTap: {
-                        navigateToSeries(navigationKey)
-                    }
-                )
-                .id(navigationKey)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func seriesListLayout(groups: [(series: BookSeries?, books: [BookMetadata])]) -> some View {
-        LazyVStack(alignment: .leading, spacing: 1) {
-            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
-                let navigationKey = group.series?.name ?? Self.noSeriesFilterKey
-                SeriesRowView(
                     series: group.series,
                     books: group.books,
                     mediaKind: mediaKind,

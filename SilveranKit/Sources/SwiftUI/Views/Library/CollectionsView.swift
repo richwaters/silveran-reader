@@ -33,7 +33,7 @@ struct CollectionsView: View {
 
     private let sidebarWidth: CGFloat = 340
     private let sidebarSpacing: CGFloat = 1
-    private let horizontalPadding: CGFloat = 24
+    private let horizontalPadding: CGFloat = 6
     private let sectionSpacing: CGFloat = 32
 
     #if os(iOS)
@@ -211,7 +211,7 @@ struct CollectionsView: View {
     private var viewOptionsMenu: some View {
         Menu {
             Section("Layout") {
-                ForEach([LibraryLayoutStyle.fan, LibraryLayoutStyle.grid, LibraryLayoutStyle.list], id: \.self) { style in
+                ForEach([LibraryLayoutStyle.fan, LibraryLayoutStyle.grid], id: \.self) { style in
                     Button {
                         layoutStyleRaw = style.rawValue
                     } label: {
@@ -270,10 +270,8 @@ struct CollectionsView: View {
                         contentWidth: contentWidth
                     )
                 }
-            case .grid, .compactGrid:
+            case .grid, .compactGrid, .list, .compactList:
                 collectionsGridLayout(groups: filteredGroups, contentWidth: contentWidth)
-            case .list, .compactList:
-                collectionsListLayout(groups: filteredGroups)
             }
         }
     }
@@ -281,32 +279,13 @@ struct CollectionsView: View {
     @ViewBuilder
     private func collectionsGridLayout(groups: [(collection: BookCollectionSummary?, books: [BookMetadata])], contentWidth: CGFloat) -> some View {
         let columns = [
-            GridItem(.adaptive(minimum: 180, maximum: 280), spacing: 16)
+            GridItem(.adaptive(minimum: 125, maximum: 140), spacing: 16)
         ]
 
-        LazyVGrid(columns: columns, spacing: 20) {
+        LazyVGrid(columns: columns, spacing: 14) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 let collectionId = group.collection?.uuid ?? group.collection?.name ?? "unknown"
                 CollectionCardView(
-                    collection: group.collection,
-                    books: group.books,
-                    mediaKind: mediaKind,
-                    coverPreference: coverPreference,
-                    onTap: {
-                        navigateToCollection(collectionId)
-                    }
-                )
-                .id(collectionId)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func collectionsListLayout(groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]) -> some View {
-        LazyVStack(alignment: .leading, spacing: 1) {
-            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
-                let collectionId = group.collection?.uuid ?? group.collection?.name ?? "unknown"
-                CollectionRowView(
                     collection: group.collection,
                     books: group.books,
                     mediaKind: mediaKind,
