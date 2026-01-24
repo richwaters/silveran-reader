@@ -841,7 +841,11 @@ public final class MediaViewModel {
     // MARK: - Progress from PSA
 
     public func progress(for bookId: String) -> Double {
-        bookProgressCache[bookId]?.progressFraction ?? 0
+        if let book = library.bookMetaData.first(where: { $0.id == bookId }),
+           book.status?.name == "Read" {
+            return 1.0
+        }
+        return bookProgressCache[bookId]?.progressFraction ?? 0
     }
 
     public func position(for bookId: String) -> BookReadingPosition? {
