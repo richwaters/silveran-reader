@@ -23,6 +23,7 @@ public final class MediaViewModel {
     public var pendingSyncsByBook: [String: PendingProgressSync] = [:]
     public var syncNotification: SyncNotification?
     var bookProgressCache: [String: BookProgress] = [:]
+    @ObservationIgnored private var readBookIds: Set<String> = []
 
     private let lma: LocalMediaActor = LocalMediaActor.shared
     private let sta: StorytellerActor = StorytellerActor.shared
@@ -121,6 +122,9 @@ public final class MediaViewModel {
     @Observable
     public final class CoverImageState {
         public var image: Image?
+        #if canImport(AppKit)
+        public var nsImage: NSImage?
+        #endif
         public init(image: Image? = nil) { self.image = image }
     }
 
@@ -348,6 +352,13 @@ public final class MediaViewModel {
         )
         libraryVersion += 1
         debugLog("[MediaViewModel] Updated library (version \(libraryVersion))")
+        readBookIds = Set(
+            metadata.compactMap { metadata in
+                guard let status = metadata.status?.name,
+                      status.caseInsensitiveCompare("Read") == .orderedSame else { return nil }
+                return metadata.id
+            }
+        )
 
         let invalidKeys = coverStates.keys.filter { !validIDs.contains($0.id) }
         for key in invalidKeys {
@@ -841,10 +852,7 @@ public final class MediaViewModel {
     // MARK: - Progress from PSA
 
     public func progress(for bookId: String) -> Double {
-        if let book = library.bookMetaData.first(where: { $0.id == bookId }),
-           book.status?.name == "Read" {
-            return 1.0
-        }
+        if readBookIds.contains(bookId) { return 1.0 }
         return bookProgressCache[bookId]?.progressFraction ?? 0
     }
 
@@ -1106,16 +1114,30 @@ public final class MediaViewModel {
         guard let cover else {
             missingCoverKeys.insert(key)
             state.image = nil
+            #if canImport(AppKit)
+            state.nsImage = nil
+            #endif
             return
         }
 
+        #if canImport(AppKit)
+        guard let nsImage = NSImage(data: cover.data) else {
+            missingCoverKeys.insert(key)
+            state.image = nil
+            state.nsImage = nil
+            return
+        }
+        state.nsImage = nsImage
+        state.image = Image(nsImage: nsImage)
+        #elseif canImport(UIKit)
         guard let image = Self.makeImage(from: cover.data) else {
             missingCoverKeys.insert(key)
             state.image = nil
             return
         }
-
         state.image = image
+        #endif
+
         missingCoverKeys.remove(key)
 
         Task {
@@ -1143,11 +1165,20 @@ public final class MediaViewModel {
                     variant: variantString
                 ) {
                     let key = CoverKey(id: book.id, variant: variant)
+                    #if canImport(AppKit)
+                    if let nsImage = NSImage(data: data) {
+                        let state = coverStates[key] ?? CoverImageState()
+                        coverStates[key] = state
+                        state.nsImage = nsImage
+                        state.image = Image(nsImage: nsImage)
+                    }
+                    #else
                     if let image = Self.makeImage(from: data) {
                         let state = coverStates[key] ?? CoverImageState()
                         coverStates[key] = state
                         state.image = image
                     }
+                    #endif
                 }
             }
         }

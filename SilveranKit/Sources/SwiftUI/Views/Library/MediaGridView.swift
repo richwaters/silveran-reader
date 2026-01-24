@@ -444,10 +444,9 @@ struct MediaGridView: View {
             } else {
                 MediaTableView(
                     items: tableSortedItems,
-                    mediaKind: mediaKind,
                     coverPreference: coverPreference,
-                    showAudioIndicator: settingsViewModel.showAudioIndicator,
                     compact: layoutStyle == .compactList,
+                    mediaViewModel: mediaViewModel,
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in

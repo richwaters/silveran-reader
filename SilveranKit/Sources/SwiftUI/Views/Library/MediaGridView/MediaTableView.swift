@@ -1,286 +1,702 @@
 #if os(macOS)
 import SwiftUI
+import AppKit
 
-struct MediaTableView: View {
+private final class ImmediateSelectTableView: NSTableView {
+    var onRowClicked: ((Int) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let clickedRow = row(at: point)
+
+        if clickedRow >= 0 {
+            if window?.firstResponder !== self {
+                window?.makeFirstResponder(self)
+                selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
+            }
+            onRowClicked?(clickedRow)
+        }
+
+        super.mouseDown(with: event)
+    }
+}
+
+struct MediaTableView: NSViewRepresentable {
     let items: [BookMetadata]
-    let mediaKind: MediaKind
     let coverPreference: CoverPreference
-    let showAudioIndicator: Bool
     let compact: Bool
+    let mediaViewModel: MediaViewModel
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
 
-    @Environment(MediaViewModel.self) private var mediaViewModel
-    @FocusState private var isTableFocused: Bool
-
-    private var coverHeight: CGFloat { compact ? 24 : 40 }
-
-    var body: some View {
-        Table(of: BookMetadata.self, selection: $selection, sortOrder: $sortOrder, columnCustomization: $columnCustomization) {
-            TableColumn("") { item in
-                TableCoverCell(
-                    item: item,
-                    coverPreference: coverPreference,
-                    height: coverHeight,
-                    mediaViewModel: mediaViewModel
-                )
-            }
-            .width(min: 30, ideal: compact ? 36 : 50, max: 70)
-            .customizationID("cover")
-            .defaultVisibility(.visible)
-
-            TableColumn("Title", value: \.title) { item in
-                if compact {
-                    Text(item.title)
-                        .lineLimit(1)
-                } else {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .lineLimit(1)
-                        if let author = item.authors?.first?.name {
-                            Text(author)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-            }
-            .width(min: 100, ideal: 200)
-            .customizationID("title")
-            .defaultVisibility(.visible)
-
-            TableColumn("Author", value: \.sortableAuthor) { item in
-                Text(item.authors?.first?.name ?? "")
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 80, ideal: 150)
-            .customizationID("author")
-            .defaultVisibility(.visible)
-
-            TableColumn("Series", value: \.sortableSeries) { item in
-                TableSeriesCell(item: item)
-            }
-            .width(min: 80, ideal: 140)
-            .customizationID("series")
-            .defaultVisibility(.visible)
-
-            TableColumn("Progress", value: \.progress) { item in
-                TableProgressCell(
-                    item: item,
-                    compact: compact,
-                    mediaViewModel: mediaViewModel
-                )
-            }
-            .width(min: 60, ideal: 100, max: 140)
-            .customizationID("progress")
-            .defaultVisibility(.hidden)
-
-            TableColumn("Narrator", value: \.sortableNarrator) { item in
-                Text(item.narrators?.first?.name ?? "")
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 80, ideal: 120)
-            .customizationID("narrator")
-            .defaultVisibility(.hidden)
-
-            TableColumn("Status", value: \.sortableStatus) { item in
-                Text(item.status?.name ?? "")
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 60, ideal: 80)
-            .customizationID("status")
-            .defaultVisibility(.hidden)
-
-            TableColumn("Added", value: \.sortableAdded) { item in
-                Text(formatDate(item.createdAt))
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 80, ideal: 100)
-            .customizationID("added")
-            .defaultVisibility(.hidden)
-
-            TableColumn("Tags", value: \.sortableTags) { item in
-                Text(item.sortableTags)
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 80, ideal: 120)
-            .customizationID("tags")
-            .defaultVisibility(.hidden)
-
-            TableColumn("Media") { item in
-                TableMediaIndicatorCell(
-                    item: item,
-                    compact: compact,
-                    mediaViewModel: mediaViewModel
-                )
-            }
-            .width(min: 100, ideal: 120, max: 150)
-            .customizationID("media")
-            .defaultVisibility(.visible)
-        } rows: {
-            ForEach(items) { item in
-                TableRow(item)
-            }
-        }
-        .tableStyle(.inset(alternatesRowBackgrounds: true))
-        .scrollContentBackground(.hidden)
-        .onChange(of: selection) { _, newValue in
-            if let id = newValue, let item = items.first(where: { $0.id == id }) {
-                onSelect(item)
-                onInfo(item)
-            }
-        }
-        .contextMenu(forSelectionType: BookMetadata.ID.self) { selectedIDs in
-            if let id = selectedIDs.first, let item = items.first(where: { $0.id == id }) {
-                Button("Show Details") {
-                    onInfo(item)
-                }
-            }
-        } primaryAction: { selectedIDs in
-            if let id = selectedIDs.first, let item = items.first(where: { $0.id == id }) {
-                onInfo(item)
-            }
-        }
-        .focused($isTableFocused)
-        .onAppear {
-            isTableFocused = true
-        }
-        .onHover { hovering in
-            if hovering {
-                isTableFocused = true
-            }
-        }
-        .id(TableIdentity(sortOrder: sortOrder))
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self, mediaViewModel: mediaViewModel)
     }
 
-    private func formatDate(_ dateString: String?) -> String {
-        guard let dateString, !dateString.isEmpty else { return "" }
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
 
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let tableView = ImmediateSelectTableView()
+        tableView.style = .inset
+        tableView.usesAlternatingRowBackgroundColors = true
+        tableView.rowSizeStyle = .custom
+        tableView.rowHeight = compact ? 32 : 48
+        tableView.usesAutomaticRowHeights = false
+        tableView.intercellSpacing = NSSize(width: 8, height: 0)
+        tableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        tableView.allowsColumnReordering = true
+        tableView.allowsColumnResizing = true
+        tableView.allowsColumnSelection = false
+        tableView.allowsMultipleSelection = false
+        tableView.allowsEmptySelection = true
+        tableView.backgroundColor = .clear
+        tableView.headerView = NSTableHeaderView()
 
-        var date: Date?
-        date = isoFormatter.date(from: dateString)
+        setupColumns(tableView: tableView, context: context)
 
-        if date == nil {
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            date = isoFormatter.date(from: dateString)
+        tableView.dataSource = context.coordinator
+        tableView.delegate = context.coordinator
+
+        scrollView.documentView = tableView
+        context.coordinator.tableView = tableView
+        context.coordinator.scrollView = scrollView
+
+        let coordinator = context.coordinator
+        tableView.onRowClicked = { [weak coordinator] row in
+            coordinator?.handleRowClicked(row)
         }
 
-        if date == nil {
-            let fallbackFormatter = DateFormatter()
-            fallbackFormatter.dateFormat = "yyyy-MM-dd"
-            date = fallbackFormatter.date(from: dateString)
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let tableView = scrollView.documentView as? NSTableView else { return }
+
+        let coordinator = context.coordinator
+        let oldItems = coordinator.items
+        let oldCompact = coordinator.compact
+        let newItems = items
+
+        coordinator.parent = self
+        coordinator.items = items
+        coordinator.compact = compact
+        coordinator.coverPreference = coverPreference
+        coordinator.mediaViewModel = mediaViewModel
+
+        tableView.rowHeight = compact ? 32 : 48
+
+        if oldCompact != compact {
+            tableView.reloadData()
+        } else if oldItems.map(\.id) != newItems.map(\.id) {
+            tableView.reloadData()
+        } else if oldItems != newItems {
+            tableView.reloadData()
         }
 
-        guard let parsedDate = date else { return dateString }
+        if let selectedID = selection {
+            if let index = items.firstIndex(where: { $0.id == selectedID }) {
+                if tableView.selectedRow != index {
+                    tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                }
+            }
+        } else if tableView.selectedRow != -1 {
+            tableView.deselectAll(nil)
+        }
 
-        let displayFormatter = DateFormatter()
-        displayFormatter.dateStyle = .medium
-        displayFormatter.timeStyle = .none
-        return displayFormatter.string(from: parsedDate)
+        updateSortIndicators(tableView: tableView, context: context)
+        updateColumnVisibility(tableView: tableView)
+    }
+
+    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "author", "series", "media"]
+    private static let columnOrderKey = "library.table.columnOrder"
+    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "status", "added", "tags", "media"]
+
+    private func updateColumnVisibility(tableView: NSTableView) {
+        for column in tableView.tableColumns {
+            let id = column.identifier.rawValue
+            let visibility = columnCustomization[visibility: id]
+            let isVisible: Bool
+            switch visibility {
+            case .visible:
+                isVisible = true
+            case .hidden:
+                isVisible = false
+            default:
+                isVisible = Self.defaultVisibleColumns.contains(id)
+            }
+            column.isHidden = !isVisible
+        }
+    }
+
+    private func setupColumns(tableView: NSTableView, context: Context) {
+        let columnDefs: [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
+            "cover": ("", 30, compact ? 36 : 50, 70),
+            "title": ("Title", 100, 200, 10000),
+            "author": ("Author", 80, 150, 10000),
+            "series": ("Series", 80, 140, 10000),
+            "progress": ("Progress", 60, 100, 140),
+            "narrator": ("Narrator", 80, 120, 10000),
+            "status": ("Status", 60, 80, 10000),
+            "added": ("Added", 80, 100, 10000),
+            "tags": ("Tags", 80, 120, 10000),
+            "media": ("Media", 100, 120, 150),
+        ]
+
+        let savedOrder = UserDefaults.standard.stringArray(forKey: Self.columnOrderKey) ?? Self.defaultColumnOrder
+        let columnOrder = savedOrder.filter { columnDefs[$0] != nil }
+        let missingColumns = Self.defaultColumnOrder.filter { !columnOrder.contains($0) }
+        let finalOrder = columnOrder + missingColumns
+
+        for id in finalOrder {
+            guard let def = columnDefs[id] else { continue }
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            column.title = def.title
+            column.minWidth = def.minWidth
+            column.width = def.width
+            column.maxWidth = def.maxWidth
+            column.isEditable = false
+
+            if id == "title" || id == "author" || id == "series" ||
+               id == "narrator" || id == "status" || id == "added" || id == "tags" {
+                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+            }
+
+            if id == "progress" {
+                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
+            }
+
+            tableView.addTableColumn(column)
+        }
+    }
+
+    fileprivate static func saveColumnOrder(_ order: [String]) {
+        UserDefaults.standard.set(order, forKey: columnOrderKey)
+    }
+
+    private func updateSortIndicators(tableView: NSTableView, context: Context) {
+        for column in tableView.tableColumns {
+            tableView.setIndicatorImage(nil, in: column)
+        }
+
+        guard let comparator = sortOrder.first else { return }
+
+        let keyPathToColumn: [AnyKeyPath: String] = [
+            \BookMetadata.title: "title",
+            \BookMetadata.sortableAuthor: "author",
+            \BookMetadata.sortableSeries: "series",
+            \BookMetadata.progress: "progress",
+            \BookMetadata.sortableNarrator: "narrator",
+            \BookMetadata.sortableStatus: "status",
+            \BookMetadata.sortableAdded: "added",
+            \BookMetadata.sortableTags: "tags",
+        ]
+
+        guard let columnID = keyPathToColumn[comparator.keyPath],
+              let column = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(columnID)) else {
+            return
+        }
+
+        let image = comparator.order == .forward
+            ? NSImage(systemSymbolName: "chevron.up", accessibilityDescription: "Ascending")
+            : NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Descending")
+        tableView.setIndicatorImage(image, in: column)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var parent: MediaTableView
+        var items: [BookMetadata]
+        var compact: Bool
+        var coverPreference: CoverPreference
+        var mediaViewModel: MediaViewModel
+        weak var tableView: NSTableView?
+        weak var scrollView: NSScrollView?
+
+        init(parent: MediaTableView, mediaViewModel: MediaViewModel) {
+            self.parent = parent
+            self.items = parent.items
+            self.compact = parent.compact
+            self.coverPreference = parent.coverPreference
+            self.mediaViewModel = mediaViewModel
+            super.init()
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int {
+            items.count
+        }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            guard let columnID = tableColumn?.identifier.rawValue, row < items.count else { return nil }
+            let item = items[row]
+            let cellID = NSUserInterfaceItemIdentifier("\(columnID)Cell")
+
+            switch columnID {
+            case "cover":
+                return makeCoverCell(tableView: tableView, cellID: cellID, item: item)
+            case "title":
+                return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
+            case "author":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.authors?.first?.name ?? "", secondary: true)
+            case "series":
+                return makeSeriesCell(tableView: tableView, cellID: cellID, item: item)
+            case "progress":
+                return makeProgressCell(tableView: tableView, cellID: cellID, item: item)
+            case "narrator":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.narrators?.first?.name ?? "", secondary: true)
+            case "status":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.status?.name ?? "", secondary: true)
+            case "added":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.createdAt), secondary: true)
+            case "tags":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTags, secondary: true)
+            case "media":
+                return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
+            default:
+                return nil
+            }
+        }
+
+        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            guard let descriptor = tableView.sortDescriptors.first,
+                  let key = descriptor.key else { return }
+
+            let order: SortOrder = descriptor.ascending ? .forward : .reverse
+
+            switch key {
+            case "title":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.title, order: order)]
+            case "author":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableAuthor, order: order)]
+            case "series":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableSeries, order: order)]
+            case "progress":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.progress, order: order)]
+            case "narrator":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableNarrator, order: order)]
+            case "status":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableStatus, order: order)]
+            case "added":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableAdded, order: order)]
+            case "tags":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
+            default:
+                break
+            }
+        }
+
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard let tableView = notification.object as? NSTableView else { return }
+            let selectedRow = tableView.selectedRow
+            if selectedRow >= 0 && selectedRow < items.count {
+                let item = items[selectedRow]
+                parent.selection = item.id
+                parent.onSelect(item)
+            } else {
+                parent.selection = nil
+            }
+        }
+
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+            return true
+        }
+
+        func handleRowClicked(_ row: Int) {
+            guard row >= 0 && row < items.count else { return }
+            let item = items[row]
+            parent.onInfo(item)
+        }
+
+        func tableViewColumnDidMove(_ notification: Notification) {
+            guard let tableView = notification.object as? NSTableView else { return }
+            let order = tableView.tableColumns.map { $0.identifier.rawValue }
+            MediaTableView.saveColumnOrder(order)
+        }
+
+        private func makeCoverCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            let height: CGFloat = compact ? 24 : 40
+            let coverVariant = resolveCoverVariant(for: item)
+            let aspectRatio = coverVariant.preferredAspectRatio
+            let width = height * aspectRatio
+
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? CoverCellView
+                ?? CoverCellView(identifier: cellID)
+
+            let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
+            cell.configure(image: coverState.nsImage, width: width, height: height)
+
+            if coverState.nsImage == nil {
+                mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+            }
+
+            return cell
+        }
+
+        private func makeTitleCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            if compact {
+                let compactCellID = NSUserInterfaceItemIdentifier("titleCompactCell")
+                return makeTextCell(tableView: tableView, cellID: compactCellID, text: item.title, secondary: false)
+            }
+
+            let stackedCellID = NSUserInterfaceItemIdentifier("titleStackedCell")
+            let cell = tableView.makeView(withIdentifier: stackedCellID, owner: self) as? TitleAuthorCellView
+                ?? TitleAuthorCellView(identifier: stackedCellID)
+            cell.configure(title: item.title, author: item.authors?.first?.name)
+            return cell
+        }
+
+        private func makeTextCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, text: String, secondary: Bool) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? TextCellView
+                ?? TextCellView(identifier: cellID)
+            cell.configure(text: text, secondary: secondary, compact: compact)
+            return cell
+        }
+
+        private func makeSeriesCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
+                ?? SeriesCellView(identifier: cellID)
+            cell.configure(series: item.series?.first, compact: compact)
+            return cell
+        }
+
+        private func makeProgressCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? ProgressCellView
+                ?? ProgressCellView(identifier: cellID)
+            let progress = mediaViewModel.progress(for: item.id)
+            cell.configure(progress: progress, compact: compact)
+            return cell
+        }
+
+        private func makeMediaCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+                ?? HostingCellView(identifier: cellID)
+            let content = MediaIndicatorCellContent(item: item, compact: compact, mediaViewModel: mediaViewModel)
+            cell.setContent(content)
+            return cell
+        }
+
+        private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
+            switch coverPreference {
+            case .preferEbook:
+                if item.hasAvailableEbook { return .standard }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
+                return .standard
+            }
+        }
+
+        private func formatDate(_ dateString: String?) -> String {
+            guard let dateString, !dateString.isEmpty else { return "" }
+            return DateFormatterCache.shared.format(dateString)
+        }
     }
 }
 
-private struct TableCoverCell: View {
-    let item: BookMetadata
-    let coverPreference: CoverPreference
-    let height: CGFloat
-    let mediaViewModel: MediaViewModel
+private final class TextCellView: NSTableCellView {
+    private let label = NSTextField(labelWithString: "")
 
-    var body: some View {
-        let coverVariant = resolveCoverVariant(for: item)
-        let aspectRatio = coverVariant.preferredAspectRatio
-        let width = height * aspectRatio
-        let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
-
-        ZStack {
-            Color(white: 0.2)
-            if let image = coverState.image {
-                image
-                    .resizable()
-                    .interpolation(.medium)
-                    .scaledToFill()
-            }
-        }
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-        .task {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
-        }
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
     }
 
-    private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
-        switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook { return .standard }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
-            return .standard
-        }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(text: String, secondary: Bool, compact: Bool) {
+        label.stringValue = text
+        label.textColor = secondary ? .secondaryLabelColor : .labelColor
+        label.font = .systemFont(ofSize: compact ? 11 : 13)
     }
 }
 
-private struct TableSeriesCell: View {
-    let item: BookMetadata
+private final class TitleAuthorCellView: NSTableCellView {
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let authorLabel = NSTextField(labelWithString: "")
+    private let stackView = NSStackView()
 
-    var body: some View {
-        if let series = item.series?.first {
-            HStack(spacing: 4) {
-                Text(series.name)
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-                if let position = series.position {
-                    Text("#\(position)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.maximumNumberOfLines = 1
+        titleLabel.font = .systemFont(ofSize: 13)
+        titleLabel.textColor = .labelColor
+
+        authorLabel.lineBreakMode = .byTruncatingTail
+        authorLabel.maximumNumberOfLines = 1
+        authorLabel.font = .systemFont(ofSize: 11)
+        authorLabel.textColor = .secondaryLabelColor
+
+        stackView.orientation = .vertical
+        stackView.alignment = .leading
+        stackView.spacing = 1
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        stackView.addArrangedSubview(titleLabel)
+        stackView.addArrangedSubview(authorLabel)
+        addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(title: String, author: String?) {
+        titleLabel.stringValue = title
+        authorLabel.stringValue = author ?? ""
+        authorLabel.isHidden = author?.isEmpty ?? true
+    }
+}
+
+private final class SeriesCellView: NSTableCellView {
+    private let nameLabel = NSTextField(labelWithString: "")
+    private let positionLabel = NSTextField(labelWithString: "")
+    private let stackView = NSStackView()
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        nameLabel.lineBreakMode = .byTruncatingTail
+        nameLabel.maximumNumberOfLines = 1
+        nameLabel.textColor = .secondaryLabelColor
+
+        positionLabel.lineBreakMode = .byClipping
+        positionLabel.maximumNumberOfLines = 1
+        positionLabel.textColor = .tertiaryLabelColor
+
+        stackView.orientation = .horizontal
+        stackView.alignment = .centerY
+        stackView.spacing = 4
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        stackView.addArrangedSubview(nameLabel)
+        stackView.addArrangedSubview(positionLabel)
+        addSubview(stackView)
+
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        positionLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            stackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
+            stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(series: BookSeries?, compact: Bool) {
+        if let series {
+            nameLabel.stringValue = series.name
+            nameLabel.font = .systemFont(ofSize: compact ? 11 : 13)
+            if let position = series.position {
+                positionLabel.stringValue = "#\(position)"
+                positionLabel.font = .systemFont(ofSize: compact ? 10 : 11)
+                positionLabel.isHidden = false
+            } else {
+                positionLabel.isHidden = true
             }
         } else {
-            Text("")
+            nameLabel.stringValue = ""
+            positionLabel.isHidden = true
         }
     }
 }
 
-private struct TableProgressCell: View {
-    let item: BookMetadata
-    let compact: Bool
-    let mediaViewModel: MediaViewModel
+private final class ProgressCellView: NSTableCellView {
+    private let trackLayer = CALayer()
+    private let fillLayer = CALayer()
+    private let percentLabel = NSTextField(labelWithString: "")
+    private var currentProgress: Double = 0
 
-    var body: some View {
-        let progress = mediaViewModel.progress(for: item.id)
-        let clamped = min(max(progress, 0), 1)
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        wantsLayer = true
+        setupViews()
+    }
 
-        HStack(spacing: 6) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.accentColor.opacity(0.2))
-                    Capsule()
-                        .fill(Color.accentColor)
-                        .frame(width: geometry.size.width * CGFloat(clamped))
-                }
-            }
-            .frame(height: compact ? 3 : 4)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
-            Text("\(Int(clamped * 100))%")
-                .font(.system(size: compact ? 10 : 11, weight: .medium).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
+    private func setupViews() {
+        trackLayer.cornerRadius = 2
+        trackLayer.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
+        layer?.addSublayer(trackLayer)
+
+        fillLayer.cornerRadius = 2
+        fillLayer.backgroundColor = NSColor.controlAccentColor.cgColor
+        layer?.addSublayer(fillLayer)
+
+        percentLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        percentLabel.textColor = .secondaryLabelColor
+        percentLabel.alignment = .right
+        percentLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(percentLabel)
+
+        NSLayoutConstraint.activate([
+            percentLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            percentLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            percentLabel.widthAnchor.constraint(equalToConstant: 32),
+        ])
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let barHeight: CGFloat = 4
+        let barWidth = bounds.width - 48
+        let y = (bounds.height - barHeight) / 2
+        trackLayer.frame = CGRect(x: 4, y: y, width: barWidth, height: barHeight)
+        fillLayer.frame = CGRect(x: 4, y: y, width: barWidth * currentProgress, height: barHeight)
+        CATransaction.commit()
+    }
+
+    func configure(progress: Double, compact: Bool) {
+        currentProgress = min(max(progress, 0), 1)
+        percentLabel.stringValue = "\(Int(currentProgress * 100))%"
+        percentLabel.font = .monospacedDigitSystemFont(ofSize: compact ? 10 : 11, weight: .medium)
+
+        let barHeight: CGFloat = compact ? 3 : 4
+        trackLayer.cornerRadius = barHeight / 2
+        fillLayer.cornerRadius = barHeight / 2
+
+        needsLayout = true
+    }
+}
+
+private final class CoverCellView: NSTableCellView {
+    private let coverImageView = NSImageView()
+    private let backgroundLayer = CALayer()
+    private var widthConstraint: NSLayoutConstraint?
+    private var heightConstraint: NSLayoutConstraint?
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        wantsLayer = true
+        layer?.masksToBounds = true
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        backgroundLayer.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
+        backgroundLayer.cornerRadius = 3
+        backgroundLayer.masksToBounds = true
+        layer?.addSublayer(backgroundLayer)
+
+        coverImageView.imageScaling = .scaleProportionallyDown
+        coverImageView.wantsLayer = true
+        coverImageView.layer?.cornerRadius = 3
+        coverImageView.layer?.masksToBounds = true
+        coverImageView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(coverImageView)
+
+        NSLayoutConstraint.activate([
+            coverImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            coverImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backgroundLayer.frame = coverImageView.frame
+        CATransaction.commit()
+    }
+
+    func configure(image: NSImage?, width: CGFloat, height: CGFloat) {
+        coverImageView.image = image
+
+        widthConstraint?.isActive = false
+        heightConstraint?.isActive = false
+        widthConstraint = coverImageView.widthAnchor.constraint(equalToConstant: width)
+        heightConstraint = coverImageView.heightAnchor.constraint(equalToConstant: height)
+        widthConstraint?.isActive = true
+        heightConstraint?.isActive = true
+
+        needsLayout = true
+    }
+}
+
+private final class HostingCellView: NSTableCellView {
+    private var hostingView: NSHostingView<AnyView>?
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setContent<V: View>(_ view: V) {
+        if let existingHostingView = hostingView {
+            existingHostingView.rootView = AnyView(view)
+        } else {
+            let hosting = NSHostingView(rootView: AnyView(view))
+            hosting.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(hosting)
+            NSLayoutConstraint.activate([
+                hosting.leadingAnchor.constraint(equalTo: leadingAnchor),
+                hosting.trailingAnchor.constraint(equalTo: trailingAnchor),
+                hosting.topAnchor.constraint(equalTo: topAnchor),
+                hosting.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+            hostingView = hosting
         }
     }
 }
 
-private struct TableMediaIndicatorCell: View {
+private struct MediaIndicatorCellContent: View {
     let item: BookMetadata
     let compact: Bool
     let mediaViewModel: MediaViewModel
@@ -306,6 +722,7 @@ private struct TableMediaIndicatorCell: View {
             mediaButton(for: .audio)
             mediaButton(for: .synced)
         }
+        .padding(.horizontal, 4)
         .alert("Connection Error", isPresented: $showConnectionAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -484,18 +901,44 @@ private struct TableMediaIndicatorCell: View {
     }
 }
 
-private struct TableIdentity: Hashable {
-    let sortKeyPath: String
-    let sortOrder: SortOrder
+@MainActor
+private final class DateFormatterCache {
+    static let shared = DateFormatterCache()
 
-    init(sortOrder: [KeyPathComparator<BookMetadata>]) {
-        if let first = sortOrder.first {
-            self.sortKeyPath = String(describing: first.keyPath)
-            self.sortOrder = first.order
-        } else {
-            self.sortKeyPath = ""
-            self.sortOrder = .forward
-        }
+    private let isoWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private let isoWithoutFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+    private let fallbackFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+    private var cache: [String: String] = [:]
+
+    func format(_ dateString: String) -> String {
+        if let cached = cache[dateString] { return cached }
+
+        let parsedDate =
+            isoWithFractional.date(from: dateString)
+            ?? isoWithoutFractional.date(from: dateString)
+            ?? fallbackFormatter.date(from: dateString)
+
+        let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
+        cache[dateString] = formatted
+        return formatted
     }
 }
 #endif

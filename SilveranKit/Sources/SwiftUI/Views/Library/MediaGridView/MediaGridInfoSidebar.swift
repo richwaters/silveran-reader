@@ -18,6 +18,8 @@ struct MediaGridInfoSidebar: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
     @State private var animatedProgress: Double = 0
     @State private var showingSyncHistory = false
+    @State private var attributedDescription: AttributedString? = nil
+    @State private var descriptionTask: Task<Void, Never>? = nil
 
     init(
         item: BookMetadata,
@@ -47,9 +49,13 @@ struct MediaGridInfoSidebar: View {
             }
         }
         .background(.thinMaterial)
-        .onAppear(perform: prepareForDisplay)
+        .onAppear {
+            prepareForDisplay()
+            loadDescription()
+        }
         .onChange(of: item.id) { _, _ in
             prepareForDisplay()
+            loadDescription()
         }
         .onChange(of: mediaViewModel.progress(for: item.id)) { _, newValue in
             withAnimation(.easeOut(duration: 0.45)) {
@@ -230,16 +236,22 @@ struct MediaGridInfoSidebar: View {
 
     @ViewBuilder
     private var descriptionSection: some View {
-        if let description = item.description {
+        if item.description?.isEmpty == false {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Description")
                     .font(.callout)
                     .fontWeight(.medium)
-                Text(htmlToAttributedString(description))
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+                if let attributedDescription {
+                    Text(attributedDescription)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                } else {
+                    Text("Loading description...")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -272,7 +284,29 @@ struct MediaGridInfoSidebar: View {
         }
     }
 
-    private func htmlToAttributedString(_ html: String) -> AttributedString {
+    private func loadDescription() {
+        descriptionTask?.cancel()
+        descriptionTask = nil
+        attributedDescription = nil
+
+        guard let description = item.description, !description.isEmpty else { return }
+        let itemID = item.id
+        let html = description
+
+        descriptionTask = Task.detached(priority: .userInitiated) { [html, itemID] in
+            let parsed = Self.htmlToAttributedString(html)
+            await MainActor.run {
+                guard !Task.isCancelled, itemID == self.item.id else {
+                    self.descriptionTask = nil
+                    return
+                }
+                self.attributedDescription = parsed
+                self.descriptionTask = nil
+            }
+        }
+    }
+
+    private nonisolated static func htmlToAttributedString(_ html: String) -> AttributedString {
         #if canImport(AppKit) || canImport(UIKit)
         let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
             .documentType: NSAttributedString.DocumentType.html,
