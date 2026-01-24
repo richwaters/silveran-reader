@@ -55,7 +55,7 @@ struct SeriesStackView: View {
             }
             .frame(width: coverWidth, height: coverHeight)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(alignment: .bottomLeading) {
+            .overlay(alignment: .bottomTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: book, coverVariant: coverVariant)
                         .padding(2)
@@ -70,12 +70,12 @@ struct SeriesStackView: View {
         }
         .buttonStyle(.plain)
         #if os(macOS)
-        .zIndex(isHovered ? 1000 : Double(index))
+        .zIndex(isHovered ? 1000 : Double(books.count - index))
         .onHover { hovering in
             hoveredBookID = hovering ? book.id : nil
         }
         #else
-        .zIndex(Double(index))
+        .zIndex(Double(books.count - index))
         #endif
         .offset(x: layout.offset(for: index), y: 0)
         .task {
