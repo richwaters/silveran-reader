@@ -53,6 +53,16 @@ struct SeriesNavIdentifier: Hashable {
     let name: String
 }
 
+struct SeriesDetailNavigation: Hashable {
+    let seriesName: String
+    let initialSelectedBook: BookMetadata?
+}
+
+struct CollectionDetailNavigation: Hashable {
+    let collectionIdentifier: String
+    let initialSelectedBook: BookMetadata?
+}
+
 struct MediaGridView: View {
     public struct ColumnBreakpoint: Hashable {
         public let columns: Int
@@ -86,6 +96,7 @@ struct MediaGridView: View {
     let initialNarrationFilterOption: NarrationFilter
     private let scrollPosition: Binding<BookMetadata.ID?>?
     private let headerScrollID = "media-grid-header"
+    private let initialSelectedItem: BookMetadata?
 
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
@@ -105,6 +116,7 @@ struct MediaGridView: View {
     @State private var selectedStatus: String? = nil
     @State private var selectedLocation: LocationFilterOption = .all
     @State private var shouldEnsureActiveItemVisible: Bool = false
+    @State private var hasHandledInitialSelection: Bool = false
     @State private var showSourceBadge: Bool = false
     @State private var showSeriesPositionBadge: Bool
     @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
@@ -191,7 +203,8 @@ struct MediaGridView: View {
         onSeriesSelected: ((String) -> Void)? = nil,
         initialNarrationFilterOption: NarrationFilter = .both,
         initialLocationFilter: LocationFilterOption = .all,
-        scrollPosition: Binding<BookMetadata.ID?>? = nil
+        scrollPosition: Binding<BookMetadata.ID?>? = nil,
+        initialSelectedItem: BookMetadata? = nil
     ) {
         self.title = title
         self.searchText = searchText
@@ -239,6 +252,7 @@ struct MediaGridView: View {
         }
         _selectedSortOption = State(initialValue: sortOption)
         _showSeriesPositionBadge = State(initialValue: seriesFilter != nil)
+        self.initialSelectedItem = initialSelectedItem
     }
 
     private static func defaultColumnBreakpoints(preferredTileWidth: CGFloat) -> [ColumnBreakpoint]
@@ -464,6 +478,7 @@ struct MediaGridView: View {
         .onAppear {
             recomputeAllCaches()
             updateTableSortedItems()
+            handleInitialSelectionIfNeeded()
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
             recomputeAllCaches()
@@ -473,6 +488,7 @@ struct MediaGridView: View {
         }
         .onChange(of: cachedDisplayItems) { _, _ in
             updateTableSortedItems(forceResort: true)
+            handleInitialSelectionIfNeeded()
         }
         .onChange(of: columnCustomization) { _, _ in
             saveColumnCustomization()
@@ -786,6 +802,10 @@ struct MediaGridView: View {
         .onAppear {
             lastKnownColumnCount = columnCount
             recomputeAllCaches()
+            handleInitialSelectionIfNeeded()
+        }
+        .onChange(of: cachedDisplayItems) { _, _ in
+            handleInitialSelectionIfNeeded()
         }
         .onChange(of: columnCount) { oldValue, newValue in
             lastKnownColumnCount = newValue
@@ -941,6 +961,16 @@ struct MediaGridView: View {
         if !cachedDisplayItems.contains(where: { $0.id == activeInfoItem.id }) {
             clearSelection()
         }
+    }
+
+    private func handleInitialSelectionIfNeeded() {
+        guard !hasHandledInitialSelection,
+              let initialItem = initialSelectedItem,
+              cachedDisplayItems.contains(where: { $0.id == initialItem.id }) else {
+            return
+        }
+        hasHandledInitialSelection = true
+        openSidebar(for: initialItem)
     }
 
     private func clearSelection() {

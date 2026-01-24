@@ -87,8 +87,8 @@ struct SeriesView: View {
                 prompt: "Search"
             )
                 #endif
-                .navigationDestination(for: String.self) { seriesName in
-                    seriesDetailView(for: seriesName)
+                .navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                    seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
                         #if os(iOS)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
@@ -378,8 +378,8 @@ struct SeriesView: View {
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
                 coverPreference: coverPreference,
-                onSelect: { _ in
-                    navigateToSeries(navigationKey)
+                onSelect: { book in
+                    navigateToSeries(navigationKey, initialSelectedBook: book)
                 },
                 onInfo: { book in
                     activeInfoItem = book
@@ -409,12 +409,12 @@ struct SeriesView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func navigateToSeries(_ seriesName: String) {
-        navigationPath.append(seriesName)
+    private func navigateToSeries(_ seriesName: String, initialSelectedBook: BookMetadata? = nil) {
+        navigationPath.append(SeriesDetailNavigation(seriesName: seriesName, initialSelectedBook: initialSelectedBook))
     }
 
     @ViewBuilder
-    private func seriesDetailView(for seriesName: String) -> some View {
+    private func seriesDetailView(for seriesName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
         let isNoSeries = seriesName == Self.noSeriesFilterKey
         let displayTitle = isNoSeries ? "No Series" : seriesName
         let sortKey = isNoSeries ? "title" : "seriesPosition"
@@ -434,7 +434,8 @@ struct SeriesView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(displayTitle)
         #else
@@ -452,7 +453,8 @@ struct SeriesView: View {
                 navigateToSeries(newSeriesName)
             },
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(displayTitle)
         #endif

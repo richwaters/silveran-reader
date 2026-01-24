@@ -85,8 +85,8 @@ struct CollectionsView: View {
                 prompt: "Search"
             )
                 #endif
-                .navigationDestination(for: String.self) { collectionIdentifier in
-                    collectionDetailView(for: collectionIdentifier)
+                .navigationDestination(for: CollectionDetailNavigation.self) { nav in
+                    collectionDetailView(for: nav.collectionIdentifier, initialSelectedItem: nav.initialSelectedBook)
                         #if os(iOS)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
@@ -94,8 +94,8 @@ struct CollectionsView: View {
                     )
                         #endif
                 }
-                .navigationDestination(for: SeriesNavIdentifier.self) { series in
-                    seriesDetailView(for: series.name)
+                .navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                    seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
                         #if os(iOS)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
@@ -185,7 +185,7 @@ struct CollectionsView: View {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isSidebarVisible = false
                             }
-                            navigationPath.append(SeriesNavIdentifier(name: seriesName))
+                            navigationPath.append(SeriesDetailNavigation(seriesName: seriesName, initialSelectedBook: nil))
                         }
                     )
                     .frame(width: sidebarWidth)
@@ -390,7 +390,7 @@ struct CollectionsView: View {
                 coverPreference: coverPreference,
                 onSelect: { book in
                     if let collectionId = collection?.uuid ?? collection?.name {
-                        navigateToCollection(collectionId)
+                        navigateToCollection(collectionId, initialSelectedBook: book)
                     }
                 },
                 onInfo: { book in
@@ -424,12 +424,12 @@ struct CollectionsView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func navigateToCollection(_ collectionIdentifier: String) {
-        navigationPath.append(collectionIdentifier)
+    private func navigateToCollection(_ collectionIdentifier: String, initialSelectedBook: BookMetadata? = nil) {
+        navigationPath.append(CollectionDetailNavigation(collectionIdentifier: collectionIdentifier, initialSelectedBook: initialSelectedBook))
     }
 
     @ViewBuilder
-    private func collectionDetailView(for collectionIdentifier: String) -> some View {
+    private func collectionDetailView(for collectionIdentifier: String, initialSelectedItem: BookMetadata? = nil) -> some View {
         let collectionName = findCollectionName(for: collectionIdentifier)
         #if os(iOS)
         MediaGridView(
@@ -447,7 +447,8 @@ struct CollectionsView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(collectionName)
         #else
@@ -463,14 +464,15 @@ struct CollectionsView: View {
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(collectionName)
         #endif
     }
 
     @ViewBuilder
-    private func seriesDetailView(for seriesName: String) -> some View {
+    private func seriesDetailView(for seriesName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
         let sortKey = "seriesPosition"
         #if os(iOS)
         MediaGridView(
@@ -487,7 +489,8 @@ struct CollectionsView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(seriesName)
         #else
@@ -502,10 +505,11 @@ struct CollectionsView: View {
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             onSeriesSelected: { newSeriesName in
-                navigationPath.append(SeriesNavIdentifier(name: newSeriesName))
+                navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil))
             },
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(seriesName)
         #endif
