@@ -106,8 +106,8 @@ struct MediaTableView: View {
             .customizationID("added")
             .defaultVisibility(.hidden)
 
-            TableColumn("Tags") { item in
-                Text(item.tagNames.joined(separator: ", "))
+            TableColumn("Tags", value: \.sortableTags) { item in
+                Text(item.sortableTags)
                     .lineLimit(1)
                     .foregroundStyle(.secondary)
             }

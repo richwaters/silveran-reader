@@ -694,6 +694,10 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableAdded: String {
         createdAt ?? ""
     }
+
+    public var sortableTags: String {
+        tagNames.joined(separator: ", ")
+    }
 }
 
 @PublicInit
