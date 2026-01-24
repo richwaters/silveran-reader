@@ -33,7 +33,7 @@ struct SeriesView: View {
 
     private let sidebarWidth: CGFloat = 340
     private let sidebarSpacing: CGFloat = 1
-    private let horizontalPadding: CGFloat = 6
+    private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
 
     static let noSeriesFilterKey = "__no_series__"
@@ -210,7 +210,7 @@ struct SeriesView: View {
                         layoutStyleRaw = style.rawValue
                     } label: {
                         HStack {
-                            Label(style.label, systemImage: style.iconName)
+                            Text(style.label)
                             Spacer()
                             if layoutStyle == style {
                                 Image(systemName: "checkmark")

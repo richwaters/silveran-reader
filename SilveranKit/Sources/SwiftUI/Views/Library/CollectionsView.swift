@@ -216,7 +216,7 @@ struct CollectionsView: View {
                         layoutStyleRaw = style.rawValue
                     } label: {
                         HStack {
-                            Label(style.label, systemImage: style.iconName)
+                            Text(style.label)
                             Spacer()
                             if layoutStyle == style {
                                 Image(systemName: "checkmark")

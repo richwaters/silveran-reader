@@ -13,18 +13,15 @@ struct SeriesCardView: View {
     private let cardPadding: CGFloat = 4
     private var coverWidth: CGFloat { max(tileWidth - (cardPadding * 2), tileWidth * 0.90) }
     private let coverCornerRadius: CGFloat = 12
-    private let contentSpacing: CGFloat = 8
     private let titleContainerHeight: CGFloat = 32
 
     private var containerAspectRatio: CGFloat { coverPreference.preferredContainerAspectRatio }
     private var coverHeight: CGFloat { coverWidth / containerAspectRatio }
 
     private var maxCardHeight: CGFloat {
-        let progressBarHeight: CGFloat = 3
-        let subtitleRowHeight: CGFloat = 20
-        let subtitleBottomPadding: CGFloat = 4
-        let titleToSubtitleGap: CGFloat = 2
-        return (cardPadding * 2) + coverHeight + progressBarHeight + contentSpacing + titleContainerHeight + titleToSubtitleGap + subtitleRowHeight + subtitleBottomPadding
+        let topPadding: CGFloat = 6
+        let bottomPadding: CGFloat = 12
+        return topPadding + coverHeight + titleContainerHeight + bottomPadding
     }
 
     var body: some View {
@@ -32,29 +29,33 @@ struct SeriesCardView: View {
             VStack(alignment: .leading, spacing: 0) {
                 fanCoverStack
                     .frame(width: coverWidth, height: coverHeight)
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("\(books.count)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.gray)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(.black.opacity(0.7), in: Capsule())
+                            .padding(.trailing, 8)
+                            .padding(.bottom, 26)
+                    }
 
-                Color.clear
-                    .frame(width: coverWidth, height: 3)
+                Spacer()
+                    .frame(height: 0)
 
-                Spacer(minLength: contentSpacing)
-                    .frame(height: contentSpacing)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(series?.name ?? "No Series")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, 8)
-                        .frame(height: titleContainerHeight, alignment: .top)
-
-                    subtitleRow
-                        .padding(.top, 2)
-                }
+                Text(series?.name ?? "No Series")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.horizontal, 8)
+                    .frame(height: titleContainerHeight, alignment: .top)
             }
-            .padding(cardPadding)
+            .padding(.top, 6)
+            .padding(.horizontal, cardPadding)
+            .padding(.bottom, 12)
             .frame(width: tileWidth, height: maxCardHeight, alignment: .top)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -71,19 +72,6 @@ struct SeriesCardView: View {
         #endif
     }
 
-    private var subtitleRow: some View {
-        HStack(spacing: 2) {
-            Text("\(books.count) book\(books.count == 1 ? "" : "s")")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 4)
-        }
-        .padding(.leading, 8)
-        .padding(.trailing, 2)
-        .padding(.bottom, 4)
-    }
-
     @ViewBuilder
     private var fanCoverStack: some View {
         let displayBooks = Array(books.prefix(3))
@@ -96,7 +84,7 @@ struct SeriesCardView: View {
         GeometryReader { geometry in
             let availableWidth = geometry.size.width
             let availableHeight = geometry.size.height
-            let singleCoverHeight = availableHeight * (isHovered ? 0.92 : 0.88)
+            let singleCoverHeight = availableHeight * (isHovered ? 0.98 : 0.95)
             let singleCoverWidth = singleCoverHeight * containerAspectRatio
 
             ZStack {
@@ -126,7 +114,7 @@ struct SeriesCardView: View {
                     }
                 }
             }
-            .frame(width: availableWidth, height: availableHeight)
+            .frame(width: availableWidth, height: availableHeight, alignment: .top)
         }
     }
 
