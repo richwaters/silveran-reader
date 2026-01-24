@@ -93,7 +93,7 @@ struct TagRowContent: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
 
-            Text(tagName.capitalized)
+            Text(tagName)
                 #if os(iOS)
                 .font(.body)
                 #else
@@ -199,7 +199,7 @@ extension TagView {
     @ViewBuilder
     private func iOSTagBooksView(tagName: String) -> some View {
         MediaGridView(
-            title: tagName.capitalized,
+            title: tagName,
             searchText: "",
             mediaKind: mediaKind,
             tagFilter: tagName,
@@ -215,7 +215,7 @@ extension TagView {
             initialNarrationFilterOption: .both,
             scrollPosition: nil
         )
-        .navigationTitle(tagName.capitalized)
+        .navigationTitle(tagName)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -286,7 +286,7 @@ extension TagView {
     private var macOSBooksContentArea: some View {
         if let tagName = selectedTag {
             MediaGridView(
-                title: tagName.capitalized,
+                title: tagName,
                 searchText: searchText,
                 mediaKind: mediaKind,
                 tagFilter: tagName,
