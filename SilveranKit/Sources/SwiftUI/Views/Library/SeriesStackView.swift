@@ -12,24 +12,82 @@ struct SeriesStackView: View {
     #if os(macOS)
     @State private var hoveredBookID: BookMetadata.ID? = nil
     #endif
+    @State private var currentPage: Int = 0
 
     private let coverHeight: CGFloat = 220
     private let minOverlapRatio: CGFloat = 0.0
     private let maxOverlapRatio: CGFloat = 0.90
+    private let pageSize: Int = 10
+
+    private var totalPages: Int {
+        max(1, (books.count + pageSize - 1) / pageSize)
+    }
+
+    private var currentPageBooks: [BookMetadata] {
+        let startIndex = currentPage * pageSize
+        let endIndex = min(startIndex + pageSize, books.count)
+        guard startIndex < books.count else { return [] }
+        return Array(books[startIndex..<endIndex])
+    }
+
+    private var showPagination: Bool {
+        books.count > pageSize
+    }
 
     var body: some View {
         let safeAvailableWidth = max(availableWidth, 100)
-        let layout = calculateLayout(availableWidth: safeAvailableWidth)
+        let displayBooks = currentPageBooks
+        let layout = calculateLayout(for: displayBooks, availableWidth: safeAvailableWidth)
 
-        ZStack(alignment: .leading) {
-            ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
-                coverView(for: book, index: index, layout: layout)
+        VStack(spacing: 8) {
+            ZStack(alignment: .leading) {
+                ForEach(Array(displayBooks.enumerated()), id: \.element.id) { index, book in
+                    coverView(for: book, index: index, layout: layout, totalCount: displayBooks.count)
+                }
+            }
+            .frame(width: layout.totalWidth, height: coverHeight, alignment: .leading)
+            .animation(.easeInOut(duration: 0.25), value: currentPage)
+
+            if showPagination {
+                paginationControls
             }
         }
-        .frame(width: layout.totalWidth, height: coverHeight, alignment: .leading)
     }
 
-    private func coverView(for book: BookMetadata, index: Int, layout: LayoutInfo) -> some View {
+    private var paginationControls: some View {
+        HStack(spacing: 12) {
+            Button {
+                if currentPage > 0 {
+                    currentPage -= 1
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(currentPage > 0 ? .primary : .tertiary)
+            }
+            .buttonStyle(.plain)
+            .disabled(currentPage == 0)
+
+            Text("\(currentPage + 1)/\(totalPages)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+
+            Button {
+                if currentPage < totalPages - 1 {
+                    currentPage += 1
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(currentPage < totalPages - 1 ? .primary : .tertiary)
+            }
+            .buttonStyle(.plain)
+            .disabled(currentPage >= totalPages - 1)
+        }
+    }
+
+    private func coverView(for book: BookMetadata, index: Int, layout: LayoutInfo, totalCount: Int) -> some View {
         let coverVariant = resolveCoverVariant(for: book)
         let coverWidth = coverHeight * coverVariant.preferredAspectRatio
         let placeholderColor = Color(white: 0.2)
@@ -70,12 +128,12 @@ struct SeriesStackView: View {
         }
         .buttonStyle(.plain)
         #if os(macOS)
-        .zIndex(isHovered ? 1000 : Double(books.count - index))
+        .zIndex(isHovered ? 1000 : Double(totalCount - index))
         .onHover { hovering in
             hoveredBookID = hovering ? book.id : nil
         }
         #else
-        .zIndex(Double(books.count - index))
+        .zIndex(Double(totalCount - index))
         #endif
         .offset(x: layout.offset(for: index), y: 0)
         .task {
@@ -83,19 +141,19 @@ struct SeriesStackView: View {
         }
     }
 
-    private func calculateLayout(availableWidth: CGFloat) -> LayoutInfo {
-        guard !books.isEmpty else {
+    private func calculateLayout(for pageBooks: [BookMetadata], availableWidth: CGFloat) -> LayoutInfo {
+        guard !pageBooks.isEmpty else {
             return LayoutInfo(offsets: [], totalWidth: 0)
         }
 
         var coverWidths: [CGFloat] = []
-        for book in books {
+        for book in pageBooks {
             let variant = resolveCoverVariant(for: book)
             let width = coverHeight * variant.preferredAspectRatio
             coverWidths.append(width)
         }
 
-        guard books.count > 1 else {
+        guard pageBooks.count > 1 else {
             return LayoutInfo(offsets: [0], totalWidth: coverWidths[0])
         }
 

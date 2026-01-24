@@ -367,7 +367,7 @@ struct SeriesView: View {
     private func seriesSection(series: BookSeries?, books: [BookMetadata], contentWidth: CGFloat)
         -> some View
     {
-        let displayBooks = Array(books.prefix(30))
+        let displayBooks = books
         let stackWidth = max(contentWidth - (horizontalPadding * 2), 100)
         let navigationKey = series?.name ?? Self.noSeriesFilterKey
 

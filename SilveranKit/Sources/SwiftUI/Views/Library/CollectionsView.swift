@@ -378,7 +378,7 @@ struct CollectionsView: View {
     )
         -> some View
     {
-        let displayBooks = Array(books.prefix(30))
+        let displayBooks = books
         let stackWidth = max(contentWidth - (horizontalPadding * 2), 100)
 
         VStack(alignment: .center, spacing: 12) {
