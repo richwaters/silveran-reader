@@ -20,6 +20,7 @@ struct SeriesView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = LibraryLayoutStyle.fan.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     private var layoutStyle: LibraryLayoutStyle {
         get { LibraryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
@@ -239,6 +240,21 @@ struct SeriesView: View {
                     }
                 }
             }
+
+            Divider()
+
+            Button {
+                showBookCountBadge.toggle()
+            } label: {
+                HStack {
+                    Text("Show Book Count")
+                    Spacer()
+                    if showBookCountBadge {
+                        Image(systemName: "checkmark")
+                            .imageScale(.small)
+                    }
+                }
+            }
         } label: {
             Label("View Options", systemImage: "ellipsis.circle")
         }
@@ -284,6 +300,7 @@ struct SeriesView: View {
                     books: group.books,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,
+                    showBookCountBadge: showBookCountBadge,
                     onTap: {
                         navigateToSeries(navigationKey)
                     }

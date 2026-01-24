@@ -5,6 +5,7 @@ struct CollectionCardView: View {
     let books: [BookMetadata]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
+    let showBookCountBadge: Bool
     let onTap: () -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var isHovered = false
@@ -30,14 +31,16 @@ struct CollectionCardView: View {
                 fanCoverStack
                     .frame(width: coverWidth, height: coverHeight)
                     .overlay(alignment: .bottomTrailing) {
-                        Text("\(books.count)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.gray)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 3)
-                            .background(.black.opacity(0.7), in: Capsule())
-                            .padding(.trailing, 8)
-                            .padding(.bottom, 26)
+                        if showBookCountBadge {
+                            Text("\(books.count)")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.gray)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 3)
+                                .background(.black.opacity(0.7), in: Capsule())
+                                .padding(.trailing, 6)
+                                .padding(.bottom, 12)
+                        }
                     }
 
                 Spacer()
