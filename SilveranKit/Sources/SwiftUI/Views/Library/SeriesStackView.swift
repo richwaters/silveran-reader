@@ -12,6 +12,8 @@ struct SeriesStackView: View {
     @State private var hoveredBookID: BookMetadata.ID? = nil
     #endif
     @State private var currentPage: Int = 0
+    @State private var isExiting: Bool = false
+    @State private var exitDirection: CGFloat = -1
 
     private let coverHeight: CGFloat = 220
     private let minOverlapRatio: CGFloat = 0.0
@@ -45,7 +47,6 @@ struct SeriesStackView: View {
                 }
             }
             .frame(width: layout.totalWidth, height: coverHeight, alignment: .leading)
-            .animation(.easeInOut(duration: 0.25), value: currentPage)
 
             if showPagination {
                 paginationControls
@@ -53,19 +54,41 @@ struct SeriesStackView: View {
         }
     }
 
+    private var exitXOffset: CGFloat {
+        isExiting ? exitDirection * 800 : 0
+    }
+
+    private var exitRotationY: Double {
+        isExiting ? Double(exitDirection) * -90 : 0
+    }
+
+    private func changePage(by delta: Int) {
+        let newPage = currentPage + delta
+        guard newPage >= 0, newPage < totalPages, !isExiting else { return }
+
+        exitDirection = delta > 0 ? -1 : 1
+        withAnimation(.easeIn(duration: 0.25)) {
+            isExiting = true
+        } completion: {
+            currentPage = newPage
+            exitDirection = -exitDirection
+            withAnimation(.easeOut(duration: 0.25)) {
+                isExiting = false
+            }
+        }
+    }
+
     private var paginationControls: some View {
         HStack(spacing: 12) {
             Button {
-                if currentPage > 0 {
-                    currentPage -= 1
-                }
+                changePage(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(currentPage > 0 ? .primary : .tertiary)
             }
             .buttonStyle(.plain)
-            .disabled(currentPage == 0)
+            .disabled(currentPage == 0 || isExiting)
 
             Text("\(currentPage + 1)/\(totalPages)")
                 .font(.system(size: 12, weight: .medium))
@@ -73,16 +96,14 @@ struct SeriesStackView: View {
                 .monospacedDigit()
 
             Button {
-                if currentPage < totalPages - 1 {
-                    currentPage += 1
-                }
+                changePage(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(currentPage < totalPages - 1 ? .primary : .tertiary)
             }
             .buttonStyle(.plain)
-            .disabled(currentPage >= totalPages - 1)
+            .disabled(currentPage >= totalPages - 1 || isExiting)
         }
     }
 
@@ -134,7 +155,13 @@ struct SeriesStackView: View {
         #else
         .zIndex(Double(totalCount - index))
         #endif
-        .offset(x: layout.offset(for: index), y: 0)
+        .rotation3DEffect(
+            .degrees(exitRotationY),
+            axis: (x: 0, y: 1, z: 0),
+            anchor: .center,
+            perspective: 0.4
+        )
+        .offset(x: layout.offset(for: index) + exitXOffset)
         .task {
             mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
         }
