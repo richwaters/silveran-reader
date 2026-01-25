@@ -1,6 +1,11 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
+
+#if os(macOS)
 
 private struct ScrollWheelMonitor: ViewModifier {
     let onScroll: () -> Void
@@ -711,8 +716,15 @@ struct MediaGridView: View {
             } else {
                 switch layoutStyle {
                 case .grid, .fan:
+                    #if os(iOS)
+                    let isPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize == .small
+                    let gridTileSize = isPhoneSmall ? 75.0 : coverSize.gridTileWidth
+                    let gridMaxSize = isPhoneSmall ? 85.0 : gridTileSize + 40
+                    #else
                     let gridTileSize = coverSize.gridTileWidth
-                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridTileSize + 40), spacing: horizontalSpacing)]
+                    let gridMaxSize = gridTileSize + 40
+                    #endif
+                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridMaxSize), spacing: horizontalSpacing)]
                     let gridMetrics = MediaItemCardMetrics.make(for: gridTileSize, mediaKind: mediaKind, coverPreference: coverPreference)
                     #if os(iOS)
                     let gridAlignment: HorizontalAlignment = .center
@@ -727,8 +739,15 @@ struct MediaGridView: View {
                     .scrollTargetLayout()
                     .padding(.horizontal, gridHorizontalPadding)
                 case .compactGrid:
+                    #if os(iOS)
+                    let isCompactPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize == .small
+                    let compactTileSize = isCompactPhoneSmall ? 80.0 : coverSize.gridTileWidth
+                    let compactMaxSize = isCompactPhoneSmall ? 90.0 : compactTileSize + 20
+                    #else
                     let compactTileSize = coverSize.gridTileWidth
-                    let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactTileSize + 20), spacing: 4)]
+                    let compactMaxSize = compactTileSize + 20
+                    #endif
+                    let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactMaxSize), spacing: 4)]
                     #if os(iOS)
                     let compactGridAlignment: HorizontalAlignment = .center
                     #else
