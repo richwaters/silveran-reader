@@ -15,8 +15,6 @@ struct CollectionsView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @State private var activeInfoItem: BookMetadata? = nil
-    @State private var isSidebarVisible: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = LibraryLayoutStyle.fan.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
@@ -32,8 +30,6 @@ struct CollectionsView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
-    private let sidebarWidth: CGFloat = 340
-    private let sidebarSpacing: CGFloat = 1
     private let horizontalPadding: CGFloat = 6
     private let sectionSpacing: CGFloat = 32
 
@@ -119,79 +115,39 @@ struct CollectionsView: View {
         #if os(iOS)
         .environment(\.mediaNavigationPath, $navigationPath)
         #endif
-        #if os(macOS)
-        .onKeyPress(.escape) {
-            if isSidebarVisible {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isSidebarVisible = false
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        #endif
     }
 
     private var collectionsListView: some View {
         GeometryReader { geometry in
-            let containerWidth = geometry.size.width
-            let contentWidth =
-                isSidebarVisible
-                ? max(containerWidth - sidebarWidth - sidebarSpacing, 0)
-                : containerWidth
+            let contentWidth = geometry.size.width
 
-            HStack(spacing: sidebarSpacing) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: sectionSpacing) {
-                            headerView
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: sectionSpacing) {
+                        headerView
 
-                            collectionsContent(contentWidth: contentWidth)
-                        }
-                        .padding(.horizontal, horizontalPadding)
-                        .padding(.top, 24)
-                        .padding(.bottom, 40)
+                        collectionsContent(contentWidth: contentWidth)
                     }
-                    .modifier(SoftScrollEdgeModifier())
-                    .frame(width: contentWidth)
-                    #if os(iOS)
-                    .overlay(alignment: .trailing) {
-                        let groups = mediaViewModel.booksByCollection(for: mediaKind)
-                        AlphabetScrubber(
-                            items: groups,
-                            textForItem: { $0.collection?.name ?? "Unknown Collection" },
-                            idForItem: { $0.collection?.uuid ?? $0.collection?.name ?? "unknown" },
-                            proxy: proxy
-                        )
-                        .padding(.top, 120)
-                        .padding(.bottom, 40)
-                    }
-                    #endif
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, 24)
+                    .padding(.bottom, 40)
                 }
-
-                if isSidebarVisible, let item = activeInfoItem {
-                    MediaGridInfoSidebar(
-                        item: item,
-                        mediaKind: mediaKind,
-                        onClose: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isSidebarVisible = false
-                            }
-                        },
-                        onReadNow: {},
-                        onRename: {},
-                        onDelete: {},
-                        onSeriesSelected: { seriesName in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isSidebarVisible = false
-                            }
-                            navigationPath.append(SeriesDetailNavigation(seriesName: seriesName, initialSelectedBook: nil))
-                        }
+                .modifier(SoftScrollEdgeModifier())
+                .frame(width: contentWidth)
+                #if os(iOS)
+                .overlay(alignment: .trailing) {
+                    let groups = mediaViewModel.booksByCollection(for: mediaKind)
+                    AlphabetScrubber(
+                        items: groups,
+                        textForItem: { $0.collection?.name ?? "Unknown Collection" },
+                        idForItem: { $0.collection?.uuid ?? $0.collection?.name ?? "unknown" },
+                        proxy: proxy
                     )
-                    .frame(width: sidebarWidth)
+                    .padding(.top, 120)
+                    .padding(.bottom, 40)
                 }
+                #endif
             }
-            .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
         }
     }
 
@@ -392,10 +348,6 @@ struct CollectionsView: View {
                     if let collectionId = collection?.uuid ?? collection?.name {
                         navigateToCollection(collectionId, initialSelectedBook: book)
                     }
-                },
-                onInfo: { book in
-                    activeInfoItem = book
-                    isSidebarVisible = true
                 }
             )
             .frame(maxWidth: stackWidth, alignment: .center)

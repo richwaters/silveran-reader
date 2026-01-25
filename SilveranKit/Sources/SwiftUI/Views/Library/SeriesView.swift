@@ -15,8 +15,6 @@ struct SeriesView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @State private var activeInfoItem: BookMetadata? = nil
-    @State private var isSidebarVisible: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = LibraryLayoutStyle.fan.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
@@ -32,8 +30,6 @@ struct SeriesView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
-    private let sidebarWidth: CGFloat = 340
-    private let sidebarSpacing: CGFloat = 1
     private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
 
@@ -112,80 +108,40 @@ struct SeriesView: View {
         #if os(iOS)
         .environment(\.mediaNavigationPath, $navigationPath)
         #endif
-        #if os(macOS)
-        .onKeyPress(.escape) {
-            if isSidebarVisible {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isSidebarVisible = false
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        #endif
     }
 
     private var seriesListView: some View {
         GeometryReader { geometry in
-            let containerWidth = geometry.size.width
-            let contentWidth =
-                isSidebarVisible
-                ? max(containerWidth - sidebarWidth - sidebarSpacing, 0)
-                : containerWidth
+            let contentWidth = geometry.size.width
 
-            HStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: true) {
-                        VStack(alignment: .leading, spacing: sectionSpacing) {
-                            headerView
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: sectionSpacing) {
+                        headerView
 
-                            seriesContent(contentWidth: contentWidth)
-                        }
-                        .padding(.horizontal, horizontalPadding)
-                        .padding(.top, 24)
-                        .padding(.bottom, 40)
+                        seriesContent(contentWidth: contentWidth)
                     }
-                    .frame(width: contentWidth)
-                    .contentMargins(.trailing, 10, for: .scrollIndicators)
-                    .modifier(SoftScrollEdgeModifier())
-                    #if os(iOS)
-                    .overlay(alignment: .trailing) {
-                        let groups = mediaViewModel.booksBySeries(for: mediaKind)
-                        AlphabetScrubber(
-                            items: groups,
-                            textForItem: { $0.series?.name ?? "No Series" },
-                            idForItem: { $0.series?.name ?? Self.noSeriesFilterKey },
-                            proxy: proxy
-                        )
-                        .padding(.top, 120)
-                        .padding(.bottom, 40)
-                    }
-                    #endif
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, 24)
+                    .padding(.bottom, 40)
                 }
-
-                if isSidebarVisible, let item = activeInfoItem {
-                    MediaGridInfoSidebar(
-                        item: item,
-                        mediaKind: mediaKind,
-                        onClose: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isSidebarVisible = false
-                            }
-                        },
-                        onReadNow: {},
-                        onRename: {},
-                        onDelete: {},
-                        onSeriesSelected: { seriesName in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isSidebarVisible = false
-                            }
-                            navigateToSeries(seriesName)
-                        }
+                .frame(width: contentWidth)
+                .contentMargins(.trailing, 10, for: .scrollIndicators)
+                .modifier(SoftScrollEdgeModifier())
+                #if os(iOS)
+                .overlay(alignment: .trailing) {
+                    let groups = mediaViewModel.booksBySeries(for: mediaKind)
+                    AlphabetScrubber(
+                        items: groups,
+                        textForItem: { $0.series?.name ?? "No Series" },
+                        idForItem: { $0.series?.name ?? Self.noSeriesFilterKey },
+                        proxy: proxy
                     )
-                    .frame(width: sidebarWidth)
+                    .padding(.top, 120)
+                    .padding(.bottom, 40)
                 }
+                #endif
             }
-            .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
         }
     }
 
@@ -380,10 +336,6 @@ struct SeriesView: View {
                 coverPreference: coverPreference,
                 onSelect: { book in
                     navigateToSeries(navigationKey, initialSelectedBook: book)
-                },
-                onInfo: { book in
-                    activeInfoItem = book
-                    isSidebarVisible = true
                 }
             )
             .frame(maxWidth: stackWidth, alignment: .center)

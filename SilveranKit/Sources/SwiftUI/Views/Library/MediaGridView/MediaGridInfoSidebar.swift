@@ -48,7 +48,11 @@ struct MediaGridInfoSidebar: View {
                 content
             }
         }
+        #if os(macOS)
+        .background(Color(nsColor: .windowBackgroundColor))
+        #else
         .background(.thinMaterial)
+        #endif
         .onAppear {
             prepareForDisplay()
             loadDescription()

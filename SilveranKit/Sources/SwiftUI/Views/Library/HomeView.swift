@@ -43,8 +43,9 @@ struct HomeView: View {
     @State private var settingsViewModel = SettingsViewModel()
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
-    // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
+    @State private var baseContentWidth: CGFloat?
+    @State private var isAnimatingSidebar = false
     #endif
     @State private var navigationPath = NavigationPath()
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
@@ -54,7 +55,9 @@ struct HomeView: View {
     }
 
     private let sidebarWidth: CGFloat = 340
-    private let sidebarSpacing: CGFloat = 1
+    #if os(macOS)
+    private let sidebarTotalWidth: CGFloat = 341
+    #endif
     private let horizontalPadding: CGFloat = 24
     private let verticalPadding: CGFloat = 28
     private let sectionSpacing: CGFloat = 36
@@ -148,7 +151,11 @@ struct HomeView: View {
 
     private var homeContent: some View {
         GeometryReader { geometry in
+            #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && selectedItem != nil
+            let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
+            let contentWidth = baseContentWidth ?? (geometry.size.width - sidebarAdjustment)
+            #endif
 
             HStack(spacing: 0) {
                 ScrollViewReader { proxy in
@@ -232,6 +239,9 @@ struct HomeView: View {
                             }
                         }
                     }
+                    #if os(macOS)
+                    .frame(width: contentWidth, height: geometry.size.height)
+                    #endif
                     .contentShape(Rectangle())
                     .onTapGesture {
                         #if os(macOS)
@@ -250,26 +260,58 @@ struct HomeView: View {
                     )
                     #endif
                 }
+
+                #if os(macOS)
                 if shouldShowSidebar, let item = selectedItem {
-                    Color.clear
-                        .frame(width: sidebarSpacing, height: geometry.size.height)
-                    MediaGridInfoSidebar(
-                        item: item,
-                        onClose: { dismissSidebar() },
-                        onReadNow: { dismissSidebar() },
-                        onRename: {},
-                        onDelete: { dismissSidebar() },
-                        onSeriesSelected: { seriesName in
-                            dismissSidebar()
-                            navigationPath.append(SeriesNavIdentifier(name: seriesName))
-                        }
-                    )
-                    .frame(width: sidebarWidth, height: geometry.size.height)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(Color(nsColor: .separatorColor))
+                            .frame(width: 1)
+                        MediaGridInfoSidebar(
+                            item: item,
+                            onClose: { dismissSidebar() },
+                            onReadNow: { dismissSidebar() },
+                            onRename: {},
+                            onDelete: { dismissSidebar() },
+                            onSeriesSelected: { seriesName in
+                                dismissSidebar()
+                                navigationPath.append(SeriesNavIdentifier(name: seriesName))
+                            }
+                        )
+                        .frame(width: sidebarWidth)
+                    }
+                }
+                #endif
+            }
+            #if os(macOS)
+            .onAppear {
+                if baseContentWidth == nil {
+                    let adj: CGFloat = (isSidebarVisible && selectedItem != nil) ? sidebarTotalWidth : 0
+                    baseContentWidth = geometry.size.width - adj
                 }
             }
+            .onChange(of: geometry.size.width) { _, newWidth in
+                if !isAnimatingSidebar {
+                    let adj: CGFloat = (isSidebarVisible && selectedItem != nil) ? sidebarTotalWidth : 0
+                    baseContentWidth = newWidth - adj
+                }
+            }
+            .onChange(of: isSidebarVisible) { _, _ in
+                isAnimatingSidebar = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    isAnimatingSidebar = false
+                }
+            }
+            #endif
         }
         #if os(macOS)
+        .clipped()
+        .background(
+            WindowFrameAdjuster(
+                expandRight: isSidebarVisible && selectedItem != nil,
+                rightAmount: sidebarTotalWidth
+            )
+        )
         .focusable(true)
         .focusEffectDisabled(true)
         .onMoveCommand(perform: handleMoveCommand)

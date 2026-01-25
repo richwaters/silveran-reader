@@ -7,7 +7,6 @@ struct SeriesStackView: View {
     let showAudioIndicator: Bool
     let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
-    let onInfo: (BookMetadata) -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredBookID: BookMetadata.ID? = nil

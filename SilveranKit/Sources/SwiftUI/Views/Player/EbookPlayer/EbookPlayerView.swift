@@ -276,7 +276,8 @@ public struct EbookPlayerView: View {
                 expandRight: viewModel.showAudioSidebar,
                 expandLeft: viewModel.showChapterSidebar,
                 rightAmount: 361,
-                leftAmount: leftSidebarTotalWidth
+                leftAmount: leftSidebarTotalWidth,
+                savedWidthKey: "EbookPlayerWindowWidth"
             )
         )
     }
@@ -705,101 +706,6 @@ public struct EbookPlayerView: View {
 }
 
 #if os(macOS)
-private struct WindowFrameAdjuster: NSViewRepresentable {
-    let expandRight: Bool
-    let expandLeft: Bool
-    let rightAmount: CGFloat
-    let leftAmount: CGFloat
-
-    private static let savedWidthKey = "EbookPlayerWindowWidth"
-
-    func makeNSView(context: Context) -> NSView {
-        NSView()
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = nsView.window else { return }
-
-            let coordinator = context.coordinator
-
-            if !coordinator.initialized {
-                coordinator.initialized = true
-                coordinator.lastExpandedRight = expandRight
-                coordinator.lastExpandedLeft = expandLeft
-                setupResizeObserver(window: window, coordinator: coordinator)
-
-                if let savedWidth = UserDefaults.standard.object(forKey: Self.savedWidthKey) as? CGFloat,
-                   savedWidth > 0,
-                   window.frame.width != savedWidth {
-                    var frame = window.frame
-                    frame.size.width = savedWidth
-                    window.setFrame(frame, display: true, animate: false)
-                }
-                return
-            }
-
-            var frame = window.frame
-            var needsUpdate = false
-
-            if expandRight != coordinator.lastExpandedRight {
-                if expandRight {
-                    frame.size.width += rightAmount
-                } else {
-                    frame.size.width -= rightAmount
-                }
-                coordinator.lastExpandedRight = expandRight
-                needsUpdate = true
-            }
-
-            if expandLeft != coordinator.lastExpandedLeft {
-                if expandLeft {
-                    frame.size.width += leftAmount
-                    frame.origin.x -= leftAmount
-                } else {
-                    frame.size.width -= leftAmount
-                    frame.origin.x += leftAmount
-                }
-                coordinator.lastExpandedLeft = expandLeft
-                needsUpdate = true
-            }
-
-            if needsUpdate {
-                window.setFrame(frame, display: true, animate: true)
-            }
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    class Coordinator {
-        var initialized = false
-        var lastExpandedRight = false
-        var lastExpandedLeft = false
-        var resizeObserver: Any?
-
-        deinit {
-            if let observer = resizeObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-        }
-    }
-
-    private func setupResizeObserver(window: NSWindow, coordinator: Coordinator) {
-        guard coordinator.resizeObserver == nil else { return }
-
-        coordinator.resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: window,
-            queue: .main
-        ) { _ in
-            UserDefaults.standard.set(window.frame.width, forKey: WindowFrameAdjuster.savedWidthKey)
-        }
-    }
-}
-
 private class TitleBarDoubleClickGestureRecognizer: NSClickGestureRecognizer {
     var titlebarHeight: CGFloat = 52
 }

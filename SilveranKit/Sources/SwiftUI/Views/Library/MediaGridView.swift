@@ -106,6 +106,8 @@ struct MediaGridView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
+    @State private var baseContentWidth: CGFloat?
+    @State private var isAnimatingSidebar = false
     #endif
 
     @State private var activeInfoItem: BookMetadata? = nil
@@ -328,36 +330,26 @@ struct MediaGridView: View {
         return usableWidth / CGFloat(columnCount)
     }
 
+    #if os(macOS)
+    private let sidebarTotalWidth: CGFloat = 341
+    #endif
+
     var body: some View {
         GeometryReader { geometry in
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
             let usesTableLayout = layoutStyle == .list
-            #else
-            let shouldShowSidebar = false
-            #endif
-            let availableWidth = geometry.size.width
-            let detailWidth = sidebarWidth + sidebarSpacing
-            let contentWidth =
-                shouldShowSidebar
-                ? max(availableWidth - detailWidth, 0)
-                : max(availableWidth, platformMinimumWidth)
+            let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
+            let contentWidth = baseContentWidth ?? (geometry.size.width - sidebarAdjustment)
 
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 0) {
-                    #if os(macOS)
-                    if usesTableLayout {
-                        tableContent(for: max(contentWidth, minimumTileWidth))
-                            .frame(width: max(contentWidth, minimumTileWidth))
-                    } else {
-                        scrollableContent(for: max(contentWidth, minimumTileWidth))
-                    }
-                    #else
-                    scrollableContent(for: max(contentWidth, minimumTileWidth))
-                    #endif
+            HStack(spacing: 0) {
+                mainContent(usesTableLayout: usesTableLayout, contentWidth: max(contentWidth, minimumTileWidth), height: geometry.size.height)
 
-                    #if os(macOS)
-                    if shouldShowSidebar, let activeInfoItem {
+                if shouldShowSidebar, let activeInfoItem {
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(Color(nsColor: .separatorColor))
+                            .frame(width: 1)
                         MediaGridInfoSidebar(
                             item: activeInfoItem,
                             mediaKind: mediaKind,
@@ -380,11 +372,42 @@ struct MediaGridView: View {
                                 }
                             }
                         )
+                        .frame(width: sidebarWidth)
                     }
-                    #endif
                 }
             }
+            .onAppear {
+                if baseContentWidth == nil {
+                    let adj: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
+                    baseContentWidth = geometry.size.width - adj
+                }
+            }
+            .onChange(of: geometry.size.width) { _, newWidth in
+                if !isAnimatingSidebar {
+                    let adj: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
+                    baseContentWidth = newWidth - adj
+                }
+            }
+            .onChange(of: isSidebarVisible) { _, _ in
+                isAnimatingSidebar = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    isAnimatingSidebar = false
+                }
+            }
+            #else
+            let contentWidth = max(geometry.size.width, platformMinimumWidth)
+            scrollableContent(for: max(contentWidth, minimumTileWidth))
+            #endif
         }
+        #if os(macOS)
+        .clipped()
+        .background(
+            WindowFrameAdjuster(
+                expandRight: isSidebarVisible && activeInfoItem != nil,
+                rightAmount: sidebarTotalWidth
+            )
+        )
+        #endif
         .frame(minWidth: platformMinimumWidth)
         #if os(macOS)
         .focusable(true)
@@ -399,6 +422,19 @@ struct MediaGridView: View {
         }
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func mainContent(usesTableLayout: Bool, contentWidth: CGFloat, height: CGFloat) -> some View {
+        if usesTableLayout {
+            tableContent(for: contentWidth)
+                .frame(width: contentWidth, height: height)
+        } else {
+            scrollableContent(for: contentWidth)
+                .frame(width: contentWidth, height: height)
+        }
+    }
+    #endif
 
     @ViewBuilder
     private func scrollableContent(for contentWidth: CGFloat) -> some View {

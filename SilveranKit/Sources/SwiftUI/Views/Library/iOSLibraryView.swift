@@ -724,8 +724,7 @@ struct CollectionsListView: View {
                 coverPreference: coverPreference,
                 onSelect: { _ in
                     navigateToCollection(navIdentifier)
-                },
-                onInfo: { _ in }
+                }
             )
             .frame(maxWidth: stackWidth, alignment: .center)
 
@@ -904,8 +903,7 @@ struct SeriesContentView: View {
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
                 coverPreference: coverPreference,
-                onSelect: { _ in },
-                onInfo: { _ in }
+                onSelect: { _ in }
             )
             .frame(maxWidth: stackWidth, alignment: .center)
 
