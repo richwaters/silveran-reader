@@ -4,7 +4,6 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
     case grid
     case compactGrid
     case list
-    case compactList
     case fan
 
     public var id: String { rawValue }
@@ -14,7 +13,6 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
         case .grid: "Grid"
         case .compactGrid: "Compact Grid"
         case .list: "List"
-        case .compactList: "Compact List"
         case .fan: "Fan"
         }
     }
@@ -24,7 +22,6 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
         case .grid: "square.grid.2x2"
         case .compactGrid: "square.grid.3x3"
         case .list: "list.bullet"
-        case .compactList: "list.dash"
         case .fan: "rectangle.stack"
         }
     }

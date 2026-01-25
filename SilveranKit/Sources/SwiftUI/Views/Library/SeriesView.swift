@@ -280,7 +280,7 @@ struct SeriesView: View {
                         contentWidth: contentWidth
                     )
                 }
-            case .grid, .compactGrid, .list, .compactList:
+            case .grid, .compactGrid, .list:
                 seriesGridLayout(groups: filteredGroups, contentWidth: contentWidth)
             }
         }

@@ -327,7 +327,7 @@ struct MediaGridView: View {
         GeometryReader { geometry in
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
-            let usesTableLayout = layoutStyle == .list || layoutStyle == .compactList
+            let usesTableLayout = layoutStyle == .list
             #else
             let shouldShowSidebar = false
             #endif
@@ -459,7 +459,6 @@ struct MediaGridView: View {
                 MediaTableView(
                     items: tableSortedItems,
                     coverPreference: coverPreference,
-                    compact: layoutStyle == .compactList,
                     mediaViewModel: mediaViewModel,
                     selection: Binding(
                         get: { activeInfoItem?.id },
@@ -766,23 +765,6 @@ struct MediaGridView: View {
                                 showAudioIndicator: settingsViewModel.showAudioIndicator,
                                 sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
                                 seriesPositionBadge: seriesPositionBadge(for: item),
-                                isSelected: activeInfoItem?.id == item.id,
-                                onSelect: { selected in
-                                    selectItem(selected)
-                                },
-                                onInfo: { selected in
-                                    openSidebar(for: selected)
-                                }
-                            )
-                        }
-                    }
-                    .scrollTargetLayout()
-                    .padding(.horizontal, gridHorizontalPadding)
-                case .compactList:
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(cachedDisplayItems) { item in
-                            MediaCompactListRowView(
-                                item: item,
                                 isSelected: activeInfoItem?.id == item.id,
                                 onSelect: { selected in
                                     selectItem(selected)

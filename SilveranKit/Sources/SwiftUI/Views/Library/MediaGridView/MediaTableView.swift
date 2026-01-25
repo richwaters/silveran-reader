@@ -72,7 +72,6 @@ private final class ImmediateSelectTableView: NSTableView {
 struct MediaTableView: NSViewRepresentable {
     let items: [BookMetadata]
     let coverPreference: CoverPreference
-    let compact: Bool
     let mediaViewModel: MediaViewModel
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
@@ -96,7 +95,7 @@ struct MediaTableView: NSViewRepresentable {
         tableView.style = .inset
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.rowSizeStyle = .custom
-        tableView.rowHeight = compact ? 32 : 48
+        tableView.rowHeight = 48
         tableView.usesAutomaticRowHeights = false
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
         tableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
@@ -130,20 +129,14 @@ struct MediaTableView: NSViewRepresentable {
 
         let coordinator = context.coordinator
         let oldItems = coordinator.items
-        let oldCompact = coordinator.compact
         let newItems = items
 
         coordinator.parent = self
         coordinator.items = items
-        coordinator.compact = compact
         coordinator.coverPreference = coverPreference
         coordinator.mediaViewModel = mediaViewModel
 
-        tableView.rowHeight = compact ? 32 : 48
-
-        if oldCompact != compact {
-            tableView.reloadData()
-        } else if oldItems.map(\.id) != newItems.map(\.id) {
+        if oldItems.map(\.id) != newItems.map(\.id) {
             tableView.reloadData()
         } else if oldItems != newItems {
             tableView.reloadData()
@@ -186,7 +179,7 @@ struct MediaTableView: NSViewRepresentable {
 
     private func setupColumns(tableView: NSTableView, context: Context) {
         let columnDefs: [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
-            "cover": ("", 30, compact ? 36 : 50, 70),
+            "cover": ("", 30, 50, 70),
             "title": ("Title", 100, 200, 10000),
             "author": ("Author", 80, 150, 10000),
             "series": ("Series", 80, 140, 10000),
@@ -262,7 +255,6 @@ struct MediaTableView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         var parent: MediaTableView
         var items: [BookMetadata]
-        var compact: Bool
         var coverPreference: CoverPreference
         var mediaViewModel: MediaViewModel
         weak var tableView: NSTableView?
@@ -271,7 +263,6 @@ struct MediaTableView: NSViewRepresentable {
         init(parent: MediaTableView, mediaViewModel: MediaViewModel) {
             self.parent = parent
             self.items = parent.items
-            self.compact = parent.compact
             self.coverPreference = parent.coverPreference
             self.mediaViewModel = mediaViewModel
             super.init()
@@ -369,7 +360,7 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         private func makeCoverCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let height: CGFloat = compact ? 24 : 40
+            let height: CGFloat = 40
             let coverVariant = resolveCoverVariant(for: item)
             let aspectRatio = coverVariant.preferredAspectRatio
             let width = height * aspectRatio
@@ -388,11 +379,6 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         private func makeTitleCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            if compact {
-                let compactCellID = NSUserInterfaceItemIdentifier("titleCompactCell")
-                return makeTextCell(tableView: tableView, cellID: compactCellID, text: item.title, secondary: false)
-            }
-
             let stackedCellID = NSUserInterfaceItemIdentifier("titleStackedCell")
             let cell = tableView.makeView(withIdentifier: stackedCellID, owner: self) as? TitleAuthorCellView
                 ?? TitleAuthorCellView(identifier: stackedCellID)
@@ -403,14 +389,14 @@ struct MediaTableView: NSViewRepresentable {
         private func makeTextCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, text: String, secondary: Bool) -> NSView {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? TextCellView
                 ?? TextCellView(identifier: cellID)
-            cell.configure(text: text, secondary: secondary, compact: compact)
+            cell.configure(text: text, secondary: secondary)
             return cell
         }
 
         private func makeSeriesCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
                 ?? SeriesCellView(identifier: cellID)
-            cell.configure(series: item.series?.first, compact: compact)
+            cell.configure(series: item.series?.first)
             return cell
         }
 
@@ -418,14 +404,14 @@ struct MediaTableView: NSViewRepresentable {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? ProgressCellView
                 ?? ProgressCellView(identifier: cellID)
             let progress = mediaViewModel.progress(for: item.id)
-            cell.configure(progress: progress, compact: compact)
+            cell.configure(progress: progress)
             return cell
         }
 
         private func makeMediaCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
                 ?? HostingCellView(identifier: cellID)
-            let content = MediaIndicatorCellContent(item: item, compact: compact, mediaViewModel: mediaViewModel)
+            let content = MediaIndicatorCellContent(item: item, mediaViewModel: mediaViewModel)
             cell.setContent(content)
             return cell
         }
@@ -474,10 +460,10 @@ private final class TextCellView: NSTableCellView {
         ])
     }
 
-    func configure(text: String, secondary: Bool, compact: Bool) {
+    func configure(text: String, secondary: Bool) {
         label.stringValue = text
         label.textColor = secondary ? .secondaryLabelColor : .labelColor
-        label.font = .systemFont(ofSize: compact ? 11 : 13)
+        label.font = .systemFont(ofSize: 13)
     }
 }
 
@@ -573,13 +559,13 @@ private final class SeriesCellView: NSTableCellView {
         ])
     }
 
-    func configure(series: BookSeries?, compact: Bool) {
+    func configure(series: BookSeries?) {
         if let series {
             nameLabel.stringValue = series.name
-            nameLabel.font = .systemFont(ofSize: compact ? 11 : 13)
+            nameLabel.font = .systemFont(ofSize: 13)
             if let position = series.position {
                 positionLabel.stringValue = "#\(position)"
-                positionLabel.font = .systemFont(ofSize: compact ? 10 : 11)
+                positionLabel.font = .systemFont(ofSize: 11)
                 positionLabel.isHidden = false
             } else {
                 positionLabel.isHidden = true
@@ -642,12 +628,12 @@ private final class ProgressCellView: NSTableCellView {
         CATransaction.commit()
     }
 
-    func configure(progress: Double, compact: Bool) {
+    func configure(progress: Double) {
         currentProgress = min(max(progress, 0), 1)
         percentLabel.stringValue = "\(Int(currentProgress * 100))%"
-        percentLabel.font = .monospacedDigitSystemFont(ofSize: compact ? 10 : 11, weight: .medium)
+        percentLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
 
-        let barHeight: CGFloat = compact ? 3 : 4
+        let barHeight: CGFloat = 4
         trackLayer.cornerRadius = barHeight / 2
         fillLayer.cornerRadius = barHeight / 2
 
@@ -746,17 +732,16 @@ private final class HostingCellView: NSTableCellView {
 
 private struct MediaIndicatorCellContent: View {
     let item: BookMetadata
-    let compact: Bool
     let mediaViewModel: MediaViewModel
 
     @Environment(\.openWindow) private var openWindow
     @State private var hoveredType: MediaType?
     @State private var showConnectionAlert = false
 
-    private var iconSize: CGFloat { compact ? 14 : 20 }
-    private var smallIconSize: CGFloat { compact ? 11 : 16 }
-    private var readaloudSize: CGFloat { compact ? 12 : 18 }
-    private var buttonSize: CGFloat { compact ? 20 : 28 }
+    private let iconSize: CGFloat = 20
+    private let smallIconSize: CGFloat = 16
+    private let readaloudSize: CGFloat = 18
+    private let buttonSize: CGFloat = 28
 
     private var hasConnectionError: Bool {
         if mediaViewModel.lastNetworkOpSucceeded == false { return true }
@@ -765,7 +750,7 @@ private struct MediaIndicatorCellContent: View {
     }
 
     var body: some View {
-        HStack(spacing: compact ? 4 : 6) {
+        HStack(spacing: 6) {
             mediaButton(for: .ebook)
             mediaButton(for: .audio)
             mediaButton(for: .synced)
@@ -852,16 +837,16 @@ private struct MediaIndicatorCellContent: View {
                     } else if let progress {
                         ZStack {
                             Circle()
-                                .stroke(status.color.opacity(0.3), lineWidth: compact ? 2 : 2.5)
+                                .stroke(status.color.opacity(0.3), lineWidth: 2.5)
                             Circle()
                                 .trim(from: 0, to: progress)
-                                .stroke(status.color, lineWidth: compact ? 2 : 2.5)
+                                .stroke(status.color, lineWidth: 2.5)
                                 .rotationEffect(.degrees(-90))
                         }
                         .frame(width: iconSize, height: iconSize)
                     } else {
                         ProgressView()
-                            .controlSize(compact ? .mini : .small)
+                            .controlSize(.small)
                     }
                 } else if isHovered && status == .availableNotDownloaded {
                     if hasConnectionError {

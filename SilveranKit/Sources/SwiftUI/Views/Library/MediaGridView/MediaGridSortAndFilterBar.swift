@@ -316,7 +316,7 @@ struct MediaGridSortAndFilterBar: View {
 
     #if os(macOS)
     private var isListLayout: Bool {
-        layoutStyle == .list || layoutStyle == .compactList
+        layoutStyle == .list
     }
 
     @ViewBuilder
@@ -380,7 +380,7 @@ struct MediaGridSortAndFilterBar: View {
     @ViewBuilder
     private var layoutSection: some View {
         Section("Layout") {
-            ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.list, LibraryLayoutStyle.compactList], id: \.self) { style in
+            ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.list], id: \.self) { style in
                 Button {
                     layoutStyle = style
                 } label: {
