@@ -4,6 +4,7 @@ import AppKit
 
 private final class ImmediateSelectTableView: NSTableView {
     var onRowClicked: ((Int) -> Void)?
+    private var didApplyInitialSizing = false
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -18,6 +19,53 @@ private final class ImmediateSelectTableView: NSTableView {
         }
 
         super.mouseDown(with: event)
+    }
+
+    override func layout() {
+        super.layout()
+        adjustWidthToClipView()
+    }
+
+    private func adjustWidthToClipView() {
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        let availableWidth = clipView.bounds.width
+        guard availableWidth > 0 else { return }
+        if !didApplyInitialSizing, !tableColumns.isEmpty {
+            fitVisibleColumns(to: availableWidth)
+            didApplyInitialSizing = true
+        }
+        if abs(frame.width - availableWidth) > 0.5 {
+            setFrameSize(NSSize(width: availableWidth, height: frame.height))
+        }
+    }
+
+    private func fitVisibleColumns(to availableWidth: CGFloat) {
+        let visibleColumns = tableColumns.filter { !$0.isHidden }
+        guard !visibleColumns.isEmpty else { return }
+
+        let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
+        let extraWidth = max(frame.width - totalWidth, 0)
+        let targetWidth = max(availableWidth - extraWidth, 0)
+        guard totalWidth > targetWidth + 0.5 else { return }
+
+        let minTotal = visibleColumns.reduce(0) { $0 + $1.minWidth }
+        if minTotal >= targetWidth {
+            for column in visibleColumns {
+                column.width = column.minWidth
+            }
+            return
+        }
+
+        let adjustable = visibleColumns.reduce(0) { $0 + max($1.width - $1.minWidth, 0) }
+        guard adjustable > 0 else { return }
+
+        let overflow = totalWidth - targetWidth
+        for column in visibleColumns {
+            let delta = max(column.width - column.minWidth, 0)
+            let shrink = overflow * (delta / adjustable)
+            let proposed = column.width - shrink
+            column.width = max(column.minWidth, proposed)
+        }
     }
 }
 
