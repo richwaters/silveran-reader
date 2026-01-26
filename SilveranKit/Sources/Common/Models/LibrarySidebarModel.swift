@@ -1,21 +1,19 @@
 public class LibrarySidebarModel {
     public static func getSections() -> [SidebarSectionDescription] {
-        // TODO: Support user custom sections
         defaultSections()
     }
 
-    /** The default sections that all GUIs should show, before custom user sections are added
-     */
     public static func defaultSections() -> [SidebarSectionDescription] {
         [
             SidebarSectionDescription(
+                id: "section.library",
                 name: "Library",
                 items: [
                     SidebarItemDescription(
                         name: "Home",
                         systemImage: "house",
                         badge: 112,
-                        content: .home,
+                        content: .home
                     ),
                     SidebarItemDescription(
                         name: "Books",
@@ -27,13 +25,14 @@ public class LibrarySidebarModel {
                                 title: "Books",
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                            ),
-                        ),
+                                minimumTileWidth: 50
+                            )
+                        )
                     ),
-                ],
+                ]
             ),
             SidebarSectionDescription(
+                id: "section.collections",
                 name: "Collections",
                 items: [
                     SidebarItemDescription(
@@ -46,9 +45,9 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "next-up",
-                            ),
-                        ),
+                                tagFilter: "next-up"
+                            )
+                        )
                     ),
                     SidebarItemDescription(
                         name: "Currently Reading",
@@ -60,9 +59,9 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "currently-reading",
-                            ),
-                        ),
+                                tagFilter: "currently-reading"
+                            )
+                        )
                     ),
                     SidebarItemDescription(
                         name: "Completed",
@@ -74,9 +73,9 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "completed",
-                            ),
-                        ),
+                                tagFilter: "completed"
+                            )
+                        )
                     ),
                     SidebarItemDescription(
                         name: "Custom Collections",
@@ -90,48 +89,48 @@ public class LibrarySidebarModel {
                         badge: -1,
                         content: .currentlyDownloading
                     ),
-                ],
+                ]
             ),
             SidebarSectionDescription(
+                id: "section.mediaSources",
                 name: "Media Sources",
                 items: [
                     SidebarItemDescription(
                         name: "Storyteller Server",
                         systemImage: "server.rack",
                         badge: -1,
-                        content: .placeholder(title: "Storyteller Server"),
+                        content: .placeholder(title: "Storyteller Server")
                     ),
                     SidebarItemDescription(
                         name: "Audiobookshelf Server",
                         systemImage: "server.rack",
                         badge: -1,
-                        content: .placeholder(title: "Audiobookshelf Server"),
+                        content: .placeholder(title: "Audiobookshelf Server")
                     ),
                     SidebarItemDescription(
                         name: "Local Files",
                         systemImage: "folder",
                         badge: -1,
-                        content: .importLocalFile,
+                        content: .importLocalFile
                     ),
-                ],
+                ]
             ),
         ]
     }
 
-    // TODO: This might be over-engineered, now that all the other subitems are removed
     private static func booksSubItems(parent: String) -> [SidebarItemDescription] {
         [
             SidebarItemDescription(
                 name: "By Series",
                 systemImage: "books.vertical",
                 badge: -1,
-                content: .placeholder(title: "\(parent) by Series"),
+                content: .placeholder(title: "\(parent) by Series")
             ),
             SidebarItemDescription(
                 name: "By Author",
                 systemImage: "person.2",
                 badge: -1,
-                content: .placeholder(title: "\(parent) by Author"),
+                content: .placeholder(title: "\(parent) by Author")
             ),
         ]
     }

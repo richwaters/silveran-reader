@@ -158,7 +158,7 @@ struct MediaTableView: NSViewRepresentable {
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "author", "series", "media"]
     private static let columnOrderKey = "library.table.columnOrder"
-    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "status", "added", "tags", "media"]
+    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "tags", "media"]
 
     private func updateColumnVisibility(tableView: NSTableView) {
         for column in tableView.tableColumns {
@@ -185,6 +185,8 @@ struct MediaTableView: NSViewRepresentable {
             "series": ("Series", 80, 140, 10000),
             "progress": ("Progress", 60, 100, 140),
             "narrator": ("Narrator", 80, 120, 10000),
+            "translator": ("Translator", 80, 120, 10000),
+            "publicationYear": ("Year", 40, 60, 80),
             "status": ("Status", 60, 80, 10000),
             "added": ("Added", 80, 100, 10000),
             "tags": ("Tags", 80, 120, 10000),
@@ -206,7 +208,8 @@ struct MediaTableView: NSViewRepresentable {
             column.isEditable = false
 
             if id == "title" || id == "author" || id == "series" ||
-               id == "narrator" || id == "status" || id == "added" || id == "tags" {
+               id == "narrator" || id == "translator" || id == "publicationYear" ||
+               id == "status" || id == "added" || id == "tags" {
                 column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
             }
 
@@ -235,6 +238,8 @@ struct MediaTableView: NSViewRepresentable {
             \BookMetadata.sortableSeries: "series",
             \BookMetadata.progress: "progress",
             \BookMetadata.sortableNarrator: "narrator",
+            \BookMetadata.sortableTranslator: "translator",
+            \BookMetadata.sortablePublicationYear: "publicationYear",
             \BookMetadata.sortableStatus: "status",
             \BookMetadata.sortableAdded: "added",
             \BookMetadata.sortableTags: "tags",
@@ -290,6 +295,10 @@ struct MediaTableView: NSViewRepresentable {
                 return makeProgressCell(tableView: tableView, cellID: cellID, item: item)
             case "narrator":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.narrators?.first?.name ?? "", secondary: true)
+            case "translator":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTranslator, secondary: true)
+            case "publicationYear":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortablePublicationYear, secondary: true)
             case "status":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.status?.name ?? "", secondary: true)
             case "added":
@@ -320,6 +329,10 @@ struct MediaTableView: NSViewRepresentable {
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.progress, order: order)]
             case "narrator":
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableNarrator, order: order)]
+            case "translator":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTranslator, order: order)]
+            case "publicationYear":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortablePublicationYear, order: order)]
             case "status":
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableStatus, order: order)]
             case "added":

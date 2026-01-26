@@ -290,6 +290,19 @@ extension AuthorView {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            if group.author?.name != nil {
+                                let pinId = SidebarPinHelper.pinId(forAuthor: authorName)
+                                Button {
+                                    SidebarPinHelper.togglePin(pinId)
+                                } label: {
+                                    Label(
+                                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 8)

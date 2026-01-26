@@ -7,6 +7,8 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var selectedSeries: String?
     @Binding var selectedAuthor: String?
     @Binding var selectedNarrator: String?
+    @Binding var selectedTranslator: String?
+    @Binding var selectedPublicationYear: String?
     @Binding var selectedStatus: String?
     @Binding var selectedLocation: MediaGridView.LocationFilterOption
     @Binding var layoutStyle: LibraryLayoutStyle
@@ -19,6 +21,8 @@ struct MediaGridSortAndFilterBar: View {
     let availableSeries: [String]
     let availableAuthors: [String]
     let availableNarrators: [String]
+    let availableTranslators: [String]
+    let availablePublicationYears: [String]
     let availableStatuses: [String]
     let filtersSummaryText: String
     let showLayoutOption: Bool
@@ -140,8 +144,10 @@ struct MediaGridSortAndFilterBar: View {
         let series = availableSeries
         let authors = availableAuthors
         let narrators = availableNarrators
+        let translators = availableTranslators
+        let publicationYears = availablePublicationYears
 
-        if !tags.isEmpty || !series.isEmpty || !authors.isEmpty || !narrators.isEmpty {
+        if !tags.isEmpty || !series.isEmpty || !authors.isEmpty || !narrators.isEmpty || !translators.isEmpty || !publicationYears.isEmpty {
             Divider()
             Section("Other") {
                 if !tags.isEmpty {
@@ -232,6 +238,52 @@ struct MediaGridSortAndFilterBar: View {
                         Label("Select Narrator", systemImage: "mic")
                     }
                 }
+
+                if !translators.isEmpty {
+                    Menu {
+                        Button {
+                            selectedTranslator = nil
+                        } label: {
+                            menuRowLabel(text: "All Translators", isSelected: selectedTranslator == nil)
+                        }
+
+                        ForEach(translators, id: \.self) { translatorName in
+                            Button {
+                                selectedTranslator = translatorName
+                            } label: {
+                                menuRowLabel(
+                                    text: translatorName,
+                                    isSelected: selectedTranslator == translatorName
+                                )
+                            }
+                        }
+                    } label: {
+                        Label("Select Translator", systemImage: "character.book.closed.fill")
+                    }
+                }
+
+                if !publicationYears.isEmpty {
+                    Menu {
+                        Button {
+                            selectedPublicationYear = nil
+                        } label: {
+                            menuRowLabel(text: "All Years", isSelected: selectedPublicationYear == nil)
+                        }
+
+                        ForEach(publicationYears, id: \.self) { year in
+                            Button {
+                                selectedPublicationYear = year
+                            } label: {
+                                menuRowLabel(
+                                    text: year,
+                                    isSelected: selectedPublicationYear == year
+                                )
+                            }
+                        }
+                    } label: {
+                        Label("Select Year", systemImage: "calendar")
+                    }
+                }
             }
         }
     }
@@ -279,6 +331,8 @@ struct MediaGridSortAndFilterBar: View {
             || selectedSeries != nil
             || selectedAuthor != nil
             || selectedNarrator != nil
+            || selectedTranslator != nil
+            || selectedPublicationYear != nil
             || selectedStatus != nil
             || selectedLocation != .all
     }
@@ -289,6 +343,8 @@ struct MediaGridSortAndFilterBar: View {
         selectedSeries = nil
         selectedAuthor = nil
         selectedNarrator = nil
+        selectedTranslator = nil
+        selectedPublicationYear = nil
         selectedStatus = nil
         selectedLocation = .all
     }
@@ -331,6 +387,8 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "status", label: "Status")
             columnToggle(id: "added", label: "Added")
             columnToggle(id: "tags", label: "Tags")
+            columnToggle(id: "translator", label: "Translator")
+            columnToggle(id: "publicationYear", label: "Year")
             columnToggle(id: "media", label: "Media")
             Divider()
             Button("Reset to Defaults") {

@@ -268,6 +268,19 @@ struct CollectionsView: View {
                     }
                 )
                 .id(collectionId)
+                .contextMenu {
+                    if let name = group.collection?.name {
+                        let pinId = SidebarPinHelper.pinId(forCollection: name)
+                        Button {
+                            SidebarPinHelper.togglePin(pinId)
+                        } label: {
+                            Label(
+                                SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                                systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -374,6 +387,19 @@ struct CollectionsView: View {
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
+        .contextMenu {
+            if let name = collection?.name {
+                let pinId = SidebarPinHelper.pinId(forCollection: name)
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    Label(
+                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                    )
+                }
+            }
+        }
     }
 
     private func navigateToCollection(_ collectionIdentifier: String, initialSelectedBook: BookMetadata? = nil) {

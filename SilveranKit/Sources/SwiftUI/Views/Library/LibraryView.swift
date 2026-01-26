@@ -132,6 +132,11 @@ public struct LibraryView: View {
                     mediaKind: configuration.mediaKind,
                     tagFilter: configuration.tagFilter,
                     seriesFilter: configuration.seriesFilter,
+                    collectionFilter: configuration.collectionFilter,
+                    authorFilter: configuration.authorFilter,
+                    narratorFilter: configuration.narratorFilter,
+                    translatorFilter: configuration.translatorFilter,
+                    publicationYearFilter: configuration.publicationYearFilter,
                     statusFilter: configuration.statusFilter,
                     defaultSort: configuration.defaultSort,
                     preferredTileWidth: preferred,
@@ -195,6 +200,42 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
+            case .translatorView(let mediaKind):
+                #if os(iOS)
+                TranslatorView(
+                    mediaKind: mediaKind,
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                TranslatorView(
+                    mediaKind: mediaKind,
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
+            case .publicationYearView(let mediaKind):
+                #if os(iOS)
+                PublicationYearView(
+                    mediaKind: mediaKind,
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                PublicationYearView(
+                    mediaKind: mediaKind,
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
             case .tagView(let mediaKind):
                 #if os(iOS)
                 TagView(
@@ -231,6 +272,8 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
+            case .dynamicShelves:
+                PlaceholderDetailView(title: "Dynamic Shelves")
             case .placeholder(let title):
                 PlaceholderDetailView(title: title)
                     .border(.yellow)

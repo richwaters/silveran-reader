@@ -89,6 +89,8 @@ struct MediaGridView: View {
     let collectionFilter: String?
     let authorFilter: String?
     let narratorFilter: String?
+    let translatorFilter: String?
+    let publicationYearFilter: String?
     let statusFilter: String?
     let defaultSort: String?
     let preferredTileWidth: CGFloat
@@ -120,6 +122,8 @@ struct MediaGridView: View {
     @State private var selectedCollection: String? = nil
     @State private var selectedAuthor: String? = nil
     @State private var selectedNarrator: String? = nil
+    @State private var selectedTranslator: String? = nil
+    @State private var selectedPublicationYear: String? = nil
     @State private var selectedStatus: String? = nil
     @State private var selectedLocation: LocationFilterOption = .all
     @State private var shouldEnsureActiveItemVisible: Bool = false
@@ -171,6 +175,8 @@ struct MediaGridView: View {
     @State private var cachedAvailableSeries: [String] = []
     @State private var cachedAvailableAuthors: [String] = []
     @State private var cachedAvailableNarrators: [String] = []
+    @State private var cachedAvailableTranslators: [String] = []
+    @State private var cachedAvailablePublicationYears: [String] = []
     @State private var cachedAvailableStatuses: [String] = []
     @State private var cachedFiltersSummary: String = ""
     @State private var lastCachedLibraryVersion: Int = -1
@@ -199,6 +205,8 @@ struct MediaGridView: View {
         collectionFilter: String? = nil,
         authorFilter: String? = nil,
         narratorFilter: String? = nil,
+        translatorFilter: String? = nil,
+        publicationYearFilter: String? = nil,
         statusFilter: String? = nil,
         defaultSort: String? = nil,
         preferredTileWidth: CGFloat = 250,
@@ -221,6 +229,8 @@ struct MediaGridView: View {
         self.collectionFilter = collectionFilter
         self.authorFilter = authorFilter
         self.narratorFilter = narratorFilter
+        self.translatorFilter = translatorFilter
+        self.publicationYearFilter = publicationYearFilter
         self.statusFilter = statusFilter
         self.defaultSort = defaultSort
         self.preferredTileWidth = preferredTileWidth
@@ -248,6 +258,8 @@ struct MediaGridView: View {
         _selectedCollection = State(initialValue: collectionFilter)
         _selectedAuthor = State(initialValue: authorFilter)
         _selectedNarrator = State(initialValue: narratorFilter)
+        _selectedTranslator = State(initialValue: translatorFilter)
+        _selectedPublicationYear = State(initialValue: publicationYearFilter)
         _selectedStatus = State(initialValue: statusFilter)
         _selectedLocation = State(initialValue: initialLocationFilter)
 
@@ -610,6 +622,8 @@ struct MediaGridView: View {
                 selectedSeries: $selectedSeries,
                 selectedAuthor: $selectedAuthor,
                 selectedNarrator: $selectedNarrator,
+                selectedTranslator: $selectedTranslator,
+                selectedPublicationYear: $selectedPublicationYear,
                 selectedStatus: $selectedStatus,
                 selectedLocation: $selectedLocation,
                 layoutStyle: Binding(
@@ -637,6 +651,8 @@ struct MediaGridView: View {
                 availableSeries: cachedAvailableSeries,
                 availableAuthors: cachedAvailableAuthors,
                 availableNarrators: cachedAvailableNarrators,
+                availableTranslators: cachedAvailableTranslators,
+                availablePublicationYears: cachedAvailablePublicationYears,
                 availableStatuses: cachedAvailableStatuses,
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
@@ -677,6 +693,8 @@ struct MediaGridView: View {
             selectedSeries: $selectedSeries,
             selectedAuthor: $selectedAuthor,
             selectedNarrator: $selectedNarrator,
+            selectedTranslator: $selectedTranslator,
+            selectedPublicationYear: $selectedPublicationYear,
             selectedStatus: $selectedStatus,
             selectedLocation: $selectedLocation,
             layoutStyle: Binding(
@@ -704,6 +722,8 @@ struct MediaGridView: View {
             availableSeries: cachedAvailableSeries,
             availableAuthors: cachedAvailableAuthors,
             availableNarrators: cachedAvailableNarrators,
+            availableTranslators: cachedAvailableTranslators,
+            availablePublicationYears: cachedAvailablePublicationYears,
             availableStatuses: cachedAvailableStatuses,
             filtersSummaryText: cachedFiltersSummary,
             showLayoutOption: true
@@ -1041,6 +1061,8 @@ struct MediaGridView: View {
         let collectionSel = selectedCollection
         let authorSel = selectedAuthor
         let narratorSel = selectedNarrator
+        let translatorSel = selectedTranslator
+        let publicationYearSel = selectedPublicationYear
         let statusSel = selectedStatus
         let locationSel = selectedLocation
         let search = searchText
@@ -1057,6 +1079,8 @@ struct MediaGridView: View {
                 collectionFilter: collectionSel,
                 authorFilter: authorSel,
                 narratorFilter: narratorSel,
+                translatorFilter: translatorSel,
+                publicationYearFilter: publicationYearSel,
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
@@ -1077,12 +1101,16 @@ struct MediaGridView: View {
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
             let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
+            let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
+            let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             await MainActor.run {
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
                 self.cachedAvailableNarrators = newNarrators
+                self.cachedAvailableTranslators = newTranslators
+                self.cachedAvailablePublicationYears = newPublicationYears
                 self.cachedAvailableStatuses = newStatuses
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
             }
@@ -1099,6 +1127,8 @@ struct MediaGridView: View {
         let collectionSel = selectedCollection
         let authorSel = selectedAuthor
         let narratorSel = selectedNarrator
+        let translatorSel = selectedTranslator
+        let publicationYearSel = selectedPublicationYear
         let statusSel = selectedStatus
         let locationSel = selectedLocation
         let search = searchText
@@ -1110,6 +1140,8 @@ struct MediaGridView: View {
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
             let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
+            let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
+            let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             let newDisplayItems = Self.computeDisplayItemsOffThread(
                 base: baseItems,
@@ -1120,6 +1152,8 @@ struct MediaGridView: View {
                 collectionFilter: collectionSel,
                 authorFilter: authorSel,
                 narratorFilter: narratorSel,
+                translatorFilter: translatorSel,
+                publicationYearFilter: publicationYearSel,
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
@@ -1130,6 +1164,8 @@ struct MediaGridView: View {
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
                 self.cachedAvailableNarrators = newNarrators
+                self.cachedAvailableTranslators = newTranslators
+                self.cachedAvailablePublicationYears = newPublicationYears
                 self.cachedAvailableStatuses = newStatuses
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
                 self.cachedDisplayItems = newDisplayItems
@@ -1166,7 +1202,9 @@ struct MediaGridView: View {
         let collectionFiltered = seriesFiltered.filter { matchesSelectedCollection($0) }
         let authorFiltered = collectionFiltered.filter { matchesSelectedAuthor($0) }
         let narratorFiltered = authorFiltered.filter { matchesSelectedNarrator($0) }
-        let statusFiltered = narratorFiltered.filter { matchesSelectedStatus($0) }
+        let translatorFiltered = narratorFiltered.filter { matchesSelectedTranslator($0) }
+        let publicationYearFiltered = translatorFiltered.filter { matchesSelectedPublicationYear($0) }
+        let statusFiltered = publicationYearFiltered.filter { matchesSelectedStatus($0) }
         let locationFiltered = statusFiltered.filter { matchesSelectedLocation($0) }
         let searchFiltered = locationFiltered.filter { matchesSearchText($0) }
         let sorted =
@@ -1284,6 +1322,27 @@ struct MediaGridView: View {
         }
         let normalized = narrator.lowercased()
         return item.narrators?.contains(where: { $0.name?.lowercased() == normalized }) ?? false
+    }
+
+    private func matchesSelectedTranslator(_ item: BookMetadata) -> Bool {
+        guard let translator = selectedTranslator else { return true }
+        if translator == "Unknown Translator" {
+            let translators = (item.creators ?? []).filter { $0.role == "trl" }
+            return translators.isEmpty
+        }
+        let normalized = translator.lowercased()
+        return (item.creators ?? []).contains(where: {
+            $0.role == "trl" && $0.name?.lowercased() == normalized
+        })
+    }
+
+    private func matchesSelectedPublicationYear(_ item: BookMetadata) -> Bool {
+        guard let year = selectedPublicationYear else { return true }
+        if year == "Unknown" {
+            return item.publicationDate == nil || (item.publicationDate?.count ?? 0) < 4
+        }
+        guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
+        return String(pubDate.prefix(4)) == year
     }
 
     private func matchesSelectedStatus(_ item: BookMetadata) -> Bool {
@@ -1450,6 +1509,12 @@ struct MediaGridView: View {
         if let narrator = selectedNarrator {
             parts.append(narrator)
         }
+        if let translator = selectedTranslator {
+            parts.append(translator)
+        }
+        if let year = selectedPublicationYear {
+            parts.append(year)
+        }
         if selectedLocation != .all {
             parts.append(selectedLocation.shortLabel)
         }
@@ -1465,6 +1530,8 @@ struct MediaGridView: View {
         collectionFilter: String?,
         authorFilter: String?,
         narratorFilter: String?,
+        translatorFilter: String?,
+        publicationYearFilter: String?,
         statusFilter: String?,
         locationFilter: LocationFilterOption,
         searchText: String,
@@ -1535,6 +1602,37 @@ struct MediaGridView: View {
                         if n.name?.lowercased() == lowercasedNarrator { return true }
                     }
                     return false
+                }
+            }
+        }
+
+        if let translator = translatorFilter {
+            if translator == "Unknown Translator" {
+                filtered = filtered.filter { item in
+                    let translators = (item.creators ?? []).filter { $0.role == "trl" }
+                    return translators.isEmpty
+                }
+            } else {
+                let lowercasedTranslator = translator.lowercased()
+                filtered = filtered.filter { item in
+                    guard let creators = item.creators else { return false }
+                    for c in creators {
+                        if c.role == "trl" && c.name?.lowercased() == lowercasedTranslator { return true }
+                    }
+                    return false
+                }
+            }
+        }
+
+        if let year = publicationYearFilter {
+            if year == "Unknown" {
+                filtered = filtered.filter { item in
+                    item.publicationDate == nil || (item.publicationDate?.count ?? 0) < 4
+                }
+            } else {
+                filtered = filtered.filter { item in
+                    guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
+                    return String(pubDate.prefix(4)) == year
                 }
             }
         }
@@ -1669,6 +1767,48 @@ struct MediaGridView: View {
         var result = unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         if hasUnknown {
             result.append("Unknown Narrator")
+        }
+        return result
+    }
+
+    private static nonisolated func computeAvailableTranslatorsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        var hasUnknown = false
+        for item in catalog {
+            let translators = (item.creators ?? []).filter { $0.role == "trl" }
+            if !translators.isEmpty {
+                for translator in translators {
+                    if let name = translator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                        let key = name.lowercased()
+                        if unique[key] == nil {
+                            unique[key] = name
+                        }
+                    } else {
+                        hasUnknown = true
+                    }
+                }
+            }
+        }
+        var result = unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        if hasUnknown {
+            result.append("Unknown Translator")
+        }
+        return result
+    }
+
+    private static nonisolated func computeAvailablePublicationYearsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var years = Set<String>()
+        var hasUnknown = false
+        for item in catalog {
+            if let pubDate = item.publicationDate, pubDate.count >= 4 {
+                years.insert(String(pubDate.prefix(4)))
+            } else {
+                hasUnknown = true
+            }
+        }
+        var result = years.sorted(by: >)
+        if hasUnknown {
+            result.append("Unknown")
         }
         return result
     }

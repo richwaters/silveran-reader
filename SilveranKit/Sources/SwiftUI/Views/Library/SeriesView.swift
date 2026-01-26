@@ -262,6 +262,19 @@ struct SeriesView: View {
                     }
                 )
                 .id(navigationKey)
+                .contextMenu {
+                    if let name = group.series?.name {
+                        let pinId = SidebarPinHelper.pinId(forSeries: name)
+                        Button {
+                            SidebarPinHelper.togglePin(pinId)
+                        } label: {
+                            Label(
+                                SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                                systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -359,6 +372,19 @@ struct SeriesView: View {
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
+        .contextMenu {
+            if let name = series?.name {
+                let pinId = SidebarPinHelper.pinId(forSeries: name)
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    Label(
+                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                    )
+                }
+            }
+        }
     }
 
     private func navigateToSeries(_ seriesName: String, initialSelectedBook: BookMetadata? = nil) {

@@ -652,6 +652,90 @@ public final class MediaViewModel {
         return result
     }
 
+    public func booksByTranslator(for kind: MediaKind)
+        -> [(translator: BookCreator?, books: [BookMetadata])]
+    {
+        let allBooks = library.bookMetaData
+
+        var translatorMap: [String: (translator: BookCreator?, books: [BookMetadata])] = [:]
+
+        for book in allBooks {
+            let translators = (book.creators ?? []).filter { $0.role == "trl" }
+            if let firstTranslator = translators.first {
+                let key = firstTranslator.uuid ?? firstTranslator.name ?? "__unknown__"
+                if var existing = translatorMap[key] {
+                    existing.books.append(book)
+                    translatorMap[key] = existing
+                } else {
+                    translatorMap[key] = (translator: firstTranslator, books: [book])
+                }
+            } else {
+                if var existing = translatorMap["__no_translator__"] {
+                    existing.books.append(book)
+                    translatorMap["__no_translator__"] = existing
+                } else {
+                    translatorMap["__no_translator__"] = (translator: nil, books: [book])
+                }
+            }
+        }
+
+        for key in translatorMap.keys {
+            translatorMap[key]?.books.sort { a, b in
+                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            }
+        }
+
+        var result = Array(translatorMap.values)
+        result.sort { a, b in
+            guard let translatorA = a.translator, let translatorB = b.translator else {
+                return a.translator != nil
+            }
+            let nameA = translatorA.name ?? ""
+            let nameB = translatorB.name ?? ""
+            return nameA.localizedCaseInsensitiveCompare(nameB) == .orderedAscending
+        }
+
+        return result
+    }
+
+    public func booksByPublicationYear(for kind: MediaKind)
+        -> [(year: String, books: [BookMetadata])]
+    {
+        let allBooks = library.bookMetaData
+
+        var yearMap: [String: [BookMetadata]] = [:]
+
+        for book in allBooks {
+            let year: String
+            if let pubDate = book.publicationDate, pubDate.count >= 4 {
+                year = String(pubDate.prefix(4))
+            } else {
+                year = "Unknown"
+            }
+            if var existing = yearMap[year] {
+                existing.append(book)
+                yearMap[year] = existing
+            } else {
+                yearMap[year] = [book]
+            }
+        }
+
+        for key in yearMap.keys {
+            yearMap[key]?.sort { a, b in
+                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            }
+        }
+
+        var result: [(year: String, books: [BookMetadata])] = yearMap.map { (year: $0.key, books: $0.value) }
+        result.sort { a, b in
+            if a.year == "Unknown" { return false }
+            if b.year == "Unknown" { return true }
+            return a.year > b.year
+        }
+
+        return result
+    }
+
     public func booksByTag(for kind: MediaKind) -> [(tag: String, books: [BookMetadata])] {
         let allBooks = library.bookMetaData
 
@@ -736,10 +820,18 @@ public final class MediaViewModel {
                 return library.bookMetaData.filter { book in
                     book.tags?.isEmpty == false
                 }.count
+            case .translatorView:
+                return library.bookMetaData.filter { book in
+                    book.creators?.contains(where: { $0.role == "trl" }) == true
+                }.count
+            case .publicationYearView:
+                return library.bookMetaData.count
             case .collectionsView:
                 return library.bookMetaData.filter { book in
                     book.collections?.isEmpty == false
                 }.count
+            case .dynamicShelves:
+                return 0
             case .placeholder:
                 return 0
             case .currentlyDownloading:

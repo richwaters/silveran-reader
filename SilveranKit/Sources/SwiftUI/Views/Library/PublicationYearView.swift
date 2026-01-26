@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct NarratorView: View {
+struct PublicationYearView: View {
     let mediaKind: MediaKind
     #if os(iOS)
     @Binding var searchText: String
@@ -16,8 +16,8 @@ struct NarratorView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
 
     #if os(macOS)
-    @State private var selectedNarrator: String? = nil
-    @State private var narratorListWidth: CGFloat = 220
+    @State private var selectedYear: String? = nil
+    @State private var yearListWidth: CGFloat = 220
     #endif
 
     #if os(iOS)
@@ -35,58 +35,56 @@ struct NarratorView: View {
     }
     #endif
 
-    private var narratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        mediaViewModel.booksByNarrator(for: mediaKind)
+    private var yearGroups: [(year: String, books: [BookMetadata])] {
+        mediaViewModel.booksByPublicationYear(for: mediaKind)
     }
 
-    private var filteredNarratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        filterNarrators(narratorGroups)
+    private var filteredYearGroups: [(year: String, books: [BookMetadata])] {
+        filterYears(yearGroups)
     }
 
     var body: some View {
         #if os(macOS)
         macOSSplitView
         #else
-        iOSNarratorList
+        iOSYearList
         #endif
     }
 
-    private func filterNarrators(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(
-        narrator: BookCreator?, books: [BookMetadata]
+    private func filterYears(_ groups: [(year: String, books: [BookMetadata])]) -> [(
+        year: String, books: [BookMetadata]
     )] {
         guard !searchText.isEmpty else { return groups }
 
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let narratorNameMatches = group.narrator?.name?.lowercased().contains(searchLower) ?? false
+            let yearMatches = group.year.lowercased().contains(searchLower)
 
             let filteredBooks = group.books.filter { book in
                 book.title.lowercased().contains(searchLower)
-                    || book.narrators?.contains(where: {
+                    || book.authors?.contains(where: {
                         $0.name?.lowercased().contains(searchLower) ?? false
                     }) ?? false
             }
 
-            if narratorNameMatches {
-                return (narrator: group.narrator, books: group.books)
+            if yearMatches {
+                return (year: group.year, books: group.books)
             }
 
             guard !filteredBooks.isEmpty else { return nil }
-            return (narrator: group.narrator, books: filteredBooks)
+            return (year: group.year, books: filteredBooks)
         }
     }
 }
 
-// MARK: - Shared Narrator Row
-
-struct NarratorRowContent: View {
-    let narratorName: String
+struct YearRowContent: View {
+    let year: String
     let bookCount: Int
     let isSelected: Bool
 
     var body: some View {
         HStack {
-            Image(systemName: "mic.fill")
+            Image(systemName: "calendar")
                 #if os(iOS)
                 .font(.body)
                 #else
@@ -95,7 +93,7 @@ struct NarratorRowContent: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
 
-            Text(narratorName)
+            Text(year)
                 #if os(iOS)
                 .font(.body)
                 #else
@@ -132,20 +130,17 @@ struct NarratorRowContent: View {
     }
 }
 
-// MARK: - iOS Implementation
-
 #if os(iOS)
-extension NarratorView {
+extension PublicationYearView {
     @ViewBuilder
-    fileprivate var iOSNarratorList: some View {
+    fileprivate var iOSYearList: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
-                        NavigationLink(value: narratorName) {
-                            NarratorRowContent(
-                                narratorName: narratorName,
+                    ForEach(filteredYearGroups, id: \.year) { group in
+                        NavigationLink(value: group.year) {
+                            YearRowContent(
+                                year: group.year,
                                 bookCount: group.books.count,
                                 isSelected: false
                             )
@@ -159,7 +154,7 @@ extension NarratorView {
                 }
                 .padding(.top, 8)
             }
-            .navigationTitle("Narrators")
+            .navigationTitle("Publication Year")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -187,8 +182,8 @@ extension NarratorView {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search"
             )
-            .navigationDestination(for: String.self) { narratorName in
-                iOSNarratorBooksView(narratorName: narratorName)
+            .navigationDestination(for: String.self) { year in
+                iOSYearBooksView(year: year)
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind)
@@ -200,15 +195,16 @@ extension NarratorView {
     }
 
     @ViewBuilder
-    private func iOSNarratorBooksView(narratorName: String) -> some View {
+    private func iOSYearBooksView(year: String) -> some View {
         MediaGridView(
-            title: narratorName,
+            title: year,
             searchText: "",
             mediaKind: mediaKind,
             tagFilter: nil,
             seriesFilter: nil,
             authorFilter: nil,
-            narratorFilter: narratorName,
+            narratorFilter: nil,
+            publicationYearFilter: year,
             statusFilter: nil,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -219,7 +215,7 @@ extension NarratorView {
             initialNarrationFilterOption: .both,
             scrollPosition: nil
         )
-        .navigationTitle(narratorName)
+        .navigationTitle(year)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -237,25 +233,23 @@ extension NarratorView {
 }
 #endif
 
-// MARK: - macOS Implementation
-
 #if os(macOS)
-extension NarratorView {
+extension PublicationYearView {
     @ViewBuilder
     fileprivate var macOSSplitView: some View {
         HStack(spacing: 0) {
-            macOSNarratorListSidebar
+            macOSYearListSidebar
 
-            ResizableDivider(width: $narratorListWidth, minWidth: 150, maxWidth: 400)
+            ResizableDivider(width: $yearListWidth, minWidth: 150, maxWidth: 400)
 
             macOSBooksContentArea
         }
     }
 
     @ViewBuilder
-    private var macOSNarratorListSidebar: some View {
+    private var macOSYearListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Narrators")
+            Text("Publication Year")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -264,22 +258,21 @@ extension NarratorView {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
+                    ForEach(filteredYearGroups, id: \.year) { group in
                         Button {
-                            selectedNarrator = narratorName
+                            selectedYear = group.year
                         } label: {
-                            NarratorRowContent(
-                                narratorName: narratorName,
+                            YearRowContent(
+                                year: group.year,
                                 bookCount: group.books.count,
-                                isSelected: selectedNarrator == narratorName
+                                isSelected: selectedYear == group.year
                             )
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            if group.narrator?.name != nil {
-                                let pinId = SidebarPinHelper.pinId(forNarrator: narratorName)
+                            if group.year != "Unknown" {
+                                let pinId = SidebarPinHelper.pinId(forYear: group.year)
                                 Button {
                                     SidebarPinHelper.togglePin(pinId)
                                 } label: {
@@ -296,21 +289,22 @@ extension NarratorView {
                 .padding(.bottom, 16)
             }
         }
-        .frame(width: narratorListWidth)
+        .frame(width: yearListWidth)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
     }
 
     @ViewBuilder
     private var macOSBooksContentArea: some View {
-        if let narratorName = selectedNarrator {
+        if let year = selectedYear {
             MediaGridView(
-                title: narratorName,
+                title: year,
                 searchText: searchText,
                 mediaKind: mediaKind,
                 tagFilter: nil,
                 seriesFilter: nil,
                 authorFilter: nil,
-                narratorFilter: narratorName,
+                narratorFilter: nil,
+                publicationYearFilter: year,
                 statusFilter: nil,
                 defaultSort: "title",
                 preferredTileWidth: 120,
@@ -318,11 +312,11 @@ extension NarratorView {
                 initialNarrationFilterOption: .both,
                 scrollPosition: nil
             )
-            .id(narratorName)
+            .id(year)
         } else {
             VStack {
                 Spacer()
-                Text("Select a narrator")
+                Text("Select a year")
                     .font(.title2)
                     .foregroundStyle(.secondary)
                 Spacer()

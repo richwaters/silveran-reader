@@ -1,20 +1,40 @@
 import Foundation
 
-@PublicInit
 public struct SidebarSectionDescription: Identifiable, Hashable, Sendable {
-    public var id: UUID = UUID()
+    public var id: String
     public var name: String
     public var items: [SidebarItemDescription]
+
+    public init(id: String, name: String, items: [SidebarItemDescription]) {
+        self.id = id
+        self.name = name
+        self.items = items
+    }
 }
 
-@PublicInit
 public struct SidebarItemDescription: Identifiable, Hashable, Sendable {
-    public var id: UUID = UUID()
+    public var id: String
     public var name: String
     public var systemImage: String
     public var badge: Int32
     public var children: [SidebarItemDescription]? = nil
     public var content: SidebarContentKind
+
+    public init(
+        id: String? = nil,
+        name: String,
+        systemImage: String,
+        badge: Int32,
+        children: [SidebarItemDescription]? = nil,
+        content: SidebarContentKind
+    ) {
+        self.id = id ?? content.stableIdentifier
+        self.name = name
+        self.systemImage = systemImage
+        self.badge = badge
+        self.children = children
+        self.content = content
+    }
 }
 
 public enum SidebarContentKind: Hashable, Sendable {
@@ -23,12 +43,48 @@ public enum SidebarContentKind: Hashable, Sendable {
     case seriesView(MediaKind)
     case authorView(MediaKind)
     case narratorView(MediaKind)
+    case translatorView(MediaKind)
     case tagView(MediaKind)
+    case publicationYearView(MediaKind)
     case collectionsView(MediaKind)
+    case dynamicShelves
     case placeholder(title: String)
     case currentlyDownloading
     case importLocalFile
     case storytellerServer
+
+    public var stableIdentifier: String {
+        switch self {
+        case .home:
+            return "home"
+        case .mediaGrid(let config):
+            return "mediaGrid.\(config.title)"
+        case .seriesView(let kind):
+            return "seriesView.\(kind.rawValue)"
+        case .authorView(let kind):
+            return "authorView.\(kind.rawValue)"
+        case .narratorView(let kind):
+            return "narratorView.\(kind.rawValue)"
+        case .translatorView(let kind):
+            return "translatorView.\(kind.rawValue)"
+        case .tagView(let kind):
+            return "tagView.\(kind.rawValue)"
+        case .publicationYearView(let kind):
+            return "publicationYearView.\(kind.rawValue)"
+        case .collectionsView(let kind):
+            return "collectionsView.\(kind.rawValue)"
+        case .dynamicShelves:
+            return "dynamicShelves"
+        case .placeholder(let title):
+            return "placeholder.\(title)"
+        case .currentlyDownloading:
+            return "currentlyDownloading"
+        case .importLocalFile:
+            return "importLocalFile"
+        case .storytellerServer:
+            return "storytellerServer"
+        }
+    }
 }
 
 public enum NarrationFilter: Hashable, Sendable {
@@ -58,6 +114,11 @@ public struct MediaGridConfiguration: Hashable, Sendable {
     public var locationFilter: LocationFilter
     public var tagFilter: String?
     public var seriesFilter: String?
+    public var collectionFilter: String?
+    public var authorFilter: String?
+    public var narratorFilter: String?
+    public var translatorFilter: String?
+    public var publicationYearFilter: String?
     public var statusFilter: String?
     public var defaultSort: String?
 
@@ -70,6 +131,11 @@ public struct MediaGridConfiguration: Hashable, Sendable {
         locationFilter: LocationFilter = .all,
         tagFilter: String? = nil,
         seriesFilter: String? = nil,
+        collectionFilter: String? = nil,
+        authorFilter: String? = nil,
+        narratorFilter: String? = nil,
+        translatorFilter: String? = nil,
+        publicationYearFilter: String? = nil,
         statusFilter: String? = nil,
         defaultSort: String? = nil
     ) {
@@ -81,6 +147,11 @@ public struct MediaGridConfiguration: Hashable, Sendable {
         self.locationFilter = locationFilter
         self.tagFilter = tagFilter
         self.seriesFilter = seriesFilter
+        self.collectionFilter = collectionFilter
+        self.authorFilter = authorFilter
+        self.narratorFilter = narratorFilter
+        self.translatorFilter = translatorFilter
+        self.publicationYearFilter = publicationYearFilter
         self.statusFilter = statusFilter
         self.defaultSort = defaultSort
     }
@@ -90,14 +161,21 @@ public enum LibrarySidebarDefaults {
     public static func getSections() -> [SidebarSectionDescription] {
         [
             SidebarSectionDescription(
-                name: "Library",
+                id: "section.home",
+                name: "Home",
                 items: [
                     SidebarItemDescription(
                         name: "Home",
                         systemImage: "house",
-                        badge: 112,
-                        content: .home,
+                        badge: 0,
+                        content: .home
                     ),
+                ]
+            ),
+            SidebarSectionDescription(
+                id: "section.library",
+                name: "Library",
+                items: [
                     SidebarItemDescription(
                         name: "All Books",
                         systemImage: "book",
@@ -107,38 +185,51 @@ public enum LibrarySidebarDefaults {
                                 title: "All Books",
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                            ),
-                        ),
+                                minimumTileWidth: 50
+                            )
+                        )
                     ),
                     SidebarItemDescription(
-                        name: "Books by Series",
+                        name: "By Series",
                         systemImage: "books.vertical",
                         badge: -1,
-                        content: .seriesView(.ebook),
+                        content: .seriesView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "Books by Author",
+                        name: "By Author",
                         systemImage: "person.2",
                         badge: -1,
-                        content: .authorView(.ebook),
+                        content: .authorView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "Books by Narrator",
+                        name: "By Narrator",
                         systemImage: "mic",
                         badge: -1,
-                        content: .narratorView(.ebook),
+                        content: .narratorView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "Books by Tag",
+                        name: "By Translator",
+                        systemImage: "character.book.closed.fill",
+                        badge: -1,
+                        content: .translatorView(.ebook)
+                    ),
+                    SidebarItemDescription(
+                        name: "By Tag",
                         systemImage: "tag",
                         badge: -1,
-                        content: .tagView(.ebook),
+                        content: .tagView(.ebook)
                     ),
-                ],
+                    SidebarItemDescription(
+                        name: "By Publication Year",
+                        systemImage: "calendar",
+                        badge: -1,
+                        content: .publicationYearView(.ebook)
+                    ),
+                ]
             ),
             SidebarSectionDescription(
-                name: "Collections",
+                id: "section.readingStatus",
+                name: "Reading Status",
                 items: [
                     SidebarItemDescription(
                         name: "Currently Reading",
@@ -213,6 +304,12 @@ public enum LibrarySidebarDefaults {
                             )
                         )
                     ),
+                ]
+            ),
+            SidebarSectionDescription(
+                id: "section.collections",
+                name: "Collections",
+                items: [
                     SidebarItemDescription(
                         name: "Custom Collections",
                         systemImage: "rectangle.stack",
@@ -220,14 +317,15 @@ public enum LibrarySidebarDefaults {
                         content: .collectionsView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "Currently Downloading",
-                        systemImage: "arrow.down.circle.dotted",
+                        name: "Dynamic Shelves",
+                        systemImage: "sparkles.rectangle.stack",
                         badge: -1,
-                        content: .currentlyDownloading
+                        content: .dynamicShelves
                     ),
-                ],
+                ]
             ),
             SidebarSectionDescription(
+                id: "section.mediaSources",
                 name: "Media Sources",
                 items: [
                     SidebarItemDescription(
@@ -240,9 +338,15 @@ public enum LibrarySidebarDefaults {
                         name: "Local Files",
                         systemImage: "folder",
                         badge: -1,
-                        content: .importLocalFile,
+                        content: .importLocalFile
                     ),
-                ],
+                    SidebarItemDescription(
+                        name: "Currently Downloading",
+                        systemImage: "arrow.down.circle.dotted",
+                        badge: -1,
+                        content: .currentlyDownloading
+                    ),
+                ]
             ),
         ]
     }

@@ -272,6 +272,17 @@ extension TagView {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            let pinId = SidebarPinHelper.pinId(forTag: group.tag)
+                            Button {
+                                SidebarPinHelper.togglePin(pinId)
+                            } label: {
+                                Label(
+                                    SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                                    systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+                                )
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 8)

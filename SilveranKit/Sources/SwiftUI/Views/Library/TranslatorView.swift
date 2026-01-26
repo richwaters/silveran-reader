@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct NarratorView: View {
+struct TranslatorView: View {
     let mediaKind: MediaKind
     #if os(iOS)
     @Binding var searchText: String
@@ -16,8 +16,8 @@ struct NarratorView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
 
     #if os(macOS)
-    @State private var selectedNarrator: String? = nil
-    @State private var narratorListWidth: CGFloat = 220
+    @State private var selectedTranslator: String? = nil
+    @State private var translatorListWidth: CGFloat = 220
     #endif
 
     #if os(iOS)
@@ -35,58 +35,56 @@ struct NarratorView: View {
     }
     #endif
 
-    private var narratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        mediaViewModel.booksByNarrator(for: mediaKind)
+    private var translatorGroups: [(translator: BookCreator?, books: [BookMetadata])] {
+        mediaViewModel.booksByTranslator(for: mediaKind)
     }
 
-    private var filteredNarratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        filterNarrators(narratorGroups)
+    private var filteredTranslatorGroups: [(translator: BookCreator?, books: [BookMetadata])] {
+        filterTranslators(translatorGroups)
     }
 
     var body: some View {
         #if os(macOS)
         macOSSplitView
         #else
-        iOSNarratorList
+        iOSTranslatorList
         #endif
     }
 
-    private func filterNarrators(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(
-        narrator: BookCreator?, books: [BookMetadata]
+    private func filterTranslators(_ groups: [(translator: BookCreator?, books: [BookMetadata])]) -> [(
+        translator: BookCreator?, books: [BookMetadata]
     )] {
         guard !searchText.isEmpty else { return groups }
 
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let narratorNameMatches = group.narrator?.name?.lowercased().contains(searchLower) ?? false
+            let translatorNameMatches = group.translator?.name?.lowercased().contains(searchLower) ?? false
 
             let filteredBooks = group.books.filter { book in
                 book.title.lowercased().contains(searchLower)
-                    || book.narrators?.contains(where: {
-                        $0.name?.lowercased().contains(searchLower) ?? false
-                    }) ?? false
+                    || (book.creators ?? []).contains(where: {
+                        $0.role == "trl" && ($0.name?.lowercased().contains(searchLower) ?? false)
+                    })
             }
 
-            if narratorNameMatches {
-                return (narrator: group.narrator, books: group.books)
+            if translatorNameMatches {
+                return (translator: group.translator, books: group.books)
             }
 
             guard !filteredBooks.isEmpty else { return nil }
-            return (narrator: group.narrator, books: filteredBooks)
+            return (translator: group.translator, books: filteredBooks)
         }
     }
 }
 
-// MARK: - Shared Narrator Row
-
-struct NarratorRowContent: View {
-    let narratorName: String
+struct TranslatorRowContent: View {
+    let translatorName: String
     let bookCount: Int
     let isSelected: Bool
 
     var body: some View {
         HStack {
-            Image(systemName: "mic.fill")
+            Image(systemName: "character.book.closed.fill")
                 #if os(iOS)
                 .font(.body)
                 #else
@@ -95,7 +93,7 @@ struct NarratorRowContent: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
 
-            Text(narratorName)
+            Text(translatorName)
                 #if os(iOS)
                 .font(.body)
                 #else
@@ -132,20 +130,18 @@ struct NarratorRowContent: View {
     }
 }
 
-// MARK: - iOS Implementation
-
 #if os(iOS)
-extension NarratorView {
+extension TranslatorView {
     @ViewBuilder
-    fileprivate var iOSNarratorList: some View {
+    fileprivate var iOSTranslatorList: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
-                        NavigationLink(value: narratorName) {
-                            NarratorRowContent(
-                                narratorName: narratorName,
+                    ForEach(filteredTranslatorGroups, id: \.translator?.name) { group in
+                        let translatorName = group.translator?.name ?? "Unknown Translator"
+                        NavigationLink(value: translatorName) {
+                            TranslatorRowContent(
+                                translatorName: translatorName,
                                 bookCount: group.books.count,
                                 isSelected: false
                             )
@@ -159,7 +155,7 @@ extension NarratorView {
                 }
                 .padding(.top, 8)
             }
-            .navigationTitle("Narrators")
+            .navigationTitle("Translators")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -187,8 +183,8 @@ extension NarratorView {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search"
             )
-            .navigationDestination(for: String.self) { narratorName in
-                iOSNarratorBooksView(narratorName: narratorName)
+            .navigationDestination(for: String.self) { translatorName in
+                iOSTranslatorBooksView(translatorName: translatorName)
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind)
@@ -200,15 +196,16 @@ extension NarratorView {
     }
 
     @ViewBuilder
-    private func iOSNarratorBooksView(narratorName: String) -> some View {
+    private func iOSTranslatorBooksView(translatorName: String) -> some View {
         MediaGridView(
-            title: narratorName,
+            title: translatorName,
             searchText: "",
             mediaKind: mediaKind,
             tagFilter: nil,
             seriesFilter: nil,
             authorFilter: nil,
-            narratorFilter: narratorName,
+            narratorFilter: nil,
+            translatorFilter: translatorName,
             statusFilter: nil,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -219,7 +216,7 @@ extension NarratorView {
             initialNarrationFilterOption: .both,
             scrollPosition: nil
         )
-        .navigationTitle(narratorName)
+        .navigationTitle(translatorName)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -237,25 +234,23 @@ extension NarratorView {
 }
 #endif
 
-// MARK: - macOS Implementation
-
 #if os(macOS)
-extension NarratorView {
+extension TranslatorView {
     @ViewBuilder
     fileprivate var macOSSplitView: some View {
         HStack(spacing: 0) {
-            macOSNarratorListSidebar
+            macOSTranslatorListSidebar
 
-            ResizableDivider(width: $narratorListWidth, minWidth: 150, maxWidth: 400)
+            ResizableDivider(width: $translatorListWidth, minWidth: 150, maxWidth: 400)
 
             macOSBooksContentArea
         }
     }
 
     @ViewBuilder
-    private var macOSNarratorListSidebar: some View {
+    private var macOSTranslatorListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Narrators")
+            Text("Translators")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -264,22 +259,22 @@ extension NarratorView {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
+                    ForEach(filteredTranslatorGroups, id: \.translator?.name) { group in
+                        let translatorName = group.translator?.name ?? "Unknown Translator"
                         Button {
-                            selectedNarrator = narratorName
+                            selectedTranslator = translatorName
                         } label: {
-                            NarratorRowContent(
-                                narratorName: narratorName,
+                            TranslatorRowContent(
+                                translatorName: translatorName,
                                 bookCount: group.books.count,
-                                isSelected: selectedNarrator == narratorName
+                                isSelected: selectedTranslator == translatorName
                             )
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            if group.narrator?.name != nil {
-                                let pinId = SidebarPinHelper.pinId(forNarrator: narratorName)
+                            if group.translator?.name != nil {
+                                let pinId = SidebarPinHelper.pinId(forTranslator: translatorName)
                                 Button {
                                     SidebarPinHelper.togglePin(pinId)
                                 } label: {
@@ -296,21 +291,22 @@ extension NarratorView {
                 .padding(.bottom, 16)
             }
         }
-        .frame(width: narratorListWidth)
+        .frame(width: translatorListWidth)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
     }
 
     @ViewBuilder
     private var macOSBooksContentArea: some View {
-        if let narratorName = selectedNarrator {
+        if let translatorName = selectedTranslator {
             MediaGridView(
-                title: narratorName,
+                title: translatorName,
                 searchText: searchText,
                 mediaKind: mediaKind,
                 tagFilter: nil,
                 seriesFilter: nil,
                 authorFilter: nil,
-                narratorFilter: narratorName,
+                narratorFilter: nil,
+                translatorFilter: translatorName,
                 statusFilter: nil,
                 defaultSort: "title",
                 preferredTileWidth: 120,
@@ -318,11 +314,11 @@ extension NarratorView {
                 initialNarrationFilterOption: .both,
                 scrollPosition: nil
             )
-            .id(narratorName)
+            .id(translatorName)
         } else {
             VStack {
                 Spacer()
-                Text("Select a narrator")
+                Text("Select a translator")
                     .font(.title2)
                     .foregroundStyle(.secondary)
                 Spacer()

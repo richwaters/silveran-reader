@@ -698,6 +698,15 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableTags: String {
         tagNames.joined(separator: ", ")
     }
+
+    public var sortableTranslator: String {
+        (creators ?? []).first(where: { $0.role == "trl" })?.name ?? ""
+    }
+
+    public var sortablePublicationYear: String {
+        guard let pubDate = publicationDate, pubDate.count >= 4 else { return "" }
+        return String(pubDate.prefix(4))
+    }
 }
 
 @PublicInit
