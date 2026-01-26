@@ -264,7 +264,10 @@ public actor DownloadManager {
 
     // MARK: - Observation
 
-    public func addObserver(_ callback: @escaping @Sendable @MainActor ([DownloadRecord]) -> Void) -> UUID {
+    // Ensures the retry loop starts on boot: called from MediaViewModel.init on iOS/macOS/tvOS,
+    // and from SilveranWatchApp.task on watchOS.
+    public func addObserver(_ callback: @escaping @Sendable @MainActor ([DownloadRecord]) -> Void) async -> UUID {
+        await ensureInitialized()
         let id = UUID()
         observers[id] = callback
         return id

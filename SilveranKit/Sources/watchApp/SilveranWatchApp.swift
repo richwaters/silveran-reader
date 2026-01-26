@@ -39,6 +39,9 @@ struct SilveranWatchApp: App {
                 .task {
                     await StorytellerActor.shared.setActive(true, source: .watch)
                     await initializeStorytellerConnection()
+                    // Start DownloadManager init + retry loop. On iOS/macOS/tvOS this
+                    // happens via MediaViewModel.setupDownloadManagerObserver() instead.
+                    _ = await DownloadManager.shared.incompleteDownloads
                 }
         }
         .onChange(of: scenePhase) { _, newPhase in
