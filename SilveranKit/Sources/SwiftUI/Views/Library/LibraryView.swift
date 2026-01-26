@@ -137,6 +137,7 @@ public struct LibraryView: View {
                     narratorFilter: configuration.narratorFilter,
                     translatorFilter: configuration.translatorFilter,
                     publicationYearFilter: configuration.publicationYearFilter,
+                    ratingFilter: configuration.ratingFilter,
                     statusFilter: configuration.statusFilter,
                     defaultSort: configuration.defaultSort,
                     preferredTileWidth: preferred,
@@ -229,6 +230,24 @@ public struct LibraryView: View {
                 )
                 #else
                 PublicationYearView(
+                    mediaKind: mediaKind,
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
+            case .ratingView(let mediaKind):
+                #if os(iOS)
+                RatingView(
+                    mediaKind: mediaKind,
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                RatingView(
                     mediaKind: mediaKind,
                     searchText: searchText,
                     sidebarSections: sections,

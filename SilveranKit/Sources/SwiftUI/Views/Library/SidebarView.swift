@@ -152,6 +152,23 @@ struct SidebarView: View {
                 ))
             )
         }
+        if id.hasPrefix("pin.rating:") {
+            let rating = String(id.dropFirst("pin.rating:".count))
+            let label = RatingDisplayHelper.label(for: rating)
+            return SidebarItemDescription(
+                id: id,
+                name: label,
+                systemImage: "star",
+                badge: -1,
+                content: .mediaGrid(MediaGridConfiguration(
+                    title: label,
+                    mediaKind: .ebook,
+                    preferredTileWidth: 120,
+                    minimumTileWidth: 50,
+                    ratingFilter: rating
+                ))
+            )
+        }
         return nil
     }
 

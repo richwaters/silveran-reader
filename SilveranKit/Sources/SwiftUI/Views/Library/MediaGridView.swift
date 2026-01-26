@@ -91,6 +91,7 @@ struct MediaGridView: View {
     let narratorFilter: String?
     let translatorFilter: String?
     let publicationYearFilter: String?
+    let ratingFilter: String?
     let statusFilter: String?
     let defaultSort: String?
     let preferredTileWidth: CGFloat
@@ -124,6 +125,7 @@ struct MediaGridView: View {
     @State private var selectedNarrator: String? = nil
     @State private var selectedTranslator: String? = nil
     @State private var selectedPublicationYear: String? = nil
+    @State private var selectedRating: String? = nil
     @State private var selectedStatus: String? = nil
     @State private var selectedLocation: LocationFilterOption = .all
     @State private var shouldEnsureActiveItemVisible: Bool = false
@@ -177,6 +179,7 @@ struct MediaGridView: View {
     @State private var cachedAvailableNarrators: [String] = []
     @State private var cachedAvailableTranslators: [String] = []
     @State private var cachedAvailablePublicationYears: [String] = []
+    @State private var cachedAvailableRatings: [String] = []
     @State private var cachedAvailableStatuses: [String] = []
     @State private var cachedFiltersSummary: String = ""
     @State private var lastCachedLibraryVersion: Int = -1
@@ -207,6 +210,7 @@ struct MediaGridView: View {
         narratorFilter: String? = nil,
         translatorFilter: String? = nil,
         publicationYearFilter: String? = nil,
+        ratingFilter: String? = nil,
         statusFilter: String? = nil,
         defaultSort: String? = nil,
         preferredTileWidth: CGFloat = 250,
@@ -231,6 +235,7 @@ struct MediaGridView: View {
         self.narratorFilter = narratorFilter
         self.translatorFilter = translatorFilter
         self.publicationYearFilter = publicationYearFilter
+        self.ratingFilter = ratingFilter
         self.statusFilter = statusFilter
         self.defaultSort = defaultSort
         self.preferredTileWidth = preferredTileWidth
@@ -260,6 +265,7 @@ struct MediaGridView: View {
         _selectedNarrator = State(initialValue: narratorFilter)
         _selectedTranslator = State(initialValue: translatorFilter)
         _selectedPublicationYear = State(initialValue: publicationYearFilter)
+        _selectedRating = State(initialValue: ratingFilter)
         _selectedStatus = State(initialValue: statusFilter)
         _selectedLocation = State(initialValue: initialLocationFilter)
 
@@ -545,51 +551,39 @@ struct MediaGridView: View {
         .onChange(of: columnCustomization) { _, _ in
             saveColumnCustomization()
         }
-        .onChange(of: selectedFormatFilter) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedTag) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedSeries) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedStatus) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedLocation) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedNarrator) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedAuthor) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedSortOption) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: mediaKind) { _, _ in
-            recomputeAllCaches()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: searchText) { _, _ in
-            recomputeDisplayItems()
-        }
-        .onChange(of: initialNarrationFilterOption) { _, _ in
-            selectedFormatFilter =
-                MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
+        .modifier(FilterChangeModifier(
+            selectedFormatFilter: selectedFormatFilter,
+            selectedTag: selectedTag,
+            selectedSeries: selectedSeries,
+            selectedStatus: selectedStatus,
+            selectedLocation: selectedLocation,
+            selectedNarrator: selectedNarrator,
+            selectedAuthor: selectedAuthor,
+            selectedTranslator: selectedTranslator,
+            selectedPublicationYear: selectedPublicationYear,
+            selectedRating: selectedRating,
+            selectedSortOption: selectedSortOption,
+            mediaKind: mediaKind,
+            searchText: searchText,
+            initialNarrationFilterOption: initialNarrationFilterOption,
+            onFilterChanged: {
+                recomputeDisplayItems()
+                reconcileSelectionAfterFiltering()
+            },
+            onMediaKindChanged: {
+                recomputeAllCaches()
+                reconcileSelectionAfterFiltering()
+            },
+            onSearchChanged: {
+                recomputeDisplayItems()
+            },
+            onNarrationFilterChanged: {
+                selectedFormatFilter =
+                    MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+                recomputeDisplayItems()
+                reconcileSelectionAfterFiltering()
+            }
+        ))
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
@@ -624,6 +618,7 @@ struct MediaGridView: View {
                 selectedNarrator: $selectedNarrator,
                 selectedTranslator: $selectedTranslator,
                 selectedPublicationYear: $selectedPublicationYear,
+                selectedRating: $selectedRating,
                 selectedStatus: $selectedStatus,
                 selectedLocation: $selectedLocation,
                 layoutStyle: Binding(
@@ -653,6 +648,7 @@ struct MediaGridView: View {
                 availableNarrators: cachedAvailableNarrators,
                 availableTranslators: cachedAvailableTranslators,
                 availablePublicationYears: cachedAvailablePublicationYears,
+                availableRatings: cachedAvailableRatings,
                 availableStatuses: cachedAvailableStatuses,
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
@@ -695,6 +691,7 @@ struct MediaGridView: View {
             selectedNarrator: $selectedNarrator,
             selectedTranslator: $selectedTranslator,
             selectedPublicationYear: $selectedPublicationYear,
+            selectedRating: $selectedRating,
             selectedStatus: $selectedStatus,
             selectedLocation: $selectedLocation,
             layoutStyle: Binding(
@@ -724,6 +721,7 @@ struct MediaGridView: View {
             availableNarrators: cachedAvailableNarrators,
             availableTranslators: cachedAvailableTranslators,
             availablePublicationYears: cachedAvailablePublicationYears,
+            availableRatings: cachedAvailableRatings,
             availableStatuses: cachedAvailableStatuses,
             filtersSummaryText: cachedFiltersSummary,
             showLayoutOption: true
@@ -870,51 +868,39 @@ struct MediaGridView: View {
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
             recomputeAllCaches()
         }
-        .onChange(of: selectedFormatFilter) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedTag) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedSeries) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedStatus) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedLocation) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedNarrator) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedAuthor) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: selectedSortOption) { _, _ in
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: mediaKind) { _, _ in
-            recomputeAllCaches()
-            reconcileSelectionAfterFiltering()
-        }
-        .onChange(of: searchText) { _, _ in
-            recomputeDisplayItems()
-        }
-        .onChange(of: initialNarrationFilterOption) { _, _ in
-            selectedFormatFilter =
-                MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
-            recomputeDisplayItems()
-            reconcileSelectionAfterFiltering()
-        }
+        .modifier(FilterChangeModifier(
+            selectedFormatFilter: selectedFormatFilter,
+            selectedTag: selectedTag,
+            selectedSeries: selectedSeries,
+            selectedStatus: selectedStatus,
+            selectedLocation: selectedLocation,
+            selectedNarrator: selectedNarrator,
+            selectedAuthor: selectedAuthor,
+            selectedTranslator: selectedTranslator,
+            selectedPublicationYear: selectedPublicationYear,
+            selectedRating: selectedRating,
+            selectedSortOption: selectedSortOption,
+            mediaKind: mediaKind,
+            searchText: searchText,
+            initialNarrationFilterOption: initialNarrationFilterOption,
+            onFilterChanged: {
+                recomputeDisplayItems()
+                reconcileSelectionAfterFiltering()
+            },
+            onMediaKindChanged: {
+                recomputeAllCaches()
+                reconcileSelectionAfterFiltering()
+            },
+            onSearchChanged: {
+                recomputeDisplayItems()
+            },
+            onNarrationFilterChanged: {
+                selectedFormatFilter =
+                    MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+                recomputeDisplayItems()
+                reconcileSelectionAfterFiltering()
+            }
+        ))
     }
 
     static func mapNarrationToFormatFilter(_ narration: NarrationFilter) -> FormatFilterOption {
@@ -1063,6 +1049,7 @@ struct MediaGridView: View {
         let narratorSel = selectedNarrator
         let translatorSel = selectedTranslator
         let publicationYearSel = selectedPublicationYear
+        let ratingSel = selectedRating
         let statusSel = selectedStatus
         let locationSel = selectedLocation
         let search = searchText
@@ -1081,6 +1068,7 @@ struct MediaGridView: View {
                 narratorFilter: narratorSel,
                 translatorFilter: translatorSel,
                 publicationYearFilter: publicationYearSel,
+                ratingFilter: ratingSel,
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
@@ -1103,6 +1091,7 @@ struct MediaGridView: View {
             let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
             let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
             let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
+            let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             await MainActor.run {
                 self.cachedAvailableTags = newTags
@@ -1111,6 +1100,7 @@ struct MediaGridView: View {
                 self.cachedAvailableNarrators = newNarrators
                 self.cachedAvailableTranslators = newTranslators
                 self.cachedAvailablePublicationYears = newPublicationYears
+                self.cachedAvailableRatings = newRatings
                 self.cachedAvailableStatuses = newStatuses
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
             }
@@ -1129,6 +1119,7 @@ struct MediaGridView: View {
         let narratorSel = selectedNarrator
         let translatorSel = selectedTranslator
         let publicationYearSel = selectedPublicationYear
+        let ratingSel = selectedRating
         let statusSel = selectedStatus
         let locationSel = selectedLocation
         let search = searchText
@@ -1142,6 +1133,7 @@ struct MediaGridView: View {
             let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
             let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
             let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
+            let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             let newDisplayItems = Self.computeDisplayItemsOffThread(
                 base: baseItems,
@@ -1154,6 +1146,7 @@ struct MediaGridView: View {
                 narratorFilter: narratorSel,
                 translatorFilter: translatorSel,
                 publicationYearFilter: publicationYearSel,
+                ratingFilter: ratingSel,
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
@@ -1166,6 +1159,7 @@ struct MediaGridView: View {
                 self.cachedAvailableNarrators = newNarrators
                 self.cachedAvailableTranslators = newTranslators
                 self.cachedAvailablePublicationYears = newPublicationYears
+                self.cachedAvailableRatings = newRatings
                 self.cachedAvailableStatuses = newStatuses
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
                 self.cachedDisplayItems = newDisplayItems
@@ -1204,7 +1198,8 @@ struct MediaGridView: View {
         let narratorFiltered = authorFiltered.filter { matchesSelectedNarrator($0) }
         let translatorFiltered = narratorFiltered.filter { matchesSelectedTranslator($0) }
         let publicationYearFiltered = translatorFiltered.filter { matchesSelectedPublicationYear($0) }
-        let statusFiltered = publicationYearFiltered.filter { matchesSelectedStatus($0) }
+        let ratingFiltered = publicationYearFiltered.filter { matchesSelectedRating($0) }
+        let statusFiltered = ratingFiltered.filter { matchesSelectedStatus($0) }
         let locationFiltered = statusFiltered.filter { matchesSelectedLocation($0) }
         let searchFiltered = locationFiltered.filter { matchesSearchText($0) }
         let sorted =
@@ -1343,6 +1338,15 @@ struct MediaGridView: View {
         }
         guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
         return String(pubDate.prefix(4)) == year
+    }
+
+    private func matchesSelectedRating(_ item: BookMetadata) -> Bool {
+        guard let ratingKey = selectedRating else { return true }
+        if ratingKey == "Unrated" {
+            return item.rating == nil || item.rating == 0
+        }
+        guard let r = item.rating, r > 0 else { return false }
+        return "\(Int(r.rounded()))" == ratingKey
     }
 
     private func matchesSelectedStatus(_ item: BookMetadata) -> Bool {
@@ -1515,6 +1519,9 @@ struct MediaGridView: View {
         if let year = selectedPublicationYear {
             parts.append(year)
         }
+        if let rating = selectedRating {
+            parts.append(rating == "Unrated" ? "Unrated" : "\(rating) Stars")
+        }
         if selectedLocation != .all {
             parts.append(selectedLocation.shortLabel)
         }
@@ -1532,6 +1539,7 @@ struct MediaGridView: View {
         narratorFilter: String?,
         translatorFilter: String?,
         publicationYearFilter: String?,
+        ratingFilter: String?,
         statusFilter: String?,
         locationFilter: LocationFilterOption,
         searchText: String,
@@ -1633,6 +1641,17 @@ struct MediaGridView: View {
                 filtered = filtered.filter { item in
                     guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
                     return String(pubDate.prefix(4)) == year
+                }
+            }
+        }
+
+        if let ratingKey = ratingFilter {
+            if ratingKey == "Unrated" {
+                filtered = filtered.filter { $0.rating == nil || $0.rating == 0 }
+            } else {
+                filtered = filtered.filter { item in
+                    guard let r = item.rating, r > 0 else { return false }
+                    return "\(Int(r.rounded()))" == ratingKey
                 }
             }
         }
@@ -1809,6 +1828,23 @@ struct MediaGridView: View {
         var result = years.sorted(by: >)
         if hasUnknown {
             result.append("Unknown")
+        }
+        return result
+    }
+
+    private static nonisolated func computeAvailableRatingsOffThread(from catalog: [BookMetadata]) -> [String] {
+        var ratings = Set<Int>()
+        var hasUnrated = false
+        for item in catalog {
+            if let r = item.rating, r > 0 {
+                ratings.insert(Int(r.rounded()))
+            } else {
+                hasUnrated = true
+            }
+        }
+        var result = ratings.sorted(by: >).map { "\($0)" }
+        if hasUnrated {
+            result.append("Unrated")
         }
         return result
     }
@@ -2107,6 +2143,45 @@ struct MediaGridView: View {
                     "folder"
             }
         }
+    }
+}
+
+private struct FilterChangeModifier: ViewModifier {
+    let selectedFormatFilter: MediaGridView.FormatFilterOption
+    let selectedTag: String?
+    let selectedSeries: String?
+    let selectedStatus: String?
+    let selectedLocation: MediaGridView.LocationFilterOption
+    let selectedNarrator: String?
+    let selectedAuthor: String?
+    let selectedTranslator: String?
+    let selectedPublicationYear: String?
+    let selectedRating: String?
+    let selectedSortOption: MediaGridView.SortOption
+    let mediaKind: MediaKind
+    let searchText: String
+    let initialNarrationFilterOption: NarrationFilter
+    let onFilterChanged: () -> Void
+    let onMediaKindChanged: () -> Void
+    let onSearchChanged: () -> Void
+    let onNarrationFilterChanged: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: selectedFormatFilter) { _, _ in onFilterChanged() }
+            .onChange(of: selectedTag) { _, _ in onFilterChanged() }
+            .onChange(of: selectedSeries) { _, _ in onFilterChanged() }
+            .onChange(of: selectedStatus) { _, _ in onFilterChanged() }
+            .onChange(of: selectedLocation) { _, _ in onFilterChanged() }
+            .onChange(of: selectedNarrator) { _, _ in onFilterChanged() }
+            .onChange(of: selectedAuthor) { _, _ in onFilterChanged() }
+            .onChange(of: selectedTranslator) { _, _ in onFilterChanged() }
+            .onChange(of: selectedPublicationYear) { _, _ in onFilterChanged() }
+            .onChange(of: selectedRating) { _, _ in onFilterChanged() }
+            .onChange(of: selectedSortOption) { _, _ in onFilterChanged() }
+            .onChange(of: mediaKind) { _, _ in onMediaKindChanged() }
+            .onChange(of: searchText) { _, _ in onSearchChanged() }
+            .onChange(of: initialNarrationFilterOption) { _, _ in onNarrationFilterChanged() }
     }
 }
 

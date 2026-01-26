@@ -35,4 +35,5 @@ enum SidebarPinHelper {
     static func pinId(forTranslator name: String) -> String { "pin.translator:\(name)" }
     static func pinId(forTag name: String) -> String { "pin.tag:\(name)" }
     static func pinId(forYear year: String) -> String { "pin.year:\(year)" }
+    static func pinId(forRating rating: String) -> String { "pin.rating:\(rating)" }
 }

@@ -767,6 +767,45 @@ public final class MediaViewModel {
         return result
     }
 
+    public func booksByRating(for kind: MediaKind)
+        -> [(rating: String, books: [BookMetadata])]
+    {
+        let allBooks = library.bookMetaData
+
+        var ratingMap: [String: [BookMetadata]] = [:]
+
+        for book in allBooks {
+            let key: String
+            if let r = book.rating, r > 0 {
+                let stars = Int(r.rounded())
+                key = "\(stars)"
+            } else {
+                key = "Unrated"
+            }
+            if var existing = ratingMap[key] {
+                existing.append(book)
+                ratingMap[key] = existing
+            } else {
+                ratingMap[key] = [book]
+            }
+        }
+
+        for key in ratingMap.keys {
+            ratingMap[key]?.sort { a, b in
+                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            }
+        }
+
+        var result: [(rating: String, books: [BookMetadata])] = ratingMap.map { (rating: $0.key, books: $0.value) }
+        result.sort { a, b in
+            if a.rating == "Unrated" { return false }
+            if b.rating == "Unrated" { return true }
+            return (Int(a.rating) ?? 0) > (Int(b.rating) ?? 0)
+        }
+
+        return result
+    }
+
     public enum StatusSortOrder {
         case recentPositionUpdate
         case recentlyAdded
@@ -826,6 +865,10 @@ public final class MediaViewModel {
                 }.count
             case .publicationYearView:
                 return library.bookMetaData.count
+            case .ratingView:
+                return library.bookMetaData.filter { book in
+                    book.rating != nil && book.rating! > 0
+                }.count
             case .collectionsView:
                 return library.bookMetaData.filter { book in
                     book.collections?.isEmpty == false

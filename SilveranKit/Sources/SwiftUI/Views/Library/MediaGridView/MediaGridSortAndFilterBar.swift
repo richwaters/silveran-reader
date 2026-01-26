@@ -9,6 +9,7 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var selectedNarrator: String?
     @Binding var selectedTranslator: String?
     @Binding var selectedPublicationYear: String?
+    @Binding var selectedRating: String?
     @Binding var selectedStatus: String?
     @Binding var selectedLocation: MediaGridView.LocationFilterOption
     @Binding var layoutStyle: LibraryLayoutStyle
@@ -23,6 +24,7 @@ struct MediaGridSortAndFilterBar: View {
     let availableNarrators: [String]
     let availableTranslators: [String]
     let availablePublicationYears: [String]
+    let availableRatings: [String]
     let availableStatuses: [String]
     let filtersSummaryText: String
     let showLayoutOption: Bool
@@ -284,6 +286,30 @@ struct MediaGridSortAndFilterBar: View {
                         Label("Select Year", systemImage: "calendar")
                     }
                 }
+
+                let ratings = availableRatings
+                if !ratings.isEmpty {
+                    Menu {
+                        Button {
+                            selectedRating = nil
+                        } label: {
+                            menuRowLabel(text: "All Ratings", isSelected: selectedRating == nil)
+                        }
+
+                        ForEach(ratings, id: \.self) { rating in
+                            Button {
+                                selectedRating = rating
+                            } label: {
+                                menuRowLabel(
+                                    text: rating == "Unrated" ? "Unrated" : "\(rating) Stars",
+                                    isSelected: selectedRating == rating
+                                )
+                            }
+                        }
+                    } label: {
+                        Label("Select Rating", systemImage: "star")
+                    }
+                }
             }
         }
     }
@@ -333,6 +359,7 @@ struct MediaGridSortAndFilterBar: View {
             || selectedNarrator != nil
             || selectedTranslator != nil
             || selectedPublicationYear != nil
+            || selectedRating != nil
             || selectedStatus != nil
             || selectedLocation != .all
     }
@@ -345,6 +372,7 @@ struct MediaGridSortAndFilterBar: View {
         selectedNarrator = nil
         selectedTranslator = nil
         selectedPublicationYear = nil
+        selectedRating = nil
         selectedStatus = nil
         selectedLocation = .all
     }

@@ -46,6 +46,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case translatorView(MediaKind)
     case tagView(MediaKind)
     case publicationYearView(MediaKind)
+    case ratingView(MediaKind)
     case collectionsView(MediaKind)
     case dynamicShelves
     case placeholder(title: String)
@@ -71,6 +72,8 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "tagView.\(kind.rawValue)"
         case .publicationYearView(let kind):
             return "publicationYearView.\(kind.rawValue)"
+        case .ratingView(let kind):
+            return "ratingView.\(kind.rawValue)"
         case .collectionsView(let kind):
             return "collectionsView.\(kind.rawValue)"
         case .dynamicShelves:
@@ -119,6 +122,7 @@ public struct MediaGridConfiguration: Hashable, Sendable {
     public var narratorFilter: String?
     public var translatorFilter: String?
     public var publicationYearFilter: String?
+    public var ratingFilter: String?
     public var statusFilter: String?
     public var defaultSort: String?
 
@@ -136,6 +140,7 @@ public struct MediaGridConfiguration: Hashable, Sendable {
         narratorFilter: String? = nil,
         translatorFilter: String? = nil,
         publicationYearFilter: String? = nil,
+        ratingFilter: String? = nil,
         statusFilter: String? = nil,
         defaultSort: String? = nil
     ) {
@@ -152,6 +157,7 @@ public struct MediaGridConfiguration: Hashable, Sendable {
         self.narratorFilter = narratorFilter
         self.translatorFilter = translatorFilter
         self.publicationYearFilter = publicationYearFilter
+        self.ratingFilter = ratingFilter
         self.statusFilter = statusFilter
         self.defaultSort = defaultSort
     }
@@ -224,6 +230,12 @@ public enum LibrarySidebarDefaults {
                         systemImage: "calendar",
                         badge: -1,
                         content: .publicationYearView(.ebook)
+                    ),
+                    SidebarItemDescription(
+                        name: "By Rating",
+                        systemImage: "star",
+                        badge: -1,
+                        content: .ratingView(.ebook)
                     ),
                 ]
             ),
