@@ -11,8 +11,8 @@ struct SidebarView: View {
     @State private var hoveredItemId: String?
 
     @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
-    @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = true
-    @AppStorage("sidebar.collections.expanded") private var collectionsExpanded: Bool = true
+    @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
+    @AppStorage("sidebar.collections.expanded") private var collectionsExpanded: Bool = false
     @AppStorage("sidebar.mediaSources.expanded") private var mediaSourcesExpanded: Bool = true
     @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
 
