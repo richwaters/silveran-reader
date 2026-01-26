@@ -381,6 +381,8 @@ struct MoreMenuView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var isWatchPaired = false
 
+    @State private var hasIncompleteDownloads = false
+
     enum MoreDestination: Hashable {
         case books
         case series
@@ -389,6 +391,7 @@ struct MoreMenuView: View {
         case tags
         case collections
         case downloaded
+        case currentlyDownloading
         case addLocalFile
         case appleWatch
     }
@@ -448,6 +451,11 @@ struct MoreMenuView: View {
                         Label("Downloaded", systemImage: "arrow.down.circle.fill")
                     }
                 }
+                if hasIncompleteDownloads {
+                    NavigationLink(value: MoreDestination.currentlyDownloading) {
+                        Label("Currently Downloading", systemImage: "arrow.down.circle.dotted")
+                    }
+                }
                 NavigationLink(value: MoreDestination.addLocalFile) {
                     Label("Manage Local Files", systemImage: "folder.badge.plus")
                 }
@@ -460,6 +468,12 @@ struct MoreMenuView: View {
         }
         .task {
             isWatchPaired = await AppleWatchActor.shared.isWatchPaired()
+            let downloads = await DownloadManager.shared.incompleteDownloads
+            hasIncompleteDownloads = !downloads.isEmpty
+
+            let _ = await DownloadManager.shared.addObserver { records in
+                hasIncompleteDownloads = records.contains { $0.isIncomplete }
+            }
         }
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.inline)
@@ -540,6 +554,9 @@ struct MoreMenuView: View {
                             placement: .navigationBarDrawer(displayMode: .always),
                             prompt: "Search"
                         )
+                case .currentlyDownloading:
+                    CurrentlyDownloadingView()
+                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
                 case .addLocalFile:
                     ImportLocalFileView()
                         .navigationTitle("Manage Local Files")

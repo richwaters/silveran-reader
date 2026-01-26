@@ -1,3 +1,4 @@
+import SilveranKitCommon
 import SwiftUI
 import UIKit
 
@@ -5,7 +6,27 @@ extension Notification.Name {
     static let appWillResignActive = Notification.Name("appWillResignActive")
 }
 
+class SilveranAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        if identifier == "com.kyonifer.silveran.downloads" {
+            nonisolated(unsafe) let handler = completionHandler
+            Task {
+                await DownloadManager.shared.handleBackgroundSessionEvents {
+                    handler()
+                }
+            }
+        } else {
+            completionHandler()
+        }
+    }
+}
+
 struct SilveranReaderApp: App {
+    @UIApplicationDelegateAdaptor(SilveranAppDelegate.self) var appDelegate
     @State private var mediaViewModel: MediaViewModel
 
     init() {

@@ -1,4 +1,5 @@
 #if os(watchOS)
+import SilveranKitCommon
 import SwiftUI
 
 struct WatchOfflineMenuView: View {
@@ -75,8 +76,31 @@ struct WatchOfflineMenuView: View {
 }
 
 struct WatchDownloadMenuView: View {
+    @State private var incompleteDownloads: [DownloadRecord] = []
+
     var body: some View {
         List {
+            if !incompleteDownloads.isEmpty {
+                Section {
+                    NavigationLink {
+                        WatchIncompleteDownloadsView()
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Currently Downloading")
+                                    .font(.caption)
+                                Text("\(incompleteDownloads.count) in progress")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "arrow.down.circle.dotted")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+            }
+
             Section {
                 NavigationLink {
                     WatchCurrentlyReadingView()
@@ -137,6 +161,115 @@ struct WatchDownloadMenuView: View {
             }
         }
         .navigationTitle("Download")
+        .task {
+            incompleteDownloads = await DownloadManager.shared.incompleteDownloads
+            let _ = await DownloadManager.shared.addObserver { records in
+                incompleteDownloads = records.filter { $0.isIncomplete }
+            }
+        }
+    }
+}
+
+struct WatchIncompleteDownloadsView: View {
+    @State private var downloads: [DownloadRecord] = []
+    @State private var selectedRecord: DownloadRecord?
+
+    var body: some View {
+        List {
+            if downloads.isEmpty {
+                Text("No active downloads")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            } else {
+                ForEach(downloads) { record in
+                    Button {
+                        selectedRecord = record
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "book.fill")
+                                .font(.title3)
+                                .foregroundStyle(watchProgressTint(for: record))
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(record.bookTitle)
+                                    .font(.caption)
+                                    .lineLimit(1)
+
+                                ProgressView(value: record.progressFraction)
+                                    .tint(watchProgressTint(for: record))
+
+                                Text(watchStateLabel(for: record))
+                                    .font(.caption2)
+                                    .foregroundStyle(watchStateLabelColor(for: record))
+                            }
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            Task {
+                                await DownloadManager.shared.cancelDownload(
+                                    for: record.bookId,
+                                    category: record.category
+                                )
+                            }
+                        } label: {
+                            Label("Cancel", systemImage: "xmark.circle")
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Downloads")
+        .fullScreenCover(item: $selectedRecord) { record in
+            WatchDownloadProgressView(
+                record: record,
+                onDismiss: {
+                    selectedRecord = nil
+                }
+            )
+        }
+        .task {
+            downloads = await DownloadManager.shared.incompleteDownloads
+            let _ = await DownloadManager.shared.addObserver { records in
+                downloads = records
+                    .filter { $0.isIncomplete }
+                    .sorted { $0.createdAt < $1.createdAt }
+            }
+        }
+    }
+
+    private func watchStateLabel(for record: DownloadRecord) -> String {
+        switch record.state {
+        case .queued: "Queued"
+        case .downloading(let p): String(format: "%.1f%%", p * 100)
+        case .paused: "Paused"
+        case .failed(let e, _): "Failed: \(e)"
+        case .importing: "Importing..."
+        case .completed: "Done"
+        }
+    }
+
+    private func watchStateLabelColor(for record: DownloadRecord) -> Color {
+        switch record.state {
+        case .failed: .red
+        case .paused: .orange
+        default: .secondary
+        }
+    }
+
+    private func watchProgressTint(for record: DownloadRecord) -> Color {
+        switch record.state {
+        case .failed: .red
+        case .paused: .orange
+        default: .accentColor
+        }
     }
 }
 

@@ -167,6 +167,7 @@ struct MediaCompactCardView: View {
         case availableNotDownloaded
         case downloaded
         case downloading(progress: Double?)
+        case failed
     }
 
     private func tabStatus(for tab: TabCategory) -> TabStatus {
@@ -179,6 +180,10 @@ struct MediaCompactCardView: View {
 
         let downloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         if downloaded { return .downloaded }
+
+        if mediaViewModel.isCategoryDownloadFailed(for: item, category: category) {
+            return .failed
+        }
 
         let available: Bool
         switch tab {
@@ -196,6 +201,7 @@ struct MediaCompactCardView: View {
         case .availableNotDownloaded: return .blue
         case .downloaded: return .green
         case .downloading: return .blue
+        case .failed: return .red
         }
     }
 
@@ -228,6 +234,10 @@ struct MediaCompactCardView: View {
                             .controlSize(.small)
                             .tint(color)
                     }
+                } else if status == .failed {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.red)
                 } else if isTabHovered && status == .availableNotDownloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 24))
@@ -260,7 +270,7 @@ struct MediaCompactCardView: View {
             mediaViewModel.cancelDownload(for: item, category: category)
         } else if status == .downloaded {
             openMedia(for: category)
-        } else if status == .availableNotDownloaded {
+        } else if status == .failed || status == .availableNotDownloaded {
             mediaViewModel.startDownload(for: item, category: category)
         }
     }

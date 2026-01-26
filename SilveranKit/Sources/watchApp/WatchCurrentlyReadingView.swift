@@ -10,7 +10,8 @@ struct WatchCurrentlyReadingView: View {
     @State private var errorMessage: String?
     @State private var needsServerSetup = false
     @State private var showSettingsView = false
-    @State private var downloadingBook: BookMetadata?
+    @State private var downloadRecords: [String: DownloadRecord] = [:]
+    @State private var showDownloads = false
 
     var body: some View {
         Group {
@@ -30,24 +31,19 @@ struct WatchCurrentlyReadingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadBooks()
+            let _ = await DownloadManager.shared.addObserver { records in
+                var map: [String: DownloadRecord] = [:]
+                for record in records where record.isIncomplete {
+                    map[record.bookId] = record
+                }
+                downloadRecords = map
+            }
         }
         .sheet(isPresented: $showSettingsView) {
             WatchSettingsView()
         }
-        .fullScreenCover(item: $downloadingBook) { book in
-            WatchDownloadProgressView(
-                book: book,
-                onCancel: {
-                    Task {
-                        await WatchDownloadManager.shared.cancelDownload(bookId: book.uuid)
-                    }
-                    downloadingBook = nil
-                },
-                onComplete: {
-                    downloadingBook = nil
-                    viewModel.loadBooks()
-                }
-            )
+        .navigationDestination(isPresented: $showDownloads) {
+            WatchIncompleteDownloadsView()
         }
         .onChange(of: showSettingsView) { _, isShowing in
             if !isShowing {
@@ -139,8 +135,14 @@ struct WatchCurrentlyReadingView: View {
         List {
             ForEach(books) { book in
                 Button {
-                    if !isBookDownloaded(book.uuid) {
-                        downloadingBook = book
+                    if let record = downloadRecords[book.uuid], record.isIncomplete {
+                        showDownloads = true
+                    } else if !isBookDownloaded(book.uuid) {
+                        let category: LocalMediaCategory = book.hasAvailableReadaloud ? .synced : .ebook
+                        Task {
+                            await DownloadManager.shared.startDownload(for: book, category: category)
+                        }
+                        showDownloads = true
                     }
                 } label: {
                     HStack {
@@ -160,6 +162,19 @@ struct WatchCurrentlyReadingView: View {
                         if isBookDownloaded(book.uuid) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
+                        } else if let record = downloadRecords[book.uuid], record.isActive {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 2.5)
+                                Circle()
+                                    .trim(from: 0, to: record.progressFraction)
+                                    .stroke(Color.blue, lineWidth: 2.5)
+                                    .rotationEffect(.degrees(-90))
+                            }
+                            .frame(width: 20, height: 20)
+                        } else if let record = downloadRecords[book.uuid], record.isIncomplete {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
                         } else {
                             Image(systemName: "arrow.down.circle")
                                 .foregroundStyle(.blue)

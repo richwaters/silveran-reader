@@ -723,6 +723,37 @@ public actor StorytellerActor {
         }
     }
 
+    public func createAuthenticatedDownloadRequest(
+        for bookId: String,
+        format: StorytellerBookFormat
+    ) async -> URLRequest? {
+        guard let (baseURL, token) = await ensureAuthentication() else { return nil }
+
+        let fileURL = baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("files")
+
+        do {
+            let requestURL = try urlWithQueryParameters(
+                fileURL,
+                queryParameters: ["format": format.rawValue]
+            )
+
+            var request = URLRequest(url: requestURL)
+            request.httpMethod = "GET"
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue(
+                authorizationHeaderValue(for: token),
+                forHTTPHeaderField: "Authorization"
+            )
+            return request
+        } catch {
+            logStorytellerError("createAuthenticatedDownloadRequest", error: error)
+            return nil
+        }
+    }
+
     /// Fetches detailed metadata for a single book via `/api/v2/books/{bookId}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/route.ts` (GET handler).
     func fetchBookDetails(for bookId: String) async -> BookMetadata? {

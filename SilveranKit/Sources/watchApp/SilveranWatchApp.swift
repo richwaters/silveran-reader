@@ -1,8 +1,30 @@
 import SilveranKitCommon
 import SwiftUI
 import WatchConnectivity
+import WatchKit
+
+class SilveranWatchAppDelegate: NSObject, WKApplicationDelegate {
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            if let urlTask = task as? WKURLSessionRefreshBackgroundTask {
+                if urlTask.sessionIdentifier == "com.kyonifer.silveran.watch.downloads" {
+                    Task {
+                        await DownloadManager.shared.handleBackgroundSessionEvents {
+                            urlTask.setTaskCompletedWithSnapshot(false)
+                        }
+                    }
+                } else {
+                    urlTask.setTaskCompletedWithSnapshot(false)
+                }
+            } else {
+                task.setTaskCompletedWithSnapshot(false)
+            }
+        }
+    }
+}
 
 struct SilveranWatchApp: App {
+    @WKApplicationDelegateAdaptor(SilveranWatchAppDelegate.self) var appDelegate
     @State private var watchViewModel = WatchViewModel()
     @Environment(\.scenePhase) private var scenePhase
 

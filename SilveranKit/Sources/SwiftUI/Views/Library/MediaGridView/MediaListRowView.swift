@@ -252,21 +252,24 @@ struct MediaListRowView: View {
         }
     }
 
-    private func mediaColor(for status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?)) -> Color {
+    private func mediaColor(for status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool)) -> Color {
         if !status.available {
             return .gray.opacity(0.3)
         } else if status.downloaded {
             return .green
+        } else if status.failed {
+            return .red
         } else {
             return .blue
         }
     }
 
-    private func mediaStatus(for type: MediaType) -> (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?) {
+    private func mediaStatus(for type: MediaType) -> (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool) {
         let category = type.category
         let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
         let downloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let progress = downloading ? mediaViewModel.downloadProgressFraction(for: item, category: category) : nil
+        let failed = !downloading && mediaViewModel.isCategoryDownloadFailed(for: item, category: category)
 
         let available: Bool
         switch type {
@@ -275,7 +278,7 @@ struct MediaListRowView: View {
         case .synced: available = item.hasAvailableReadaloud
         }
 
-        return (available, downloaded, downloading, progress)
+        return (available, downloaded, downloading, progress, failed)
     }
 
     @ViewBuilder
@@ -316,6 +319,10 @@ struct MediaListRowView: View {
                         ProgressView()
                             .controlSize(.small)
                     }
+                } else if status.failed {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.red)
                 } else if isHovered && status.available && !status.downloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 18))
@@ -345,7 +352,7 @@ struct MediaListRowView: View {
         #endif
     }
 
-    private func handleMediaTap(for type: MediaType, status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?)) {
+    private func handleMediaTap(for type: MediaType, status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool)) {
         let category = type.category
 
         if status.downloading {
@@ -354,7 +361,7 @@ struct MediaListRowView: View {
             #if os(macOS)
             openMedia(for: category)
             #endif
-        } else if status.available {
+        } else if status.failed || status.available {
             mediaViewModel.startDownload(for: item, category: category)
         }
     }

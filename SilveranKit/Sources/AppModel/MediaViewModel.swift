@@ -28,12 +28,7 @@ public final class MediaViewModel {
     private let lma: LocalMediaActor = LocalMediaActor.shared
     private let sta: StorytellerActor = StorytellerActor.shared
 
-    private struct DownloadKey: Hashable {
-        let bookID: String
-        let category: LocalMediaCategory
-    }
-
-    @ObservationIgnored private var downloadTasks: [DownloadKey: Task<Void, Never>] = [:]
+    @ObservationIgnored private var downloadManagerObserverId: UUID?
     var downloadStatuses: [String: DownloadProgressState] = [:]
     private var cachedBookPaths: [String: MediaPaths] = [:]
     private var localStandaloneBookIds: Set<String> = []
@@ -46,6 +41,7 @@ public final class MediaViewModel {
             public var latestReceived: Int64 = 0
             public var isFinished: Bool = false
             public var wasSkipped: Bool = false
+            public var isFailed: Bool = false
 
             public var progressFraction: Double? {
                 guard let expected, expected > 0 else { return nil }
@@ -198,7 +194,48 @@ public final class MediaViewModel {
             setupPathCacheSync()
             setupSettingsSync()
             startMetadataRefreshTask()
+            setupDownloadManagerObserver()
         }
+    }
+
+    private func setupDownloadManagerObserver() {
+        Task { [weak self] in
+            let id = await DownloadManager.shared.addObserver { [weak self] records in
+                guard let self else { return }
+                self.applyDownloadRecords(records)
+            }
+            await MainActor.run { [weak self] in
+                self?.downloadManagerObserverId = id
+            }
+        }
+    }
+
+    private func applyDownloadRecords(_ records: [DownloadRecord]) {
+        var statuses: [String: DownloadProgressState] = [:]
+        for record in records {
+            var state = statuses[record.bookId] ?? DownloadProgressState()
+            var catState = DownloadProgressState.CategoryState()
+            catState.expected = record.expectedBytes
+            catState.latestReceived = record.receivedBytes
+
+            switch record.state {
+            case .completed:
+                catState.isFinished = true
+            case .failed(let error, _):
+                catState.isFinished = true
+                catState.isFailed = true
+                state.errorDescription = error
+            case .queued, .downloading, .importing:
+                catState.isFinished = false
+            case .paused:
+                catState.isFinished = false
+                catState.isFailed = true
+            }
+
+            state.categories[record.category] = catState
+            statuses[record.bookId] = state
+        }
+        downloadStatuses = statuses
     }
 
     public func refreshMetadata(source: String = "unknown") async {
@@ -770,33 +807,20 @@ public final class MediaViewModel {
 
     public func isDownloadInProgress(for item: BookMetadata) -> Bool {
         downloadStatuses[item.id]?.isActive ?? false
-            || downloadTasks.keys.contains(where: { $0.bookID == item.id })
     }
 
     public func startDownload(for item: BookMetadata, category: LocalMediaCategory) {
-        let key = DownloadKey(bookID: item.id, category: category)
-        guard downloadTasks[key] == nil else { return }
-
         var status = downloadStatuses[item.id] ?? DownloadProgressState()
         status.categories[category] = DownloadProgressState.CategoryState()
         status.errorDescription = nil
         downloadStatuses[item.id] = status
 
-        let task = Task { [weak self] in
-            guard let self else { return }
-            await self.runDownload(for: item, category: category, key: key)
+        Task {
+            await DownloadManager.shared.startDownload(for: item, category: category)
         }
-
-        downloadTasks[key] = task
     }
 
     public func cancelDownload(for item: BookMetadata, category: LocalMediaCategory) {
-        let key = DownloadKey(bookID: item.id, category: category)
-        if let task = downloadTasks[key] {
-            task.cancel()
-        }
-        downloadTasks[key] = nil
-
         if var state = downloadStatuses[item.id] {
             state.categories.removeValue(forKey: category)
             state.errorDescription = nil
@@ -805,6 +829,10 @@ public final class MediaViewModel {
             } else {
                 downloadStatuses[item.id] = state
             }
+        }
+
+        Task {
+            await DownloadManager.shared.cancelDownload(for: item.id, category: category)
         }
     }
 
@@ -881,6 +909,13 @@ public final class MediaViewModel {
         downloadStatuses[item.id]?.categories[category]?.isActive ?? false
     }
 
+    public func isCategoryDownloadFailed(
+        for item: BookMetadata,
+        category: LocalMediaCategory
+    ) -> Bool {
+        downloadStatuses[item.id]?.categories[category]?.isFailed ?? false
+    }
+
     public func openMediaFolder(for item: BookMetadata, category: LocalMediaCategory) {
         #if canImport(AppKit)
         Task { [weak self] in
@@ -921,97 +956,15 @@ public final class MediaViewModel {
         }
     }
 
-    private func runDownload(
-        for item: BookMetadata,
-        category: LocalMediaCategory,
-        key: DownloadKey
-    ) async {
-        defer { downloadTasks[key] = nil }
-
-        let stream = await lma.importMedia(for: item, category: category)
-        do {
-            for try await event in stream {
-                handleDownloadEvent(event)
-            }
-        } catch is CancellationError {
-            if var state = downloadStatuses[item.id] {
-                state.categories.removeValue(forKey: category)
-                state.errorDescription = nil
-                if state.categories.isEmpty {
-                    downloadStatuses[item.id] = nil
-                } else {
-                    downloadStatuses[item.id] = state
-                }
-            }
-        } catch {
-            var state = downloadStatuses[item.id] ?? DownloadProgressState()
-            var categoryState = state.categories[category] ?? DownloadProgressState.CategoryState()
-            categoryState.isFinished = true
-            state.categories[category] = categoryState
-            state.errorDescription = error.localizedDescription
-            downloadStatuses[item.id] = state
+    public func pauseDownload(for item: BookMetadata, category: LocalMediaCategory) {
+        Task {
+            await DownloadManager.shared.pauseDownload(for: item.id, category: category)
         }
     }
 
-    private func handleDownloadEvent(_ event: LocalMediaImportEvent) {
-        switch event {
-            case .started(let book, let category, let expectedBytes):
-                guard
-                    var state = downloadStatuses[book.id],
-                    var categoryState = state.categories[category]
-                else {
-                    return
-                }
-                categoryState.expected = expectedBytes ?? categoryState.expected
-                categoryState.latestReceived = 0
-                categoryState.isFinished = false
-                categoryState.wasSkipped = false
-                state.categories[category] = categoryState
-                state.errorDescription = nil
-                downloadStatuses[book.id] = state
-
-            case .progress(let book, let category, let receivedBytes, let expectedBytes):
-                guard
-                    var state = downloadStatuses[book.id],
-                    var categoryState = state.categories[category]
-                else {
-                    return
-                }
-                if let expectedBytes {
-                    categoryState.expected = expectedBytes
-                }
-                categoryState.latestReceived = max(categoryState.latestReceived, receivedBytes)
-                state.categories[category] = categoryState
-                state.errorDescription = nil
-                downloadStatuses[book.id] = state
-
-            case .finished(let book, let category, _):
-                guard
-                    var state = downloadStatuses[book.id],
-                    var categoryState = state.categories[category]
-                else {
-                    return
-                }
-                categoryState.isFinished = true
-                if let expected = categoryState.expected {
-                    categoryState.latestReceived = max(categoryState.latestReceived, expected)
-                }
-                state.categories[category] = categoryState
-                state.errorDescription = nil
-                downloadStatuses[book.id] = state
-
-            case .skipped(let book, let category):
-                guard
-                    var state = downloadStatuses[book.id],
-                    var categoryState = state.categories[category]
-                else {
-                    return
-                }
-                categoryState.isFinished = true
-                categoryState.wasSkipped = true
-                state.categories[category] = categoryState
-                state.errorDescription = nil
-                downloadStatuses[book.id] = state
+    public func resumeDownload(for item: BookMetadata, category: LocalMediaCategory) {
+        Task {
+            await DownloadManager.shared.resumeDownload(for: item.id, category: category)
         }
     }
 

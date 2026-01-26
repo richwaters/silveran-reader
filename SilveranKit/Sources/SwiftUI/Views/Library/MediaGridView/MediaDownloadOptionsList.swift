@@ -305,6 +305,10 @@ struct MediaDownloadOptionRow: View {
         mediaViewModel.isCategoryDownloadInProgress(for: item, category: option.category)
     }
 
+    private var isDownloadFailed: Bool {
+        !isDownloadInProgress && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
+    }
+
     private func cancelDownload() {
         mediaViewModel.cancelDownload(for: item, category: option.category)
         onAction?()
@@ -398,7 +402,28 @@ struct MediaDownloadOptionRow: View {
     private var downloadControls: some View {
         #if os(iOS)
         HStack(spacing: 8) {
-            if !isDownloadInProgress {
+            if isDownloadFailed {
+                Button {
+                    mediaViewModel.startDownload(for: item, category: option.category)
+                    onAction?()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 16))
+                        Text("Retry \(option.downloadTitle)")
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.red)
+                    .foregroundStyle(.white)
+                    .clipShape(.rect(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Retry \(option.downloadTitle)")
+            } else if !isDownloadInProgress {
                 Button {
                     if hasConnectionError {
                         showConnectionAlert = true
@@ -485,6 +510,9 @@ struct MediaDownloadOptionRow: View {
         Button {
             if isDownloadInProgress {
                 cancelDownload()
+            } else if isDownloadFailed {
+                mediaViewModel.startDownload(for: item, category: option.category)
+                onAction?()
             } else if hasConnectionError {
                 showConnectionAlert = true
             } else {
@@ -514,6 +542,10 @@ struct MediaDownloadOptionRow: View {
                         ProgressView()
                             .progressViewStyle(ThinCircularProgressViewStyle())
                     }
+                } else if isDownloadFailed {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .imageScale(.large)
+                        .foregroundStyle(.red)
                 } else if isHovered && hasConnectionError {
                     ZStack {
                         Circle()
@@ -533,7 +565,7 @@ struct MediaDownloadOptionRow: View {
         .onHover { hovering in
             isDownloadAreaHovered = hovering
         }
-        .accessibilityLabel(isDownloadInProgress ? "Cancel \(option.downloadTitle)" : option.downloadTitle)
+        .accessibilityLabel(isDownloadFailed ? "Retry \(option.downloadTitle)" : isDownloadInProgress ? "Cancel \(option.downloadTitle)" : option.downloadTitle)
         #endif
     }
 

@@ -894,6 +894,68 @@ public actor FilesystemActor {
         )
     }
 
+    // MARK: - Download State Persistence
+
+    private func getResumeDataDirectory() -> URL {
+        applicationSupportBaseDirectory()
+            .appendingPathComponent("ResumeData", isDirectory: true)
+    }
+
+    public func saveDownloadState(_ records: [DownloadRecord]) throws {
+        let configDir = getConfigDirectory()
+        try ensureDirectoryExists(at: configDir)
+
+        let url = configDir.appendingPathComponent("downloads.json", isDirectory: false)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(records)
+        try data.write(to: url, options: .atomic)
+    }
+
+    public func loadDownloadState() throws -> [DownloadRecord] {
+        let configDir = getConfigDirectory()
+        let url = configDir.appendingPathComponent("downloads.json", isDirectory: false)
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode([DownloadRecord].self, from: data)
+    }
+
+    public func saveResumeData(_ resumeData: Data, for downloadId: String) throws {
+        let dir = getResumeDataDirectory()
+        try ensureDirectoryExists(at: dir)
+
+        let url = dir.appendingPathComponent("\(downloadId).resumedata", isDirectory: false)
+        try resumeData.write(to: url, options: .atomic)
+    }
+
+    public func loadResumeData(for downloadId: String) throws -> Data? {
+        let dir = getResumeDataDirectory()
+        let url = dir.appendingPathComponent("\(downloadId).resumedata", isDirectory: false)
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try Data(contentsOf: url)
+    }
+
+    public func hasResumeData(for downloadId: String) -> Bool {
+        let dir = getResumeDataDirectory()
+        let url = dir.appendingPathComponent("\(downloadId).resumedata", isDirectory: false)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    public func deleteResumeData(for downloadId: String) throws {
+        let dir = getResumeDataDirectory()
+        let url = dir.appendingPathComponent("\(downloadId).resumedata", isDirectory: false)
+        let fm = FileManager.default
+        if fm.fileExists(atPath: url.path) {
+            try fm.removeItem(at: url)
+        }
+    }
+
     private func applicationSupportBaseDirectory() -> URL {
         let fm = FileManager.default
         let bundleID = Bundle.main.bundleIdentifier ?? "SilveranReader"

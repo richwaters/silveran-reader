@@ -530,6 +530,10 @@ private struct iOSMediaButton: View {
         mediaViewModel.isCategoryDownloadInProgress(for: item, category: option.category)
     }
 
+    private var isFailed: Bool {
+        !isDownloading && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
+    }
+
     private var downloadProgress: Double? {
         mediaViewModel.downloadProgressFraction(for: item, category: option.category)
     }
@@ -564,6 +568,13 @@ private struct iOSMediaButton: View {
                     mediaViewModel.cancelDownload(for: item, category: option.category)
                 } label: {
                     downloadingContent
+                }
+                .buttonStyle(.plain)
+            } else if isFailed {
+                Button {
+                    mediaViewModel.startDownload(for: item, category: option.category)
+                } label: {
+                    failedButtonContent
                 }
                 .buttonStyle(.plain)
             } else {
@@ -626,6 +637,23 @@ private struct iOSMediaButton: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 12)
         .background(tintColor.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
+    private var failedButtonContent: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+            Text("Retry \(buttonLabel)")
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity)
+        .foregroundStyle(.red)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 12)
+        .background(Color.red.opacity(0.15))
         .clipShape(Capsule())
     }
 
