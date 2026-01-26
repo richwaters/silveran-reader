@@ -234,6 +234,8 @@ public struct LibraryView: View {
             case .placeholder(let title):
                 PlaceholderDetailView(title: title)
                     .border(.yellow)
+            case .currentlyDownloading:
+                CurrentlyDownloadingView()
             case .importLocalFile:
                 ImportLocalFileView()
             case .storytellerServer:

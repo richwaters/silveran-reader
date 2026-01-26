@@ -84,6 +84,12 @@ public class LibrarySidebarModel {
                         badge: -1,
                         content: .collectionsView(.ebook)
                     ),
+                    SidebarItemDescription(
+                        name: "Currently Downloading",
+                        systemImage: "arrow.down.circle.dotted",
+                        badge: -1,
+                        content: .currentlyDownloading
+                    ),
                 ],
             ),
             SidebarSectionDescription(

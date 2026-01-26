@@ -742,6 +742,8 @@ public final class MediaViewModel {
                 }.count
             case .placeholder:
                 return 0
+            case .currentlyDownloading:
+                return 0
             case .importLocalFile:
                 return 0
             case .storytellerServer:

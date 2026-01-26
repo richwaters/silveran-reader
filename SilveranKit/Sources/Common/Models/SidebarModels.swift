@@ -26,6 +26,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case tagView(MediaKind)
     case collectionsView(MediaKind)
     case placeholder(title: String)
+    case currentlyDownloading
     case importLocalFile
     case storytellerServer
 }
@@ -217,6 +218,12 @@ public enum LibrarySidebarDefaults {
                         systemImage: "rectangle.stack",
                         badge: -1,
                         content: .collectionsView(.ebook)
+                    ),
+                    SidebarItemDescription(
+                        name: "Currently Downloading",
+                        systemImage: "arrow.down.circle.dotted",
+                        badge: -1,
+                        content: .currentlyDownloading
                     ),
                 ],
             ),

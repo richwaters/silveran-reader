@@ -4,7 +4,7 @@ public actor DownloadManager {
     public static let shared = DownloadManager()
 
     private let delegate = DownloadManagerDelegate()
-    private lazy var backgroundSession: URLSession = {
+    private lazy var downloadSession: URLSession = {
         let identifier: String
         #if os(watchOS)
         identifier = "com.kyonifer.silveran.watch.downloads"
@@ -57,7 +57,7 @@ public actor DownloadManager {
 
     private func reconnectOutstandingTasks() async {
         let tasks = await withCheckedContinuation { (continuation: CheckedContinuation<[URLSessionDownloadTask], Never>) in
-            backgroundSession.getTasksWithCompletionHandler { _, _, downloadTasks in
+            downloadSession.getTasksWithCompletionHandler { _, _, downloadTasks in
                 continuation.resume(returning: downloadTasks)
             }
         }
@@ -446,7 +446,7 @@ public actor DownloadManager {
         let task: URLSessionDownloadTask
 
         if let resumeData {
-            task = backgroundSession.downloadTask(withResumeData: resumeData)
+            task = downloadSession.downloadTask(withResumeData: resumeData)
             await deleteResumeData(for: record.id)
         } else {
             guard let book else {
@@ -474,7 +474,7 @@ public actor DownloadManager {
                 return
             }
 
-            task = backgroundSession.downloadTask(with: request)
+            task = downloadSession.downloadTask(with: request)
         }
 
         task.taskDescription = record.id
