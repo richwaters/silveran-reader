@@ -1288,80 +1288,47 @@ struct MediaGridView: View {
 
     private func matchesSelectedTag(_ item: BookMetadata) -> Bool {
         guard let tag = selectedTag else { return true }
-        let normalized = tag.lowercased()
-        return item.tagNames.contains { $0.lowercased() == normalized }
+        return item.matchesTag(tag)
     }
 
     private func matchesSelectedSeries(_ item: BookMetadata) -> Bool {
         guard let series = selectedSeries else { return true }
-        if series == SeriesView.noSeriesFilterKey {
-            return item.series == nil || item.series?.isEmpty == true
-        }
-        let normalized = series.lowercased()
-        return item.series?.contains(where: { $0.name.lowercased() == normalized }) ?? false
+        return item.matchesSeries(series)
     }
 
     private func matchesSelectedCollection(_ item: BookMetadata) -> Bool {
         guard let collection = selectedCollection else { return true }
-        let normalized = collection.lowercased()
-        return item.collections?.contains(where: {
-            $0.uuid?.lowercased() == normalized || $0.name.lowercased() == normalized
-        }) ?? false
+        return item.matchesCollection(collection)
     }
 
     private func matchesSelectedAuthor(_ item: BookMetadata) -> Bool {
         guard let author = selectedAuthor else { return true }
-        let normalized = author.lowercased()
-        return item.authors?.contains(where: { $0.name?.lowercased() == normalized }) ?? false
+        return item.matchesAuthor(author)
     }
 
     private func matchesSelectedNarrator(_ item: BookMetadata) -> Bool {
         guard let narrator = selectedNarrator else { return true }
-        if narrator == "Unknown Narrator" {
-            guard let narrators = item.narrators, !narrators.isEmpty else { return true }
-            return narrators.allSatisfy { narrator in
-                guard let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines) else { return true }
-                return name.isEmpty
-            }
-        }
-        let normalized = narrator.lowercased()
-        return item.narrators?.contains(where: { $0.name?.lowercased() == normalized }) ?? false
+        return item.matchesNarrator(narrator)
     }
 
     private func matchesSelectedTranslator(_ item: BookMetadata) -> Bool {
         guard let translator = selectedTranslator else { return true }
-        if translator == "Unknown Translator" {
-            let translators = (item.creators ?? []).filter { $0.role == "trl" }
-            return translators.isEmpty
-        }
-        let normalized = translator.lowercased()
-        return (item.creators ?? []).contains(where: {
-            $0.role == "trl" && $0.name?.lowercased() == normalized
-        })
+        return item.matchesTranslator(translator)
     }
 
     private func matchesSelectedPublicationYear(_ item: BookMetadata) -> Bool {
         guard let year = selectedPublicationYear else { return true }
-        if year == "Unknown" {
-            return item.publicationDate == nil || (item.publicationDate?.count ?? 0) < 4
-        }
-        guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
-        return String(pubDate.prefix(4)) == year
+        return item.matchesPublicationYear(year)
     }
 
     private func matchesSelectedRating(_ item: BookMetadata) -> Bool {
         guard let ratingKey = selectedRating else { return true }
-        if ratingKey == "Unrated" {
-            return item.rating == nil || item.rating == 0
-        }
-        guard let r = item.rating, r > 0 else { return false }
-        return "\(Int(r.rounded()))" == ratingKey
+        return item.matchesRating(ratingKey)
     }
 
     private func matchesSelectedStatus(_ item: BookMetadata) -> Bool {
         guard let status = selectedStatus else { return true }
-        guard let itemStatus = item.status?.name else { return false }
-        return itemStatus.caseInsensitiveCompare(status) == .orderedSame
+        return item.matchesStatus(status)
     }
 
     private func matchesSelectedLocation(_ item: BookMetadata) -> Bool {
@@ -1557,117 +1524,39 @@ struct MediaGridView: View {
         var filtered = base.filter { formatFilter.matches($0) }
 
         if let tag = tagFilter {
-            let lowercasedTag = tag.lowercased()
-            filtered = filtered.filter { item in
-                item.tagNames.contains { $0.lowercased() == lowercasedTag }
-            }
+            filtered = filtered.filter { $0.matchesTag(tag) }
         }
 
         if let series = seriesFilter {
-            if series == "No Series" {
-                filtered = filtered.filter { $0.series?.isEmpty ?? true }
-            } else {
-                let lowercasedSeries = series.lowercased()
-                filtered = filtered.filter { item in
-                    guard let seriesList = item.series else { return false }
-                    for s in seriesList {
-                        if s.name.lowercased() == lowercasedSeries { return true }
-                    }
-                    return false
-                }
-            }
+            filtered = filtered.filter { $0.matchesSeries(series) }
         }
 
         if let collection = collectionFilter {
-            filtered = filtered.filter { item in
-                guard let collections = item.collections else { return false }
-                for col in collections {
-                    if col.uuid == collection || col.name == collection {
-                        return true
-                    }
-                }
-                return false
-            }
+            filtered = filtered.filter { $0.matchesCollection(collection) }
         }
 
         if let author = authorFilter {
-            let lowercasedAuthor = author.lowercased()
-            filtered = filtered.filter { item in
-                guard let authors = item.authors else { return false }
-                for a in authors {
-                    if a.name?.lowercased() == lowercasedAuthor { return true }
-                }
-                return false
-            }
+            filtered = filtered.filter { $0.matchesAuthor(author) }
         }
 
         if let narrator = narratorFilter {
-            if narrator == "Unknown Narrator" {
-                filtered = filtered.filter { item in
-                    guard let narrators = item.narrators else { return true }
-                    if narrators.isEmpty { return true }
-                    for n in narrators {
-                        if let name = n.name, !name.isEmpty { return false }
-                    }
-                    return true
-                }
-            } else {
-                let lowercasedNarrator = narrator.lowercased()
-                filtered = filtered.filter { item in
-                    guard let narrators = item.narrators else { return false }
-                    for n in narrators {
-                        if n.name?.lowercased() == lowercasedNarrator { return true }
-                    }
-                    return false
-                }
-            }
+            filtered = filtered.filter { $0.matchesNarrator(narrator) }
         }
 
         if let translator = translatorFilter {
-            if translator == "Unknown Translator" {
-                filtered = filtered.filter { item in
-                    let translators = (item.creators ?? []).filter { $0.role == "trl" }
-                    return translators.isEmpty
-                }
-            } else {
-                let lowercasedTranslator = translator.lowercased()
-                filtered = filtered.filter { item in
-                    guard let creators = item.creators else { return false }
-                    for c in creators {
-                        if c.role == "trl" && c.name?.lowercased() == lowercasedTranslator { return true }
-                    }
-                    return false
-                }
-            }
+            filtered = filtered.filter { $0.matchesTranslator(translator) }
         }
 
         if let year = publicationYearFilter {
-            if year == "Unknown" {
-                filtered = filtered.filter { item in
-                    item.publicationDate == nil || (item.publicationDate?.count ?? 0) < 4
-                }
-            } else {
-                filtered = filtered.filter { item in
-                    guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
-                    return String(pubDate.prefix(4)) == year
-                }
-            }
+            filtered = filtered.filter { $0.matchesPublicationYear(year) }
         }
 
         if let ratingKey = ratingFilter {
-            if ratingKey == "Unrated" {
-                filtered = filtered.filter { $0.rating == nil || $0.rating == 0 }
-            } else {
-                filtered = filtered.filter { item in
-                    guard let r = item.rating, r > 0 else { return false }
-                    return "\(Int(r.rounded()))" == ratingKey
-                }
-            }
+            filtered = filtered.filter { $0.matchesRating(ratingKey) }
         }
 
         if let status = statusFilter {
-            let lowercasedStatus = status.lowercased()
-            filtered = filtered.filter { $0.status?.name.lowercased() == lowercasedStatus }
+            filtered = filtered.filter { $0.matchesStatus(status) }
         }
 
         switch locationFilter {

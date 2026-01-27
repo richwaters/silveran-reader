@@ -622,13 +622,15 @@ public final class MediaViewModel {
         var narratorMap: [String: (narrator: BookCreator?, books: [BookMetadata])] = [:]
 
         for book in allBooks {
-            if let narratorsList = book.narrators, let firstNarrator = narratorsList.first {
-                let key = firstNarrator.uuid ?? firstNarrator.name ?? "__unknown__"
-                if var existing = narratorMap[key] {
-                    existing.books.append(book)
-                    narratorMap[key] = existing
-                } else {
-                    narratorMap[key] = (narrator: firstNarrator, books: [book])
+            if let narratorsList = book.narrators, !narratorsList.isEmpty {
+                for narrator in narratorsList {
+                    let key = narrator.uuid ?? narrator.name ?? "__unknown__"
+                    if var existing = narratorMap[key] {
+                        existing.books.append(book)
+                        narratorMap[key] = existing
+                    } else {
+                        narratorMap[key] = (narrator: narrator, books: [book])
+                    }
                 }
             } else {
                 if var existing = narratorMap["__no_narrator__"] {
@@ -668,13 +670,15 @@ public final class MediaViewModel {
 
         for book in allBooks {
             let translators = (book.creators ?? []).filter { $0.role == "trl" }
-            if let firstTranslator = translators.first {
-                let key = firstTranslator.uuid ?? firstTranslator.name ?? "__unknown__"
-                if var existing = translatorMap[key] {
-                    existing.books.append(book)
-                    translatorMap[key] = existing
-                } else {
-                    translatorMap[key] = (translator: firstTranslator, books: [book])
+            if !translators.isEmpty {
+                for translator in translators {
+                    let key = translator.uuid ?? translator.name ?? "__unknown__"
+                    if var existing = translatorMap[key] {
+                        existing.books.append(book)
+                        translatorMap[key] = existing
+                    } else {
+                        translatorMap[key] = (translator: translator, books: [book])
+                    }
                 }
             } else {
                 if var existing = translatorMap["__no_translator__"] {
@@ -841,67 +845,35 @@ public final class MediaViewModel {
                 base = base.filter { matchesNarrationFilter($0, filter: config.narrationFilter) }
 
                 if let series = config.seriesFilter {
-                    let lowered = series.lowercased()
-                    base = base.filter { item in
-                        guard let list = item.series else { return false }
-                        return list.contains { $0.name.lowercased() == lowered }
-                    }
+                    base = base.filter { $0.matchesSeries(series) }
                 }
 
                 if let collection = config.collectionFilter {
-                    base = base.filter { item in
-                        guard let cols = item.collections else { return false }
-                        return cols.contains { $0.uuid == collection || $0.name == collection }
-                    }
+                    base = base.filter { $0.matchesCollection(collection) }
                 }
 
                 if let author = config.authorFilter {
-                    let lowered = author.lowercased()
-                    base = base.filter { item in
-                        guard let authors = item.authors else { return false }
-                        return authors.contains { $0.name?.lowercased() == lowered }
-                    }
+                    base = base.filter { $0.matchesAuthor(author) }
                 }
 
                 if let narrator = config.narratorFilter {
-                    let lowered = narrator.lowercased()
-                    base = base.filter { item in
-                        guard let narrators = item.narrators else { return false }
-                        return narrators.contains { $0.name?.lowercased() == lowered }
-                    }
+                    base = base.filter { $0.matchesNarrator(narrator) }
                 }
 
                 if let translator = config.translatorFilter {
-                    let lowered = translator.lowercased()
-                    base = base.filter { item in
-                        guard let creators = item.creators else { return false }
-                        return creators.contains { $0.role == "trl" && $0.name?.lowercased() == lowered }
-                    }
+                    base = base.filter { $0.matchesTranslator(translator) }
                 }
 
                 if let year = config.publicationYearFilter {
-                    base = base.filter { item in
-                        guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
-                        return String(pubDate.prefix(4)) == year
-                    }
+                    base = base.filter { $0.matchesPublicationYear(year) }
                 }
 
                 if let ratingKey = config.ratingFilter {
-                    if ratingKey == "Unrated" {
-                        base = base.filter { $0.rating == nil || $0.rating == 0 }
-                    } else {
-                        base = base.filter { item in
-                            guard let r = item.rating, r > 0 else { return false }
-                            return "\(Int(r.rounded()))" == ratingKey
-                        }
-                    }
+                    base = base.filter { $0.matchesRating(ratingKey) }
                 }
 
                 if let statusFilter = config.statusFilter {
-                    base = base.filter { metadata in
-                        guard let itemStatus = metadata.status?.name else { return false }
-                        return itemStatus.caseInsensitiveCompare(statusFilter) == .orderedSame
-                    }
+                    base = base.filter { $0.matchesStatus(statusFilter) }
                 }
 
                 base = base.filter { matchesLocationFilter($0, filter: config.locationFilter) }

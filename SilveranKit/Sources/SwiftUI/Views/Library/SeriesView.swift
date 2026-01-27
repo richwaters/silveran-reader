@@ -33,7 +33,7 @@ struct SeriesView: View {
     private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
 
-    static let noSeriesFilterKey = "__no_series__"
+    static let noSeriesFilterKey = BookMetadata.noSeriesSentinel
 
     #if os(iOS)
     private var hasConnectionError: Bool {
