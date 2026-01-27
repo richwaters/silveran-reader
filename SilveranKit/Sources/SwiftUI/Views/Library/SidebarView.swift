@@ -17,7 +17,11 @@ struct SidebarView: View {
     @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
 
     private var pinnedItemIds: [String] {
-        SidebarPinHelper.pinnedItemIds
+        guard let data = pinnedItemsJSON.data(using: .utf8),
+              let ids = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return ids
     }
 
     private var storytellerConfigured: Bool {
@@ -365,7 +369,6 @@ struct SidebarView: View {
             let showButton = hoveredItemId == item.id || isCurrentlyPinned
             Button {
                 SidebarPinHelper.togglePin(item.id)
-                pinnedItemsJSON = UserDefaults.standard.string(forKey: "sidebar.pinnedItems") ?? "[]"
             } label: {
                 Image(systemName: isCurrentlyPinned ? "pin.fill" : "pin")
                     .font(.system(size: 10))
