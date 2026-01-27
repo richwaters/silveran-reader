@@ -78,7 +78,7 @@ public class LibrarySidebarModel {
                         )
                     ),
                     SidebarItemDescription(
-                        name: "Custom Collections",
+                        name: "Server Collections",
                         systemImage: "rectangle.stack",
                         badge: -1,
                         content: .collectionsView(.ebook)

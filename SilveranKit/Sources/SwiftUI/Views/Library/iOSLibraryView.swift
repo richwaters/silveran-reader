@@ -741,7 +741,7 @@ struct CollectionsListView: View {
                 .padding(.bottom, 40)
             }
         }
-        .navigationTitle("Custom Collections")
+        .navigationTitle("Server Collections")
         .navigationBarTitleDisplayMode(.inline)
     }
 

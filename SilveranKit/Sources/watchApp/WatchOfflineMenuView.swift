@@ -141,7 +141,7 @@ struct WatchDownloadMenuView: View {
                 } label: {
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Custom Collections")
+                            Text("Server Collections")
                                 .font(.caption)
                             Text("Curated sets")
                                 .font(.caption2)
