@@ -357,6 +357,10 @@ struct SidebarView: View {
                 .tag(item.id)
             Spacer()
 
+            #if os(macOS)
+            pinButton(for: item, isPinned: isPinned)
+            #endif
+
             if item.content == .storytellerServer {
                 connectionIndicator(for: mediaViewModel.connectionStatus)
             } else {
@@ -368,10 +372,6 @@ struct SidebarView: View {
                         .monospacedDigit()
                 }
             }
-
-            #if os(macOS)
-            pinButton(for: item, isPinned: isPinned)
-            #endif
         }
         #if os(macOS)
         .onHover { hovering in
