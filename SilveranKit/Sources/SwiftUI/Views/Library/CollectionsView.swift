@@ -257,8 +257,8 @@ struct CollectionsView: View {
         LazyVGrid(columns: columns, spacing: 14) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 let collectionId = group.collection?.uuid ?? group.collection?.name ?? "unknown"
-                CollectionCardView(
-                    collection: group.collection,
+                GroupedBooksCardView(
+                    title: group.collection?.name ?? "Unknown Collection",
                     books: group.books,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,

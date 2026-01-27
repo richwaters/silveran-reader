@@ -251,8 +251,8 @@ struct SeriesView: View {
         LazyVGrid(columns: columns, spacing: 14) {
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 let navigationKey = group.series?.name ?? Self.noSeriesFilterKey
-                SeriesCardView(
-                    series: group.series,
+                GroupedBooksCardView(
+                    title: group.series?.name ?? "No Series",
                     books: group.books,
                     mediaKind: mediaKind,
                     coverPreference: coverPreference,

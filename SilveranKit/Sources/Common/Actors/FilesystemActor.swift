@@ -894,6 +894,32 @@ public actor FilesystemActor {
         )
     }
 
+    // MARK: - Dynamic Shelves Persistence
+
+    public func saveDynamicShelves(_ shelves: [DynamicShelf]) throws {
+        let configDir = getConfigDirectory()
+        try ensureDirectoryExists(at: configDir)
+
+        let url = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(shelves)
+        try data.write(to: url, options: .atomic)
+    }
+
+    public func loadDynamicShelves() throws -> [DynamicShelf] {
+        let configDir = getConfigDirectory()
+        let url = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode([DynamicShelf].self, from: data)
+    }
+
     // MARK: - Download State Persistence
 
     private func getResumeDataDirectory() -> URL {

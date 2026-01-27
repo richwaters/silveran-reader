@@ -1,0 +1,318 @@
+import Foundation
+
+public struct DynamicShelf: Codable, Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public var name: String
+    public var conditions: [ShelfCondition]
+    public var createdAt: Date
+
+    public init(id: UUID = UUID(), name: String, conditions: [ShelfCondition] = [], createdAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.conditions = conditions
+        self.createdAt = createdAt
+    }
+
+    public func matchesAll(_ book: BookMetadata, progress: Double) -> Bool {
+        guard !conditions.isEmpty else { return false }
+
+        // Split conditions into OR-separated groups.
+        // Each group's conditions are ANDed, groups are ORed.
+        var groups: [[ShelfCondition]] = [[]]
+        for condition in conditions {
+            if case .orSeparator = condition {
+                groups.append([])
+            } else {
+                groups[groups.count - 1].append(condition)
+            }
+        }
+
+        // Remove empty groups (e.g. leading/trailing OR separators)
+        groups = groups.filter { !$0.isEmpty }
+        guard !groups.isEmpty else { return false }
+
+        return groups.contains { group in
+            group.allSatisfy { $0.matches(book, progress: progress) }
+        }
+    }
+}
+
+public enum ShelfCondition: Codable, Hashable, Sendable {
+    case format(FormatCondition)
+    case status(String)
+    case location(LocationCondition)
+    case rating(comparison: RatingComparison, value: Int)
+    case progress(ProgressCondition)
+    case tag(mode: InclusionMode, values: [String])
+    case series(mode: InclusionMode, values: [String])
+    case author(mode: InclusionMode, values: [String])
+    case narrator(mode: InclusionMode, values: [String])
+    case translator(mode: InclusionMode, values: [String])
+    case publicationYear(mode: InclusionMode, values: [String])
+    case publicationYearComparison(comparison: YearComparison, value: Int)
+    case orSeparator
+
+    public func matches(_ book: BookMetadata, progress: Double) -> Bool {
+        switch self {
+        case .format(let condition):
+            switch condition {
+            case .ebook: return book.hasAvailableEbook
+            case .audiobook: return book.hasAvailableAudiobook
+            case .readaloud: return book.hasAvailableReadaloud
+            case .ebookOnly: return book.isEbookOnly
+            case .audiobookOnly: return book.isAudiobookOnly
+            }
+
+        case .status(let statusName):
+            guard let bookStatus = book.status?.name else { return false }
+            return bookStatus.caseInsensitiveCompare(statusName) == .orderedSame
+
+        case .location:
+            // Location filtering requires download state from MediaViewModel,
+            // so it's handled at the view model level
+            return true
+
+        case .rating(let comparison, let value):
+            let bookRating = Int((book.rating ?? 0).rounded())
+            switch comparison {
+            case .greaterThanOrEqual: return bookRating >= value
+            case .lessThanOrEqual: return bookRating <= value
+            case .equal: return bookRating == value
+            }
+
+        case .progress(let condition):
+            switch condition {
+            case .notStarted: return progress <= 0
+            case .inProgress: return progress > 0 && progress < 1
+            case .completed: return progress >= 1
+            }
+
+        case .tag(let mode, let values):
+            let bookTags = book.tagNames.map { $0.lowercased() }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookTags, targets: targets)
+
+        case .series(let mode, let values):
+            let bookSeries = (book.series ?? []).map { $0.name.lowercased() }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookSeries, targets: targets)
+
+        case .author(let mode, let values):
+            let bookAuthors = (book.authors ?? []).compactMap { $0.name?.lowercased() }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookAuthors, targets: targets)
+
+        case .narrator(let mode, let values):
+            let bookNarrators = (book.narrators ?? []).compactMap { $0.name?.lowercased() }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookNarrators, targets: targets)
+
+        case .translator(let mode, let values):
+            let translators = (book.creators ?? []).filter { $0.role == "trl" }
+            let bookTranslators = translators.compactMap { $0.name?.lowercased() }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookTranslators, targets: targets)
+
+        case .publicationYear(let mode, let values):
+            let year = book.sortablePublicationYear.lowercased()
+            let bookYears = year.isEmpty ? [String]() : [year]
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookYears, targets: targets)
+
+        case .publicationYearComparison(let comparison, let value):
+            guard let bookYear = Int(book.sortablePublicationYear) else { return false }
+            switch comparison {
+            case .newerThan: return bookYear > value
+            case .olderThan: return bookYear < value
+            case .exactly: return bookYear == value
+            }
+
+        case .orSeparator:
+            return true
+        }
+    }
+
+    private func matchesInclusion(mode: InclusionMode, bookValues: [String], targets: [String]) -> Bool {
+        switch mode {
+        case .include:
+            return targets.contains { target in bookValues.contains(target) }
+        case .exclude:
+            return !targets.contains { target in bookValues.contains(target) }
+        }
+    }
+
+    public var displayLabel: String {
+        switch self {
+        case .format(let c): return "Format: \(c.label)"
+        case .status(let s): return "Status: \(s)"
+        case .location(let c): return "Location: \(c.label)"
+        case .rating(let cmp, let v): return "Rating \(cmp.symbol) \(v)"
+        case .progress(let c): return "Progress: \(c.label)"
+        case .tag(let m, let v): return "Tags \(m.label): \(v.joined(separator: ", "))"
+        case .series(let m, let v): return "Series \(m.label): \(v.joined(separator: ", "))"
+        case .author(let m, let v): return "Author \(m.label): \(v.joined(separator: ", "))"
+        case .narrator(let m, let v): return "Narrator \(m.label): \(v.joined(separator: ", "))"
+        case .translator(let m, let v): return "Translator \(m.label): \(v.joined(separator: ", "))"
+        case .publicationYear(let m, let v): return "Year \(m.label): \(v.joined(separator: ", "))"
+        case .publicationYearComparison(let cmp, let v): return "Year \(cmp.label.lowercased()) \(v)"
+        case .orSeparator: return "OR"
+        }
+    }
+}
+
+public enum FormatCondition: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case ebook
+    case audiobook
+    case readaloud
+    case ebookOnly
+    case audiobookOnly
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .ebook: return "Has Ebook"
+        case .audiobook: return "Has Audiobook"
+        case .readaloud: return "Has Read Aloud"
+        case .ebookOnly: return "Ebook Only"
+        case .audiobookOnly: return "Audiobook Only"
+        }
+    }
+}
+
+public enum LocationCondition: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case downloaded
+    case serverOnly
+    case localFiles
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .downloaded: return "Downloaded"
+        case .serverOnly: return "Server Only"
+        case .localFiles: return "Local Files"
+        }
+    }
+}
+
+public enum RatingComparison: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case greaterThanOrEqual
+    case lessThanOrEqual
+    case equal
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .greaterThanOrEqual: return "At Least"
+        case .lessThanOrEqual: return "At Most"
+        case .equal: return "Exactly"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .greaterThanOrEqual: return ">="
+        case .lessThanOrEqual: return "<="
+        case .equal: return "="
+        }
+    }
+}
+
+public enum YearComparison: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case newerThan
+    case olderThan
+    case exactly
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .newerThan: return "Newer Than"
+        case .olderThan: return "Older Than"
+        case .exactly: return "Exactly"
+        }
+    }
+}
+
+public enum ProgressCondition: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case notStarted
+    case inProgress
+    case completed
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .notStarted: return "Not Started"
+        case .inProgress: return "In Progress"
+        case .completed: return "Completed"
+        }
+    }
+}
+
+public enum InclusionMode: String, Codable, Hashable, Sendable, CaseIterable, Identifiable {
+    case include
+    case exclude
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .include: return "includes"
+        case .exclude: return "excludes"
+        }
+    }
+}
+
+public enum ShelfConditionType: String, CaseIterable, Identifiable, Sendable {
+    case format
+    case status
+    case location
+    case rating
+    case progress
+    case tag
+    case series
+    case author
+    case narrator
+    case translator
+    case publicationYear
+    case boolean
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .format: return "Format"
+        case .status: return "Reading Status"
+        case .location: return "Location"
+        case .rating: return "Rating"
+        case .progress: return "Progress"
+        case .tag: return "Tag"
+        case .series: return "Series"
+        case .author: return "Author"
+        case .narrator: return "Narrator"
+        case .translator: return "Translator"
+        case .publicationYear: return "Publication Year"
+        case .boolean: return "Boolean"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .format: return "doc"
+        case .status: return "bookmark"
+        case .location: return "externaldrive"
+        case .rating: return "star"
+        case .progress: return "chart.bar"
+        case .tag: return "tag"
+        case .series: return "books.vertical"
+        case .author: return "person"
+        case .narrator: return "mic"
+        case .translator: return "character.book.closed.fill"
+        case .publicationYear: return "calendar"
+        case .boolean: return "arrow.triangle.branch"
+        }
+    }
+}

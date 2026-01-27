@@ -105,6 +105,7 @@ struct MediaGridView: View {
     private let scrollPosition: Binding<BookMetadata.ID?>?
     private let headerScrollID = "media-grid-header"
     private let initialSelectedItem: BookMetadata?
+    let filteredItems: [BookMetadata]?
 
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
@@ -223,7 +224,8 @@ struct MediaGridView: View {
         initialNarrationFilterOption: NarrationFilter = .both,
         initialLocationFilter: LocationFilterOption = .all,
         scrollPosition: Binding<BookMetadata.ID?>? = nil,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
+        filteredItems: [BookMetadata]? = nil
     ) {
         self.title = title
         self.searchText = searchText
@@ -278,6 +280,7 @@ struct MediaGridView: View {
         _selectedSortOption = State(initialValue: sortOption)
         _showSeriesPositionBadge = State(initialValue: seriesFilter != nil)
         self.initialSelectedItem = initialSelectedItem
+        self.filteredItems = filteredItems
     }
 
     private static func defaultColumnBreakpoints(preferredTileWidth: CGFloat) -> [ColumnBreakpoint]
@@ -1227,6 +1230,9 @@ struct MediaGridView: View {
     }
 
     private func itemsForCurrentFormatSelection() -> [BookMetadata] {
+        if let filteredItems {
+            return filteredItems
+        }
         var primary = mediaViewModel.items(
             for: mediaKind,
             narrationFilter: .both,
@@ -1244,6 +1250,9 @@ struct MediaGridView: View {
     }
 
     private var catalogItemsForFilters: [BookMetadata] {
+        if let filteredItems {
+            return filteredItems
+        }
         if mediaKind == .audiobook {
             return mediaViewModel.items(
                 for: .audiobook,

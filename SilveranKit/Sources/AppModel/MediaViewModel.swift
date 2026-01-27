@@ -22,6 +22,7 @@ public final class MediaViewModel {
     public var cachedConfig: SilveranGlobalConfig = SilveranGlobalConfig()
     public var pendingSyncsByBook: [String: PendingProgressSync] = [:]
     public var syncNotification: SyncNotification?
+    public var dynamicShelves: [DynamicShelf] = []
     var bookProgressCache: [String: BookProgress] = [:]
     @ObservationIgnored private var readBookIds: Set<String> = []
 
@@ -285,6 +286,10 @@ public final class MediaViewModel {
         )
 
         await loadCachedCoversFromDisk()
+
+        if dynamicShelves.isEmpty {
+            await loadDynamicShelves()
+        }
     }
 
     private func startMetadataRefreshTask() {
@@ -1285,6 +1290,48 @@ public final class MediaViewModel {
         }
         #endif
         return nil
+    }
+
+    // MARK: - Dynamic Shelves
+
+    public func loadDynamicShelves() async {
+        do {
+            let shelves = try await FilesystemActor.shared.loadDynamicShelves()
+            self.dynamicShelves = shelves
+        } catch {
+            debugLog("[MediaViewModel] Failed to load dynamic shelves: \(error)")
+        }
+    }
+
+    public func saveDynamicShelf(_ shelf: DynamicShelf) async {
+        if let index = dynamicShelves.firstIndex(where: { $0.id == shelf.id }) {
+            dynamicShelves[index] = shelf
+        } else {
+            dynamicShelves.append(shelf)
+        }
+        do {
+            try await FilesystemActor.shared.saveDynamicShelves(dynamicShelves)
+        } catch {
+            debugLog("[MediaViewModel] Failed to save dynamic shelves: \(error)")
+        }
+    }
+
+    public func deleteDynamicShelf(id: UUID) async {
+        dynamicShelves.removeAll { $0.id == id }
+        do {
+            try await FilesystemActor.shared.saveDynamicShelves(dynamicShelves)
+        } catch {
+            debugLog("[MediaViewModel] Failed to save dynamic shelves after delete: \(error)")
+        }
+    }
+
+    public func booksForShelf(_ shelf: DynamicShelf) -> [BookMetadata] {
+        library.bookMetaData.filter { book in
+            let prog = progress(for: book.id)
+            return shelf.matchesAll(book, progress: prog)
+        }.sorted {
+            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
     }
 
     public func showSyncNotification(_ notification: SyncNotification) {

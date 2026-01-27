@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct CollectionCardView: View {
-    let collection: BookCollectionSummary?
+struct GroupedBooksCardView: View {
+    let title: String
     let books: [BookMetadata]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
@@ -46,7 +46,7 @@ struct CollectionCardView: View {
                 Spacer()
                     .frame(height: 0)
 
-                Text(collection?.name ?? "Unknown Collection")
+                Text(title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)

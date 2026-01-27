@@ -292,7 +292,21 @@ public struct LibraryView: View {
                 )
                 #endif
             case .dynamicShelves:
-                PlaceholderDetailView(title: "Dynamic Shelves")
+                #if os(iOS)
+                DynamicShelvesView(
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                DynamicShelvesView(
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
             case .placeholder(let title):
                 PlaceholderDetailView(title: title)
                     .border(.yellow)
