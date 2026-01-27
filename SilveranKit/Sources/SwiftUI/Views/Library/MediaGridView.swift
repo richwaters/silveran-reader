@@ -301,9 +301,11 @@ struct MediaGridView: View {
             sortOption = .titleAZ
         }
         _selectedSortOption = State(initialValue: sortOption)
+        #if os(macOS)
         let tableSort = Self.tableComparator(for: sortOption)
         _tableSortOrder = State(initialValue: [tableSort.comparator])
         _lastSortKeyPath = State(initialValue: tableSort.keyPath)
+        #endif
         _showSeriesPositionBadge = State(initialValue: seriesFilter != nil)
         self.initialSelectedItem = initialSelectedItem
         self.filteredItems = filteredItems

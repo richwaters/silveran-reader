@@ -30,7 +30,7 @@ struct CollectionsView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
-    private let horizontalPadding: CGFloat = 6
+    private let horizontalPadding: CGFloat = 24
     private let sectionSpacing: CGFloat = 32
 
     #if os(iOS)

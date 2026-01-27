@@ -121,6 +121,7 @@ struct DynamicShelvesView: View {
         #if os(iOS)
         .environment(\.mediaNavigationPath, $navigationPath)
         #endif
+        #if os(macOS)
         .sheet(isPresented: $showCreator) {
             DynamicShelfCreatorView { shelf in
                 Task {
@@ -135,6 +136,7 @@ struct DynamicShelvesView: View {
                 }
             }
         }
+        #endif
     }
 
     private var shelvesListView: some View {

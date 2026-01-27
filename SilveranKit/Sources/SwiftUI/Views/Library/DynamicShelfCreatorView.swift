@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 private struct IdentifiedCondition: Identifiable, Equatable {
@@ -624,3 +625,4 @@ struct DynamicShelfCreatorView: View {
         .padding(.vertical, 12)
     }
 }
+#endif
