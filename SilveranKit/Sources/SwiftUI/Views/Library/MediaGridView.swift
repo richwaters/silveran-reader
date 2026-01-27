@@ -138,9 +138,9 @@ struct MediaGridView: View {
     @AppStorage("coverSize.global") private var coverSizeRaw: String = CoverSize.medium.rawValue
     #if os(macOS)
     @State private var columnCustomization: TableColumnCustomization<BookMetadata> = Self.loadColumnCustomization()
-    @State private var tableSortOrder: [KeyPathComparator<BookMetadata>] = [KeyPathComparator(\BookMetadata.title)]
+    @State private var tableSortOrder: [KeyPathComparator<BookMetadata>]
     @State private var tableSortedItems: [BookMetadata] = []
-    @State private var lastSortKeyPath: AnyKeyPath? = \BookMetadata.title
+    @State private var lastSortKeyPath: AnyKeyPath?
 
     private static let columnCustomizationKey = "library.table.columnCustomization"
 
@@ -155,6 +155,29 @@ struct MediaGridView: View {
     private func saveColumnCustomization() {
         guard let data = try? JSONEncoder().encode(columnCustomization) else { return }
         UserDefaults.standard.set(data, forKey: Self.columnCustomizationKey)
+    }
+
+    private static func tableComparator(for sortOption: SortOption) -> (comparator: KeyPathComparator<BookMetadata>, keyPath: AnyKeyPath) {
+        switch sortOption {
+        case .titleAZ:
+            return (KeyPathComparator(\BookMetadata.title, order: .forward), \BookMetadata.title)
+        case .titleZA:
+            return (KeyPathComparator(\BookMetadata.title, order: .reverse), \BookMetadata.title)
+        case .authorAZ:
+            return (KeyPathComparator(\BookMetadata.sortableAuthor, order: .forward), \BookMetadata.sortableAuthor)
+        case .authorZA:
+            return (KeyPathComparator(\BookMetadata.sortableAuthor, order: .reverse), \BookMetadata.sortableAuthor)
+        case .progressHighToLow:
+            return (KeyPathComparator(\BookMetadata.progress, order: .reverse), \BookMetadata.progress)
+        case .progressLowToHigh:
+            return (KeyPathComparator(\BookMetadata.progress, order: .forward), \BookMetadata.progress)
+        case .recentlyRead:
+            return (KeyPathComparator(\BookMetadata.sortableLastRead, order: .reverse), \BookMetadata.sortableLastRead)
+        case .recentlyAdded:
+            return (KeyPathComparator(\BookMetadata.sortableAdded, order: .reverse), \BookMetadata.sortableAdded)
+        case .seriesPosition:
+            return (KeyPathComparator(\BookMetadata.sortableSeries, order: .forward), \BookMetadata.sortableSeries)
+        }
     }
     #endif
 
@@ -278,6 +301,9 @@ struct MediaGridView: View {
             sortOption = .titleAZ
         }
         _selectedSortOption = State(initialValue: sortOption)
+        let tableSort = Self.tableComparator(for: sortOption)
+        _tableSortOrder = State(initialValue: [tableSort.comparator])
+        _lastSortKeyPath = State(initialValue: tableSort.keyPath)
         _showSeriesPositionBadge = State(initialValue: seriesFilter != nil)
         self.initialSelectedItem = initialSelectedItem
         self.filteredItems = filteredItems
@@ -656,11 +682,7 @@ struct MediaGridView: View {
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
                 showSortOption: false,
-                columnCustomization: $columnCustomization,
-                onResetColumns: {
-                    columnCustomization = TableColumnCustomization<BookMetadata>()
-                    UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
-                }
+                columnCustomization: $columnCustomization
             )
         }
     }

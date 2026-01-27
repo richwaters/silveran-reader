@@ -695,6 +695,10 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
         createdAt ?? ""
     }
 
+    public var sortableLastRead: String {
+        position?.updatedAt ?? ""
+    }
+
     public var sortableTags: String {
         tagNames.joined(separator: ", ")
     }

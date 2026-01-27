@@ -156,9 +156,9 @@ struct MediaTableView: NSViewRepresentable {
         updateColumnVisibility(tableView: tableView)
     }
 
-    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "author", "series", "media"]
+    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
     private static let columnOrderKey = "library.table.columnOrder"
-    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "tags", "media"]
+    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
 
     private func updateColumnVisibility(tableView: NSTableView) {
         for column in tableView.tableColumns {
@@ -189,6 +189,7 @@ struct MediaTableView: NSViewRepresentable {
             "publicationYear": ("Year", 40, 60, 80),
             "status": ("Status", 60, 80, 10000),
             "added": ("Added", 80, 100, 10000),
+            "lastRead": ("Last Read", 80, 100, 10000),
             "tags": ("Tags", 80, 120, 10000),
             "media": ("Media", 100, 120, 150),
         ]
@@ -211,6 +212,10 @@ struct MediaTableView: NSViewRepresentable {
                id == "narrator" || id == "translator" || id == "publicationYear" ||
                id == "status" || id == "added" || id == "tags" {
                 column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+            }
+
+            if id == "lastRead" {
+                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
             }
 
             if id == "progress" {
@@ -242,6 +247,7 @@ struct MediaTableView: NSViewRepresentable {
             \BookMetadata.sortablePublicationYear: "publicationYear",
             \BookMetadata.sortableStatus: "status",
             \BookMetadata.sortableAdded: "added",
+            \BookMetadata.sortableLastRead: "lastRead",
             \BookMetadata.sortableTags: "tags",
         ]
 
@@ -303,6 +309,8 @@ struct MediaTableView: NSViewRepresentable {
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.status?.name ?? "", secondary: true)
             case "added":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.createdAt), secondary: true)
+            case "lastRead":
+                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.position?.updatedAt), secondary: true)
             case "tags":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTags, secondary: true)
             case "media":
@@ -337,6 +345,8 @@ struct MediaTableView: NSViewRepresentable {
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableStatus, order: order)]
             case "added":
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableAdded, order: order)]
+            case "lastRead":
+                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableLastRead, order: order)]
             case "tags":
                 parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
             default:

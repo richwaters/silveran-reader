@@ -31,7 +31,6 @@ struct MediaGridSortAndFilterBar: View {
     var showSortOption: Bool = true
     #if os(macOS)
     var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
-    var onResetColumns: (() -> Void)? = nil
     #endif
 
     var body: some View {
@@ -414,21 +413,18 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "narrator", label: "Narrator")
             columnToggle(id: "status", label: "Status")
             columnToggle(id: "added", label: "Added")
+            columnToggle(id: "lastRead", label: "Last Read")
             columnToggle(id: "tags", label: "Tags")
             columnToggle(id: "translator", label: "Translator")
             columnToggle(id: "publicationYear", label: "Year")
             columnToggle(id: "media", label: "Media")
-            Divider()
-            Button("Reset to Defaults") {
-                onResetColumns?()
-            }
         } label: {
             Label("Columns", systemImage: "rectangle.split.3x1")
         }
         .menuStyle(.borderlessButton)
     }
 
-    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "author", "series", "media"]
+    private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
 
     private func isColumnVisible(_ id: String) -> Bool {
         guard let binding = columnCustomization else { return false }
