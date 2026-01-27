@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.1-69] -> [0.1-75]
+
+### Features
+
+#### General
+- Resumable downloads with automatic retry and background support
+- New book library view modes: compact grid and list view
+- New series/collection view mode: grid view
+- Configurable home view to pick order and visibility of rows
+- Cover preference can be set to prefer audiobook or ebook
+- Series fan view improvements: carousel for long series, animated pagination, clicking a book opens its sidebar (macOS), first book displayed on top
+- Added support for more metadata: ratings, translators, publication year, last read, etc.
+
+#### macOS
+- Dynamic shelves with automatic book selection based on customizeable logic
+- Sidebar supports favorites with pinnable views, series, shelves, etc.
+- Overhauled sidebar with collapsible sections and hideable items
+- Book info sidebar expands outwards instead of squishing main content
+- Consolidated one-click and two-click modes into one UX (hopefully better than both!)
+
+#### iOS
+- Readaloud creation support on server
+- Better small screen layouts for grid views
+- Alphabet scrubbing for searching large book listings
+
+### Bug Fixes
+
+- Tags are now sortable and preserve original capitalization
+- Normalized cover sizes across views
+- Grid performance improvements
+- Fixed sidebar icons and reactivity (or lack thereof)
+- Fixed badging and shelf builder bugs
+- Completed books now always show 100% progress (watchOS)
+- Fixed iOS heading alignments
+
+---
+
 ## [0.1-67] -> [0.1-69]
 
 ### Features
