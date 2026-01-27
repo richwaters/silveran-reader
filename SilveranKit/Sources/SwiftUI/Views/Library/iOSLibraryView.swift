@@ -9,6 +9,9 @@ public enum ConfigurableTab: String, CaseIterable, Identifiable {
     case tags
     case collections
     case downloaded
+    case translators
+    case publicationYears
+    case ratings
 
     public var id: String { rawValue }
 
@@ -21,6 +24,9 @@ public enum ConfigurableTab: String, CaseIterable, Identifiable {
             case .tags: "Tags"
             case .collections: "Collections"
             case .downloaded: "Downloaded"
+            case .translators: "Translators"
+            case .publicationYears: "Publication Year"
+            case .ratings: "Ratings"
         }
     }
 
@@ -33,6 +39,9 @@ public enum ConfigurableTab: String, CaseIterable, Identifiable {
             case .tags: "tag.fill"
             case .collections: "rectangle.stack"
             case .downloaded: "arrow.down.circle.fill"
+            case .translators: "character.book.closed.fill"
+            case .publicationYears: "calendar"
+            case .ratings: "star.fill"
         }
     }
 }
@@ -260,6 +269,12 @@ public struct iOSLibraryView: View {
                 collectionsTabContent
             case .downloaded:
                 downloadedTabContent
+            case .translators:
+                translatorsTabContent
+            case .publicationYears:
+                publicationYearsTabContent
+            case .ratings:
+                ratingsTabContent
         }
     }
 
@@ -346,6 +361,39 @@ public struct iOSLibraryView: View {
         .environment(\.mediaNavigationPath, $downloadedNavigationPath)
     }
 
+    private var translatorsTabContent: some View {
+        TranslatorView(
+            mediaKind: .ebook,
+            searchText: $searchText,
+            sidebarSections: $sections,
+            selectedSidebarItem: $selectedItem,
+            showSettings: $showSettings,
+            showOfflineSheet: $showOfflineSheet
+        )
+    }
+
+    private var publicationYearsTabContent: some View {
+        PublicationYearView(
+            mediaKind: .ebook,
+            searchText: $searchText,
+            sidebarSections: $sections,
+            selectedSidebarItem: $selectedItem,
+            showSettings: $showSettings,
+            showOfflineSheet: $showOfflineSheet
+        )
+    }
+
+    private var ratingsTabContent: some View {
+        RatingView(
+            mediaKind: .ebook,
+            searchText: $searchText,
+            sidebarSections: $sections,
+            selectedSidebarItem: $selectedItem,
+            showSettings: $showSettings,
+            showOfflineSheet: $showOfflineSheet
+        )
+    }
+
     private var moreTab: some View {
         NavigationStack(path: $moreNavigationPath) {
             MoreMenuView(
@@ -391,6 +439,9 @@ struct MoreMenuView: View {
         case tags
         case collections
         case downloaded
+        case translators
+        case publicationYears
+        case ratings
         case currentlyDownloading
         case addLocalFile
         case appleWatch
@@ -444,6 +495,21 @@ struct MoreMenuView: View {
                 if !isExcluded(.collections) {
                     NavigationLink(value: MoreDestination.collections) {
                         Label("Collections", systemImage: "rectangle.stack")
+                    }
+                }
+                if !isExcluded(.translators) {
+                    NavigationLink(value: MoreDestination.translators) {
+                        Label("Translators", systemImage: "character.book.closed.fill")
+                    }
+                }
+                if !isExcluded(.publicationYears) {
+                    NavigationLink(value: MoreDestination.publicationYears) {
+                        Label("Publication Year", systemImage: "calendar")
+                    }
+                }
+                if !isExcluded(.ratings) {
+                    NavigationLink(value: MoreDestination.ratings) {
+                        Label("Ratings", systemImage: "star.fill")
                     }
                 }
                 if !isExcluded(.downloaded) {
@@ -532,6 +598,30 @@ struct MoreMenuView: View {
                         )
                 case .tags:
                     TagsListView(searchText: $searchText)
+                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .searchable(
+                            text: $searchText,
+                            placement: .navigationBarDrawer(displayMode: .always),
+                            prompt: "Search"
+                        )
+                case .translators:
+                    TranslatorsListView(searchText: $searchText)
+                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .searchable(
+                            text: $searchText,
+                            placement: .navigationBarDrawer(displayMode: .always),
+                            prompt: "Search"
+                        )
+                case .publicationYears:
+                    PublicationYearsListView(searchText: $searchText)
+                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .searchable(
+                            text: $searchText,
+                            placement: .navigationBarDrawer(displayMode: .always),
+                            prompt: "Search"
+                        )
+                case .ratings:
+                    RatingsListView(searchText: $searchText)
                         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
                         .searchable(
                             text: $searchText,
@@ -1286,6 +1376,60 @@ struct LibraryNavigationDestinations: ViewModifier {
                 .navigationTitle(tag.name.capitalized)
                 .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
             }
+            .navigationDestination(for: TranslatorNavIdentifier.self) { translator in
+                MediaGridView(
+                    title: translator.name,
+                    searchText: "",
+                    mediaKind: .ebook,
+                    translatorFilter: translator.name,
+                    statusFilter: nil,
+                    defaultSort: "titleAZ",
+                    preferredTileWidth: 110,
+                    minimumTileWidth: 90,
+                    columnBreakpoints: [
+                        MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
+                    ],
+                    initialNarrationFilterOption: .both
+                )
+                .navigationTitle(translator.name)
+                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+            }
+            .navigationDestination(for: PublicationYearNavIdentifier.self) { year in
+                MediaGridView(
+                    title: year.name,
+                    searchText: "",
+                    mediaKind: .ebook,
+                    publicationYearFilter: year.name,
+                    statusFilter: nil,
+                    defaultSort: "titleAZ",
+                    preferredTileWidth: 110,
+                    minimumTileWidth: 90,
+                    columnBreakpoints: [
+                        MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
+                    ],
+                    initialNarrationFilterOption: .both
+                )
+                .navigationTitle(year.name)
+                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+            }
+            .navigationDestination(for: RatingNavIdentifier.self) { rating in
+                MediaGridView(
+                    title: rating.name,
+                    searchText: "",
+                    mediaKind: .ebook,
+                    ratingFilter: rating.name,
+                    statusFilter: nil,
+                    defaultSort: "titleAZ",
+                    preferredTileWidth: 110,
+                    minimumTileWidth: 90,
+                    columnBreakpoints: [
+                        MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
+                    ],
+                    initialNarrationFilterOption: .both
+                )
+                .navigationTitle(rating.name)
+                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+            }
     }
 }
 
@@ -1394,6 +1538,166 @@ struct TagsListView: View {
 
 struct TagNavIdentifier: Hashable {
     let name: String
+}
+
+struct TranslatorNavIdentifier: Hashable {
+    let name: String
+}
+
+struct PublicationYearNavIdentifier: Hashable {
+    let name: String
+}
+
+struct RatingNavIdentifier: Hashable {
+    let name: String
+}
+
+struct TranslatorsListView: View {
+    @Binding var searchText: String
+    @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var translatorGroups: [(translator: BookCreator?, books: [BookMetadata])] {
+        mediaViewModel.booksByTranslator(for: .ebook)
+    }
+
+    private var filteredGroups: [(translator: BookCreator?, books: [BookMetadata])] {
+        guard !searchText.isEmpty else { return translatorGroups }
+        let searchLower = searchText.lowercased()
+        return translatorGroups.compactMap { group in
+            let translatorMatches = group.translator?.name?.lowercased().contains(searchLower) ?? false
+            if translatorMatches {
+                return group
+            }
+            let filteredBooks = group.books.filter { book in
+                book.title.lowercased().contains(searchLower)
+            }
+            guard !filteredBooks.isEmpty else { return nil }
+            return (translator: group.translator, books: filteredBooks)
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(filteredGroups, id: \.translator?.name) { group in
+                    let translatorName = group.translator?.name ?? "Unknown Translator"
+                    NavigationLink(value: TranslatorNavIdentifier(name: translatorName)) {
+                        TranslatorRowContent(
+                            translatorName: translatorName,
+                            bookCount: group.books.count,
+                            isSelected: false
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.leading, 48)
+                }
+            }
+            .padding(.top, 8)
+        }
+        .navigationTitle("Translators")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct PublicationYearsListView: View {
+    @Binding var searchText: String
+    @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var yearGroups: [(year: String, books: [BookMetadata])] {
+        mediaViewModel.booksByPublicationYear(for: .ebook)
+    }
+
+    private var filteredGroups: [(year: String, books: [BookMetadata])] {
+        guard !searchText.isEmpty else { return yearGroups }
+        let searchLower = searchText.lowercased()
+        return yearGroups.compactMap { group in
+            let yearMatches = group.year.lowercased().contains(searchLower)
+            if yearMatches {
+                return group
+            }
+            let filteredBooks = group.books.filter { book in
+                book.title.lowercased().contains(searchLower)
+            }
+            guard !filteredBooks.isEmpty else { return nil }
+            return (year: group.year, books: filteredBooks)
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(filteredGroups, id: \.year) { group in
+                    NavigationLink(value: PublicationYearNavIdentifier(name: group.year)) {
+                        YearRowContent(
+                            year: group.year,
+                            bookCount: group.books.count,
+                            isSelected: false
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.leading, 48)
+                }
+            }
+            .padding(.top, 8)
+        }
+        .navigationTitle("Publication Year")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct RatingsListView: View {
+    @Binding var searchText: String
+    @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var ratingGroups: [(rating: String, books: [BookMetadata])] {
+        mediaViewModel.booksByRating(for: .ebook)
+    }
+
+    private var filteredGroups: [(rating: String, books: [BookMetadata])] {
+        guard !searchText.isEmpty else { return ratingGroups }
+        let searchLower = searchText.lowercased()
+        return ratingGroups.compactMap { group in
+            let ratingMatches = group.rating.lowercased().contains(searchLower)
+            if ratingMatches {
+                return group
+            }
+            let filteredBooks = group.books.filter { book in
+                book.title.lowercased().contains(searchLower)
+            }
+            guard !filteredBooks.isEmpty else { return nil }
+            return (rating: group.rating, books: filteredBooks)
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(filteredGroups, id: \.rating) { group in
+                    NavigationLink(value: RatingNavIdentifier(name: group.rating)) {
+                        RatingRowContent(
+                            rating: group.rating,
+                            bookCount: group.books.count,
+                            isSelected: false
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.leading, 48)
+                }
+            }
+            .padding(.top, 8)
+        }
+        .navigationTitle("Ratings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 extension View {
