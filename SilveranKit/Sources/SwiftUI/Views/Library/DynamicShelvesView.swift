@@ -2,6 +2,16 @@ import SwiftUI
 
 struct DynamicShelfDetailNavigation: Hashable {
     let shelfId: UUID
+    let initialSelectedBook: BookMetadata?
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(shelfId)
+        hasher.combine(initialSelectedBook?.id)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.shelfId == rhs.shelfId && lhs.initialSelectedBook?.id == rhs.initialSelectedBook?.id
+    }
 }
 
 struct DynamicShelvesView: View {
@@ -87,7 +97,7 @@ struct DynamicShelvesView: View {
             )
                 #endif
                 .navigationDestination(for: DynamicShelfDetailNavigation.self) { nav in
-                    shelfDetailView(for: nav.shelfId)
+                    shelfDetailView(for: nav.shelfId, initialSelectedItem: nav.initialSelectedBook)
                         #if os(iOS)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
@@ -293,8 +303,8 @@ struct DynamicShelvesView: View {
                     availableWidth: stackWidth,
                     showAudioIndicator: settingsViewModel.showAudioIndicator,
                     coverPreference: coverPreference,
-                    onSelect: { _ in
-                        navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id))
+                    onSelect: { book in
+                        navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id, initialSelectedBook: book))
                     }
                 )
                 .frame(maxWidth: stackWidth, alignment: .center)
@@ -310,7 +320,7 @@ struct DynamicShelvesView: View {
 
             VStack(alignment: .center, spacing: 6) {
                 Button {
-                    navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id))
+                    navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id, initialSelectedBook: nil))
                 } label: {
                     Text(shelf.name)
                         .font(.system(size: 20, weight: .regular))
@@ -348,7 +358,7 @@ struct DynamicShelvesView: View {
                     coverPreference: coverPreference,
                     showBookCountBadge: showBookCountBadge,
                     onTap: {
-                        navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id))
+                        navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelf.id, initialSelectedBook: nil))
                     }
                 )
                 .contextMenu {
@@ -395,13 +405,14 @@ struct DynamicShelvesView: View {
     }
 
     @ViewBuilder
-    private func shelfDetailView(for shelfId: UUID) -> some View {
+    private func shelfDetailView(for shelfId: UUID, initialSelectedItem: BookMetadata? = nil) -> some View {
         if let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {
             let books = mediaViewModel.booksForShelf(shelf)
             DynamicShelfDetailView(
                 shelf: shelf,
                 books: books,
-                searchText: ""
+                searchText: "",
+                initialSelectedItem: initialSelectedItem
             )
             .navigationTitle(shelf.name)
         } else {
@@ -431,7 +442,15 @@ struct DynamicShelfDetailView: View {
     let shelf: DynamicShelf
     let books: [BookMetadata]
     let searchText: String
+    let initialSelectedItem: BookMetadata?
     @Environment(MediaViewModel.self) private var mediaViewModel
+
+    init(shelf: DynamicShelf, books: [BookMetadata], searchText: String, initialSelectedItem: BookMetadata? = nil) {
+        self.shelf = shelf
+        self.books = books
+        self.searchText = searchText
+        self.initialSelectedItem = initialSelectedItem
+    }
 
     var body: some View {
         MediaGridView(
@@ -442,6 +461,7 @@ struct DynamicShelfDetailView: View {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem,
             filteredItems: books
         )
     }
