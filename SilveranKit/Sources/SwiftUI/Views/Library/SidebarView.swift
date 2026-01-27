@@ -9,12 +9,23 @@ struct SidebarView: View {
     @State private var selectedId: String?
     @State private var isRefreshing: Bool = false
     @State private var hoveredItemId: String?
+    @State private var hoveredSectionId: String?
+    @State private var visibilityPopoverSectionId: String?
 
     @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
     @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
     @AppStorage("sidebar.collections.expanded") private var collectionsExpanded: Bool = false
     @AppStorage("sidebar.mediaSources.expanded") private var mediaSourcesExpanded: Bool = true
     @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
+    @AppStorage("sidebar.hiddenItems") private var hiddenItemsJSON: String = "[]"
+
+    private var hiddenItemIds: [String] {
+        guard let data = hiddenItemsJSON.data(using: .utf8),
+              let ids = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return ids
+    }
 
     private var pinnedItemIds: [String] {
         guard let data = pinnedItemsJSON.data(using: .utf8),
@@ -248,14 +259,18 @@ struct SidebarView: View {
     @ViewBuilder
     private var librarySection: some View {
         if let section = sections.first(where: { $0.id == "section.library" }) {
+            let hidden = hiddenItemIds
             Section(isExpanded: $libraryExpanded) {
-                ForEach(section.items) { item in
+                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
             } header: {
                 HStack {
                     Text(section.name)
                         .font(.headline)
+                    #if os(macOS)
+                    visibilityMenuButton(for: section)
+                    #endif
                     Spacer()
                     #if os(macOS)
                     if storytellerConfigured {
@@ -281,6 +296,11 @@ struct SidebarView: View {
                 .onTapGesture { libraryExpanded.toggle() }
                 .padding(.bottom, 3)
                 .padding(.trailing, 16)
+                #if os(macOS)
+                .onHover { hovering in
+                    hoveredSectionId = hovering ? section.id : nil
+                }
+                #endif
             }
         }
     }
@@ -290,18 +310,29 @@ struct SidebarView: View {
     @ViewBuilder
     private var readingStatusSection: some View {
         if let section = sections.first(where: { $0.id == "section.readingStatus" }) {
+            let hidden = hiddenItemIds
             Section(isExpanded: $readingStatusExpanded) {
-                ForEach(section.items) { item in
+                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
             } header: {
-                Text(section.name)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { readingStatusExpanded.toggle() }
-                    .padding(.bottom, 3)
-                    .padding(.trailing, 16)
+                HStack {
+                    Text(section.name)
+                        .font(.headline)
+                    #if os(macOS)
+                    visibilityMenuButton(for: section)
+                    #endif
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { readingStatusExpanded.toggle() }
+                .padding(.bottom, 3)
+                .padding(.trailing, 16)
+                #if os(macOS)
+                .onHover { hovering in
+                    hoveredSectionId = hovering ? section.id : nil
+                }
+                #endif
             }
         }
     }
@@ -311,18 +342,29 @@ struct SidebarView: View {
     @ViewBuilder
     private var collectionsSection: some View {
         if let section = sections.first(where: { $0.id == "section.collections" }) {
+            let hidden = hiddenItemIds
             Section(isExpanded: $collectionsExpanded) {
-                ForEach(section.items) { item in
+                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
             } header: {
-                Text(section.name)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { collectionsExpanded.toggle() }
-                    .padding(.bottom, 3)
-                    .padding(.trailing, 16)
+                HStack {
+                    Text(section.name)
+                        .font(.headline)
+                    #if os(macOS)
+                    visibilityMenuButton(for: section)
+                    #endif
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { collectionsExpanded.toggle() }
+                .padding(.bottom, 3)
+                .padding(.trailing, 16)
+                #if os(macOS)
+                .onHover { hovering in
+                    hoveredSectionId = hovering ? section.id : nil
+                }
+                #endif
             }
         }
     }
@@ -332,18 +374,29 @@ struct SidebarView: View {
     @ViewBuilder
     private var mediaSourcesSection: some View {
         if let section = sections.first(where: { $0.id == "section.mediaSources" }) {
+            let hidden = hiddenItemIds
             Section(isExpanded: $mediaSourcesExpanded) {
-                ForEach(section.items) { item in
+                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
             } header: {
-                Text(section.name)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { mediaSourcesExpanded.toggle() }
-                    .padding(.bottom, 3)
-                    .padding(.trailing, 16)
+                HStack {
+                    Text(section.name)
+                        .font(.headline)
+                    #if os(macOS)
+                    visibilityMenuButton(for: section)
+                    #endif
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { mediaSourcesExpanded.toggle() }
+                .padding(.bottom, 3)
+                .padding(.trailing, 16)
+                #if os(macOS)
+                .onHover { hovering in
+                    hoveredSectionId = hovering ? section.id : nil
+                }
+                #endif
             }
         }
     }
@@ -396,6 +449,60 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .opacity(showButton ? 1 : 0)
         }
+    }
+    #endif
+
+    // MARK: - Section Visibility
+
+    #if os(macOS)
+    @ViewBuilder
+    private func visibilityMenuButton(for section: SidebarSectionDescription) -> some View {
+        let showButton = hoveredSectionId == section.id || visibilityPopoverSectionId == section.id
+        Button {
+            visibilityPopoverSectionId = visibilityPopoverSectionId == section.id ? nil : section.id
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(showButton ? 1 : 0)
+        .animation(.easeInOut(duration: 0.15), value: showButton)
+        .popover(
+            isPresented: Binding(
+                get: { visibilityPopoverSectionId == section.id },
+                set: { if !$0 { visibilityPopoverSectionId = nil } }
+            ),
+            arrowEdge: .trailing
+        ) {
+            visibilityPopoverContent(for: section)
+        }
+    }
+
+    @ViewBuilder
+    private func visibilityPopoverContent(for section: SidebarSectionDescription) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Show Items")
+                .font(.headline)
+                .padding(.bottom, 4)
+
+            ForEach(section.items) { item in
+                let hidden = hiddenItemIds.contains(item.id)
+                Toggle(isOn: Binding(
+                    get: { !hidden },
+                    set: { _ in
+                        SidebarHideHelper.toggleHidden(item.id)
+                        hiddenItemsJSON = UserDefaults.standard.string(forKey: "sidebar.hiddenItems") ?? "[]"
+                    }
+                )) {
+                    Label(item.name, systemImage: item.systemImage)
+                }
+            }
+        }
+        .padding(12)
+        .frame(minWidth: 200)
     }
     #endif
 

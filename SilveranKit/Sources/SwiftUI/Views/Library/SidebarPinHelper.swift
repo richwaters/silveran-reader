@@ -38,3 +38,32 @@ enum SidebarPinHelper {
     static func pinId(forRating rating: String) -> String { "pin.rating:\(rating)" }
     static func pinId(forDynamicShelf id: UUID) -> String { "pin.dynamicShelf:\(id.uuidString)" }
 }
+
+enum SidebarHideHelper {
+    private static let key = "sidebar.hiddenItems"
+
+    static var hiddenItemIds: [String] {
+        guard let json = UserDefaults.standard.string(forKey: key),
+              let data = json.data(using: .utf8),
+              let ids = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return ids
+    }
+
+    static func isHidden(_ id: String) -> Bool {
+        hiddenItemIds.contains(id)
+    }
+
+    static func toggleHidden(_ id: String) {
+        var ids = hiddenItemIds
+        if let index = ids.firstIndex(of: id) {
+            ids.remove(at: index)
+        } else {
+            ids.append(id)
+        }
+        guard let data = try? JSONEncoder().encode(ids),
+              let json = String(data: data, encoding: .utf8) else { return }
+        UserDefaults.standard.set(json, forKey: key)
+    }
+}
