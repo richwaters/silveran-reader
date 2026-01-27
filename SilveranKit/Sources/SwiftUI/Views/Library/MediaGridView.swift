@@ -684,7 +684,11 @@ struct MediaGridView: View {
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
                 showSortOption: false,
-                columnCustomization: $columnCustomization
+                columnCustomization: $columnCustomization,
+                onResetColumns: {
+                    columnCustomization = TableColumnCustomization<BookMetadata>()
+                    UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
+                }
             )
         }
     }

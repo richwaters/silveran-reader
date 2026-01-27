@@ -31,6 +31,7 @@ struct MediaGridSortAndFilterBar: View {
     var showSortOption: Bool = true
     #if os(macOS)
     var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
+    var onResetColumns: (() -> Void)? = nil
     #endif
 
     var body: some View {
@@ -418,6 +419,10 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "translator", label: "Translator")
             columnToggle(id: "publicationYear", label: "Year")
             columnToggle(id: "media", label: "Media")
+            Divider()
+            Button("Reset to Defaults") {
+                onResetColumns?()
+            }
         } label: {
             Label("Columns", systemImage: "rectangle.split.3x1")
         }
