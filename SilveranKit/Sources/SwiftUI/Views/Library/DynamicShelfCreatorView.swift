@@ -10,7 +10,7 @@ private struct IdentifiedCondition: Identifiable, Equatable {
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.condition == rhs.condition
     }
 }
 
@@ -176,6 +176,7 @@ struct DynamicShelfCreatorView: View {
                     .onMove(perform: moveConditions)
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
         .background(Color(nsColor: .controlBackgroundColor))
