@@ -49,6 +49,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case ratingView(MediaKind)
     case collectionsView(MediaKind)
     case dynamicShelves
+    case dynamicShelfDetail(UUID)
     case placeholder(title: String)
     case currentlyDownloading
     case importLocalFile
@@ -78,6 +79,8 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "collectionsView.\(kind.rawValue)"
         case .dynamicShelves:
             return "dynamicShelves"
+        case .dynamicShelfDetail(let id):
+            return "dynamicShelfDetail.\(id.uuidString)"
         case .placeholder(let title):
             return "placeholder.\(title)"
         case .currentlyDownloading:

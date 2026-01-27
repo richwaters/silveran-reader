@@ -36,4 +36,5 @@ enum SidebarPinHelper {
     static func pinId(forTag name: String) -> String { "pin.tag:\(name)" }
     static func pinId(forYear year: String) -> String { "pin.year:\(year)" }
     static func pinId(forRating rating: String) -> String { "pin.rating:\(rating)" }
+    static func pinId(forDynamicShelf id: UUID) -> String { "pin.dynamicShelf:\(id.uuidString)" }
 }

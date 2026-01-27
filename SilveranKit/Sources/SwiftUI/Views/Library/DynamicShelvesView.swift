@@ -360,6 +360,16 @@ struct DynamicShelvesView: View {
 
     @ViewBuilder
     private func shelfContextMenu(_ shelf: DynamicShelf) -> some View {
+        let pinId = SidebarPinHelper.pinId(forDynamicShelf: shelf.id)
+        Button {
+            SidebarPinHelper.togglePin(pinId)
+        } label: {
+            Label(
+                SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
+                systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
+            )
+        }
+
         Button {
             editingShelf = shelf
         } label: {

@@ -39,8 +39,27 @@ struct SidebarView: View {
     private var pinnedItems: [SidebarItemDescription] {
         let ids = pinnedItemIds
         return ids.compactMap { id in
-            allItems.first(where: { $0.id == id }) ?? Self.resolveDynamicPin(id: id)
+            allItems.first(where: { $0.id == id }) ?? resolvePin(id: id)
         }
+    }
+
+    private func resolvePin(id: String) -> SidebarItemDescription? {
+        if let resolved = Self.resolveDynamicPin(id: id) {
+            return resolved
+        }
+        guard id.hasPrefix("pin.dynamicShelf:") else { return nil }
+        let uuidString = String(id.dropFirst("pin.dynamicShelf:".count))
+        guard let uuid = UUID(uuidString: uuidString),
+              let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) else {
+            return nil
+        }
+        return SidebarItemDescription(
+            id: id,
+            name: shelf.name,
+            systemImage: "sparkles.rectangle.stack",
+            badge: -1,
+            content: .dynamicShelfDetail(uuid)
+        )
     }
 
     static func resolveDynamicPin(id: String) -> SidebarItemDescription? {
@@ -391,7 +410,7 @@ struct SidebarView: View {
                 }
             }
         }
-        return Self.resolveDynamicPin(id: id)
+        return resolvePin(id: id)
     }
 
     @ViewBuilder

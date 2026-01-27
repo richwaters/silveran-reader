@@ -910,7 +910,16 @@ public final class MediaViewModel {
                     book.collections?.isEmpty == false
                 }.count
             case .dynamicShelves:
-                return 0
+                var all = Set<String>()
+                for shelf in dynamicShelves {
+                    for book in booksForShelf(shelf) {
+                        all.insert(book.id)
+                    }
+                }
+                return all.count
+            case .dynamicShelfDetail(let shelfId):
+                guard let shelf = dynamicShelves.first(where: { $0.id == shelfId }) else { return 0 }
+                return booksForShelf(shelf).count
             case .placeholder:
                 return 0
             case .currentlyDownloading:

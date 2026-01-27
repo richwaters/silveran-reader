@@ -307,6 +307,15 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
+            case .dynamicShelfDetail(let shelfId):
+                if let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {
+                    let books = mediaViewModel.booksForShelf(shelf)
+                    DynamicShelfDetailView(
+                        shelf: shelf,
+                        books: books,
+                        searchText: searchText
+                    )
+                }
             case .placeholder(let title):
                 PlaceholderDetailView(title: title)
                     .border(.yellow)
