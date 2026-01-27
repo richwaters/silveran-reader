@@ -4,7 +4,7 @@ import AppKit
 
 private final class ImmediateSelectTableView: NSTableView {
     var onRowClicked: ((Int) -> Void)?
-    private var didApplyInitialSizing = false
+    private var lastFittedWidth: CGFloat = 0
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -29,11 +29,13 @@ private final class ImmediateSelectTableView: NSTableView {
     private func adjustWidthToClipView() {
         guard let clipView = enclosingScrollView?.contentView else { return }
         let availableWidth = clipView.bounds.width
-        guard availableWidth > 0 else { return }
-        if !didApplyInitialSizing, !tableColumns.isEmpty {
+        guard availableWidth > 0, !tableColumns.isEmpty else { return }
+
+        if abs(availableWidth - lastFittedWidth) > 0.5 {
             fitVisibleColumns(to: availableWidth)
-            didApplyInitialSizing = true
+            lastFittedWidth = availableWidth
         }
+
         if abs(frame.width - availableWidth) > 0.5 {
             setFrameSize(NSSize(width: availableWidth, height: frame.height))
         }
