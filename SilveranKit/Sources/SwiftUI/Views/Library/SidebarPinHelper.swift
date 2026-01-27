@@ -1,5 +1,57 @@
 import Foundation
 
+struct HomeSectionConfigItem: Codable, Identifiable, Equatable {
+    var id: String
+    var visible: Bool
+}
+
+enum HomeSectionConfigHelper {
+    private static let key = "home.sectionConfig"
+
+    static let defaultConfig: [HomeSectionConfigItem] = [
+        .init(id: "currentlyReading", visible: true),
+        .init(id: "startReading", visible: true),
+        .init(id: "recentlyAdded", visible: true),
+        .init(id: "completed", visible: true),
+    ]
+
+    static var config: [HomeSectionConfigItem] {
+        guard let json = UserDefaults.standard.string(forKey: key),
+              let data = json.data(using: .utf8),
+              let items = try? JSONDecoder().decode([HomeSectionConfigItem].self, from: data),
+              !items.isEmpty else {
+            return defaultConfig
+        }
+        return items
+    }
+
+    static func save(_ items: [HomeSectionConfigItem]) {
+        guard let data = try? JSONEncoder().encode(items),
+              let json = String(data: data, encoding: .utf8) else { return }
+        UserDefaults.standard.set(json, forKey: key)
+    }
+
+    static func displayName(for id: String) -> String {
+        switch id {
+        case "currentlyReading": return "Currently Reading"
+        case "startReading": return "Start Reading"
+        case "recentlyAdded": return "Recently Added"
+        case "completed": return "Completed"
+        default: return id
+        }
+    }
+
+    static func systemImage(for id: String) -> String {
+        switch id {
+        case "currentlyReading": return "book"
+        case "startReading": return "bookmark"
+        case "recentlyAdded": return "clock"
+        case "completed": return "checkmark.circle"
+        default: return "questionmark"
+        }
+    }
+}
+
 enum SidebarPinHelper {
     private static let key = "sidebar.pinnedItems"
 

@@ -49,6 +49,7 @@ struct HomeView: View {
     #endif
     @State private var navigationPath = NavigationPath()
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -350,39 +351,56 @@ struct HomeView: View {
                 loadSections(source: "onChange(searchText)")
             }
         }
+        .onChange(of: homeSectionConfigJSON) {
+            if mediaViewModel.isReady {
+                loadSections(source: "onChange(homeSectionConfig)")
+            }
+        }
     }
 
     private func loadSections(source: String) {
-        let currentlyReading = makeStatusSection(
-            title: "Currently Reading",
-            statusName: "Reading",
-            sortBy: .recentPositionUpdate,
-            limit: 12,
-            destination: "Currently Reading"
-        )
+        let config = HomeSectionConfigHelper.config
 
-        sections = [
-            currentlyReading,
-            makeStatusSection(
-                title: "Start Reading",
-                statusName: "To read",
-                sortBy: .recentlyAdded,
-                limit: 12,
-                destination: "Start Reading"
-            ),
-            makeRecentlyAddedSection(
-                title: "Recently Added",
-                limit: 12,
-                destination: "Recently Added"
-            ),
-            makeStatusSection(
-                title: "Completed",
-                statusName: "Read",
-                sortBy: .recentPositionUpdate,
-                limit: 12,
-                destination: "Completed"
-            ),
+        let sectionBuilders: [String: () -> HomeSection] = [
+            "currentlyReading": {
+                makeStatusSection(
+                    title: "Currently Reading",
+                    statusName: "Reading",
+                    sortBy: .recentPositionUpdate,
+                    limit: 12,
+                    destination: "Currently Reading"
+                )
+            },
+            "startReading": {
+                makeStatusSection(
+                    title: "Start Reading",
+                    statusName: "To read",
+                    sortBy: .recentlyAdded,
+                    limit: 12,
+                    destination: "Start Reading"
+                )
+            },
+            "recentlyAdded": {
+                makeRecentlyAddedSection(
+                    title: "Recently Added",
+                    limit: 12,
+                    destination: "Recently Added"
+                )
+            },
+            "completed": {
+                makeStatusSection(
+                    title: "Completed",
+                    statusName: "Read",
+                    sortBy: .recentPositionUpdate,
+                    limit: 12,
+                    destination: "Completed"
+                )
+            },
         ]
+
+        sections = config
+            .filter { $0.visible }
+            .compactMap { item in sectionBuilders[item.id]?() }
     }
 
     private var selectedItem: BookMetadata? {

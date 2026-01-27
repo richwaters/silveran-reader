@@ -11,6 +11,8 @@ struct SidebarView: View {
     @State private var hoveredItemId: String?
     @State private var hoveredSectionId: String?
     @State private var visibilityPopoverSectionId: String?
+    @State private var homePopoverVisible: Bool = false
+    @State private var homeSectionConfig: [HomeSectionConfigItem] = HomeSectionConfigHelper.config
 
     @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
     @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
@@ -18,6 +20,7 @@ struct SidebarView: View {
     @AppStorage("sidebar.mediaSources.expanded") private var mediaSourcesExpanded: Bool = true
     @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
     @AppStorage("sidebar.hiddenItems") private var hiddenItemsJSON: String = "[]"
+    @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
 
     private var hiddenItemIds: [String] {
         guard let data = hiddenItemsJSON.data(using: .utf8),
@@ -389,6 +392,11 @@ struct SidebarView: View {
         HStack {
             Label(item.name, systemImage: item.systemImage)
                 .tag(item.id)
+            #if os(macOS)
+            if item.content == .home {
+                homeVisibilityButton(for: item)
+            }
+            #endif
             Spacer()
 
             #if os(macOS)
@@ -449,6 +457,67 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .opacity(showButton ? 1 : 0)
         }
+    }
+    @ViewBuilder
+    private func homeVisibilityButton(for item: SidebarItemDescription) -> some View {
+        let showButton = hoveredItemId == item.id || homePopoverVisible
+        Button {
+            homePopoverVisible.toggle()
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11))
+                .foregroundColor(Color(white: 0.5))
+                .frame(width: 12, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(showButton ? 1 : 0)
+        .popover(isPresented: $homePopoverVisible, arrowEdge: .trailing) {
+            homeSectionsPopoverContent
+        }
+    }
+
+    @ViewBuilder
+    private var homeSectionsPopoverContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Home Sections")
+                .font(.headline)
+                .padding(.bottom, 4)
+
+            List {
+                ForEach(homeSectionConfig) { item in
+                    HStack(spacing: 8) {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Toggle(isOn: Binding(
+                            get: { item.visible },
+                            set: { newValue in
+                                if let idx = homeSectionConfig.firstIndex(where: { $0.id == item.id }) {
+                                    homeSectionConfig[idx].visible = newValue
+                                    HomeSectionConfigHelper.save(homeSectionConfig)
+                                    homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+                                }
+                            }
+                        )) {
+                            Label(
+                                HomeSectionConfigHelper.displayName(for: item.id),
+                                systemImage: HomeSectionConfigHelper.systemImage(for: item.id)
+                            )
+                        }
+                    }
+                }
+                .onMove { from, to in
+                    homeSectionConfig.move(fromOffsets: from, toOffset: to)
+                    HomeSectionConfigHelper.save(homeSectionConfig)
+                    homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+                }
+            }
+            .listStyle(.plain)
+            .frame(height: CGFloat(homeSectionConfig.count) * 34)
+        }
+        .padding(12)
+        .frame(minWidth: 260)
     }
     #endif
 
