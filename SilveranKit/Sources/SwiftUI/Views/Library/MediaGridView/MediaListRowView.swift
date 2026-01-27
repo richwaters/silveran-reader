@@ -147,28 +147,6 @@ struct MediaListRowView: View {
         }
         .frame(width: coverWidth, height: coverSize)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay(alignment: .bottomLeading) {
-            if showAudioIndicator && coverVariant == .standard && (item.hasAvailableReadaloud || item.hasAvailableAudiobook) {
-                ZStack {
-                    Circle()
-                        .fill(Color.black.opacity(0.7))
-                    if item.hasAvailableReadaloud {
-                        Image("readalong")
-                            .renderingMode(.template)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 10, height: 10)
-                            .foregroundStyle(.gray)
-                    } else {
-                        Image(systemName: "headphones")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundStyle(.gray)
-                    }
-                }
-                .frame(width: 16, height: 16)
-                .padding(2)
-            }
-        }
         .task {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
         }

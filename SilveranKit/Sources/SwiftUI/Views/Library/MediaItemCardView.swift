@@ -572,29 +572,52 @@ struct AudioIndicatorBadge: View {
     let item: BookMetadata
     let coverVariant: MediaViewModel.CoverVariant
 
-    private var shouldShow: Bool {
-        guard coverVariant == .standard else { return false }
-        return item.hasAvailableReadaloud || item.hasAvailableAudiobook
+    private enum BadgeKind {
+        case readaloud
+        case headphones
+        case book
+    }
+
+    private var badge: BadgeKind? {
+        switch coverVariant {
+        case .standard:
+            if item.hasAvailableReadaloud { return .readaloud }
+            if item.hasAvailableAudiobook { return .headphones }
+        case .audioSquare:
+            if item.hasAvailableReadaloud { return .readaloud }
+            if item.hasAvailableEbook { return .book }
+        }
+        return nil
     }
 
     private var helpText: String {
-        item.hasAvailableReadaloud ? "Readaloud available" : "Audiobook available"
+        switch badge {
+        case .readaloud: "Readaloud available"
+        case .headphones: "Audiobook available"
+        case .book: "Ebook available"
+        case nil: ""
+        }
     }
 
     var body: some View {
-        if shouldShow {
+        if let badge {
             ZStack {
                 Circle()
                     .fill(Color.black.opacity(0.7))
-                if item.hasAvailableReadaloud {
+                switch badge {
+                case .readaloud:
                     Image("readalong")
                         .renderingMode(.template)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 12, height: 12)
                         .foregroundStyle(.gray)
-                } else {
+                case .headphones:
                     Image(systemName: "headphones")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.gray)
+                case .book:
+                    Image(systemName: "book.fill")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.gray)
                 }
