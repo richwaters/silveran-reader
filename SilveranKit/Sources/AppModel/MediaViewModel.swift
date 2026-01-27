@@ -535,13 +535,15 @@ public final class MediaViewModel {
         var authorMap: [String: (author: BookCreator?, books: [BookMetadata])] = [:]
 
         for book in allBooks {
-            if let authorsList = book.authors, let firstAuthor = authorsList.first {
-                let key = firstAuthor.uuid ?? firstAuthor.name ?? "__unknown__"
-                if var existing = authorMap[key] {
-                    existing.books.append(book)
-                    authorMap[key] = existing
-                } else {
-                    authorMap[key] = (author: firstAuthor, books: [book])
+            if let authorsList = book.authors, !authorsList.isEmpty {
+                for author in authorsList {
+                    let key = author.uuid ?? author.name ?? "__unknown__"
+                    if var existing = authorMap[key] {
+                        existing.books.append(book)
+                        authorMap[key] = existing
+                    } else {
+                        authorMap[key] = (author: author, books: [book])
+                    }
                 }
             } else {
                 if var existing = authorMap["__no_author__"] {
@@ -837,6 +839,63 @@ public final class MediaViewModel {
                 }
 
                 base = base.filter { matchesNarrationFilter($0, filter: config.narrationFilter) }
+
+                if let series = config.seriesFilter {
+                    let lowered = series.lowercased()
+                    base = base.filter { item in
+                        guard let list = item.series else { return false }
+                        return list.contains { $0.name.lowercased() == lowered }
+                    }
+                }
+
+                if let collection = config.collectionFilter {
+                    base = base.filter { item in
+                        guard let cols = item.collections else { return false }
+                        return cols.contains { $0.uuid == collection || $0.name == collection }
+                    }
+                }
+
+                if let author = config.authorFilter {
+                    let lowered = author.lowercased()
+                    base = base.filter { item in
+                        guard let authors = item.authors else { return false }
+                        return authors.contains { $0.name?.lowercased() == lowered }
+                    }
+                }
+
+                if let narrator = config.narratorFilter {
+                    let lowered = narrator.lowercased()
+                    base = base.filter { item in
+                        guard let narrators = item.narrators else { return false }
+                        return narrators.contains { $0.name?.lowercased() == lowered }
+                    }
+                }
+
+                if let translator = config.translatorFilter {
+                    let lowered = translator.lowercased()
+                    base = base.filter { item in
+                        guard let creators = item.creators else { return false }
+                        return creators.contains { $0.role == "trl" && $0.name?.lowercased() == lowered }
+                    }
+                }
+
+                if let year = config.publicationYearFilter {
+                    base = base.filter { item in
+                        guard let pubDate = item.publicationDate, pubDate.count >= 4 else { return false }
+                        return String(pubDate.prefix(4)) == year
+                    }
+                }
+
+                if let ratingKey = config.ratingFilter {
+                    if ratingKey == "Unrated" {
+                        base = base.filter { $0.rating == nil || $0.rating == 0 }
+                    } else {
+                        base = base.filter { item in
+                            guard let r = item.rating, r > 0 else { return false }
+                            return "\(Int(r.rounded()))" == ratingKey
+                        }
+                    }
+                }
 
                 if let statusFilter = config.statusFilter {
                     base = base.filter { metadata in
