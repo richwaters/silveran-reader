@@ -260,7 +260,7 @@ struct SidebarView: View {
     private var librarySection: some View {
         if let section = sections.first(where: { $0.id == "section.library" }) {
             let hidden = hiddenItemIds
-            Section(isExpanded: $libraryExpanded) {
+            Section(isExpanded: nonAnimating($libraryExpanded)) {
                 ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
@@ -272,25 +272,6 @@ struct SidebarView: View {
                     visibilityMenuButton(for: section)
                     #endif
                     Spacer()
-                    #if os(macOS)
-                    if storytellerConfigured {
-                        Button {
-                            Task { await refreshMetadata() }
-                        } label: {
-                            if isRefreshing {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .scaleEffect(0.7)
-                            } else {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 11))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .disabled(isRefreshing)
-                    }
-                    #endif
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { libraryExpanded.toggle() }
@@ -311,7 +292,7 @@ struct SidebarView: View {
     private var readingStatusSection: some View {
         if let section = sections.first(where: { $0.id == "section.readingStatus" }) {
             let hidden = hiddenItemIds
-            Section(isExpanded: $readingStatusExpanded) {
+            Section(isExpanded: nonAnimating($readingStatusExpanded)) {
                 ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
@@ -343,7 +324,7 @@ struct SidebarView: View {
     private var collectionsSection: some View {
         if let section = sections.first(where: { $0.id == "section.collections" }) {
             let hidden = hiddenItemIds
-            Section(isExpanded: $collectionsExpanded) {
+            Section(isExpanded: nonAnimating($collectionsExpanded)) {
                 ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
@@ -375,7 +356,7 @@ struct SidebarView: View {
     private var mediaSourcesSection: some View {
         if let section = sections.first(where: { $0.id == "section.mediaSources" }) {
             let hidden = hiddenItemIds
-            Section(isExpanded: $mediaSourcesExpanded) {
+            Section(isExpanded: nonAnimating($mediaSourcesExpanded)) {
                 ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
                     sidebarRow(for: item)
                 }
@@ -415,6 +396,25 @@ struct SidebarView: View {
             #endif
 
             if item.content == .storytellerServer {
+                #if os(macOS)
+                if storytellerConfigured {
+                    Button {
+                        Task { await refreshMetadata() }
+                    } label: {
+                        if isRefreshing {
+                            ProgressView()
+                                .controlSize(.small)
+                                .scaleEffect(0.6)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .disabled(isRefreshing)
+                }
+                #endif
                 connectionIndicator(for: mediaViewModel.connectionStatus)
             } else {
                 let count = mediaViewModel.badgeCount(for: item.content)
@@ -463,13 +463,12 @@ struct SidebarView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(width: 24, height: 20)
+                .foregroundColor(Color(white: 0.5))
+                .frame(width: 12, height: 20)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .opacity(showButton ? 1 : 0)
-        .animation(.easeInOut(duration: 0.15), value: showButton)
         .popover(
             isPresented: Binding(
                 get: { visibilityPopoverSectionId == section.id },
@@ -507,6 +506,19 @@ struct SidebarView: View {
     #endif
 
     // MARK: - Helpers
+
+    private func nonAnimating(_ binding: Binding<Bool>) -> Binding<Bool> {
+        Binding(
+            get: { binding.wrappedValue },
+            set: { newValue in
+                var t = Transaction()
+                t.animation = nil
+                withTransaction(t) {
+                    binding.wrappedValue = newValue
+                }
+            }
+        )
+    }
 
     private func findItem(by id: String) -> SidebarItemDescription? {
         for section in sections {
