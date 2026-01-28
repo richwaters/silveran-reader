@@ -521,7 +521,7 @@ public final class MediaViewModel {
             guard let seriesA = a.series, let seriesB = b.series else {
                 return a.series != nil
             }
-            return seriesA.name.localizedCaseInsensitiveCompare(seriesB.name) == .orderedAscending
+            return seriesA.name.articleStrippedCompare(seriesB.name) == .orderedAscending
         }
 
         return result
@@ -557,7 +557,7 @@ public final class MediaViewModel {
 
         for key in authorMap.keys {
             authorMap[key]?.books.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -598,7 +598,7 @@ public final class MediaViewModel {
 
         for key in collectionMap.keys {
             collectionMap[key]?.books.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -607,7 +607,7 @@ public final class MediaViewModel {
             guard let collectionA = a.collection, let collectionB = b.collection else {
                 return a.collection != nil
             }
-            return collectionA.name.localizedCaseInsensitiveCompare(collectionB.name)
+            return collectionA.name.articleStrippedCompare(collectionB.name)
                 == .orderedAscending
         }
 
@@ -644,7 +644,7 @@ public final class MediaViewModel {
 
         for key in narratorMap.keys {
             narratorMap[key]?.books.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -692,7 +692,7 @@ public final class MediaViewModel {
 
         for key in translatorMap.keys {
             translatorMap[key]?.books.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -733,7 +733,7 @@ public final class MediaViewModel {
 
         for key in yearMap.keys {
             yearMap[key]?.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -766,7 +766,7 @@ public final class MediaViewModel {
 
         for key in tagMap.keys {
             tagMap[key]?.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -803,7 +803,7 @@ public final class MediaViewModel {
 
         for key in ratingMap.keys {
             ratingMap[key]?.sort { a, b in
-                a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
@@ -1370,7 +1370,7 @@ public final class MediaViewModel {
             let prog = progress(for: book.id)
             return shelf.matchesAll(book, progress: prog)
         }.sorted {
-            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            $0.title.articleStrippedCompare($1.title) == .orderedAscending
         }
     }
 

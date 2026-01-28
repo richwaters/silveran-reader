@@ -44,7 +44,7 @@ struct TVDownloadsView: View {
 
     private func booksGridView(books: [BookMetadata]) -> some View {
         let sorted = books.sorted {
-            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            $0.title.articleStrippedCompare($1.title) == .orderedAscending
         }
 
         return ScrollView {

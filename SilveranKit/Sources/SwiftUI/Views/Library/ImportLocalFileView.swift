@@ -47,7 +47,7 @@ struct ImportLocalFileView: View {
         let metadata = await LocalMediaActor.shared.localStandaloneMetadata
         await MainActor.run {
             localFiles = metadata.sorted {
-                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                $0.title.articleStrippedCompare($1.title) == .orderedAscending
             }
         }
     }

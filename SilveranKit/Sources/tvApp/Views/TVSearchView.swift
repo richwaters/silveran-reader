@@ -60,7 +60,7 @@ struct TVSearchView: View {
                     || book.authors?.contains { $0.name?.localizedCaseInsensitiveContains(searchText) == true } == true
                     || book.series?.contains { $0.name.localizedCaseInsensitiveContains(searchText) } == true
             }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            .sorted { $0.title.articleStrippedCompare($1.title) == .orderedAscending }
     }
 
     private var resultsGridView: some View {

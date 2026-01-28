@@ -207,7 +207,7 @@ struct WatchAllBooksView: View {
         let readalouds = library.filter { $0.hasAvailableReadaloud }
 
         let sorted = readalouds.sorted { a, b in
-            a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            a.title.articleStrippedCompare(b.title) == .orderedAscending
         }
 
         books = sorted

@@ -187,7 +187,7 @@ struct WatchCollectionsView: View {
 
         var result = Array(collectionMap.values)
         result.sort { a, b in
-            a.collection.name.localizedCaseInsensitiveCompare(b.collection.name) == .orderedAscending
+            a.collection.name.articleStrippedCompare(b.collection.name) == .orderedAscending
         }
 
         collections = result

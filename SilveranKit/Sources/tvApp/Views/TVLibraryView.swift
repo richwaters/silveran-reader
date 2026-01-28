@@ -50,7 +50,7 @@ struct TVLibraryView: View {
     private var booksGridView: some View {
         let books = mediaViewModel.library.bookMetaData
             .filter { $0.hasAvailableReadaloud }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            .sorted { $0.title.articleStrippedCompare($1.title) == .orderedAscending }
 
         return ScrollView {
             LazyVGrid(

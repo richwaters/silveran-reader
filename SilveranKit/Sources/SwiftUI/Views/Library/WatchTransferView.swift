@@ -395,13 +395,13 @@ struct WatchBookSearchSheet: View {
     private var filteredBooks: [BookMetadata] {
         if searchText.isEmpty {
             return downloadedBooks.sorted {
-                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                $0.title.articleStrippedCompare($1.title) == .orderedAscending
             }
         }
         return downloadedBooks.filter {
             $0.title.localizedCaseInsensitiveCompare(searchText) == .orderedSame
                 || $0.title.localizedStandardContains(searchText)
-        }.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        }.sorted { $0.title.articleStrippedCompare($1.title) == .orderedAscending }
     }
 
     var body: some View {

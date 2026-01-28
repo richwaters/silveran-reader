@@ -588,7 +588,7 @@ public struct SeriesSortKey: Comparable, Hashable, Sendable {
 
     public static func < (lhs: SeriesSortKey, rhs: SeriesSortKey) -> Bool {
         if lhs.name != rhs.name {
-            return lhs.name < rhs.name
+            return lhs.name.articleStrippedCompare(rhs.name) == .orderedAscending
         }
         return lhs.position < rhs.position
     }
@@ -706,6 +706,8 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableTranslator: String {
         (creators ?? []).first(where: { $0.role == "trl" })?.name ?? ""
     }
+
+    public var sortableTitle: String { title.articleStripped }
 
     public var sortablePublicationYear: String {
         guard let pubDate = publicationDate, pubDate.count >= 4 else { return "" }

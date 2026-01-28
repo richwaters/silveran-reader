@@ -173,7 +173,7 @@ struct WatchCollectionBooksView: View {
         }
 
         let sorted = filtered.sorted { a, b in
-            a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            a.title.articleStrippedCompare(b.title) == .orderedAscending
         }
 
         books = sorted

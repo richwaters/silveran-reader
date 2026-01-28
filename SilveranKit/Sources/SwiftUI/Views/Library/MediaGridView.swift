@@ -161,9 +161,9 @@ struct MediaGridView: View {
     private static func tableComparator(for sortOption: SortOption) -> (comparator: KeyPathComparator<BookMetadata>, keyPath: AnyKeyPath) {
         switch sortOption {
         case .titleAZ:
-            return (KeyPathComparator(\BookMetadata.title, order: .forward), \BookMetadata.title)
+            return (KeyPathComparator(\BookMetadata.sortableTitle, order: .forward), \BookMetadata.sortableTitle)
         case .titleZA:
-            return (KeyPathComparator(\BookMetadata.title, order: .reverse), \BookMetadata.title)
+            return (KeyPathComparator(\BookMetadata.sortableTitle, order: .reverse), \BookMetadata.sortableTitle)
         case .authorAZ:
             return (KeyPathComparator(\BookMetadata.sortableAuthor, order: .forward), \BookMetadata.sortableAuthor)
         case .authorZA:
@@ -1267,7 +1267,7 @@ struct MediaGridView: View {
                     let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
                     let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
                     if lhsPosition == rhsPosition {
-                        result = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        result = lhs.title.articleStrippedCompare(rhs.title)
                     } else {
                         result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
                     }
@@ -1441,7 +1441,7 @@ struct MediaGridView: View {
             }
         }
         return unique.values
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            .sorted { $0.articleStrippedCompare($1) == .orderedAscending }
     }
 
     private func computeAvailableStatuses(from catalog: [BookMetadata]) -> [String] {
@@ -1653,7 +1653,7 @@ struct MediaGridView: View {
                 let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
                 let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
                 if lhsPosition == rhsPosition {
-                    result = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                    result = lhs.title.articleStrippedCompare(rhs.title)
                 } else {
                     result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
                 }
@@ -1695,7 +1695,7 @@ struct MediaGridView: View {
                 }
             }
         }
-        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        return unique.values.sorted { $0.articleStrippedCompare($1) == .orderedAscending }
     }
 
     private static nonisolated func computeAvailableAuthorsOffThread(from catalog: [BookMetadata]) -> [String] {
@@ -1898,15 +1898,15 @@ struct MediaGridView: View {
         func comparison(_ lhs: BookMetadata, _ rhs: BookMetadata) -> ComparisonResult {
             switch self {
                 case .titleAZ:
-                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                    return lhs.title.articleStrippedCompare(rhs.title)
                 case .titleZA:
-                    return rhs.title.localizedCaseInsensitiveCompare(lhs.title)
+                    return rhs.title.articleStrippedCompare(lhs.title)
                 case .authorAZ:
                     let lhsAuthor = lhs.authors?.first?.name ?? ""
                     let rhsAuthor = rhs.authors?.first?.name ?? ""
                     let result = lhsAuthor.localizedCaseInsensitiveCompare(rhsAuthor)
                     if result == .orderedSame {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return result
                 case .authorZA:
@@ -1914,31 +1914,31 @@ struct MediaGridView: View {
                     let rhsAuthor = rhs.authors?.first?.name ?? ""
                     let result = rhsAuthor.localizedCaseInsensitiveCompare(lhsAuthor)
                     if result == .orderedSame {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return result
                 case .progressHighToLow:
                     if lhs.progress == rhs.progress {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return lhs.progress > rhs.progress ? .orderedAscending : .orderedDescending
                 case .progressLowToHigh:
                     if lhs.progress == rhs.progress {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return lhs.progress < rhs.progress ? .orderedAscending : .orderedDescending
                 case .recentlyRead:
                     let lhsDate = lhs.position?.updatedAt ?? ""
                     let rhsDate = rhs.position?.updatedAt ?? ""
                     if lhsDate == rhsDate {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
                 case .recentlyAdded:
                     let lhsDate = lhs.createdAt ?? ""
                     let rhsDate = rhs.createdAt ?? ""
                     if lhsDate == rhsDate {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
                 case .seriesPosition:
@@ -1946,7 +1946,7 @@ struct MediaGridView: View {
                     let rhsSeriesName = rhs.series?.first?.name ?? ""
 
                     if lhsSeriesName.isEmpty && rhsSeriesName.isEmpty {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     if lhsSeriesName.isEmpty {
                         return .orderedDescending
@@ -1955,7 +1955,7 @@ struct MediaGridView: View {
                         return .orderedAscending
                     }
 
-                    let seriesResult = lhsSeriesName.localizedCaseInsensitiveCompare(rhsSeriesName)
+                    let seriesResult = lhsSeriesName.articleStrippedCompare(rhsSeriesName)
                     if seriesResult != .orderedSame {
                         return seriesResult
                     }
@@ -1963,7 +1963,7 @@ struct MediaGridView: View {
                     let lhsPosition = lhs.series?.first?.position ?? Int.max
                     let rhsPosition = rhs.series?.first?.position ?? Int.max
                     if lhsPosition == rhsPosition {
-                        return lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+                        return lhs.title.articleStrippedCompare(rhs.title)
                     }
                     return lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
             }
