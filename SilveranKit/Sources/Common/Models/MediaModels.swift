@@ -116,7 +116,7 @@ public struct BookSeries: Codable, Sendable, Hashable {
     public let uuid: String?
     public let name: String
     public let featured: Int
-    public let position: Int?
+    public let position: Float?
     public let createdAt: String?
     public let updatedAt: String?
 
@@ -124,11 +124,19 @@ public struct BookSeries: Codable, Sendable, Hashable {
         return featured == 1
     }
 
+    public var formattedPosition: String? {
+        guard let position else { return nil }
+        if position.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(position))"
+        }
+        return "\(position)"
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         uuid = container.decodeLenient(String.self, forKey: .uuid)
         name = (try? container.decode(String.self, forKey: .name)) ?? ""
-        position = container.decodeLenient(Int.self, forKey: .position)
+        position = container.decodeLenient(Float.self, forKey: .position)
         createdAt = container.decodeLenient(String.self, forKey: .createdAt)
         updatedAt = container.decodeLenient(String.self, forKey: .updatedAt)
         featured = container.decodeLenientBoolAsInt(forKey: .featured, defaultValue: 0)
@@ -584,7 +592,7 @@ public struct PlayerBookData: Codable, Hashable, Sendable {
 
 public struct SeriesSortKey: Comparable, Hashable, Sendable {
     public let name: String
-    public let position: Int
+    public let position: Float
 
     public static func < (lhs: SeriesSortKey, rhs: SeriesSortKey) -> Bool {
         if lhs.name != rhs.name {
@@ -679,7 +687,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableSeries: SeriesSortKey {
         SeriesSortKey(
             name: series?.first?.name ?? "",
-            position: series?.first?.position ?? Int.max
+            position: series?.first?.position ?? .greatestFiniteMagnitude
         )
     }
 

@@ -758,8 +758,8 @@ private final class SeriesCellView: NSTableCellView {
             nameLabel.font = .systemFont(ofSize: 13)
             nameLabel.textColor = .secondaryLabelColor
             linkTarget = .series(series.name)
-            if let position = series.position {
-                positionLabel.stringValue = "#\(position)"
+            if let formatted = series.formattedPosition {
+                positionLabel.stringValue = "#\(formatted)"
                 positionLabel.font = .systemFont(ofSize: 11)
                 positionLabel.isHidden = false
             } else {

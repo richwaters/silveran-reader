@@ -86,10 +86,10 @@ struct MediaGridInfoSidebar: View {
                                     HStack(spacing: 4) {
                                         Text(series.name)
                                             .font(.subheadline)
-                                        if let position = series.position {
+                                        if let formatted = series.formattedPosition {
                                             Text("•")
                                                 .font(.subheadline)
-                                            Text("Book \(position)")
+                                            Text("Book \(formatted)")
                                                 .font(.subheadline)
                                         }
                                     }
@@ -102,11 +102,11 @@ struct MediaGridInfoSidebar: View {
                                     Text(series.name)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
-                                    if let position = series.position {
+                                    if let formatted = series.formattedPosition {
                                         Text("•")
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
-                                        Text("Book \(position)")
+                                        Text("Book \(formatted)")
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
                                     }

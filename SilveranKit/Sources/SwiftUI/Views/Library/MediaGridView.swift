@@ -1020,8 +1020,8 @@ struct MediaGridView: View {
             matchingSeries = seriesList.first
         }
 
-        guard let series = matchingSeries, let position = series.position else { return nil }
-        return "#\(position)"
+        guard let series = matchingSeries, let formatted = series.formattedPosition else { return nil }
+        return "#\(formatted)"
     }
 
     private func selectItem(_ item: BookMetadata, ensureVisible: Bool = false) {
@@ -1264,8 +1264,8 @@ struct MediaGridView: View {
                 let result: ComparisonResult
                 if selectedSortOption == .seriesPosition, let filter = selectedSeries {
                     let normalizedFilter = filter.lowercased()
-                    let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
-                    let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                    let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
+                    let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
                     if lhsPosition == rhsPosition {
                         result = lhs.title.articleStrippedCompare(rhs.title)
                     } else {
@@ -1650,8 +1650,8 @@ struct MediaGridView: View {
             let result: ComparisonResult
             if sortOption == .seriesPosition, let filter = seriesFilter {
                 let normalizedFilter = filter.lowercased()
-                let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
-                let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? Int.max
+                let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
+                let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
                 if lhsPosition == rhsPosition {
                     result = lhs.title.articleStrippedCompare(rhs.title)
                 } else {
@@ -1960,8 +1960,8 @@ struct MediaGridView: View {
                         return seriesResult
                     }
 
-                    let lhsPosition = lhs.series?.first?.position ?? Int.max
-                    let rhsPosition = rhs.series?.first?.position ?? Int.max
+                    let lhsPosition = lhs.series?.first?.position ?? .greatestFiniteMagnitude
+                    let rhsPosition = rhs.series?.first?.position ?? .greatestFiniteMagnitude
                     if lhsPosition == rhsPosition {
                         return lhs.title.articleStrippedCompare(rhs.title)
                     }

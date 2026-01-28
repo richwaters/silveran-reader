@@ -510,8 +510,8 @@ public final class MediaViewModel {
         for key in seriesMap.keys {
             let seriesName = seriesMap[key]?.series?.name.lowercased()
             seriesMap[key]?.books.sort { a, b in
-                let posA = a.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? Int.max
-                let posB = b.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? Int.max
+                let posA = a.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? .greatestFiniteMagnitude
+                let posB = b.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? .greatestFiniteMagnitude
                 return posA < posB
             }
         }
