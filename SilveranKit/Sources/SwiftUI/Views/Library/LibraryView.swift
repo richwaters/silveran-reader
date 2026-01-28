@@ -142,6 +142,9 @@ public struct LibraryView: View {
                     defaultSort: configuration.defaultSort,
                     preferredTileWidth: preferred,
                     minimumTileWidth: minimum,
+                    onMetadataLinkClicked: { target in
+                        navigateToMetadataFilter(target, mediaKind: configuration.mediaKind)
+                    },
                     initialNarrationFilterOption: configuration.narrationFilter,
                     initialLocationFilter: locationFilter,
                     scrollPosition: scrollBinding
@@ -330,5 +333,50 @@ public struct LibraryView: View {
 
     func gridIdentity(for config: MediaGridConfiguration) -> String {
         config.title
+    }
+
+    private func navigateToMetadataFilter(_ target: MetadataLinkTarget, mediaKind: MediaKind) {
+        let title: String
+        let systemImage: String
+        var config = MediaGridConfiguration(title: "", mediaKind: mediaKind, preferredTileWidth: 120, minimumTileWidth: 50)
+
+        switch target {
+        case .author(let value):
+            title = value
+            systemImage = "person.2"
+            config.authorFilter = value
+        case .series(let value):
+            title = value
+            systemImage = "books.vertical"
+            config.seriesFilter = value
+        case .narrator(let value):
+            title = value
+            systemImage = "mic"
+            config.narratorFilter = value
+        case .translator(let value):
+            title = value
+            systemImage = "character.book.closed.fill"
+            config.translatorFilter = value
+        case .publicationYear(let value):
+            title = value
+            systemImage = "calendar"
+            config.publicationYearFilter = value
+        case .status(let value):
+            title = value
+            systemImage = "arrow.right.circle"
+            config.statusFilter = value
+        case .tag(let value):
+            title = value
+            systemImage = "tag"
+            config.tagFilter = value
+        }
+
+        config.title = title
+        selectedItem = SidebarItemDescription(
+            name: title,
+            systemImage: systemImage,
+            badge: -1,
+            content: .mediaGrid(config)
+        )
     }
 }

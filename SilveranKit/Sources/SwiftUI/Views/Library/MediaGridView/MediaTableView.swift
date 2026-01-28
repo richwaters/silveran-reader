@@ -4,6 +4,7 @@ import AppKit
 
 private final class ImmediateSelectTableView: NSTableView {
     var onRowClicked: ((Int) -> Void)?
+    var onLinkClicked: ((MetadataLinkTarget) -> Void)?
     private var lastFittedWidth: CGFloat = 0
 
     override func mouseDown(with event: NSEvent) {
@@ -14,6 +15,35 @@ private final class ImmediateSelectTableView: NSTableView {
             if window?.firstResponder !== self {
                 window?.makeFirstResponder(self)
                 selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
+            }
+
+            let clickedCol = column(at: point)
+            if clickedCol >= 0 {
+                let colID = tableColumns[clickedCol].identifier.rawValue
+                if colID == "tags" {
+                    super.mouseDown(with: event)
+                    return
+                }
+                if let cellView = view(atColumn: clickedCol, row: clickedRow, makeIfNecessary: false) {
+                    if let linkCell = cellView as? LinkTextCellView, let target = linkCell.linkTarget {
+                        onLinkClicked?(target)
+                        super.mouseDown(with: event)
+                        return
+                    }
+                    if let seriesCell = cellView as? SeriesCellView, let target = seriesCell.linkTarget {
+                        onLinkClicked?(target)
+                        super.mouseDown(with: event)
+                        return
+                    }
+                    if let titleCell = cellView as? TitleAuthorCellView, let target = titleCell.authorLinkTarget {
+                        let pointInCell = cellView.convert(point, from: self)
+                        if titleCell.authorLabelContainsPoint(pointInCell) {
+                            onLinkClicked?(target)
+                            super.mouseDown(with: event)
+                            return
+                        }
+                    }
+                }
             }
             onRowClicked?(clickedRow)
         }
@@ -80,6 +110,7 @@ struct MediaTableView: NSViewRepresentable {
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self, mediaViewModel: mediaViewModel)
@@ -121,6 +152,9 @@ struct MediaTableView: NSViewRepresentable {
         let coordinator = context.coordinator
         tableView.onRowClicked = { [weak coordinator] row in
             coordinator?.handleRowClicked(row)
+        }
+        tableView.onLinkClicked = { [weak coordinator] target in
+            coordinator?.handleLinkClicked(target)
         }
 
         return scrollView
@@ -299,19 +333,30 @@ struct MediaTableView: NSViewRepresentable {
             case "title":
                 return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
             case "author":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.authors?.first?.name ?? "", secondary: true)
+                let name = item.authors?.first?.name ?? ""
+                let target: MetadataLinkTarget? = name.isEmpty ? nil : .author(name)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
             case "series":
                 return makeSeriesCell(tableView: tableView, cellID: cellID, item: item)
             case "progress":
                 return makeProgressCell(tableView: tableView, cellID: cellID, item: item)
             case "narrator":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.narrators?.first?.name ?? "", secondary: true)
+                let name = item.narrators?.first?.name ?? ""
+                let target: MetadataLinkTarget? = name.isEmpty ? nil : .narrator(name)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
             case "translator":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTranslator, secondary: true)
+                let name = item.sortableTranslator
+                let target: MetadataLinkTarget? = name.isEmpty ? nil : .translator(name)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
             case "publicationYear":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.publicationDate), secondary: true)
+                let year = item.sortablePublicationYear
+                let displayText = formatDate(item.publicationDate)
+                let target: MetadataLinkTarget? = year.isEmpty ? nil : .publicationYear(year)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: displayText, linkTarget: target)
             case "status":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.status?.name ?? "", secondary: true)
+                let statusName = item.status?.name ?? ""
+                let target: MetadataLinkTarget? = statusName.isEmpty ? nil : .status(statusName)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: statusName, linkTarget: target)
             case "added":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.createdAt), secondary: true)
             case "lastRead":
@@ -381,6 +426,10 @@ struct MediaTableView: NSViewRepresentable {
             parent.onInfo(item)
         }
 
+        func handleLinkClicked(_ target: MetadataLinkTarget) {
+            parent.onMetadataLinkClicked?(target)
+        }
+
         func tableViewColumnDidMove(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
             let order = tableView.tableColumns.map { $0.identifier.rawValue }
@@ -416,6 +465,13 @@ struct MediaTableView: NSViewRepresentable {
             return cell
         }
 
+        private func makeLinkTextCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, text: String, linkTarget: MetadataLinkTarget?) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? LinkTextCellView
+                ?? LinkTextCellView(identifier: cellID)
+            cell.configure(text: text, linkTarget: linkTarget)
+            return cell
+        }
+
         private func makeSeriesCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
                 ?? SeriesCellView(identifier: cellID)
@@ -434,7 +490,11 @@ struct MediaTableView: NSViewRepresentable {
         private func makeTagsCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
             let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
                 ?? HostingCellView(identifier: cellID)
-            let content = TagFlowCellContent(tags: item.tagNames.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
+            let onLinkClicked = parent.onMetadataLinkClicked
+            let content = TagFlowCellContent(
+                tags: item.tagNames.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
+                onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil
+            )
             cell.setContent(content)
             return cell
         }
@@ -498,10 +558,75 @@ private final class TextCellView: NSTableCellView {
     }
 }
 
+private final class LinkTextCellView: NSTableCellView {
+    private let label = NSTextField(labelWithString: "")
+    var linkTarget: MetadataLinkTarget?
+    private var trackingArea: NSTrackingArea?
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(text: String, linkTarget: MetadataLinkTarget?) {
+        label.stringValue = text
+        self.linkTarget = linkTarget
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = .secondaryLabelColor
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pointingHand.push()
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pop()
+        }
+    }
+}
+
 private final class TitleAuthorCellView: NSTableCellView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let authorLabel = NSTextField(labelWithString: "")
     private let stackView = NSStackView()
+    var authorLinkTarget: MetadataLinkTarget?
+    private var trackingArea: NSTrackingArea?
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -544,6 +669,41 @@ private final class TitleAuthorCellView: NSTableCellView {
         titleLabel.stringValue = title
         authorLabel.stringValue = author ?? ""
         authorLabel.isHidden = author?.isEmpty ?? true
+        if let author, !author.isEmpty {
+            authorLinkTarget = .author(author)
+        } else {
+            authorLinkTarget = nil
+        }
+    }
+
+    func authorLabelContainsPoint(_ pointInCell: NSPoint) -> Bool {
+        guard !authorLabel.isHidden, authorLinkTarget != nil else { return false }
+        let pointInStack = stackView.convert(pointInCell, from: self)
+        return authorLabel.frame.contains(pointInStack)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if authorLabelContainsPoint(point) {
+            NSCursor.pointingHand.set()
+        } else {
+            NSCursor.arrow.set()
+        }
     }
 }
 
@@ -551,6 +711,8 @@ private final class SeriesCellView: NSTableCellView {
     private let nameLabel = NSTextField(labelWithString: "")
     private let positionLabel = NSTextField(labelWithString: "")
     private let stackView = NSStackView()
+    var linkTarget: MetadataLinkTarget?
+    private var trackingArea: NSTrackingArea?
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -594,6 +756,8 @@ private final class SeriesCellView: NSTableCellView {
         if let series {
             nameLabel.stringValue = series.name
             nameLabel.font = .systemFont(ofSize: 13)
+            nameLabel.textColor = .secondaryLabelColor
+            linkTarget = .series(series.name)
             if let position = series.position {
                 positionLabel.stringValue = "#\(position)"
                 positionLabel.font = .systemFont(ofSize: 11)
@@ -603,7 +767,36 @@ private final class SeriesCellView: NSTableCellView {
             }
         } else {
             nameLabel.stringValue = ""
+            nameLabel.textColor = .secondaryLabelColor
+            linkTarget = nil
             positionLabel.isHidden = true
+        }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pointingHand.push()
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pop()
         }
     }
 }
@@ -736,6 +929,7 @@ private final class TagLayoutState: @unchecked Sendable {
 
 private struct TagFlowCellContent: View {
     let tags: [String]
+    var onTagClicked: ((String) -> Void)?
     @State private var showPopover = false
     @State private var layoutState = TagLayoutState()
 
@@ -748,13 +942,32 @@ private struct TagFlowCellContent: View {
     var body: some View {
         TagFlowLayout(spacing: 4, maxRows: 2, state: layoutState) {
             ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
-                Text(tag)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                if let onTagClicked {
+                    Button {
+                        onTagClicked(tag)
+                    } label: {
+                        Text(tag)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { hovering in
+                        if hovering { NSCursor.pointingHand.push() }
+                        else { NSCursor.pop() }
+                    }
+                } else {
+                    Text(tag)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                }
             }
             Text("\u{2026}")
                 .font(.system(size: 10, weight: .medium))

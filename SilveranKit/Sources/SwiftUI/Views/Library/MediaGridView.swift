@@ -101,6 +101,7 @@ struct MediaGridView: View {
     let onRename: (BookMetadata) -> Void
     let onDelete: (BookMetadata) -> Void
     let onSeriesSelected: ((String) -> Void)?
+    let onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
     let initialNarrationFilterOption: NarrationFilter
     private let scrollPosition: Binding<BookMetadata.ID?>?
     private let headerScrollID = "media-grid-header"
@@ -244,6 +245,7 @@ struct MediaGridView: View {
         onRename: ((BookMetadata) -> Void)? = { _ in },
         onDelete: ((BookMetadata) -> Void)? = { _ in },
         onSeriesSelected: ((String) -> Void)? = nil,
+        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil,
         initialNarrationFilterOption: NarrationFilter = .both,
         initialLocationFilter: LocationFilterOption = .all,
         scrollPosition: Binding<BookMetadata.ID?>? = nil,
@@ -278,6 +280,7 @@ struct MediaGridView: View {
         self.onRename = onRename ?? { _ in }
         self.onDelete = onDelete ?? { _ in }
         self.onSeriesSelected = onSeriesSelected
+        self.onMetadataLinkClicked = onMetadataLinkClicked
         self.initialNarrationFilterOption = initialNarrationFilterOption
         self.scrollPosition = scrollPosition
         _selectedFormatFilter = State(
@@ -560,7 +563,8 @@ struct MediaGridView: View {
                     columnCustomization: $columnCustomization,
                     sortOrder: $tableSortOrder,
                     onSelect: { selectItem($0) },
-                    onInfo: { openSidebar(for: $0) }
+                    onInfo: { openSidebar(for: $0) },
+                    onMetadataLinkClicked: onMetadataLinkClicked
                 )
                 .padding(.top, 8)
             }

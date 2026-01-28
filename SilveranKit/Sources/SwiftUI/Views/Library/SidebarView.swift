@@ -218,14 +218,22 @@ struct SidebarView: View {
             mediaSourcesSection
         }
         .onChange(of: selectedId) { oldID, newID in
-            if let id = newID {
-                selectedItem = findItem(by: id)
-            } else {
+            if let id = newID, let found = findItem(by: id) {
+                selectedItem = found
+            } else if newID == nil, selectedItem != nil, findItem(by: selectedItem!.id) != nil {
                 selectedItem = nil
             }
         }
         .onChange(of: selectedItem) { oldItem, newItem in
-            selectedId = newItem?.id
+            if let newItem {
+                if findItem(by: newItem.id) != nil {
+                    selectedId = newItem.id
+                } else {
+                    selectedId = nil
+                }
+            } else {
+                selectedId = nil
+            }
         }
         .onAppear {
             HomeSectionConfigHelper.syncWithPinnedItems(pinnedItemIds)

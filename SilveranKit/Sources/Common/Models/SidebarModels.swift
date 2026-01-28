@@ -93,6 +93,16 @@ public enum SidebarContentKind: Hashable, Sendable {
     }
 }
 
+public enum MetadataLinkTarget: Hashable, Sendable {
+    case author(String)
+    case series(String)
+    case narrator(String)
+    case translator(String)
+    case publicationYear(String)
+    case status(String)
+    case tag(String)
+}
+
 public enum NarrationFilter: Hashable, Sendable {
     case both
     case withAudio
