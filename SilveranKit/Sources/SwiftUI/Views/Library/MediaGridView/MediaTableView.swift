@@ -314,7 +314,7 @@ struct MediaTableView: NSViewRepresentable {
             case "lastRead":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.position?.updatedAt), secondary: true)
             case "tags":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTags, secondary: true)
+                return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
             case "media":
                 return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
             default:
@@ -430,6 +430,14 @@ struct MediaTableView: NSViewRepresentable {
                 ?? ProgressCellView(identifier: cellID)
             let progress = mediaViewModel.progress(for: item.id)
             cell.configure(progress: progress)
+            return cell
+        }
+
+        private func makeTagsCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+                ?? HostingCellView(identifier: cellID)
+            let content = TagFlowCellContent(tags: item.tagNames.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
+            cell.setContent(content)
             return cell
         }
 
@@ -752,6 +760,182 @@ private final class HostingCellView: NSTableCellView {
             ])
             hostingView = hosting
         }
+    }
+}
+
+private final class TagLayoutState: @unchecked Sendable {
+    var visibleCount: Int = 0
+}
+
+private struct TagFlowCellContent: View {
+    let tags: [String]
+    @State private var showPopover = false
+    @State private var layoutState = TagLayoutState()
+
+    private var hiddenTags: [String] {
+        let count = layoutState.visibleCount
+        guard count < tags.count else { return [] }
+        return Array(tags.suffix(from: count))
+    }
+
+    var body: some View {
+        TagFlowLayout(spacing: 4, maxRows: 2, state: layoutState) {
+            ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
+                Text(tag)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+            }
+            Text("\u{2026}")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.secondary.opacity(0.25)))
+                .layoutValue(key: IsOverflowIndicator.self, value: true)
+                .onHover { showPopover = $0 }
+                .popover(isPresented: $showPopover) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(hiddenTags, id: \.self) { tag in
+                            Text(tag).font(.system(size: 12))
+                        }
+                    }
+                    .padding(8)
+                }
+        }
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+private struct IsOverflowIndicator: LayoutValueKey {
+    static let defaultValue = false
+}
+
+private struct TagFlowLayout: Layout {
+    var spacing: CGFloat
+    var maxRows: Int
+    var state: TagLayoutState
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        computeLayout(in: proposal.width ?? .infinity, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = computeLayout(in: bounds.width, subviews: subviews)
+        state.visibleCount = result.visibleCount
+        for (i, subview) in subviews.enumerated() {
+            if let pos = result.placements[i] {
+                let ideal = subview.sizeThatFits(.unspecified)
+                let cappedWidth = min(ideal.width, bounds.width)
+                subview.place(
+                    at: CGPoint(x: bounds.minX + pos.x, y: bounds.minY + pos.y),
+                    proposal: ProposedViewSize(width: cappedWidth, height: ideal.height)
+                )
+            } else {
+                subview.place(at: CGPoint(x: bounds.minX - 10000, y: 0), proposal: .init(width: 0, height: 0))
+            }
+        }
+    }
+
+    private struct ItemInfo {
+        let index: Int
+        let x: CGFloat
+        let y: CGFloat
+        let width: CGFloat
+        let height: CGFloat
+        let row: Int
+    }
+
+    private struct LayoutResult {
+        var size: CGSize
+        var placements: [Int: CGPoint]
+        var visibleCount: Int
+    }
+
+    private func computeLayout(in maxWidth: CGFloat, subviews: Subviews) -> LayoutResult {
+        var overflowIndex: Int?
+        var regularIndices: [Int] = []
+        for (i, subview) in subviews.enumerated() {
+            if subview[IsOverflowIndicator.self] {
+                overflowIndex = i
+            } else {
+                regularIndices.append(i)
+            }
+        }
+
+        let overflowSize = overflowIndex.map { subviews[$0].sizeThatFits(.unspecified) } ?? .zero
+
+        var items: [ItemInfo] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var currentRow = 0
+
+        for idx in regularIndices {
+            let ideal = subviews[idx].sizeThatFits(.unspecified)
+            let size = CGSize(width: min(ideal.width, maxWidth), height: ideal.height)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+                currentRow += 1
+            }
+            items.append(ItemInfo(index: idx, x: x, y: y, width: size.width, height: size.height, row: currentRow))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+        }
+
+        let totalRows = (items.last?.row ?? -1) + 1
+        let hasOverflow = totalRows > maxRows
+
+        if !hasOverflow {
+            var placements: [Int: CGPoint] = [:]
+            var maxW: CGFloat = 0
+            for item in items {
+                placements[item.index] = CGPoint(x: item.x, y: item.y)
+                maxW = max(maxW, item.x + item.width)
+            }
+            let h = items.last.map { $0.y + $0.height } ?? 0
+            return LayoutResult(size: CGSize(width: maxW, height: h), placements: placements, visibleCount: items.count)
+        }
+
+        var visible = items.filter { $0.row < maxRows }
+
+        if overflowIndex != nil {
+            while let last = visible.last, last.row == maxRows - 1 {
+                let afterLast = last.x + last.width + spacing
+                if afterLast + overflowSize.width <= maxWidth { break }
+                visible.removeLast()
+            }
+        }
+
+        var placements: [Int: CGPoint] = [:]
+        var maxW: CGFloat = 0
+        for item in visible {
+            placements[item.index] = CGPoint(x: item.x, y: item.y)
+            maxW = max(maxW, item.x + item.width)
+        }
+
+        if let oi = overflowIndex {
+            let ox: CGFloat
+            let oy: CGFloat
+            if let last = visible.last {
+                ox = last.x + last.width + spacing
+                oy = last.y
+            } else {
+                ox = 0
+                oy = 0
+            }
+            placements[oi] = CGPoint(x: ox, y: oy)
+            maxW = max(maxW, ox + overflowSize.width)
+        }
+
+        let h = visible.last.map { $0.y + $0.height } ?? overflowSize.height
+        return LayoutResult(size: CGSize(width: maxW, height: h), placements: placements, visibleCount: visible.count)
     }
 }
 
