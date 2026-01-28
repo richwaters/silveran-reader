@@ -17,6 +17,8 @@ public struct LibraryView: View {
     @State private var sections: [SidebarSectionDescription] = LibrarySidebarDefaults.getSections()
     // TODO: Anchor to offset, not content
     @State private var gridScrollPositions: [String: BookMetadata.ID?] = [:]
+    @State private var metadataNavStack: [SidebarItemDescription] = []
+    @State private var isMetadataLinkNavigation = false
 
     public init() {}
 
@@ -55,6 +57,11 @@ public struct LibraryView: View {
             #endif
             .onChange(of: selectedItem) {
                 searchText = ""
+                if isMetadataLinkNavigation {
+                    isMetadataLinkNavigation = false
+                } else {
+                    metadataNavStack.removeAll()
+                }
             }
             #if os(iOS)
             .toolbar {
@@ -150,6 +157,17 @@ public struct LibraryView: View {
                     scrollPosition: scrollBinding
                 )
                 .id(identity)
+                .toolbar {
+                    ToolbarItem(placement: .navigation) {
+                        if !metadataNavStack.isEmpty {
+                            Button {
+                                popMetadataNavStack()
+                            } label: {
+                                Label("Back", systemImage: "chevron.left")
+                            }
+                        }
+                    }
+                }
             case .seriesView(let mediaKind):
                 #if os(iOS)
                 SeriesView(
@@ -335,6 +353,12 @@ public struct LibraryView: View {
         config.title
     }
 
+    private func popMetadataNavStack() {
+        guard let previous = metadataNavStack.popLast() else { return }
+        isMetadataLinkNavigation = true
+        selectedItem = previous
+    }
+
     private func navigateToMetadataFilter(_ target: MetadataLinkTarget, mediaKind: MediaKind) {
         let title: String
         let systemImage: String
@@ -372,6 +396,10 @@ public struct LibraryView: View {
         }
 
         config.title = title
+        if let current = selectedItem {
+            metadataNavStack.append(current)
+        }
+        isMetadataLinkNavigation = true
         selectedItem = SidebarItemDescription(
             name: title,
             systemImage: systemImage,
