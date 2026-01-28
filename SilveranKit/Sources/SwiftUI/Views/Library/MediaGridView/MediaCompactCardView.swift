@@ -110,7 +110,7 @@ struct MediaCompactCardView: View {
             isHovered = hovering
         }
         #endif
-        .task {
+        .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
         }
     }

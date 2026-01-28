@@ -147,7 +147,7 @@ struct MediaListRowView: View {
         }
         .frame(width: coverWidth, height: coverSize)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .task {
+        .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
         }
     }

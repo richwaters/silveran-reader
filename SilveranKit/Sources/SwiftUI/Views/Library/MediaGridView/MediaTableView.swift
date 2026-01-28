@@ -132,6 +132,7 @@ struct MediaTableView: NSViewRepresentable {
         let coordinator = context.coordinator
         let oldItems = coordinator.items
         let newItems = items
+        let oldCoverPreference = coordinator.coverPreference
 
         coordinator.parent = self
         coordinator.items = items
@@ -141,6 +142,8 @@ struct MediaTableView: NSViewRepresentable {
         if oldItems.map(\.id) != newItems.map(\.id) {
             tableView.reloadData()
         } else if oldItems != newItems {
+            tableView.reloadData()
+        } else if oldCoverPreference != coverPreference {
             tableView.reloadData()
         }
 
@@ -385,21 +388,16 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         private func makeCoverCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let height: CGFloat = 40
             let coverVariant = resolveCoverVariant(for: item)
-            let aspectRatio = coverVariant.preferredAspectRatio
-            let width = height * aspectRatio
 
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? CoverCellView
-                ?? CoverCellView(identifier: cellID)
-
-            let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
-            cell.configure(image: coverState.nsImage, width: width, height: height)
-
-            if coverState.nsImage == nil {
-                mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
-            }
-
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+                ?? HostingCellView(identifier: cellID)
+            let content = CoverCellContent(
+                item: item,
+                coverVariant: coverVariant,
+                mediaViewModel: mediaViewModel
+            )
+            cell.setContent(content)
             return cell
         }
 
@@ -674,62 +672,31 @@ private final class ProgressCellView: NSTableCellView {
     }
 }
 
-private final class CoverCellView: NSTableCellView {
-    private let coverImageView = NSImageView()
-    private let backgroundLayer = CALayer()
-    private var widthConstraint: NSLayoutConstraint?
-    private var heightConstraint: NSLayoutConstraint?
+private struct CoverCellContent: View {
+    let item: BookMetadata
+    let coverVariant: MediaViewModel.CoverVariant
+    let mediaViewModel: MediaViewModel
 
-    init(identifier: NSUserInterfaceItemIdentifier) {
-        super.init(frame: .zero)
-        self.identifier = identifier
-        wantsLayer = true
-        layer?.masksToBounds = true
-        setupViews()
-    }
+    private let height: CGFloat = 40
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    var body: some View {
+        let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
+        let width = height * coverVariant.preferredAspectRatio
 
-    private func setupViews() {
-        backgroundLayer.backgroundColor = NSColor(white: 0.2, alpha: 1).cgColor
-        backgroundLayer.cornerRadius = 3
-        backgroundLayer.masksToBounds = true
-        layer?.addSublayer(backgroundLayer)
-
-        coverImageView.imageScaling = .scaleProportionallyDown
-        coverImageView.wantsLayer = true
-        coverImageView.layer?.cornerRadius = 3
-        coverImageView.layer?.masksToBounds = true
-        coverImageView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(coverImageView)
-
-        NSLayoutConstraint.activate([
-            coverImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            coverImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-    }
-
-    override func layout() {
-        super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        backgroundLayer.frame = coverImageView.frame
-        CATransaction.commit()
-    }
-
-    func configure(image: NSImage?, width: CGFloat, height: CGFloat) {
-        coverImageView.image = image
-
-        widthConstraint?.isActive = false
-        heightConstraint?.isActive = false
-        widthConstraint = coverImageView.widthAnchor.constraint(equalToConstant: width)
-        heightConstraint = coverImageView.heightAnchor.constraint(equalToConstant: height)
-        widthConstraint?.isActive = true
-        heightConstraint?.isActive = true
-
-        needsLayout = true
+        ZStack {
+            Color(white: 0.2)
+            if let image = coverState.image {
+                image
+                    .resizable()
+                    .interpolation(.medium)
+                    .scaledToFill()
+            }
+        }
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        .task(id: coverVariant) {
+            mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        }
     }
 }
 
