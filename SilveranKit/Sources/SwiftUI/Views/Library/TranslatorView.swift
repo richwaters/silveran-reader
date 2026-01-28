@@ -18,6 +18,7 @@ struct TranslatorView: View {
     #if os(macOS)
     @State private var selectedTranslator: String? = nil
     @State private var translatorListWidth: CGFloat = 220
+    @State private var sortByCount = false
     #endif
 
     #if os(iOS)
@@ -247,19 +248,36 @@ extension TranslatorView {
         }
     }
 
+    private var sortedTranslatorGroups: [(translator: BookCreator?, books: [BookMetadata])] {
+        let groups = filteredTranslatorGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            let lName = lhs.translator?.name ?? ""
+            let rName = rhs.translator?.name ?? ""
+            return lName.localizedCaseInsensitiveCompare(rName) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     private var macOSTranslatorListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Translators")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Translators")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredTranslatorGroups, id: \.translator?.name) { group in
+                    ForEach(sortedTranslatorGroups, id: \.translator?.name) { group in
                         let translatorName = group.translator?.name ?? "Unknown Translator"
                         Button {
                             selectedTranslator = translatorName

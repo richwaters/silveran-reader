@@ -18,6 +18,7 @@ struct PublicationYearView: View {
     #if os(macOS)
     @State private var selectedYear: String? = nil
     @State private var yearListWidth: CGFloat = 220
+    @State private var sortByCount = false
     #endif
 
     #if os(iOS)
@@ -235,6 +236,17 @@ extension PublicationYearView {
 
 #if os(macOS)
 extension PublicationYearView {
+    private var sortedYearGroups: [(year: String, books: [BookMetadata])] {
+        let groups = filteredYearGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            return lhs.year.localizedCaseInsensitiveCompare(rhs.year) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     fileprivate var macOSSplitView: some View {
         HStack(spacing: 0) {
@@ -249,16 +261,20 @@ extension PublicationYearView {
     @ViewBuilder
     private var macOSYearListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Publication Year")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Publication Year")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredYearGroups, id: \.year) { group in
+                    ForEach(sortedYearGroups, id: \.year) { group in
                         Button {
                             selectedYear = group.year
                         } label: {

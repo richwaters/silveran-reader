@@ -18,6 +18,7 @@ struct NarratorView: View {
     #if os(macOS)
     @State private var selectedNarrator: String? = nil
     @State private var narratorListWidth: CGFloat = 220
+    @State private var sortByCount = false
     #endif
 
     #if os(iOS)
@@ -241,6 +242,19 @@ extension NarratorView {
 
 #if os(macOS)
 extension NarratorView {
+    private var sortedNarratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
+        let groups = filteredNarratorGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            let lName = lhs.narrator?.name ?? ""
+            let rName = rhs.narrator?.name ?? ""
+            return lName.localizedCaseInsensitiveCompare(rName) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     fileprivate var macOSSplitView: some View {
         HStack(spacing: 0) {
@@ -255,16 +269,20 @@ extension NarratorView {
     @ViewBuilder
     private var macOSNarratorListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Narrators")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Narrators")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
+                    ForEach(sortedNarratorGroups, id: \.narrator?.name) { group in
                         let narratorName = group.narrator?.name ?? "Unknown Narrator"
                         Button {
                             selectedNarrator = narratorName

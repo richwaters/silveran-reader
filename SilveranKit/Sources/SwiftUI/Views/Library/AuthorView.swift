@@ -20,6 +20,7 @@ struct AuthorView: View {
     @State private var activeInfoItem: BookMetadata? = nil
     @State private var isSidebarVisible: Bool = false
     @State private var authorListWidth: CGFloat = 220
+    @State private var sortByCount = false
     private let infoSidebarWidth: CGFloat = 340
     #endif
 
@@ -265,19 +266,36 @@ extension AuthorView {
         }
     }
 
+    private var sortedAuthorGroups: [(author: BookCreator?, books: [BookMetadata])] {
+        let groups = filteredAuthorGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            let lName = lhs.author?.name ?? ""
+            let rName = rhs.author?.name ?? ""
+            return lName.localizedCaseInsensitiveCompare(rName) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     private var macOSAuthorListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Authors")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Authors")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredAuthorGroups, id: \.author?.name) { group in
+                    ForEach(sortedAuthorGroups, id: \.author?.name) { group in
                         let authorName = group.author?.name ?? "Unknown Author"
                         Button {
                             selectedAuthor = authorName
@@ -341,6 +359,45 @@ extension AuthorView {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+}
+
+struct SidebarSortButton: View {
+    @Binding var sortByCount: Bool
+
+    var body: some View {
+        Menu {
+            Button {
+                sortByCount = false
+            } label: {
+                HStack {
+                    Text("Name")
+                    Spacer()
+                    if !sortByCount {
+                        Image(systemName: "checkmark")
+                            .imageScale(.small)
+                    }
+                }
+            }
+            Button {
+                sortByCount = true
+            } label: {
+                HStack {
+                    Text("Count")
+                    Spacer()
+                    if sortByCount {
+                        Image(systemName: "checkmark")
+                            .imageScale(.small)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 }
 #endif

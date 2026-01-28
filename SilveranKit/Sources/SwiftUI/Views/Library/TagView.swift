@@ -18,6 +18,7 @@ struct TagView: View {
     #if os(macOS)
     @State private var selectedTag: String? = nil
     @State private var tagListWidth: CGFloat = 220
+    @State private var sortByCount = false
     #endif
 
     #if os(iOS)
@@ -248,19 +249,34 @@ extension TagView {
         }
     }
 
+    private var sortedTagGroups: [(tag: String, books: [BookMetadata])] {
+        let groups = filteredTagGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            return lhs.tag.localizedCaseInsensitiveCompare(rhs.tag) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     private var macOSTagListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Tags")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Tags")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredTagGroups, id: \.tag) { group in
+                    ForEach(sortedTagGroups, id: \.tag) { group in
                         Button {
                             selectedTag = group.tag
                         } label: {

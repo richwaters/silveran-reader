@@ -18,6 +18,7 @@ struct RatingView: View {
     #if os(macOS)
     @State private var selectedRating: String? = nil
     @State private var ratingListWidth: CGFloat = 220
+    @State private var sortByCount = false
     #endif
 
     #if os(iOS)
@@ -247,6 +248,17 @@ extension RatingView {
 
 #if os(macOS)
 extension RatingView {
+    private var sortedRatingGroups: [(rating: String, books: [BookMetadata])] {
+        let groups = filteredRatingGroups
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            return lhs.rating.localizedCaseInsensitiveCompare(rhs.rating) == .orderedAscending
+        }
+    }
+
     @ViewBuilder
     fileprivate var macOSSplitView: some View {
         HStack(spacing: 0) {
@@ -261,16 +273,20 @@ extension RatingView {
     @ViewBuilder
     private var macOSRatingListSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Ratings")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack {
+                Text("Ratings")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                SidebarSortButton(sortByCount: $sortByCount)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(filteredRatingGroups, id: \.rating) { group in
+                    ForEach(sortedRatingGroups, id: \.rating) { group in
                         Button {
                             selectedRating = group.rating
                         } label: {
