@@ -227,6 +227,16 @@ struct SidebarView: View {
         .onChange(of: selectedItem) { oldItem, newItem in
             selectedId = newItem?.id
         }
+        .onAppear {
+            HomeSectionConfigHelper.syncWithPinnedItems(pinnedItemIds)
+            homeSectionConfig = HomeSectionConfigHelper.config
+            homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+        }
+        .onChange(of: pinnedItemsJSON) {
+            HomeSectionConfigHelper.syncWithPinnedItems(pinnedItemIds)
+            homeSectionConfig = HomeSectionConfigHelper.config
+            homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+        }
         .searchable(
             text: $searchText,
             isPresented: $isSearchFocused,
@@ -501,7 +511,7 @@ struct SidebarView: View {
                             }
                         )) {
                             Label(
-                                HomeSectionConfigHelper.displayName(for: item.id),
+                                homeSectionDisplayName(for: item.id),
                                 systemImage: HomeSectionConfigHelper.systemImage(for: item.id)
                             )
                         }
@@ -587,6 +597,18 @@ struct SidebarView: View {
                 }
             }
         )
+    }
+
+    private func homeSectionDisplayName(for id: String) -> String {
+        if id.hasPrefix("pin.dynamicShelf:") {
+            let uuidString = String(id.dropFirst("pin.dynamicShelf:".count))
+            if let uuid = UUID(uuidString: uuidString),
+               let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) {
+                return shelf.name
+            }
+            return id
+        }
+        return HomeSectionConfigHelper.displayName(for: id)
     }
 
     private func findItem(by id: String) -> SidebarItemDescription? {

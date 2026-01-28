@@ -8,6 +8,10 @@ struct HomeSectionConfigItem: Codable, Identifiable, Equatable {
 enum HomeSectionConfigHelper {
     private static let key = "home.sectionConfig"
 
+    static let builtInIds: Set<String> = [
+        "currentlyReading", "startReading", "recentlyAdded", "completed",
+    ]
+
     static let defaultConfig: [HomeSectionConfigItem] = [
         .init(id: "currentlyReading", visible: true),
         .init(id: "startReading", visible: true),
@@ -31,13 +35,35 @@ enum HomeSectionConfigHelper {
         UserDefaults.standard.set(json, forKey: key)
     }
 
+    static func syncWithPinnedItems(_ pinnedIds: [String]) {
+        let homePinIds = pinnedIds.filter { $0.hasPrefix("pin.") }
+
+        var current = config
+        let existingIds = Set(current.map(\.id))
+
+        let staleIds = current
+            .filter { !builtInIds.contains($0.id) && !homePinIds.contains($0.id) }
+            .map(\.id)
+
+        let newIds = homePinIds.filter { !existingIds.contains($0) }
+
+        guard !staleIds.isEmpty || !newIds.isEmpty else { return }
+
+        current.removeAll { staleIds.contains($0.id) }
+        for pinId in newIds {
+            current.append(HomeSectionConfigItem(id: pinId, visible: true))
+        }
+        save(current)
+    }
+
     static func displayName(for id: String) -> String {
         switch id {
         case "currentlyReading": return "Currently Reading"
         case "startReading": return "Start Reading"
         case "recentlyAdded": return "Recently Added"
         case "completed": return "Completed"
-        default: return id
+        default:
+            return pinDisplayName(for: id) ?? id
         }
     }
 
@@ -47,8 +73,38 @@ enum HomeSectionConfigHelper {
         case "startReading": return "bookmark"
         case "recentlyAdded": return "clock"
         case "completed": return "checkmark.circle"
-        default: return "questionmark"
+        default:
+            return pinSystemImage(for: id) ?? "questionmark"
         }
+    }
+
+    private static func pinDisplayName(for id: String) -> String? {
+        if id.hasPrefix("pin.series:") { return String(id.dropFirst("pin.series:".count)) }
+        if id.hasPrefix("pin.author:") { return String(id.dropFirst("pin.author:".count)) }
+        if id.hasPrefix("pin.collection:") { return String(id.dropFirst("pin.collection:".count)) }
+        if id.hasPrefix("pin.tag:") { return String(id.dropFirst("pin.tag:".count)) }
+        if id.hasPrefix("pin.narrator:") { return String(id.dropFirst("pin.narrator:".count)) }
+        if id.hasPrefix("pin.translator:") { return String(id.dropFirst("pin.translator:".count)) }
+        if id.hasPrefix("pin.year:") { return String(id.dropFirst("pin.year:".count)) }
+        if id.hasPrefix("pin.rating:") {
+            let rating = String(id.dropFirst("pin.rating:".count))
+            return RatingDisplayHelper.label(for: rating)
+        }
+        if id.hasPrefix("pin.dynamicShelf:") { return nil }
+        return nil
+    }
+
+    private static func pinSystemImage(for id: String) -> String? {
+        if id.hasPrefix("pin.series:") { return "books.vertical" }
+        if id.hasPrefix("pin.author:") { return "person.2" }
+        if id.hasPrefix("pin.collection:") { return "rectangle.stack" }
+        if id.hasPrefix("pin.tag:") { return "tag" }
+        if id.hasPrefix("pin.narrator:") { return "mic" }
+        if id.hasPrefix("pin.translator:") { return "character.book.closed.fill" }
+        if id.hasPrefix("pin.year:") { return "calendar" }
+        if id.hasPrefix("pin.rating:") { return "star" }
+        if id.hasPrefix("pin.dynamicShelf:") { return "sparkles.rectangle.stack" }
+        return nil
     }
 }
 

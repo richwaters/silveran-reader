@@ -50,6 +50,7 @@ struct HomeView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
+    @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -356,6 +357,11 @@ struct HomeView: View {
                 loadSections(source: "onChange(homeSectionConfig)")
             }
         }
+        .onChange(of: pinnedItemsJSON) {
+            if mediaViewModel.isReady {
+                loadSections(source: "onChange(pinnedItems)")
+            }
+        }
     }
 
     private func loadSections(source: String) {
@@ -400,7 +406,12 @@ struct HomeView: View {
 
         sections = config
             .filter { $0.visible }
-            .compactMap { item in sectionBuilders[item.id]?() }
+            .compactMap { item in
+                if let builder = sectionBuilders[item.id] {
+                    return builder()
+                }
+                return makePinnedSection(pinId: item.id)
+            }
     }
 
     private var selectedItem: BookMetadata? {
@@ -581,6 +592,68 @@ struct HomeView: View {
             tagFilter: nil,
             statusFilter: nil,
             sortOrder: .recentlyAdded
+        )
+    }
+
+    private func makePinnedSection(pinId: String) -> HomeSection? {
+        let allBooks = mediaViewModel.library.bookMetaData
+        let title: String
+        var matched: [BookMetadata] = []
+
+        if pinId.hasPrefix("pin.series:") {
+            let value = String(pinId.dropFirst("pin.series:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesSeries(value) }
+        } else if pinId.hasPrefix("pin.author:") {
+            let value = String(pinId.dropFirst("pin.author:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesAuthor(value) }
+        } else if pinId.hasPrefix("pin.collection:") {
+            let value = String(pinId.dropFirst("pin.collection:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesCollection(value) }
+        } else if pinId.hasPrefix("pin.tag:") {
+            let value = String(pinId.dropFirst("pin.tag:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesTag(value) }
+        } else if pinId.hasPrefix("pin.narrator:") {
+            let value = String(pinId.dropFirst("pin.narrator:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesNarrator(value) }
+        } else if pinId.hasPrefix("pin.translator:") {
+            let value = String(pinId.dropFirst("pin.translator:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesTranslator(value) }
+        } else if pinId.hasPrefix("pin.year:") {
+            let value = String(pinId.dropFirst("pin.year:".count))
+            title = value
+            matched = allBooks.filter { $0.matchesPublicationYear(value) }
+        } else if pinId.hasPrefix("pin.rating:") {
+            let value = String(pinId.dropFirst("pin.rating:".count))
+            title = RatingDisplayHelper.label(for: value)
+            matched = allBooks.filter { $0.matchesRating(value) }
+        } else if pinId.hasPrefix("pin.dynamicShelf:") {
+            let uuidString = String(pinId.dropFirst("pin.dynamicShelf:".count))
+            guard let uuid = UUID(uuidString: uuidString),
+                  let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) else {
+                return nil
+            }
+            title = shelf.name
+            matched = mediaViewModel.booksForShelf(shelf)
+        } else {
+            return nil
+        }
+
+        let filtered = matched.filter { matchesSearchText($0) }
+        let limited = Array(filtered.prefix(12))
+        return HomeSection(
+            title: title,
+            mediaKind: .ebook,
+            items: limited,
+            destination: pinId,
+            tagFilter: nil,
+            statusFilter: nil,
+            sortOrder: nil
         )
     }
 
@@ -788,7 +861,11 @@ private struct HomeSectionRow: View {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isSidebarVisible = false
                     }
-                    selectSidebarItem(named: section.destination)
+                    if section.destination.hasPrefix("pin.") {
+                        resolvePinnedDestination(section.destination)
+                    } else {
+                        selectSidebarItem(named: section.destination)
+                    }
                     #endif
                 }
                 .buttonStyle(.plain)
@@ -942,6 +1019,24 @@ private struct HomeSectionRow: View {
     }
 
     #if os(macOS)
+    private func resolvePinnedDestination(_ pinId: String) {
+        if pinId.hasPrefix("pin.dynamicShelf:") {
+            let uuidString = String(pinId.dropFirst("pin.dynamicShelf:".count))
+            if let uuid = UUID(uuidString: uuidString),
+               let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) {
+                selectedSidebarItem = SidebarItemDescription(
+                    id: pinId,
+                    name: shelf.name,
+                    systemImage: "sparkles.rectangle.stack",
+                    badge: -1,
+                    content: .dynamicShelfDetail(uuid)
+                )
+            }
+        } else if let resolved = SidebarView.resolveDynamicPin(id: pinId) {
+            selectedSidebarItem = resolved
+        }
+    }
+
     private func scrollLeft() {
         let itemWidth = tileWidth + horizontalSpacing
         let currentIndex = round(-scrollOffset / itemWidth)
