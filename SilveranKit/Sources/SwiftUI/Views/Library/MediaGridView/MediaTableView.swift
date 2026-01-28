@@ -188,7 +188,7 @@ struct MediaTableView: NSViewRepresentable {
             "progress": ("Progress", 60, 100, 140),
             "narrator": ("Narrator", 80, 120, 10000),
             "translator": ("Translator", 80, 120, 10000),
-            "publicationYear": ("Year", 40, 60, 80),
+            "publicationYear": ("Published", 80, 100, 10000),
             "status": ("Status", 60, 80, 10000),
             "added": ("Added", 80, 100, 10000),
             "lastRead": ("Last Read", 80, 100, 10000),
@@ -306,7 +306,7 @@ struct MediaTableView: NSViewRepresentable {
             case "translator":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortableTranslator, secondary: true)
             case "publicationYear":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: item.sortablePublicationYear, secondary: true)
+                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.publicationDate), secondary: true)
             case "status":
                 return makeTextCell(tableView: tableView, cellID: cellID, text: item.status?.name ?? "", secondary: true)
             case "added":

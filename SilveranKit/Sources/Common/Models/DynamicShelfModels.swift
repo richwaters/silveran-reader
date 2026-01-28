@@ -38,11 +38,11 @@ public struct DynamicShelf: Codable, Identifiable, Hashable, Sendable {
 }
 
 public enum ShelfCondition: Codable, Hashable, Sendable {
-    case format(FormatCondition)
-    case status(String)
-    case location(LocationCondition)
+    case format(mode: InclusionMode, conditions: [FormatCondition])
+    case status(mode: InclusionMode, values: [String])
+    case location(mode: InclusionMode, conditions: [LocationCondition])
     case rating(comparison: RatingComparison, value: Int)
-    case progress(ProgressCondition)
+    case progress(mode: InclusionMode, conditions: [ProgressCondition])
     case tag(mode: InclusionMode, values: [String])
     case series(mode: InclusionMode, values: [String])
     case author(mode: InclusionMode, values: [String])
@@ -50,26 +50,28 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
     case translator(mode: InclusionMode, values: [String])
     case publicationYear(mode: InclusionMode, values: [String])
     case publicationYearComparison(comparison: YearComparison, value: Int)
+    case hasAuthor
+    case hasNarrator
+    case hasTranslator
     case orSeparator
 
     public func matches(_ book: BookMetadata, progress: Double) -> Bool {
         switch self {
-        case .format(let condition):
-            switch condition {
-            case .ebook: return book.hasAvailableEbook
-            case .audiobook: return book.hasAvailableAudiobook
-            case .readaloud: return book.hasAvailableReadaloud
-            case .ebookOnly: return book.isEbookOnly
-            case .audiobookOnly: return book.isAudiobookOnly
-            }
+        case .format(let mode, let conditions):
+            let matches = conditions.contains { formatConditionMatches($0, book) }
+            return mode == .include ? matches : !matches
 
-        case .status(let statusName):
-            guard let bookStatus = book.status?.name else { return false }
-            return bookStatus.caseInsensitiveCompare(statusName) == .orderedSame
+        case .status(let mode, let values):
+            let bookStatuses: [String]
+            if let name = book.status?.name {
+                bookStatuses = [name.lowercased()]
+            } else {
+                bookStatuses = []
+            }
+            let targets = values.map { $0.lowercased() }
+            return matchesInclusion(mode: mode, bookValues: bookStatuses, targets: targets)
 
         case .location:
-            // Location filtering requires download state from MediaViewModel,
-            // so it's handled at the view model level
             return true
 
         case .rating(let comparison, let value):
@@ -80,12 +82,9 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
             case .equal: return bookRating == value
             }
 
-        case .progress(let condition):
-            switch condition {
-            case .notStarted: return progress <= 0
-            case .inProgress: return progress > 0 && progress < 1
-            case .completed: return progress >= 1
-            }
+        case .progress(let mode, let conditions):
+            let matches = conditions.contains { progressConditionMatches($0, progress: progress) }
+            return mode == .include ? matches : !matches
 
         case .tag(let mode, let values):
             let bookTags = book.tagNames.map { $0.lowercased() }
@@ -127,8 +126,36 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
             case .exactly: return bookYear == value
             }
 
+        case .hasAuthor:
+            return !(book.authors ?? []).isEmpty
+
+        case .hasNarrator:
+            return !(book.narrators ?? []).isEmpty
+
+        case .hasTranslator:
+            return (book.creators ?? []).contains { $0.role == "trl" }
+
         case .orSeparator:
             return true
+        }
+    }
+
+    private func formatConditionMatches(_ condition: FormatCondition, _ book: BookMetadata) -> Bool {
+        switch condition {
+        case .ebook: return book.hasAvailableEbook
+        case .audiobook: return book.hasAvailableAudiobook
+        case .readaloud: return book.hasAvailableReadaloud
+        case .missingReadaloud: return !book.hasAvailableReadaloud
+        case .ebookOnly: return book.isEbookOnly
+        case .audiobookOnly: return book.isAudiobookOnly
+        }
+    }
+
+    private func progressConditionMatches(_ condition: ProgressCondition, progress: Double) -> Bool {
+        switch condition {
+        case .notStarted: return progress <= 0
+        case .inProgress: return progress > 0 && progress < 1
+        case .completed: return progress >= 1
         }
     }
 
@@ -143,11 +170,11 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
 
     public var displayLabel: String {
         switch self {
-        case .format(let c): return "Format: \(c.label)"
-        case .status(let s): return "Status: \(s)"
-        case .location(let c): return "Location: \(c.label)"
+        case .format(let m, let c): return "Format \(m.label): \(c.map(\.label).joined(separator: ", "))"
+        case .status(let m, let v): return "Status \(m.label): \(v.joined(separator: ", "))"
+        case .location(let m, let c): return "Location \(m.label): \(c.map(\.label).joined(separator: ", "))"
         case .rating(let cmp, let v): return "Rating \(cmp.symbol) \(v)"
-        case .progress(let c): return "Progress: \(c.label)"
+        case .progress(let m, let c): return "Progress \(m.label): \(c.map(\.label).joined(separator: ", "))"
         case .tag(let m, let v): return "Tags \(m.label): \(v.joined(separator: ", "))"
         case .series(let m, let v): return "Series \(m.label): \(v.joined(separator: ", "))"
         case .author(let m, let v): return "Author \(m.label): \(v.joined(separator: ", "))"
@@ -155,6 +182,9 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
         case .translator(let m, let v): return "Translator \(m.label): \(v.joined(separator: ", "))"
         case .publicationYear(let m, let v): return "Year \(m.label): \(v.joined(separator: ", "))"
         case .publicationYearComparison(let cmp, let v): return "Year \(cmp.label.lowercased()) \(v)"
+        case .hasAuthor: return "Any Author Present"
+        case .hasNarrator: return "Any Narrator Present"
+        case .hasTranslator: return "Any Translator Present"
         case .orSeparator: return "OR"
         }
     }
@@ -164,6 +194,7 @@ public enum FormatCondition: String, Codable, Hashable, Sendable, CaseIterable, 
     case ebook
     case audiobook
     case readaloud
+    case missingReadaloud
     case ebookOnly
     case audiobookOnly
 
@@ -173,7 +204,8 @@ public enum FormatCondition: String, Codable, Hashable, Sendable, CaseIterable, 
         switch self {
         case .ebook: return "Has Ebook"
         case .audiobook: return "Has Audiobook"
-        case .readaloud: return "Has Read Aloud"
+        case .readaloud: return "Has Readaloud"
+        case .missingReadaloud: return "Missing Readaloud"
         case .ebookOnly: return "Ebook Only"
         case .audiobookOnly: return "Audiobook Only"
         }

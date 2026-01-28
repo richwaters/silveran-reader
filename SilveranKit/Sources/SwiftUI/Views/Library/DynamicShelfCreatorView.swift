@@ -29,6 +29,7 @@ struct DynamicShelfCreatorView: View {
     @State private var cachedValues: [ShelfConditionType: [String]] = [:]
     @State private var cachedStatuses: [String] = []
     @State private var showValidation = false
+    @State private var selectedConditionType: ShelfConditionType?
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
 
     private var coverPreference: CoverPreference {
@@ -98,6 +99,15 @@ struct DynamicShelfCreatorView: View {
         }
         .frame(minWidth: 700, idealWidth: 850, minHeight: 500, idealHeight: 600)
         .background(Color(nsColor: .controlBackgroundColor))
+        .sheet(item: $selectedConditionType) { type in
+            ConditionEditorSheet(
+                conditionType: type,
+                cachedValues: cachedValues,
+                cachedStatuses: cachedStatuses
+            ) { newConditions in
+                appendConditions(newConditions)
+            }
+        }
         .onAppear {
             precomputeAvailableValues()
         }
@@ -250,13 +260,23 @@ struct DynamicShelfCreatorView: View {
         return false
     }
 
-    // MARK: - Condition menus
+    // MARK: - Condition menu
 
     private var addConditionMenu: some View {
         Menu {
             ForEach(ShelfConditionType.allCases) { type in
-                Menu(type.label) {
-                    conditionSubMenu(for: type)
+                if type == .boolean {
+                    Button {
+                        identifiedConditions.append(IdentifiedCondition(.orSeparator))
+                    } label: {
+                        Label("OR", systemImage: type.systemImage)
+                    }
+                } else {
+                    Button {
+                        selectedConditionType = type
+                    } label: {
+                        Label(type.label, systemImage: type.systemImage)
+                    }
                 }
             }
         } label: {
@@ -266,134 +286,29 @@ struct DynamicShelfCreatorView: View {
         .fixedSize()
     }
 
-    @ViewBuilder
-    private func conditionSubMenu(for type: ShelfConditionType) -> some View {
-        switch type {
-        case .format:
-            ForEach(FormatCondition.allCases) { fc in
-                Button(fc.label) {
-                    identifiedConditions.append(IdentifiedCondition(.format(fc)))
-                }
-            }
+    // MARK: - Condition merge logic
 
-        case .status:
-            ForEach(cachedStatuses, id: \.self) { status in
-                Button(status) {
-                    identifiedConditions.append(IdentifiedCondition(.status(status)))
-                }
-            }
-
-        case .location:
-            ForEach(LocationCondition.allCases) { lc in
-                Button(lc.label) {
-                    identifiedConditions.append(IdentifiedCondition(.location(lc)))
-                }
-            }
-
-        case .rating:
-            ForEach(RatingComparison.allCases) { comparison in
-                Menu(comparison.label) {
-                    ForEach(1...5, id: \.self) { value in
-                        Button("\(value) star\(value == 1 ? "" : "s")") {
-                            identifiedConditions.append(
-                                IdentifiedCondition(.rating(comparison: comparison, value: value))
-                            )
-                        }
-                    }
-                }
-            }
-
-        case .progress:
-            ForEach(ProgressCondition.allCases) { pc in
-                Button(pc.label) {
-                    identifiedConditions.append(IdentifiedCondition(.progress(pc)))
-                }
-            }
-
-        case .tag:
-            inclusionSubMenu(type: .tag)
-
-        case .series:
-            inclusionSubMenu(type: .series)
-
-        case .author:
-            inclusionSubMenu(type: .author)
-
-        case .narrator:
-            inclusionSubMenu(type: .narrator)
-
-        case .translator:
-            inclusionSubMenu(type: .translator)
-
-        case .publicationYear:
-            publicationYearFullSubMenu
-
-        case .boolean:
-            Button("OR") {
-                identifiedConditions.append(IdentifiedCondition(.orSeparator))
+    private func appendConditions(_ newConditions: [ShelfCondition]) {
+        for condition in newConditions {
+            if isInclusionCondition(condition) {
+                mergeInclusionCondition(condition)
+            } else {
+                identifiedConditions.append(IdentifiedCondition(condition))
             }
         }
     }
 
-    @ViewBuilder
-    private var publicationYearFullSubMenu: some View {
-        let yearStrings = cachedValues[.publicationYear] ?? []
-        let years = yearStrings.compactMap { Int($0) }.sorted(by: >)
-
-        ForEach(YearComparison.allCases) { comparison in
-            Menu(comparison.label) {
-                ForEach(years, id: \.self) { year in
-                    Button {
-                        identifiedConditions.append(
-                            IdentifiedCondition(.publicationYearComparison(comparison: comparison, value: year))
-                        )
-                    } label: {
-                        Text(verbatim: "\(year)")
-                    }
-                }
-                if years.isEmpty {
-                    Text("No values available")
-                }
-            }
-        }
-
-        Divider()
-
-        ForEach(InclusionMode.allCases) { mode in
-            Menu(mode.label.capitalized) {
-                ForEach(yearStrings, id: \.self) { value in
-                    Button(value) {
-                        appendInclusionCondition(type: .publicationYear, mode: mode, value: value)
-                    }
-                }
-                if yearStrings.isEmpty {
-                    Text("No values available")
-                }
-            }
+    private func isInclusionCondition(_ condition: ShelfCondition) -> Bool {
+        switch condition {
+        case .format, .status, .location, .progress,
+             .tag, .series, .author, .narrator, .translator, .publicationYear:
+            return true
+        default:
+            return false
         }
     }
 
-    @ViewBuilder
-    private func inclusionSubMenu(type: ShelfConditionType) -> some View {
-        let values = cachedValues[type] ?? []
-        ForEach(InclusionMode.allCases) { mode in
-            Menu(mode.label.capitalized) {
-                ForEach(values, id: \.self) { value in
-                    Button(value) {
-                        appendInclusionCondition(type: type, mode: mode, value: value)
-                    }
-                }
-                if values.isEmpty {
-                    Text("No values available")
-                }
-            }
-        }
-    }
-
-    // MARK: - Inclusion merge logic (scoped to current OR group)
-
-    private func appendInclusionCondition(type: ShelfConditionType, mode: InclusionMode, value: String) {
-        // Only merge within the last OR group (everything after the last orSeparator).
+    private func mergeInclusionCondition(_ condition: ShelfCondition) {
         let lastOrIndex = identifiedConditions.lastIndex(where: {
             if case .orSeparator = $0.condition { return true }
             return false
@@ -401,105 +316,64 @@ struct DynamicShelfCreatorView: View {
         let groupStart = (lastOrIndex ?? -1) + 1
 
         if let existingIndex = identifiedConditions[groupStart...].firstIndex(where: {
-            existingConditionMatches($0.condition, type: type, mode: mode)
+            inclusionConditionMatches($0.condition, condition)
         }) {
             identifiedConditions[existingIndex].condition =
-                addValueToCondition(identifiedConditions[existingIndex].condition, value: value)
+                mergedInclusionValues(existing: identifiedConditions[existingIndex].condition, new: condition)
         } else {
-            let newCondition: ShelfCondition
-            switch type {
-            case .tag: newCondition = .tag(mode: mode, values: [value])
-            case .series: newCondition = .series(mode: mode, values: [value])
-            case .author: newCondition = .author(mode: mode, values: [value])
-            case .narrator: newCondition = .narrator(mode: mode, values: [value])
-            case .translator: newCondition = .translator(mode: mode, values: [value])
-            case .publicationYear: newCondition = .publicationYear(mode: mode, values: [value])
-            default: return
-            }
-            identifiedConditions.append(IdentifiedCondition(newCondition))
+            identifiedConditions.append(IdentifiedCondition(condition))
         }
     }
 
-    private func existingConditionMatches(_ condition: ShelfCondition, type: ShelfConditionType, mode: InclusionMode) -> Bool {
-        switch (condition, type) {
-        case (.tag(let m, _), .tag): return m == mode
-        case (.series(let m, _), .series): return m == mode
-        case (.author(let m, _), .author): return m == mode
-        case (.narrator(let m, _), .narrator): return m == mode
-        case (.translator(let m, _), .translator): return m == mode
-        case (.publicationYear(let m, _), .publicationYear): return m == mode
+    private func inclusionConditionMatches(_ existing: ShelfCondition, _ new: ShelfCondition) -> Bool {
+        switch (existing, new) {
+        case (.format(let m1, _), .format(let m2, _)): return m1 == m2
+        case (.status(let m1, _), .status(let m2, _)): return m1 == m2
+        case (.location(let m1, _), .location(let m2, _)): return m1 == m2
+        case (.progress(let m1, _), .progress(let m2, _)): return m1 == m2
+        case (.tag(let m1, _), .tag(let m2, _)): return m1 == m2
+        case (.series(let m1, _), .series(let m2, _)): return m1 == m2
+        case (.author(let m1, _), .author(let m2, _)): return m1 == m2
+        case (.narrator(let m1, _), .narrator(let m2, _)): return m1 == m2
+        case (.translator(let m1, _), .translator(let m2, _)): return m1 == m2
+        case (.publicationYear(let m1, _), .publicationYear(let m2, _)): return m1 == m2
         default: return false
         }
     }
 
-    private func addValueToCondition(_ condition: ShelfCondition, value: String) -> ShelfCondition {
-        switch condition {
-        case .tag(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .tag(mode: m, values: v)
-        case .series(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .series(mode: m, values: v)
-        case .author(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .author(mode: m, values: v)
-        case .narrator(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .narrator(mode: m, values: v)
-        case .translator(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .translator(mode: m, values: v)
-        case .publicationYear(let m, var v):
-            if !v.contains(value) { v.append(value) }
-            return .publicationYear(mode: m, values: v)
+    private func mergedInclusionValues(existing: ShelfCondition, new: ShelfCondition) -> ShelfCondition {
+        switch (existing, new) {
+        case (.format(let m, let c1), .format(_, let c2)):
+            return .format(mode: m, conditions: mergedValues(c1, c2))
+        case (.status(let m, let v1), .status(_, let v2)):
+            return .status(mode: m, values: mergedValues(v1, v2))
+        case (.location(let m, let c1), .location(_, let c2)):
+            return .location(mode: m, conditions: mergedValues(c1, c2))
+        case (.progress(let m, let c1), .progress(_, let c2)):
+            return .progress(mode: m, conditions: mergedValues(c1, c2))
+        case (.tag(let m, let v1), .tag(_, let v2)):
+            return .tag(mode: m, values: mergedValues(v1, v2))
+        case (.series(let m, let v1), .series(_, let v2)):
+            return .series(mode: m, values: mergedValues(v1, v2))
+        case (.author(let m, let v1), .author(_, let v2)):
+            return .author(mode: m, values: mergedValues(v1, v2))
+        case (.narrator(let m, let v1), .narrator(_, let v2)):
+            return .narrator(mode: m, values: mergedValues(v1, v2))
+        case (.translator(let m, let v1), .translator(_, let v2)):
+            return .translator(mode: m, values: mergedValues(v1, v2))
+        case (.publicationYear(let m, let v1), .publicationYear(_, let v2)):
+            return .publicationYear(mode: m, values: mergedValues(v1, v2))
         default:
-            return condition
+            return existing
         }
     }
 
-    // MARK: - Available values
-
-    private var availableStatuses: [String] {
-        var statuses = Set<String>()
-        for book in mediaViewModel.library.bookMetaData {
-            if let name = book.status?.name {
-                statuses.insert(name)
-            }
+    private func mergedValues<T: Equatable>(_ existing: [T], _ new: [T]) -> [T] {
+        var result = existing
+        for value in new where !result.contains(value) {
+            result.append(value)
         }
-        return statuses.sorted()
-    }
-
-    private func availableValues(for type: ShelfConditionType) -> [String] {
-        let books = mediaViewModel.library.bookMetaData
-        var values = Set<String>()
-
-        for book in books {
-            switch type {
-            case .tag:
-                for tag in book.tagNames { values.insert(tag) }
-            case .series:
-                for s in book.series ?? [] { values.insert(s.name) }
-            case .author:
-                for a in book.authors ?? [] {
-                    if let name = a.name { values.insert(name) }
-                }
-            case .narrator:
-                for n in book.narrators ?? [] {
-                    if let name = n.name { values.insert(name) }
-                }
-            case .translator:
-                for c in book.creators ?? [] where c.role == "trl" {
-                    if let name = c.name { values.insert(name) }
-                }
-            case .publicationYear:
-                let year = book.sortablePublicationYear
-                if !year.isEmpty { values.insert(year) }
-            default:
-                break
-            }
-        }
-
-        return values.sorted()
+        return result
     }
 
     // MARK: - Preview panel

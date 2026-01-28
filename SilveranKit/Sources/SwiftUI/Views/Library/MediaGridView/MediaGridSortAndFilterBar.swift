@@ -417,7 +417,7 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "lastRead", label: "Last Read")
             columnToggle(id: "tags", label: "Tags")
             columnToggle(id: "translator", label: "Translator")
-            columnToggle(id: "publicationYear", label: "Year")
+            columnToggle(id: "publicationYear", label: "Published")
             columnToggle(id: "media", label: "Media")
             Divider()
             Button("Reset to Defaults") {

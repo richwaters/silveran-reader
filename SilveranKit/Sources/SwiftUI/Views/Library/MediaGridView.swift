@@ -545,6 +545,7 @@ struct MediaGridView: View {
             if cachedDisplayItems.isEmpty {
                 emptyStateView
                     .padding(.horizontal, gridHorizontalPadding)
+                Spacer()
             } else {
                 MediaTableView(
                     items: tableSortedItems,
@@ -635,10 +636,30 @@ struct MediaGridView: View {
         lastSortKeyPath = currentKeyPath
     }
 
+    private var hasActiveFilters: Bool {
+        selectedFormatFilter != .all
+            || selectedTag != nil
+            || selectedSeries != nil
+            || selectedAuthor != nil
+            || selectedNarrator != nil
+            || selectedTranslator != nil
+            || selectedPublicationYear != nil
+            || selectedRating != nil
+            || selectedStatus != nil
+            || selectedLocation != .all
+    }
+
     private var tableHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(title)
+                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                if hasActiveFilters {
+                    Text("\(cachedDisplayItems.count) books")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             MediaGridSortAndFilterBar(
                 selectedSortOption: $selectedSortOption,
