@@ -1889,6 +1889,73 @@ struct MediaGridView: View {
             }
         }
 
+        var sortField: SortField {
+            switch self {
+            case .titleAZ, .titleZA: return .title
+            case .authorAZ, .authorZA: return .author
+            case .progressHighToLow, .progressLowToHigh: return .progress
+            case .recentlyRead: return .recentlyRead
+            case .recentlyAdded: return .recentlyAdded
+            case .seriesPosition: return .seriesPosition
+            }
+        }
+
+        var isAscending: Bool {
+            switch self {
+            case .titleAZ, .authorAZ, .progressLowToHigh, .seriesPosition: return true
+            case .titleZA, .authorZA, .progressHighToLow, .recentlyRead, .recentlyAdded: return false
+            }
+        }
+
+        var toggled: SortOption {
+            switch self {
+            case .titleAZ: return .titleZA
+            case .titleZA: return .titleAZ
+            case .authorAZ: return .authorZA
+            case .authorZA: return .authorAZ
+            case .progressHighToLow: return .progressLowToHigh
+            case .progressLowToHigh: return .progressHighToLow
+            case .recentlyRead, .recentlyAdded, .seriesPosition: return self
+            }
+        }
+
+        static var menuFields: [SortField] {
+            [.title, .author, .progress, .recentlyRead, .recentlyAdded, .seriesPosition]
+        }
+
+        static func defaultOption(for field: SortField) -> SortOption {
+            switch field {
+            case .title: return .titleAZ
+            case .author: return .authorAZ
+            case .progress: return .progressHighToLow
+            case .recentlyRead: return .recentlyRead
+            case .recentlyAdded: return .recentlyAdded
+            case .seriesPosition: return .seriesPosition
+            }
+        }
+
+        enum SortField: String, CaseIterable {
+            case title, author, progress, recentlyRead, recentlyAdded, seriesPosition
+
+            var label: String {
+                switch self {
+                case .title: return "Title"
+                case .author: return "Author"
+                case .progress: return "Progress"
+                case .recentlyRead: return "Recently Read"
+                case .recentlyAdded: return "Recently Added"
+                case .seriesPosition: return "Series Position"
+                }
+            }
+
+            var isToggleable: Bool {
+                switch self {
+                case .title, .author, .progress: return true
+                case .recentlyRead, .recentlyAdded, .seriesPosition: return false
+                }
+            }
+        }
+
         func comparison(_ lhs: BookMetadata, _ rhs: BookMetadata) -> ComparisonResult {
             switch self {
                 case .titleAZ:

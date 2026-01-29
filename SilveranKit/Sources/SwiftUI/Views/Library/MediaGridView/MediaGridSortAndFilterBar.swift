@@ -60,11 +60,11 @@ struct MediaGridSortAndFilterBar: View {
     @ViewBuilder
     private var sortMenu: some View {
         Menu {
-            ForEach(MediaGridView.SortOption.allCases) { option in
+            ForEach(MediaGridView.SortOption.menuFields, id: \.self) { field in
                 Button {
-                    selectedSortOption = option
+                    handleSortFieldTap(field)
                 } label: {
-                    menuRowLabel(text: option.label, isSelected: option == selectedSortOption)
+                    sortMenuRow(for: field)
                 }
             }
         } label: {
@@ -72,14 +72,38 @@ struct MediaGridSortAndFilterBar: View {
             Label("Sort", systemImage: "arrow.up.arrow.down")
             #else
             Label(
-                "Sort: \(selectedSortOption.shortLabel)",
-                systemImage: "arrow.up.arrow.down"
+                "Sort: \(selectedSortOption.sortField.label)",
+                systemImage: selectedSortOption.isAscending ? "arrow.up" : "arrow.down"
             )
             #endif
         }
         #if os(macOS)
         .menuStyle(.borderlessButton)
         #endif
+    }
+
+    private func handleSortFieldTap(_ field: MediaGridView.SortOption.SortField) {
+        if selectedSortOption.sortField == field && field.isToggleable {
+            selectedSortOption = selectedSortOption.toggled
+        } else {
+            selectedSortOption = MediaGridView.SortOption.defaultOption(for: field)
+        }
+    }
+
+    @ViewBuilder
+    private func sortMenuRow(for field: MediaGridView.SortOption.SortField) -> some View {
+        let isSelected = selectedSortOption.sortField == field
+        HStack {
+            Text(field.label)
+            Spacer()
+            if isSelected && field.isToggleable {
+                Image(systemName: selectedSortOption.isAscending ? "arrow.up" : "arrow.down")
+                    .imageScale(.small)
+            } else if isSelected {
+                Image(systemName: "checkmark")
+                    .imageScale(.small)
+            }
+        }
     }
 
     @ViewBuilder
