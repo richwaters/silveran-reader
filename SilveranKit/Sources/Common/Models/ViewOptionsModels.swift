@@ -1,5 +1,11 @@
 import Foundation
 
+public extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
 public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
     case grid
     case compactGrid
@@ -27,28 +33,10 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-public enum CoverSize: String, CaseIterable, Identifiable, Sendable {
-    case small
-    case medium
-    case large
-
-    public var id: String { rawValue }
-
-    public var label: String {
-        switch self {
-        case .small: "Small"
-        case .medium: "Medium"
-        case .large: "Large"
-        }
-    }
-
-    public var gridTileWidth: CGFloat {
-        switch self {
-        case .small: 100
-        case .medium: 125
-        case .large: 160
-        }
-    }
+public enum CoverSizeRange {
+    public static let min: CGFloat = 80
+    public static let max: CGFloat = 200
+    public static let defaultValue: CGFloat = 125
 }
 
 public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {

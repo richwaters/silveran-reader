@@ -14,7 +14,7 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var selectedLocation: MediaGridView.LocationFilterOption
     @Binding var layoutStyle: LibraryLayoutStyle
     @Binding var coverPreference: CoverPreference
-    @Binding var coverSize: CoverSize
+    @Binding var coverSize: Double
     @Binding var showAudioIndicator: Bool
     @Binding var showSourceBadge: Bool
     @Binding var showSeriesPositionBadge: Bool
@@ -34,6 +34,8 @@ struct MediaGridSortAndFilterBar: View {
     var onResetColumns: (() -> Void)? = nil
     #endif
 
+    @State private var showViewOptions = false
+
     var body: some View {
         HStack(spacing: 12) {
             if showSortOption {
@@ -42,13 +44,17 @@ struct MediaGridSortAndFilterBar: View {
             formatMenu
             Spacer()
             #if os(macOS)
-            if isListLayout, columnCustomization != nil {
+            if isTableLayout, columnCustomization != nil {
                 columnsMenu
             }
             #endif
-            viewOptionsMenu
+            viewOptionsButton
         }
         .font(.callout)
+    }
+
+    private var isTableLayout: Bool {
+        layoutStyle == .table
     }
 
     @ViewBuilder
@@ -378,24 +384,140 @@ struct MediaGridSortAndFilterBar: View {
     }
 
     @ViewBuilder
-    private var viewOptionsMenu: some View {
-        Menu {
-            if showLayoutOption {
-                layoutSection
-                Divider()
-            }
-
-            coverStyleSection
-            Divider()
-            coverSizeSection
-            Divider()
-            displaySection
+    private var viewOptionsButton: some View {
+        Button {
+            showViewOptions.toggle()
         } label: {
             Label("View Options", systemImage: "ellipsis.circle")
         }
         #if os(macOS)
-        .menuStyle(.borderlessButton)
+        .buttonStyle(.borderless)
         #endif
+        .popover(isPresented: $showViewOptions) {
+            viewOptionsPopoverContent
+        }
+    }
+
+    @ViewBuilder
+    private var viewOptionsPopoverContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if showLayoutOption {
+                layoutPopoverSection
+            }
+
+            coverStylePopoverSection
+
+            if !isTableLayout {
+                coverSizePopoverSection
+            }
+
+            displayPopoverSection
+
+            Divider()
+
+            Button("Reset to Defaults") {
+                resetViewOptions()
+            }
+            .font(.subheadline)
+        }
+        .padding()
+        #if os(macOS)
+        .frame(width: 200)
+        #else
+        .frame(minWidth: 220)
+        #endif
+    }
+
+    private func resetViewOptions() {
+        layoutStyle = .grid
+        coverPreference = .preferEbook
+        coverSize = CoverSizeRange.defaultValue
+        showAudioIndicator = true
+        showSourceBadge = false
+        showSeriesPositionBadge = false
+    }
+
+    @ViewBuilder
+    private var layoutPopoverSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Layout")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.table], id: \.self) { style in
+                    Button {
+                        layoutStyle = style
+                    } label: {
+                        Image(systemName: style.iconName)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(layoutStyle == style ? .accentColor : .secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var coverStylePopoverSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Cover Style")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button {
+                    coverPreference = .preferEbook
+                } label: {
+                    Image(systemName: "book.fill")
+                        .frame(width: 32, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .tint(coverPreference == .preferEbook ? .accentColor : .secondary)
+
+                Button {
+                    coverPreference = .preferAudiobook
+                } label: {
+                    Image(systemName: "headphones")
+                        .frame(width: 32, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var coverSizePopoverSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Cover Size")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Image(systemName: "square.grid.3x3")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: $coverSize,
+                    in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
+                    step: 5
+                )
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var displayPopoverSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Display")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            Toggle("Audio Indicator", isOn: $showAudioIndicator)
+            Toggle("Source Badge", isOn: $showSourceBadge)
+            Toggle("Series Position", isOn: $showSeriesPositionBadge)
+        }
     }
 
     #if os(macOS)
@@ -464,86 +586,4 @@ struct MediaGridSortAndFilterBar: View {
     }
     #endif
 
-    @ViewBuilder
-    private var layoutSection: some View {
-        Section("Layout") {
-            ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.table], id: \.self) { style in
-                Button {
-                    layoutStyle = style
-                } label: {
-                    menuRowLabel(text: style.label, isSelected: layoutStyle == style)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var coverStyleSection: some View {
-        Section("Cover Style") {
-            ForEach(CoverPreference.allCases) { preference in
-                Button {
-                    coverPreference = preference
-                } label: {
-                    menuRowLabel(text: preference.label, isSelected: coverPreference == preference)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var coverSizeSection: some View {
-        Section("Cover Size") {
-            ForEach(CoverSize.allCases) { size in
-                Button {
-                    coverSize = size
-                } label: {
-                    menuRowLabel(text: size.label, isSelected: coverSize == size)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var displaySection: some View {
-        Section("Display") {
-            Button {
-                showAudioIndicator.toggle()
-            } label: {
-                HStack {
-                    Text("Show Audio Indicator")
-                    Spacer()
-                    if showAudioIndicator {
-                        Image(systemName: "checkmark")
-                            .imageScale(.small)
-                    }
-                }
-            }
-
-            Button {
-                showSourceBadge.toggle()
-            } label: {
-                HStack {
-                    Text("Show Source Badge")
-                    Spacer()
-                    if showSourceBadge {
-                        Image(systemName: "checkmark")
-                            .imageScale(.small)
-                    }
-                }
-            }
-
-            Button {
-                showSeriesPositionBadge.toggle()
-            } label: {
-                HStack {
-                    Text("Show Series Position")
-                    Spacer()
-                    if showSeriesPositionBadge {
-                        Image(systemName: "checkmark")
-                            .imageScale(.small)
-                    }
-                }
-            }
-        }
-    }
 }

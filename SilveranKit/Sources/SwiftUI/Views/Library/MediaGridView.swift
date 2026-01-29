@@ -136,7 +136,7 @@ struct MediaGridView: View {
     @State private var showSeriesPositionBadge: Bool
     @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
-    @AppStorage("coverSize.global") private var coverSizeRaw: String = CoverSize.medium.rawValue
+    @AppStorage("coverSize.global") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     #if os(macOS)
     @State private var columnCustomization: TableColumnCustomization<BookMetadata> = Self.loadColumnCustomization()
     @State private var tableSortOrder: [KeyPathComparator<BookMetadata>]
@@ -192,9 +192,9 @@ struct MediaGridView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
-    private var coverSize: CoverSize {
-        get { CoverSize(rawValue: coverSizeRaw) ?? .medium }
-        set { coverSizeRaw = newValue.rawValue }
+    private var coverSize: CGFloat {
+        get { CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max) }
+        set { coverSizeValue = Double(newValue) }
     }
 
     @State private var cachedDisplayItems: [BookMetadata] = []
@@ -685,10 +685,7 @@ struct MediaGridView: View {
                     get: { coverPreference },
                     set: { coverPrefRaw = $0.rawValue }
                 ),
-                coverSize: Binding(
-                    get: { coverSize },
-                    set: { coverSizeRaw = $0.rawValue }
-                ),
+                coverSize: $coverSizeValue,
                 showAudioIndicator: Binding(
                     get: { settingsViewModel.showAudioIndicator },
                     set: { newValue in
@@ -758,10 +755,7 @@ struct MediaGridView: View {
                 get: { coverPreference },
                 set: { coverPrefRaw = $0.rawValue }
             ),
-            coverSize: Binding(
-                get: { coverSize },
-                set: { coverSizeRaw = $0.rawValue }
-            ),
+            coverSize: $coverSizeValue,
             showAudioIndicator: Binding(
                 get: { settingsViewModel.showAudioIndicator },
                 set: { newValue in
@@ -827,11 +821,11 @@ struct MediaGridView: View {
                 switch layoutStyle {
                 case .grid, .fan:
                     #if os(iOS)
-                    let isPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize == .small
-                    let gridTileSize = isPhoneSmall ? 75.0 : coverSize.gridTileWidth
+                    let isPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
+                    let gridTileSize = isPhoneSmall ? 75.0 : coverSize
                     let gridMaxSize = isPhoneSmall ? 85.0 : gridTileSize + 40
                     #else
-                    let gridTileSize = coverSize.gridTileWidth
+                    let gridTileSize = coverSize
                     let gridMaxSize = gridTileSize + 40
                     #endif
                     let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridMaxSize), spacing: horizontalSpacing)]
@@ -850,11 +844,11 @@ struct MediaGridView: View {
                     .padding(.horizontal, gridHorizontalPadding)
                 case .compactGrid:
                     #if os(iOS)
-                    let isCompactPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize == .small
-                    let compactTileSize = isCompactPhoneSmall ? 80.0 : coverSize.gridTileWidth
+                    let isCompactPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
+                    let compactTileSize = isCompactPhoneSmall ? 80.0 : coverSize
                     let compactMaxSize = isCompactPhoneSmall ? 90.0 : compactTileSize + 20
                     #else
-                    let compactTileSize = coverSize.gridTileWidth
+                    let compactTileSize = coverSize
                     let compactMaxSize = compactTileSize + 20
                     #endif
                     let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactMaxSize), spacing: 4)]
