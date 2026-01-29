@@ -828,14 +828,14 @@ struct MediaGridView: View {
                     let gridTileSize = coverSize
                     let gridMaxSize = gridTileSize + 40
                     #endif
-                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridMaxSize), spacing: horizontalSpacing)]
+                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridMaxSize), spacing: 0)]
                     let gridMetrics = MediaItemCardMetrics.make(for: gridTileSize, mediaKind: mediaKind, coverPreference: coverPreference)
                     #if os(iOS)
                     let gridAlignment: HorizontalAlignment = .center
                     #else
                     let gridAlignment: HorizontalAlignment = .leading
                     #endif
-                    LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: verticalSpacing) {
+                    LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
                         ForEach(cachedDisplayItems) { item in
                             card(for: item, metrics: gridMetrics)
                         }

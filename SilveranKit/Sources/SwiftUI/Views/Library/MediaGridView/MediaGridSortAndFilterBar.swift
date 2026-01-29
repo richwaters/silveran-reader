@@ -392,10 +392,16 @@ struct MediaGridSortAndFilterBar: View {
         }
         #if os(macOS)
         .buttonStyle(.borderless)
-        #endif
         .popover(isPresented: $showViewOptions) {
             viewOptionsPopoverContent
         }
+        #else
+        .sheet(isPresented: $showViewOptions) {
+            viewOptionsPopoverContent
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -510,12 +516,20 @@ struct MediaGridSortAndFilterBar: View {
 
     @ViewBuilder
     private var displayPopoverSection: some View {
+        #if os(iOS)
+        let showGridOnlyOptions = !isTableLayout
+        #else
+        let showGridOnlyOptions = true
+        #endif
+
         VStack(alignment: .leading, spacing: 8) {
             Text("Display")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
-            Toggle("Audio Indicator", isOn: $showAudioIndicator)
-            Toggle("Source Badge", isOn: $showSourceBadge)
+            if showGridOnlyOptions {
+                Toggle("Audio Indicator", isOn: $showAudioIndicator)
+                Toggle("Source Badge", isOn: $showSourceBadge)
+            }
             Toggle("Series Position", isOn: $showSeriesPositionBadge)
         }
     }
