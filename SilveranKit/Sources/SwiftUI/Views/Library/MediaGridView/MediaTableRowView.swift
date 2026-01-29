@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MediaListRowView: View {
+struct MediaTableRowView: View {
     let item: BookMetadata
     let mediaKind: MediaKind
     let coverPreference: CoverPreference

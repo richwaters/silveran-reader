@@ -3,7 +3,7 @@ import Foundation
 public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
     case grid
     case compactGrid
-    case list
+    case table
     case fan
 
     public var id: String { rawValue }
@@ -12,7 +12,7 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .grid: "Grid"
         case .compactGrid: "Compact Grid"
-        case .list: "List"
+        case .table: "Table"
         case .fan: "Fan"
         }
     }
@@ -21,7 +21,7 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .grid: "square.grid.2x2"
         case .compactGrid: "square.grid.3x3"
-        case .list: "list.bullet"
+        case .table: "list.bullet"
         case .fan: "rectangle.stack"
         }
     }

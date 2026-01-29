@@ -262,7 +262,7 @@ struct DynamicShelvesView: View {
                 ForEach(shelves) { shelf in
                     shelfFanSection(shelf: shelf, contentWidth: contentWidth)
                 }
-            case .grid, .compactGrid, .list:
+            case .grid, .compactGrid, .table:
                 shelvesGridLayout(shelves: shelves, contentWidth: contentWidth)
             }
         }

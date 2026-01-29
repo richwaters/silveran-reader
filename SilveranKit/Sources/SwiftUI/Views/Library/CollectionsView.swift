@@ -242,7 +242,7 @@ struct CollectionsView: View {
                         contentWidth: contentWidth
                     )
                 }
-            case .grid, .compactGrid, .list:
+            case .grid, .compactGrid, .table:
                 collectionsGridLayout(groups: filteredGroups, contentWidth: contentWidth)
             }
         }

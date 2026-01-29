@@ -390,7 +390,7 @@ struct MediaGridView: View {
         GeometryReader { geometry in
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
-            let usesTableLayout = layoutStyle == .list
+            let usesTableLayout = layoutStyle == .table
             let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
             let contentWidth = baseContentWidth ?? (geometry.size.width - sidebarAdjustment)
 
@@ -884,10 +884,10 @@ struct MediaGridView: View {
                     }
                     .scrollTargetLayout()
                     .padding(.horizontal, gridHorizontalPadding)
-                case .list:
+                case .table:
                     LazyVStack(alignment: .leading, spacing: 1) {
                         ForEach(cachedDisplayItems) { item in
-                            MediaListRowView(
+                            MediaTableRowView(
                                 item: item,
                                 mediaKind: mediaKind,
                                 coverPreference: coverPreference,
