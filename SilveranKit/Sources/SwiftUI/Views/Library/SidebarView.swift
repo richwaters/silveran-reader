@@ -42,19 +42,10 @@ struct SidebarView: View {
         mediaViewModel.connectionStatus != .disconnected
     }
 
-    private var allItems: [SidebarItemDescription] {
-        sections.flatMap { section in
-            section.items.flatMap { item in
-                [item] + (item.children ?? [])
-            }
-        }
-    }
-
     private var pinnedItems: [SidebarItemDescription] {
-        let ids = pinnedItemIds
-        return ids.compactMap { id in
-            allItems.first(where: { $0.id == id }) ?? resolvePin(id: id)
-        }
+        pinnedItemIds
+            .filter { $0.hasPrefix("pin.") }
+            .compactMap { resolvePin(id: $0) }
     }
 
     private func resolvePin(id: String) -> SidebarItemDescription? {
@@ -487,7 +478,7 @@ struct SidebarView: View {
     #if os(macOS)
     @ViewBuilder
     private func pinButton(for item: SidebarItemDescription, isPinned: Bool) -> some View {
-        if item.content != .home {
+        if item.id.hasPrefix("pin.") {
             let isCurrentlyPinned = isPinned || SidebarPinHelper.isPinned(item.id)
             let showButton = hoveredItemId == item.id || isCurrentlyPinned
             Button {
