@@ -25,7 +25,13 @@ struct ConditionEditorSheet: View {
     @State private var inclusionMode: InclusionMode = .include
     @State private var selectedItems: Set<String> = []
     @State private var searchText = ""
-    @State private var anyPresent = false
+    @State private var presenceMode: PresenceMode = .selectSpecific
+
+    private enum PresenceMode: String, CaseIterable, Hashable {
+        case selectSpecific = "Select Specific"
+        case anyPresent = "Any Present"
+        case nonePresent = "None Present"
+    }
 
     private enum RatingMode: String, CaseIterable, Hashable {
         case single = "Single"
@@ -119,15 +125,15 @@ struct ConditionEditorSheet: View {
         case .publicationYear:
             publicationYearEditor
         case .tag:
-            multiSelectEditor(items: cachedValues[.tag] ?? [], itemLabel: "Tags")
+            multiSelectEditor(items: cachedValues[.tag] ?? [], itemLabel: "Tags", supportsPresence: true)
         case .series:
-            multiSelectEditor(items: cachedValues[.series] ?? [], itemLabel: "Series")
+            multiSelectEditor(items: cachedValues[.series] ?? [], itemLabel: "Series", supportsPresence: true)
         case .author:
-            multiSelectEditor(items: cachedValues[.author] ?? [], itemLabel: "Authors", anyPresentLabel: "Any Author Present")
+            multiSelectEditor(items: cachedValues[.author] ?? [], itemLabel: "Authors", supportsPresence: true)
         case .narrator:
-            multiSelectEditor(items: cachedValues[.narrator] ?? [], itemLabel: "Narrators", anyPresentLabel: "Any Narrator Present")
+            multiSelectEditor(items: cachedValues[.narrator] ?? [], itemLabel: "Narrators", supportsPresence: true)
         case .translator:
-            multiSelectEditor(items: cachedValues[.translator] ?? [], itemLabel: "Translators", anyPresentLabel: "Any Translator Present")
+            multiSelectEditor(items: cachedValues[.translator] ?? [], itemLabel: "Translators", supportsPresence: true)
         case .boolean:
             EmptyView()
         }
@@ -137,27 +143,54 @@ struct ConditionEditorSheet: View {
 
     @ViewBuilder
     private var ratingEditor: some View {
-        VStack(spacing: 20) {
-            Picker("Mode", selection: $ratingMode) {
-                ForEach(RatingMode.allCases, id: \.self) { mode in
+        VStack(spacing: 0) {
+            Picker("Presence", selection: $presenceMode) {
+                ForEach(PresenceMode.allCases, id: \.self) { mode in
                     Text(mode.rawValue).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .padding(.horizontal)
+            .padding()
 
-            Spacer()
-
-            if ratingMode == .single {
-                singleRatingEditor
+            if presenceMode == .anyPresent {
+                Text("Matches books with any rating")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .padding()
+                Spacer()
+            } else if presenceMode == .nonePresent {
+                Text("Matches books with no rating")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .padding()
+                Spacer()
             } else {
-                rangeRatingEditor
-            }
+                Divider()
 
-            Spacer()
+                VStack(spacing: 20) {
+                    Picker("Mode", selection: $ratingMode) {
+                        ForEach(RatingMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .padding(.horizontal)
+
+                    Spacer()
+
+                    if ratingMode == .single {
+                        singleRatingEditor
+                    } else {
+                        rangeRatingEditor
+                    }
+
+                    Spacer()
+                }
+                .padding(.top)
+            }
         }
-        .padding(.top)
     }
 
     private var singleRatingEditor: some View {
@@ -231,19 +264,44 @@ struct ConditionEditorSheet: View {
         let years = yearStrings.compactMap { Int($0) }.sorted(by: >)
 
         VStack(spacing: 0) {
-            Picker("Tab", selection: $yearTab) {
-                ForEach(YearTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+            Picker("Presence", selection: $presenceMode) {
+                ForEach(PresenceMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .padding()
 
-            if yearTab == .beforeAfter {
-                yearCompareEditor(years: years)
+            if presenceMode == .anyPresent {
+                Text("Matches books with any publication year")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .padding()
+                Spacer()
+            } else if presenceMode == .nonePresent {
+                Text("Matches books with no publication year")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .padding()
+                Spacer()
             } else {
-                yearSpecificEditor(yearStrings: yearStrings)
+                Divider()
+
+                Picker("Tab", selection: $yearTab) {
+                    ForEach(YearTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding()
+
+                if yearTab == .beforeAfter {
+                    yearCompareEditor(years: years)
+                } else {
+                    yearSpecificEditor(yearStrings: yearStrings)
+                }
             }
         }
     }
@@ -363,16 +421,26 @@ struct ConditionEditorSheet: View {
     // MARK: - Multi-select editor
 
     @ViewBuilder
-    private func multiSelectEditor(items: [String], itemLabel: String, anyPresentLabel: String? = nil, searchable: Bool = true) -> some View {
+    private func multiSelectEditor(items: [String], itemLabel: String, supportsPresence: Bool = false, searchable: Bool = true) -> some View {
         VStack(spacing: 0) {
-            if let anyLabel = anyPresentLabel {
-                Toggle(anyLabel, isOn: $anyPresent)
-                    .toggleStyle(.checkbox)
-                    .padding(.horizontal)
-                    .padding(.top)
+            if supportsPresence {
+                Picker("Presence", selection: $presenceMode) {
+                    ForEach(PresenceMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding()
 
-                if anyPresent {
+                if presenceMode == .anyPresent {
                     Text("Matches books with any \(conditionType.label.lowercased())")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                        .padding()
+                    Spacer()
+                } else if presenceMode == .nonePresent {
+                    Text("Matches books with no \(conditionType.label.lowercased())")
                         .foregroundStyle(.secondary)
                         .font(.callout)
                         .padding()
@@ -380,7 +448,11 @@ struct ConditionEditorSheet: View {
                 }
             }
 
-            if !anyPresent {
+            if !supportsPresence || presenceMode == .selectSpecific {
+                if supportsPresence {
+                    Divider()
+                }
+
                 Picker("Mode", selection: $inclusionMode) {
                     ForEach(InclusionMode.allCases) { mode in
                         Text(mode.label.capitalized).tag(mode)
@@ -477,18 +549,18 @@ struct ConditionEditorSheet: View {
         case .format, .status, .location, .progress:
             return !selectedItems.isEmpty
         case .rating:
+            if presenceMode != .selectSpecific { return true }
             return ratingMode == .single || ratingRangeLow < ratingRangeHigh
         case .publicationYear:
+            if presenceMode != .selectSpecific { return true }
             if yearTab == .beforeAfter {
                 let hasYears = !(cachedValues[.publicationYear] ?? []).isEmpty
                 if !hasYears { return false }
                 return yearCompareMode == .single || yearRangeLow <= yearRangeHigh
             }
             return !selectedItems.isEmpty
-        case .tag, .series:
-            return !selectedItems.isEmpty
-        case .author, .narrator, .translator:
-            return anyPresent || !selectedItems.isEmpty
+        case .tag, .series, .author, .narrator, .translator:
+            return presenceMode != .selectSpecific || !selectedItems.isEmpty
         case .boolean:
             return false
         }
@@ -510,6 +582,8 @@ struct ConditionEditorSheet: View {
             let conditions = ProgressCondition.allCases.filter { selectedItems.contains($0.label) }
             return [.progress(mode: inclusionMode, conditions: conditions)]
         case .rating:
+            if presenceMode == .anyPresent { return [.hasRating] }
+            if presenceMode == .nonePresent { return [.noRating] }
             if ratingMode == .single {
                 return [.rating(comparison: ratingComparison, value: ratingValue)]
             }
@@ -518,6 +592,8 @@ struct ConditionEditorSheet: View {
                 .rating(comparison: .lessThanOrEqual, value: ratingRangeHigh),
             ]
         case .publicationYear:
+            if presenceMode == .anyPresent { return [.hasPublicationYear] }
+            if presenceMode == .nonePresent { return [.noPublicationYear] }
             if yearTab == .beforeAfter {
                 if yearCompareMode == .single {
                     return [.publicationYearComparison(comparison: yearComparison, value: selectedYear)]
@@ -529,17 +605,24 @@ struct ConditionEditorSheet: View {
             }
             return [.publicationYear(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .tag:
+            if presenceMode == .anyPresent { return [.hasTag] }
+            if presenceMode == .nonePresent { return [.noTag] }
             return [.tag(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .series:
+            if presenceMode == .anyPresent { return [.hasSeries] }
+            if presenceMode == .nonePresent { return [.noSeries] }
             return [.series(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .author:
-            if anyPresent { return [.hasAuthor] }
+            if presenceMode == .anyPresent { return [.hasAuthor] }
+            if presenceMode == .nonePresent { return [.noAuthor] }
             return [.author(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .narrator:
-            if anyPresent { return [.hasNarrator] }
+            if presenceMode == .anyPresent { return [.hasNarrator] }
+            if presenceMode == .nonePresent { return [.noNarrator] }
             return [.narrator(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .translator:
-            if anyPresent { return [.hasTranslator] }
+            if presenceMode == .anyPresent { return [.hasTranslator] }
+            if presenceMode == .nonePresent { return [.noTranslator] }
             return [.translator(mode: inclusionMode, values: Array(selectedItems).sorted())]
         case .boolean:
             return nil

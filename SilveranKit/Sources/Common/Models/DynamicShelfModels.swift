@@ -53,6 +53,17 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
     case hasAuthor
     case hasNarrator
     case hasTranslator
+    case hasSeries
+    case hasRating
+    case hasPublicationYear
+    case hasTag
+    case noAuthor
+    case noNarrator
+    case noTranslator
+    case noSeries
+    case noRating
+    case noPublicationYear
+    case noTag
     case orSeparator
 
     public func matches(_ book: BookMetadata, progress: Double) -> Bool {
@@ -135,6 +146,39 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
         case .hasTranslator:
             return (book.creators ?? []).contains { $0.role == "trl" }
 
+        case .hasSeries:
+            return !(book.series ?? []).isEmpty
+
+        case .hasRating:
+            return book.rating != nil && book.rating! > 0
+
+        case .hasPublicationYear:
+            return !book.sortablePublicationYear.isEmpty
+
+        case .hasTag:
+            return !book.tagNames.isEmpty
+
+        case .noAuthor:
+            return (book.authors ?? []).isEmpty
+
+        case .noNarrator:
+            return (book.narrators ?? []).isEmpty
+
+        case .noTranslator:
+            return !(book.creators ?? []).contains { $0.role == "trl" }
+
+        case .noSeries:
+            return (book.series ?? []).isEmpty
+
+        case .noRating:
+            return book.rating == nil || book.rating! <= 0
+
+        case .noPublicationYear:
+            return book.sortablePublicationYear.isEmpty
+
+        case .noTag:
+            return book.tagNames.isEmpty
+
         case .orSeparator:
             return true
         }
@@ -185,6 +229,17 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
         case .hasAuthor: return "Any Author Present"
         case .hasNarrator: return "Any Narrator Present"
         case .hasTranslator: return "Any Translator Present"
+        case .hasSeries: return "Any Series Present"
+        case .hasRating: return "Any Rating Present"
+        case .hasPublicationYear: return "Any Publication Year Present"
+        case .hasTag: return "Any Tag Present"
+        case .noAuthor: return "No Author Present"
+        case .noNarrator: return "No Narrator Present"
+        case .noTranslator: return "No Translator Present"
+        case .noSeries: return "No Series Present"
+        case .noRating: return "No Rating Present"
+        case .noPublicationYear: return "No Publication Year Present"
+        case .noTag: return "No Tag Present"
         case .orSeparator: return "OR"
         }
     }
