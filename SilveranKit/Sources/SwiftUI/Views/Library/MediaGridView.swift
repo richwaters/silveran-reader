@@ -459,7 +459,8 @@ struct MediaGridView: View {
         .background(
             WindowFrameAdjuster(
                 expandRight: isSidebarVisible && activeInfoItem != nil,
-                rightAmount: sidebarTotalWidth
+                rightAmount: sidebarTotalWidth,
+                savedWidthKey: "LibraryWindowWidth"
             )
         )
         #endif

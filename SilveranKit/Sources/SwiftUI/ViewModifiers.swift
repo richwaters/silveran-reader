@@ -109,6 +109,9 @@ struct WindowFrameAdjuster: NSViewRepresentable {
             object: window,
             queue: .main
         ) { _ in
+            // Only save the base width when sidebars are collapsed to prevent window "walking"
+            // (where each app launch would restore an expanded size then expand again)
+            guard !coordinator.lastExpandedRight && !coordinator.lastExpandedLeft else { return }
             UserDefaults.standard.set(window.frame.width, forKey: key)
         }
     }

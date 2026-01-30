@@ -315,7 +315,8 @@ struct HomeView: View {
         .background(
             WindowFrameAdjuster(
                 expandRight: isSidebarVisible && selectedItem != nil,
-                rightAmount: sidebarTotalWidth
+                rightAmount: sidebarTotalWidth,
+                savedWidthKey: "LibraryWindowWidth"
             )
         )
         .focusable(true)
