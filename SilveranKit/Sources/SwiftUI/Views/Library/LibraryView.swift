@@ -330,6 +330,24 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
+            case .sourceView(let mediaKind):
+                #if os(iOS)
+                SourceView(
+                    mediaKind: mediaKind,
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                SourceView(
+                    mediaKind: mediaKind,
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
             case .dynamicShelves:
                 #if os(iOS)
                 DynamicShelvesView(

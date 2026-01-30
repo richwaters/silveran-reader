@@ -49,6 +49,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case ratingView(MediaKind)
     case collectionsView(MediaKind)
     case statusView(MediaKind)
+    case sourceView(MediaKind)
     case dynamicShelves
     case dynamicShelfDetail(UUID)
     case placeholder(title: String)
@@ -80,6 +81,8 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "collectionsView.\(kind.rawValue)"
         case .statusView(let kind):
             return "statusView.\(kind.rawValue)"
+        case .sourceView(let kind):
+            return "sourceView.\(kind.rawValue)"
         case .dynamicShelves:
             return "dynamicShelves"
         case .dynamicShelfDetail(let id):
@@ -259,6 +262,12 @@ public enum LibrarySidebarDefaults {
                         badge: -1,
                         content: .statusView(.ebook)
                     ),
+                    SidebarItemDescription(
+                        name: "By Source",
+                        systemImage: "externaldrive",
+                        badge: -1,
+                        content: .sourceView(.ebook)
+                    ),
                 ]
             ),
             SidebarSectionDescription(
@@ -276,20 +285,6 @@ public enum LibrarySidebarDefaults {
                         systemImage: "sparkles.rectangle.stack",
                         badge: -1,
                         content: .dynamicShelves
-                    ),
-                    SidebarItemDescription(
-                        name: "Downloaded",
-                        systemImage: "arrow.down.circle",
-                        badge: -1,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Downloaded",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                locationFilter: .downloaded
-                            )
-                        )
                     ),
                 ]
             ),

@@ -852,6 +852,49 @@ public final class MediaViewModel {
         return result
     }
 
+    public func booksBySource(for kind: MediaKind)
+        -> [(source: String, books: [BookMetadata])]
+    {
+        let allBooks = library.bookMetaData
+
+        var sourceMap: [String: [BookMetadata]] = [:]
+
+        for book in allBooks {
+            let key: String
+            if localStandaloneBookIds.contains(book.id) {
+                key = "Local Files"
+            } else if storytellerBookIds.contains(book.id) {
+                key = "Storyteller"
+            } else {
+                key = "Unknown"
+            }
+
+            if var existing = sourceMap[key] {
+                existing.append(book)
+                sourceMap[key] = existing
+            } else {
+                sourceMap[key] = [book]
+            }
+        }
+
+        for key in sourceMap.keys {
+            sourceMap[key]?.sort { a, b in
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
+            }
+        }
+
+        let sourceOrder = ["Storyteller", "Local Files", "Unknown"]
+        var result: [(source: String, books: [BookMetadata])] = sourceMap.map { (source: $0.key, books: $0.value) }
+        result.sort { a, b in
+            let indexA = sourceOrder.firstIndex(of: a.source) ?? sourceOrder.count
+            let indexB = sourceOrder.firstIndex(of: b.source) ?? sourceOrder.count
+            if indexA != indexB { return indexA < indexB }
+            return a.source.localizedCaseInsensitiveCompare(b.source) == .orderedAscending
+        }
+
+        return result
+    }
+
     public enum StatusSortOrder {
         case recentPositionUpdate
         case recentlyAdded
@@ -932,6 +975,8 @@ public final class MediaViewModel {
                 return booksByCollection(for: mediaKind).count
             case .statusView(let mediaKind):
                 return booksByStatus(for: mediaKind).count
+            case .sourceView(let mediaKind):
+                return booksBySource(for: mediaKind).count
             case .dynamicShelves:
                 return dynamicShelves.count
             case .dynamicShelfDetail(let shelfId):
