@@ -37,7 +37,7 @@ struct DynamicShelvesView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 220
+    @State private var listWidth: CGFloat = 330
     @State private var sortByCount = false
     #endif
 
@@ -187,8 +187,8 @@ extension DynamicShelvesView {
                         selectedGroupId: $selectedGroupId,
                         listWidth: $listWidth,
                         sortByCount: $sortByCount,
-                        rowContent: { group, isSelected in
-                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected)
+                        rowContent: { group, isSelected, isHovered in
+                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered)
                         },
                         detailContent: { group in
                             if let shelfId = UUID(uuidString: group.id), let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {

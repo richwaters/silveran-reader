@@ -21,7 +21,7 @@ struct TagView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 220
+    @State private var listWidth: CGFloat = 330
     @State private var sortByCount = false
     #endif
 
@@ -198,8 +198,8 @@ extension TagView {
                         selectedGroupId: $selectedGroupId,
                         listWidth: $listWidth,
                         sortByCount: $sortByCount,
-                        rowContent: { group, isSelected in
-                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected)
+                        rowContent: { group, isSelected, isHovered in
+                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered)
                         },
                         detailContent: { group in
                             MediaGridView(

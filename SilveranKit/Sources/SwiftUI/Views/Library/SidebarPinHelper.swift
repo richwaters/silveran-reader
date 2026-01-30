@@ -104,7 +104,15 @@ enum HomeSectionConfigHelper {
         if id.hasPrefix("pin.translator:") { return "character.book.closed.fill" }
         if id.hasPrefix("pin.year:") { return "calendar" }
         if id.hasPrefix("pin.rating:") { return "star" }
-        if id.hasPrefix("pin.status:") { return "arrow.right.circle" }
+        if id.hasPrefix("pin.status:") {
+            let status = String(id.dropFirst("pin.status:".count))
+            switch status.lowercased() {
+            case "reading": return "arrow.right.circle.fill"
+            case "to read": return "bookmark.fill"
+            case "read": return "checkmark.circle.fill"
+            default: return "questionmark.circle.fill"
+            }
+        }
         if id.hasPrefix("pin.dynamicShelf:") { return "sparkles.rectangle.stack" }
         return nil
     }

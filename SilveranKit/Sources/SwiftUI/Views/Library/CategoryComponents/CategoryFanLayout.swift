@@ -65,6 +65,10 @@ struct CategoryFanSection: View {
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
 
     @State private var settingsViewModel = SettingsViewModel()
+    @State private var isCoverHovered = false
+    @State private var isTitleHovered = false
+
+    private var isHovered: Bool { isCoverHovered || isTitleHovered }
 
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
@@ -79,17 +83,26 @@ struct CategoryFanSection: View {
                 }
             )
             .frame(maxWidth: stackWidth, alignment: .center)
+            .onHover { hovering in
+                isCoverHovered = hovering
+            }
 
             VStack(alignment: .center, spacing: 6) {
-                Button {
-                    onNavigate(group, nil)
-                } label: {
-                    Text(group.name)
-                        .font(.system(size: 20, weight: .regular))
-                        .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    Button {
+                        onNavigate(group, nil)
+                    } label: {
+                        Text(group.name)
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    if let pinId = group.pinId {
+                        CategoryPinButton(pinId: pinId)
+                            .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
+                    }
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .center)
 
                 Text("\(group.books.count) book\(group.books.count == 1 ? "" : "s")")
                     .font(.subheadline)
@@ -97,19 +110,12 @@ struct CategoryFanSection: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity)
-        .contextMenu {
-            if let pinId = group.pinId {
-                Button {
-                    SidebarPinHelper.togglePin(pinId)
-                } label: {
-                    Label(
-                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
-                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
-                    )
-                }
+            .padding(.horizontal, 16)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isTitleHovered = hovering
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }

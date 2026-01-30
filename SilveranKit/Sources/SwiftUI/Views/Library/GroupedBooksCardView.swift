@@ -6,6 +6,7 @@ struct GroupedBooksCardView: View {
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
     let showBookCountBadge: Bool
+    var pinId: String? = nil
     let onTap: () -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var isHovered = false
@@ -60,6 +61,16 @@ struct GroupedBooksCardView: View {
             .padding(.horizontal, cardPadding)
             .padding(.bottom, 12)
             .frame(width: tileWidth, height: maxCardHeight, alignment: .top)
+            #if os(macOS)
+            .overlay(alignment: .bottomTrailing) {
+                if let pinId = pinId {
+                    CategoryPinButton(pinId: pinId)
+                        .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
+                        .padding(.trailing, 8)
+                        .padding(.bottom, 14)
+                }
+            }
+            #endif
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.secondary.opacity(0.08))

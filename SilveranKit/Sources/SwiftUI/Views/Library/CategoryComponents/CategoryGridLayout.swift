@@ -47,23 +47,12 @@ struct CategoryGridLayout<Header: View>: View {
                                 mediaKind: mediaKind,
                                 coverPreference: coverPreference,
                                 showBookCountBadge: showBookCountBadge,
+                                pinId: group.pinId,
                                 onTap: {
                                     onNavigate(group, nil)
                                 }
                             )
                             .id(group.id)
-                            .contextMenu {
-                                if let pinId = group.pinId {
-                                    Button {
-                                        SidebarPinHelper.togglePin(pinId)
-                                    } label: {
-                                        Label(
-                                            SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
-                                            systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                     .padding(.horizontal, horizontalPadding)

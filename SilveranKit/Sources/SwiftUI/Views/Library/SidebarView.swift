@@ -89,7 +89,8 @@ struct SidebarView: View {
                     mediaKind: .ebook,
                     preferredTileWidth: 120,
                     minimumTileWidth: 50,
-                    seriesFilter: name
+                    seriesFilter: name,
+                    defaultSort: "seriesPosition"
                 ))
             )
         }
@@ -203,6 +204,30 @@ struct SidebarView: View {
                     preferredTileWidth: 120,
                     minimumTileWidth: 50,
                     ratingFilter: rating
+                ))
+            )
+        }
+        if id.hasPrefix("pin.status:") {
+            let status = String(id.dropFirst("pin.status:".count))
+            let icon: String
+            switch status.lowercased() {
+            case "reading": icon = "arrow.right.circle.fill"
+            case "to read": icon = "bookmark.fill"
+            case "read": icon = "checkmark.circle.fill"
+            default: icon = "questionmark.circle.fill"
+            }
+            return SidebarItemDescription(
+                id: id,
+                name: status,
+                systemImage: icon,
+                badge: -1,
+                content: .mediaGrid(MediaGridConfiguration(
+                    title: status,
+                    mediaKind: .ebook,
+                    preferredTileWidth: 120,
+                    minimumTileWidth: 50,
+                    statusFilter: status,
+                    defaultSort: "recentlyRead"
                 ))
             )
         }

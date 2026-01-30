@@ -21,7 +21,7 @@ struct CollectionsView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 220
+    @State private var listWidth: CGFloat = 330
     @State private var sortByCount = false
     #endif
 
@@ -134,7 +134,7 @@ extension CollectionsView {
             Group {
                 switch layoutStyle {
                 case .list: CategoryListSidebar(headerTitle: "Books by Collection", sidebarTitle: "Collections", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected in CategoryRowContent(iconName: "rectangle.stack.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected) },
+                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "rectangle.stack.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
                     detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, collectionFilter: group.id, defaultSort: "titleAZ", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
                     toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
                 case .fan, .grid: fanGridContent

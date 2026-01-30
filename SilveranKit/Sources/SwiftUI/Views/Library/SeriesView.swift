@@ -21,7 +21,7 @@ struct SeriesView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 220
+    @State private var listWidth: CGFloat = 330
     @State private var sortByCount = false
     #endif
 
@@ -135,7 +135,7 @@ extension SeriesView {
             Group {
                 switch layoutStyle {
                 case .list: CategoryListSidebar(headerTitle: "Books by Series", sidebarTitle: "Series", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected in CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected) },
+                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
                     detailContent: { group in
                         let isNoSeries = group.id == Self.noSeriesFilterKey
                         let sortKey = isNoSeries ? "title" : "seriesPosition"

@@ -8,7 +8,7 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
     @Binding var selectedGroupId: String?
     @Binding var listWidth: CGFloat
     @Binding var sortByCount: Bool
-    @ViewBuilder let rowContent: (CategoryGroup, Bool) -> RowContent
+    @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
     @ViewBuilder let detailContent: (CategoryGroup) -> DetailContent
     @ViewBuilder let toolbarContent: () -> ToolbarContent
 
@@ -19,7 +19,7 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
         selectedGroupId: Binding<String?>,
         listWidth: Binding<CGFloat>,
         sortByCount: Binding<Bool>,
-        @ViewBuilder rowContent: @escaping (CategoryGroup, Bool) -> RowContent,
+        @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
     ) {
@@ -86,25 +86,12 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(sortedGroups) { group in
-                        Button {
-                            selectedGroupId = group.id
-                        } label: {
-                            rowContent(group, selectedGroupId == group.id)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if let pinId = group.pinId {
-                                Button {
-                                    SidebarPinHelper.togglePin(pinId)
-                                } label: {
-                                    Label(
-                                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
-                                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
-                                    )
-                                }
-                            }
-                        }
+                        CategoryListRow(
+                            group: group,
+                            isSelected: selectedGroupId == group.id,
+                            rowContent: rowContent,
+                            onSelect: { selectedGroupId = group.id }
+                        )
                     }
                 }
                 .padding(.horizontal, 8)
@@ -132,6 +119,25 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
         }
     }
 }
+
+private struct CategoryListRow<RowContent: View>: View {
+    let group: CategoryGroup
+    let isSelected: Bool
+    @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
+    let onSelect: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            rowContent(group, isSelected, isHovered)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+}
 #endif
 
 struct CategoryRowContent: View {
@@ -139,6 +145,8 @@ struct CategoryRowContent: View {
     let name: String
     let bookCount: Int
     let isSelected: Bool
+    var pinId: String? = nil
+    var isHovered: Bool = false
 
     var body: some View {
         HStack {
@@ -160,6 +168,14 @@ struct CategoryRowContent: View {
                 .lineLimit(1)
 
             Spacer()
+
+            #if os(macOS)
+            if let pinId = pinId {
+                CategoryPinButton(pinId: pinId)
+                    .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
+                    .padding(.trailing, 4)
+            }
+            #endif
 
             Text("\(bookCount)")
                 #if os(iOS)
