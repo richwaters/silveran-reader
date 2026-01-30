@@ -191,6 +191,10 @@ struct CategoryRowContent: View {
     var pinId: String? = nil
     var isHovered: Bool = false
 
+    #if os(macOS)
+    @State private var isPinned: Bool = false
+    #endif
+
     var body: some View {
         HStack {
             Image(systemName: iconName)
@@ -215,7 +219,7 @@ struct CategoryRowContent: View {
             #if os(macOS)
             if let pinId = pinId {
                 CategoryPinButton(pinId: pinId)
-                    .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
+                    .opacity(isHovered || isPinned ? 1 : 0)
                     .padding(.trailing, 4)
             }
             #endif
@@ -243,6 +247,11 @@ struct CategoryRowContent: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         )
+        .onAppear { isPinned = pinId.map { SidebarPinHelper.isPinned($0) } ?? false }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            let newValue = pinId.map { SidebarPinHelper.isPinned($0) } ?? false
+            if isPinned != newValue { isPinned = newValue }
+        }
         #endif
     }
 }

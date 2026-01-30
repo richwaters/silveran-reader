@@ -440,9 +440,8 @@ struct MediaGridSortAndFilterBar: View {
 
             if !isTableLayout {
                 coverSizePopoverSection
+                displayPopoverSection
             }
-
-            displayPopoverSection
 
             Divider()
 
@@ -541,20 +540,12 @@ struct MediaGridSortAndFilterBar: View {
 
     @ViewBuilder
     private var displayPopoverSection: some View {
-        #if os(iOS)
-        let showGridOnlyOptions = !isTableLayout
-        #else
-        let showGridOnlyOptions = true
-        #endif
-
         VStack(alignment: .leading, spacing: 8) {
             Text("Display")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
-            if showGridOnlyOptions {
-                Toggle("Audio Indicator", isOn: $showAudioIndicator)
-                Toggle("Source Badge", isOn: $showSourceBadge)
-            }
+            Toggle("Audio Indicator", isOn: $showAudioIndicator)
+            Toggle("Source Badge", isOn: $showSourceBadge)
             Toggle("Series Position", isOn: $showSeriesPositionBadge)
         }
     }

@@ -20,5 +20,11 @@ struct CategoryPinButton: View {
         }
         .buttonStyle(.plain)
         .help(isPinned ? "Unpin from Sidebar" : "Pin to Sidebar")
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            let newValue = SidebarPinHelper.isPinned(pinId)
+            if isPinned != newValue {
+                isPinned = newValue
+            }
+        }
     }
 }
