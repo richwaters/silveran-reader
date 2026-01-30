@@ -1,7 +1,7 @@
 import SwiftUI
 
 #if os(macOS)
-struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent: View>: View {
+struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent: View, ContextMenu: View>: View {
     let headerTitle: String
     let sidebarTitle: String
     let groups: [CategoryGroup]
@@ -11,6 +11,7 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
     @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
     @ViewBuilder let detailContent: (CategoryGroup) -> DetailContent
     @ViewBuilder let toolbarContent: () -> ToolbarContent
+    let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     init(
         headerTitle: String,
@@ -21,7 +22,8 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
         sortByCount: Binding<Bool>,
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
-        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
+        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
         self.headerTitle = headerTitle
         self.sidebarTitle = sidebarTitle
@@ -32,6 +34,7 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
         self.rowContent = rowContent
         self.detailContent = detailContent
         self.toolbarContent = toolbarContent
+        self.contextMenuBuilder = contextMenuBuilder
     }
 
     var body: some View {
@@ -90,6 +93,7 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
                             group: group,
                             isSelected: selectedGroupId == group.id,
                             rowContent: rowContent,
+                            contextMenu: contextMenuBuilder?(group),
                             onSelect: { selectedGroupId = group.id }
                         )
                     }
@@ -120,10 +124,36 @@ struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent
     }
 }
 
-private struct CategoryListRow<RowContent: View>: View {
+extension CategoryListSidebar where ContextMenu == EmptyView {
+    init(
+        headerTitle: String,
+        sidebarTitle: String,
+        groups: [CategoryGroup],
+        selectedGroupId: Binding<String?>,
+        listWidth: Binding<CGFloat>,
+        sortByCount: Binding<Bool>,
+        @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
+        @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
+        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
+    ) {
+        self.headerTitle = headerTitle
+        self.sidebarTitle = sidebarTitle
+        self.groups = groups
+        self._selectedGroupId = selectedGroupId
+        self._listWidth = listWidth
+        self._sortByCount = sortByCount
+        self.rowContent = rowContent
+        self.detailContent = detailContent
+        self.toolbarContent = toolbarContent
+        self.contextMenuBuilder = nil
+    }
+}
+
+private struct CategoryListRow<RowContent: View, ContextMenu: View>: View {
     let group: CategoryGroup
     let isSelected: Bool
     @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
+    let contextMenu: ContextMenu?
     let onSelect: () -> Void
     @State private var isHovered = false
 
@@ -135,6 +165,19 @@ private struct CategoryListRow<RowContent: View>: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
+        }
+        .modifier(OptionalContextMenuModifier(content: contextMenu))
+    }
+}
+
+private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
+    let content: MenuContent?
+
+    func body(content: Content) -> some View {
+        if let menuContent = self.content {
+            content.contextMenu { menuContent }
+        } else {
+            content
         }
     }
 }

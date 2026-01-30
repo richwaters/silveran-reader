@@ -1,12 +1,13 @@
 import SwiftUI
 
-struct CategoryGridLayout<Header: View>: View {
+struct CategoryGridLayout<Header: View, ContextMenu: View>: View {
     let groups: [CategoryGroup]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
     let showBookCountBadge: Bool
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
     @ViewBuilder let header: () -> Header
+    let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     private let horizontalPadding: CGFloat = 24
 
@@ -16,7 +17,8 @@ struct CategoryGridLayout<Header: View>: View {
         coverPreference: CoverPreference,
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
-        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() },
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -24,6 +26,7 @@ struct CategoryGridLayout<Header: View>: View {
         self.showBookCountBadge = showBookCountBadge
         self.onNavigate = onNavigate
         self.header = header
+        self.contextMenuBuilder = contextMenuBuilder
     }
 
     var body: some View {
@@ -52,6 +55,7 @@ struct CategoryGridLayout<Header: View>: View {
                                     onNavigate(group, nil)
                                 }
                             )
+                            .modifier(OptionalContextMenuModifier(content: contextMenuBuilder?(group)))
                             .id(group.id)
                         }
                     }
@@ -63,6 +67,37 @@ struct CategoryGridLayout<Header: View>: View {
             .frame(width: contentWidth)
             .contentMargins(.trailing, 10, for: .scrollIndicators)
             .modifier(SoftScrollEdgeModifier())
+        }
+    }
+}
+
+extension CategoryGridLayout where ContextMenu == EmptyView {
+    init(
+        groups: [CategoryGroup],
+        mediaKind: MediaKind,
+        coverPreference: CoverPreference,
+        showBookCountBadge: Bool,
+        onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+    ) {
+        self.groups = groups
+        self.mediaKind = mediaKind
+        self.coverPreference = coverPreference
+        self.showBookCountBadge = showBookCountBadge
+        self.onNavigate = onNavigate
+        self.header = header
+        self.contextMenuBuilder = nil
+    }
+}
+
+private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
+    let content: MenuContent?
+
+    func body(content: Content) -> some View {
+        if let menuContent = self.content {
+            content.contextMenu { menuContent }
+        } else {
+            content
         }
     }
 }

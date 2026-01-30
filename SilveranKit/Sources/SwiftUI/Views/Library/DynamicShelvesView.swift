@@ -72,6 +72,11 @@ struct DynamicShelvesView: View {
         navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelfId, initialSelectedBook: book))
     }
 
+    private func shelfForGroup(_ group: CategoryGroup) -> DynamicShelf? {
+        guard let shelfId = UUID(uuidString: group.id) else { return nil }
+        return mediaViewModel.dynamicShelves.first { $0.id == shelfId }
+    }
+
     #if os(iOS)
     private var hasConnectionError: Bool {
         if mediaViewModel.lastNetworkOpSucceeded == false { return true }
@@ -147,6 +152,7 @@ extension DynamicShelvesView {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .contextMenu { shelfContextMenu(for: group) }
                     Divider().padding(.leading, 48)
                 }
             }
@@ -157,9 +163,20 @@ extension DynamicShelvesView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+        }
+    }
+
+    @ViewBuilder
+    private func shelfContextMenu(for group: CategoryGroup) -> some View {
+        if let shelf = shelfForGroup(group) {
+            Button(role: .destructive) {
+                Task { await mediaViewModel.deleteDynamicShelf(id: shelf.id) }
+            } label: {
+                Label("Delete Shelf", systemImage: "trash")
+            }
         }
     }
 
@@ -198,7 +215,8 @@ extension DynamicShelvesView {
                                 Text("Shelf not found").foregroundStyle(.secondary)
                             }
                         },
-                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
+                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) },
+                        contextMenuBuilder: shelfContextMenu
                     )
                 case .fan, .grid:
                     fanGridContent
@@ -223,9 +241,25 @@ extension DynamicShelvesView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+        }
+    }
+
+    @ViewBuilder
+    private func shelfContextMenu(for group: CategoryGroup) -> some View {
+        if let shelf = shelfForGroup(group) {
+            Button {
+                editingShelf = shelf
+            } label: {
+                Label("Edit Shelf", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                Task { await mediaViewModel.deleteDynamicShelf(id: shelf.id) }
+            } label: {
+                Label("Delete Shelf", systemImage: "trash")
+            }
         }
     }
 }

@@ -1,11 +1,12 @@
 import SwiftUI
 
-struct CategoryFanLayout<Header: View>: View {
+struct CategoryFanLayout<Header: View, ContextMenu: View>: View {
     let groups: [CategoryGroup]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
     @ViewBuilder let header: () -> Header
+    let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     private let sectionSpacing: CGFloat = 32
     private let horizontalPadding: CGFloat = 24
@@ -15,13 +16,15 @@ struct CategoryFanLayout<Header: View>: View {
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
-        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() },
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
         self.onNavigate = onNavigate
         self.header = header
+        self.contextMenuBuilder = contextMenuBuilder
     }
 
     var body: some View {
@@ -41,7 +44,8 @@ struct CategoryFanLayout<Header: View>: View {
                                 mediaKind: mediaKind,
                                 stackWidth: stackWidth,
                                 coverPreference: coverPreference,
-                                onNavigate: onNavigate
+                                onNavigate: onNavigate,
+                                contextMenu: contextMenuBuilder?(group)
                             )
                         }
                     }
@@ -57,12 +61,30 @@ struct CategoryFanLayout<Header: View>: View {
     }
 }
 
-struct CategoryFanSection: View {
+extension CategoryFanLayout where ContextMenu == EmptyView {
+    init(
+        groups: [CategoryGroup],
+        mediaKind: MediaKind,
+        coverPreference: CoverPreference,
+        onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+    ) {
+        self.groups = groups
+        self.mediaKind = mediaKind
+        self.coverPreference = coverPreference
+        self.onNavigate = onNavigate
+        self.header = header
+        self.contextMenuBuilder = nil
+    }
+}
+
+struct CategoryFanSection<ContextMenu: View>: View {
     let group: CategoryGroup
     let mediaKind: MediaKind
     let stackWidth: CGFloat
     let coverPreference: CoverPreference
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
+    let contextMenu: ContextMenu?
 
     @State private var settingsViewModel = SettingsViewModel()
     @State private var isCoverHovered = false
@@ -117,5 +139,18 @@ struct CategoryFanSection: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .modifier(OptionalContextMenuModifier(content: contextMenu))
+    }
+}
+
+private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
+    let content: MenuContent?
+
+    func body(content: Content) -> some View {
+        if let menuContent = self.content {
+            content.contextMenu { menuContent }
+        } else {
+            content
+        }
     }
 }
