@@ -51,7 +51,7 @@ enum HomeSectionConfigHelper {
 
         current.removeAll { staleIds.contains($0.id) }
         for pinId in newIds {
-            current.append(HomeSectionConfigItem(id: pinId, visible: true))
+            current.append(HomeSectionConfigItem(id: pinId, visible: false))
         }
         save(current)
     }

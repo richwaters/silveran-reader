@@ -231,7 +231,8 @@ struct SidebarView: View {
     var body: some View {
         let _ = mediaViewModel.smartShelves
         List(selection: $selectedId) {
-            homeSection
+            homeRow
+            pinsSection
             librarySection
             readingStatusSection
             collectionsSection
@@ -284,21 +285,27 @@ struct SidebarView: View {
     // MARK: - Home Section (always open)
 
     @ViewBuilder
-    private var homeSection: some View {
-        Section {
-            if let homeSection = sections.first(where: { $0.id == "section.home" }) {
-                ForEach(homeSection.items) { item in
-                    sidebarRow(for: item)
+    private var homeRow: some View {
+        if let homeSection = sections.first(where: { $0.id == "section.home" }) {
+            ForEach(homeSection.items) { item in
+                sidebarRow(for: item)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pinsSection: some View {
+        if !pinnedItems.isEmpty {
+            Section {
+                ForEach(pinnedItems) { item in
+                    sidebarRow(for: item, isPinned: true)
                 }
+            } header: {
+                Text("Pins")
+                    .font(.headline)
+                    .padding(.bottom, 3)
+                    .padding(.trailing, 16)
             }
-            ForEach(pinnedItems) { item in
-                sidebarRow(for: item, isPinned: true)
-            }
-        } header: {
-            Text("Favorites")
-                .font(.headline)
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
         }
     }
 
