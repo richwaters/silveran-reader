@@ -13,6 +13,9 @@ struct SidebarView: View {
     @State private var visibilityPopoverSectionId: String?
     @State private var homePopoverVisible: Bool = false
     @State private var homeSectionConfig: [HomeSectionConfigItem] = HomeSectionConfigHelper.config
+    #if os(macOS)
+    @State private var editingShelf: SmartShelf?
+    #endif
 
     @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
     @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
@@ -268,6 +271,13 @@ struct SidebarView: View {
             prompt: "Search"
         )
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
+        #if os(macOS)
+        .sheet(item: $editingShelf) { shelf in
+            SmartShelfCreatorView(existingShelf: shelf) { updatedShelf in
+                Task { await mediaViewModel.saveSmartShelf(updatedShelf) }
+            }
+        }
+        #endif
     }
 
     // MARK: - Home Section (always open)
@@ -472,15 +482,37 @@ struct SidebarView: View {
         .onHover { hovering in
             hoveredItemId = hovering ? item.id : nil
         }
+        .contextMenu { smartShelfContextMenu(for: item) }
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func smartShelfContextMenu(for item: SidebarItemDescription) -> some View {
+        if item.id.hasPrefix("pin.smartShelf:") {
+            let uuidString = String(item.id.dropFirst("pin.smartShelf:".count))
+            if let uuid = UUID(uuidString: uuidString),
+               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
+                Button {
+                    editingShelf = shelf
+                } label: {
+                    Label("Edit Shelf", systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    Task { await mediaViewModel.deleteSmartShelf(id: shelf.id) }
+                } label: {
+                    Label("Delete Shelf", systemImage: "trash")
+                }
+            }
+        }
+    }
+    #endif
 
     #if os(macOS)
     @ViewBuilder
     private func pinButton(for item: SidebarItemDescription, isPinned: Bool) -> some View {
         if item.id.hasPrefix("pin.") {
             let isCurrentlyPinned = isPinned || SidebarPinHelper.isPinned(item.id)
-            let showButton = hoveredItemId == item.id || isCurrentlyPinned
             Button {
                 SidebarPinHelper.togglePin(item.id)
             } label: {
@@ -489,7 +521,7 @@ struct SidebarView: View {
                     .foregroundStyle(.gray)
             }
             .buttonStyle(.plain)
-            .opacity(showButton ? 1 : 0)
+            .opacity(hoveredItemId == item.id ? 1 : 0)
         }
     }
     @ViewBuilder
