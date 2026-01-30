@@ -106,7 +106,8 @@ struct ConditionEditorSheet: View {
     private var editorContent: some View {
         switch conditionType {
         case .format:
-            multiSelectEditor(items: FormatCondition.allCases.map(\.label), itemLabel: "Formats", searchable: false)
+            let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
+            multiSelectEditor(items: basicFormats.map(\.label), itemLabel: "Formats", searchable: false)
         case .status:
             multiSelectEditor(items: cachedStatuses, itemLabel: "Statuses", searchable: cachedStatuses.count > 5)
         case .location:
@@ -497,7 +498,8 @@ struct ConditionEditorSheet: View {
         guard canAdd else { return nil }
         switch conditionType {
         case .format:
-            let conditions = FormatCondition.allCases.filter { selectedItems.contains($0.label) }
+            let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
+            let conditions = basicFormats.filter { selectedItems.contains($0.label) }
             return [.format(mode: inclusionMode, conditions: conditions)]
         case .status:
             return [.status(mode: inclusionMode, values: Array(selectedItems).sorted())]
