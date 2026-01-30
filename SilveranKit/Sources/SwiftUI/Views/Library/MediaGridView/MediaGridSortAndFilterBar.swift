@@ -416,6 +416,7 @@ struct MediaGridSortAndFilterBar: View {
         }
         #if os(macOS)
         .buttonStyle(.borderless)
+        .foregroundStyle(.primary)
         .popover(isPresented: $showViewOptions) {
             viewOptionsPopoverContent
         }

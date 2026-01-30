@@ -59,3 +59,27 @@ public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+public enum CategoryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
+    case list
+    case fan
+    case grid
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .list: "List"
+        case .fan: "Fan"
+        case .grid: "Grid"
+        }
+    }
+
+    public var iconName: String {
+        switch self {
+        case .list: "list.bullet"
+        case .fan: "rectangle.stack"
+        case .grid: "square.grid.2x2"
+        }
+    }
+}

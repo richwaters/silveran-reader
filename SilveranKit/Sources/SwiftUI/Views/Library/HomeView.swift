@@ -147,6 +147,9 @@ struct HomeView: View {
             .navigationDestination(for: SeriesNavIdentifier.self) { series in
                 seriesDetailView(for: series.name)
             }
+            .navigationDestination(for: SectionFilter.self) { filter in
+                sectionFilterView(for: filter)
+            }
         }
         #endif
     }
@@ -232,7 +235,8 @@ struct HomeView: View {
                                         selectedSidebarItem: $selectedSidebarItem,
                                         showAudioIndicator: settingsViewModel.showAudioIndicator,
                                         coverPreference: coverPreference,
-                                        cardTapInProgress: $cardTapInProgress
+                                        cardTapInProgress: $cardTapInProgress,
+                                        onNavigateToSection: { navigateToSection($0) }
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -678,7 +682,6 @@ struct HomeView: View {
         return true
     }
 
-    #if os(iOS)
     private func navigateToSection(_ section: HomeSection) {
         let filter = SectionFilter(
             title: section.title,
@@ -692,6 +695,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private func sectionFilterView(for filter: SectionFilter) -> some View {
+        #if os(iOS)
         MediaGridView(
             title: filter.title,
             searchText: "",
@@ -709,6 +713,22 @@ struct HomeView: View {
             scrollPosition: nil
         )
         .navigationTitle(filter.title)
+        #else
+        MediaGridView(
+            title: filter.title,
+            searchText: "",
+            mediaKind: filter.mediaKind,
+            tagFilter: filter.tagFilter,
+            seriesFilter: nil,
+            statusFilter: filter.statusFilter,
+            defaultSort: defaultSortForFilter(filter),
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil
+        )
+        .navigationTitle(filter.title)
+        #endif
     }
 
     private func defaultSortForFilter(_ filter: SectionFilter) -> String {
@@ -721,6 +741,7 @@ struct HomeView: View {
         }
     }
 
+    #if os(iOS)
     @ViewBuilder
     private func playerView(for bookData: PlayerBookData) -> some View {
         switch bookData.category {
@@ -805,9 +826,7 @@ private struct HomeSectionRow: View {
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
     #endif
-    #if os(iOS)
     let onNavigateToSection: (HomeView.HomeSection) -> Void
-    #endif
 
     private let horizontalSpacing: CGFloat = 14
     private let tileWidth: CGFloat = 125
@@ -855,18 +874,7 @@ private struct HomeSectionRow: View {
 
                 Spacer()
                 Button("See All") {
-                    #if os(iOS)
                     onNavigateToSection(section)
-                    #else
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isSidebarVisible = false
-                    }
-                    if section.destination.hasPrefix("pin.") {
-                        resolvePinnedDestination(section.destination)
-                    } else {
-                        selectSidebarItem(named: section.destination)
-                    }
-                    #endif
                 }
                 .buttonStyle(.plain)
                 .font(.callout.weight(.semibold))
@@ -1001,42 +1009,7 @@ private struct HomeSectionRow: View {
         }
     }
 
-    private func selectSidebarItem(named name: String) {
-        for section in sidebarSections {
-            for item in section.items {
-                if item.name == name {
-                    selectedSidebarItem = item
-                    return
-                }
-                for child in item.children ?? [] {
-                    if child.name == name {
-                        selectedSidebarItem = child
-                        return
-                    }
-                }
-            }
-        }
-    }
-
     #if os(macOS)
-    private func resolvePinnedDestination(_ pinId: String) {
-        if pinId.hasPrefix("pin.dynamicShelf:") {
-            let uuidString = String(pinId.dropFirst("pin.dynamicShelf:".count))
-            if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) {
-                selectedSidebarItem = SidebarItemDescription(
-                    id: pinId,
-                    name: shelf.name,
-                    systemImage: "sparkles.rectangle.stack",
-                    badge: -1,
-                    content: .dynamicShelfDetail(uuid)
-                )
-            }
-        } else if let resolved = SidebarView.resolveDynamicPin(id: pinId) {
-            selectedSidebarItem = resolved
-        }
-    }
-
     private func scrollLeft() {
         let itemWidth = tileWidth + horizontalSpacing
         let currentIndex = round(-scrollOffset / itemWidth)

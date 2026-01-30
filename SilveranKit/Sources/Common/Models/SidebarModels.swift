@@ -48,6 +48,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case publicationYearView(MediaKind)
     case ratingView(MediaKind)
     case collectionsView(MediaKind)
+    case statusView(MediaKind)
     case dynamicShelves
     case dynamicShelfDetail(UUID)
     case placeholder(title: String)
@@ -77,6 +78,8 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "ratingView.\(kind.rawValue)"
         case .collectionsView(let kind):
             return "collectionsView.\(kind.rawValue)"
+        case .statusView(let kind):
+            return "statusView.\(kind.rawValue)"
         case .dynamicShelves:
             return "dynamicShelves"
         case .dynamicShelfDetail(let id):
@@ -250,84 +253,11 @@ public enum LibrarySidebarDefaults {
                         badge: -1,
                         content: .ratingView(.ebook)
                     ),
-                ]
-            ),
-            SidebarSectionDescription(
-                id: "section.readingStatus",
-                name: "Reading Status",
-                items: [
                     SidebarItemDescription(
-                        name: "Currently Reading",
+                        name: "By Status",
                         systemImage: "arrow.right.circle",
-                        badge: 8,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Currently Reading",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                statusFilter: "Reading",
-                                defaultSort: "recentlyRead"
-                            )
-                        )
-                    ),
-                    SidebarItemDescription(
-                        name: "Start Reading",
-                        systemImage: "bookmark",
-                        badge: 8,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Start Reading",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                statusFilter: "To read",
-                                defaultSort: "recentlyAdded"
-                            )
-                        )
-                    ),
-                    SidebarItemDescription(
-                        name: "Recently Added",
-                        systemImage: "clock",
-                        badge: 12,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Recently Added",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                defaultSort: "recentlyAdded"
-                            )
-                        )
-                    ),
-                    SidebarItemDescription(
-                        name: "Completed",
-                        systemImage: "checkmark.circle",
-                        badge: 12,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Completed",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                statusFilter: "Read",
-                                defaultSort: "recentlyRead"
-                            )
-                        )
-                    ),
-                    SidebarItemDescription(
-                        name: "Downloaded",
-                        systemImage: "arrow.down.circle",
                         badge: -1,
-                        content: .mediaGrid(
-                            MediaGridConfiguration(
-                                title: "Downloaded",
-                                mediaKind: .ebook,
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                locationFilter: .downloaded
-                            )
-                        )
+                        content: .statusView(.ebook)
                     ),
                 ]
             ),
@@ -346,6 +276,20 @@ public enum LibrarySidebarDefaults {
                         systemImage: "sparkles.rectangle.stack",
                         badge: -1,
                         content: .dynamicShelves
+                    ),
+                    SidebarItemDescription(
+                        name: "Downloaded",
+                        systemImage: "arrow.down.circle",
+                        badge: -1,
+                        content: .mediaGrid(
+                            MediaGridConfiguration(
+                                title: "Downloaded",
+                                mediaKind: .ebook,
+                                preferredTileWidth: 120,
+                                minimumTileWidth: 50,
+                                locationFilter: .downloaded
+                            )
+                        )
                     ),
                 ]
             ),

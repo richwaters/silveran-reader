@@ -276,6 +276,24 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
+            case .statusView(let mediaKind):
+                #if os(iOS)
+                StatusView(
+                    mediaKind: mediaKind,
+                    searchText: $searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #else
+                StatusView(
+                    mediaKind: mediaKind,
+                    searchText: searchText,
+                    sidebarSections: sections,
+                    selectedSidebarItem: selectedItem,
+                    showSettings: $showSettings
+                )
+                #endif
             case .tagView(let mediaKind):
                 #if os(iOS)
                 TagView(

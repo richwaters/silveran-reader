@@ -6,6 +6,7 @@ extension BookMetadata {
     public static let unknownTranslatorSentinel = "Unknown Translator"
     public static let unknownYearSentinel = "Unknown"
     public static let unratedSentinel = "Unrated"
+    public static let unknownStatusSentinel = "Unknown"
 
     public func matchesSeries(_ filter: String) -> Bool {
         if filter == Self.noSeriesSentinel {
@@ -68,6 +69,10 @@ extension BookMetadata {
     }
 
     public func matchesStatus(_ filter: String) -> Bool {
+        if filter == Self.unknownStatusSentinel {
+            guard let statusName = status?.name else { return true }
+            return statusName.isEmpty
+        }
         guard let itemStatus = status?.name else { return false }
         return itemStatus.caseInsensitiveCompare(filter) == .orderedSame
     }

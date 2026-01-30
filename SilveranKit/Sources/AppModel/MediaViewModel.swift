@@ -817,6 +817,41 @@ public final class MediaViewModel {
         return result
     }
 
+    public func booksByStatus(for kind: MediaKind)
+        -> [(status: String, books: [BookMetadata])]
+    {
+        let allBooks = library.bookMetaData
+
+        var statusMap: [String: [BookMetadata]] = [:]
+
+        for book in allBooks {
+            let key = book.status?.name ?? "Unknown"
+            if var existing = statusMap[key] {
+                existing.append(book)
+                statusMap[key] = existing
+            } else {
+                statusMap[key] = [book]
+            }
+        }
+
+        for key in statusMap.keys {
+            statusMap[key]?.sort { a, b in
+                a.title.articleStrippedCompare(b.title) == .orderedAscending
+            }
+        }
+
+        let statusOrder = ["Reading", "To read", "Read", "Unknown"]
+        var result: [(status: String, books: [BookMetadata])] = statusMap.map { (status: $0.key, books: $0.value) }
+        result.sort { a, b in
+            let indexA = statusOrder.firstIndex(of: a.status) ?? statusOrder.count
+            let indexB = statusOrder.firstIndex(of: b.status) ?? statusOrder.count
+            if indexA != indexB { return indexA < indexB }
+            return a.status.localizedCaseInsensitiveCompare(b.status) == .orderedAscending
+        }
+
+        return result
+    }
+
     public enum StatusSortOrder {
         case recentPositionUpdate
         case recentlyAdded
@@ -909,6 +944,8 @@ public final class MediaViewModel {
                 return library.bookMetaData.filter { book in
                     book.collections?.isEmpty == false
                 }.count
+            case .statusView:
+                return library.bookMetaData.count
             case .dynamicShelves:
                 var all = Set<String>()
                 for shelf in dynamicShelves {
