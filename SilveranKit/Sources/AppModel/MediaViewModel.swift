@@ -22,7 +22,7 @@ public final class MediaViewModel {
     public var cachedConfig: SilveranGlobalConfig = SilveranGlobalConfig()
     public var pendingSyncsByBook: [String: PendingProgressSync] = [:]
     public var syncNotification: SyncNotification?
-    public var dynamicShelves: [DynamicShelf] = []
+    public var smartShelves: [SmartShelf] = []
     var bookProgressCache: [String: BookProgress] = [:]
     @ObservationIgnored private var readBookIds: Set<String> = []
 
@@ -287,8 +287,8 @@ public final class MediaViewModel {
 
         await loadCachedCoversFromDisk()
 
-        if dynamicShelves.isEmpty {
-            await loadDynamicShelves()
+        if smartShelves.isEmpty {
+            await loadSmartShelves()
         }
     }
 
@@ -977,10 +977,10 @@ public final class MediaViewModel {
                 return booksByStatus(for: mediaKind).count
             case .sourceView(let mediaKind):
                 return booksBySource(for: mediaKind).count
-            case .dynamicShelves:
-                return dynamicShelves.count
-            case .dynamicShelfDetail(let shelfId):
-                guard let shelf = dynamicShelves.first(where: { $0.id == shelfId }) else { return 0 }
+            case .smartShelves:
+                return smartShelves.count
+            case .smartShelfDetail(let shelfId):
+                guard let shelf = smartShelves.first(where: { $0.id == shelfId }) else { return 0 }
                 return booksForShelf(shelf).count
             case .placeholder:
                 return 0
@@ -1394,40 +1394,40 @@ public final class MediaViewModel {
         return nil
     }
 
-    // MARK: - Dynamic Shelves
+    // MARK: - Smart Shelves
 
-    public func loadDynamicShelves() async {
+    public func loadSmartShelves() async {
         do {
-            let shelves = try await FilesystemActor.shared.loadDynamicShelves()
-            self.dynamicShelves = shelves
+            let shelves = try await FilesystemActor.shared.loadSmartShelves()
+            self.smartShelves = shelves
         } catch {
-            debugLog("[MediaViewModel] Failed to load dynamic shelves: \(error)")
+            debugLog("[MediaViewModel] Failed to load smart shelves: \(error)")
         }
     }
 
-    public func saveDynamicShelf(_ shelf: DynamicShelf) async {
-        if let index = dynamicShelves.firstIndex(where: { $0.id == shelf.id }) {
-            dynamicShelves[index] = shelf
+    public func saveSmartShelf(_ shelf: SmartShelf) async {
+        if let index = smartShelves.firstIndex(where: { $0.id == shelf.id }) {
+            smartShelves[index] = shelf
         } else {
-            dynamicShelves.append(shelf)
+            smartShelves.append(shelf)
         }
         do {
-            try await FilesystemActor.shared.saveDynamicShelves(dynamicShelves)
+            try await FilesystemActor.shared.saveSmartShelves(smartShelves)
         } catch {
-            debugLog("[MediaViewModel] Failed to save dynamic shelves: \(error)")
+            debugLog("[MediaViewModel] Failed to save smart shelves: \(error)")
         }
     }
 
-    public func deleteDynamicShelf(id: UUID) async {
-        dynamicShelves.removeAll { $0.id == id }
+    public func deleteSmartShelf(id: UUID) async {
+        smartShelves.removeAll { $0.id == id }
         do {
-            try await FilesystemActor.shared.saveDynamicShelves(dynamicShelves)
+            try await FilesystemActor.shared.saveSmartShelves(smartShelves)
         } catch {
-            debugLog("[MediaViewModel] Failed to save dynamic shelves after delete: \(error)")
+            debugLog("[MediaViewModel] Failed to save smart shelves after delete: \(error)")
         }
     }
 
-    public func booksForShelf(_ shelf: DynamicShelf) -> [BookMetadata] {
+    public func booksForShelf(_ shelf: SmartShelf) -> [BookMetadata] {
         library.bookMetaData.filter { book in
             let prog = progress(for: book.id)
             return shelf.matchesAll(book, progress: prog)

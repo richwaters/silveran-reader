@@ -348,26 +348,26 @@ public struct LibraryView: View {
                     showSettings: $showSettings
                 )
                 #endif
-            case .dynamicShelves:
+            case .smartShelves:
                 #if os(iOS)
-                DynamicShelvesView(
+                SmartShelvesView(
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings
                 )
                 #else
-                DynamicShelvesView(
+                SmartShelvesView(
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings
                 )
                 #endif
-            case .dynamicShelfDetail(let shelfId):
-                if let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {
+            case .smartShelfDetail(let shelfId):
+                if let shelf = mediaViewModel.smartShelves.first(where: { $0.id == shelfId }) {
                     let books = mediaViewModel.booksForShelf(shelf)
-                    DynamicShelfDetailView(
+                    SmartShelfDetailView(
                         shelf: shelf,
                         books: books,
                         searchText: searchText

@@ -894,13 +894,13 @@ public actor FilesystemActor {
         )
     }
 
-    // MARK: - Dynamic Shelves Persistence
+    // MARK: - Smart Shelves Persistence
 
-    public func saveDynamicShelves(_ shelves: [DynamicShelf]) throws {
+    public func saveSmartShelves(_ shelves: [SmartShelf]) throws {
         let configDir = getConfigDirectory()
         try ensureDirectoryExists(at: configDir)
 
-        let url = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
+        let url = configDir.appendingPathComponent("smart_shelves.json", isDirectory: false)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -908,16 +908,24 @@ public actor FilesystemActor {
         try data.write(to: url, options: .atomic)
     }
 
-    public func loadDynamicShelves() throws -> [DynamicShelf] {
+    public func loadSmartShelves() throws -> [SmartShelf] {
         let configDir = getConfigDirectory()
-        let url = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
+        let newUrl = configDir.appendingPathComponent("smart_shelves.json", isDirectory: false)
+        let legacyUrl = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
 
-        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        let url: URL
+        if FileManager.default.fileExists(atPath: newUrl.path) {
+            url = newUrl
+        } else if FileManager.default.fileExists(atPath: legacyUrl.path) {
+            url = legacyUrl
+        } else {
+            return []
+        }
 
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode([DynamicShelf].self, from: data)
+        return try decoder.decode([SmartShelf].self, from: data)
     }
 
     // MARK: - Download State Persistence

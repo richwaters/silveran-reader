@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DynamicShelf: Codable, Identifiable, Hashable, Sendable {
+public struct SmartShelf: Codable, Identifiable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var conditions: [ShelfCondition]

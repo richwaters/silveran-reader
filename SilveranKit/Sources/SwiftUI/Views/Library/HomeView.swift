@@ -637,10 +637,10 @@ struct HomeView: View {
             let value = String(pinId.dropFirst("pin.rating:".count))
             title = RatingDisplayHelper.label(for: value)
             matched = allBooks.filter { $0.matchesRating(value) }
-        } else if pinId.hasPrefix("pin.dynamicShelf:") {
-            let uuidString = String(pinId.dropFirst("pin.dynamicShelf:".count))
+        } else if pinId.hasPrefix("pin.smartShelf:") {
+            let uuidString = String(pinId.dropFirst("pin.smartShelf:".count))
             guard let uuid = UUID(uuidString: uuidString),
-                  let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) else {
+                  let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) else {
                 return nil
             }
             title = shelf.name

@@ -50,8 +50,8 @@ public enum SidebarContentKind: Hashable, Sendable {
     case collectionsView(MediaKind)
     case statusView(MediaKind)
     case sourceView(MediaKind)
-    case dynamicShelves
-    case dynamicShelfDetail(UUID)
+    case smartShelves
+    case smartShelfDetail(UUID)
     case placeholder(title: String)
     case currentlyDownloading
     case importLocalFile
@@ -83,10 +83,10 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "statusView.\(kind.rawValue)"
         case .sourceView(let kind):
             return "sourceView.\(kind.rawValue)"
-        case .dynamicShelves:
-            return "dynamicShelves"
-        case .dynamicShelfDetail(let id):
-            return "dynamicShelfDetail.\(id.uuidString)"
+        case .smartShelves:
+            return "smartShelves"
+        case .smartShelfDetail(let id):
+            return "smartShelfDetail.\(id.uuidString)"
         case .placeholder(let title):
             return "placeholder.\(title)"
         case .currentlyDownloading:
@@ -281,10 +281,10 @@ public enum LibrarySidebarDefaults {
                         content: .collectionsView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "Dynamic Shelves",
+                        name: "Smart Shelves",
                         systemImage: "sparkles.rectangle.stack",
                         badge: -1,
-                        content: .dynamicShelves
+                        content: .smartShelves
                     ),
                 ]
             ),

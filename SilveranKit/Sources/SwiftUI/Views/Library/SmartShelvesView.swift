@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct DynamicShelfDetailNavigation: Hashable {
+struct SmartShelfDetailNavigation: Hashable {
     let shelfId: UUID
     let initialSelectedBook: BookMetadata?
 
@@ -14,7 +14,7 @@ struct DynamicShelfDetailNavigation: Hashable {
     }
 }
 
-struct DynamicShelvesView: View {
+struct SmartShelvesView: View {
     #if os(iOS)
     @Binding var searchText: String
     #else
@@ -30,10 +30,10 @@ struct DynamicShelvesView: View {
     @State private var settingsViewModel = SettingsViewModel()
     @State private var navigationPath = NavigationPath()
     @State private var showCreator = false
-    @State private var editingShelf: DynamicShelf?
-    @AppStorage("viewLayout.dynamicShelves") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
+    @State private var editingShelf: SmartShelf?
+    @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
-    @AppStorage("dynamicShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @AppStorage("smartShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
@@ -62,19 +62,19 @@ struct DynamicShelvesView: View {
                 id: shelf.id.uuidString,
                 name: shelf.name,
                 books: books,
-                pinId: SidebarPinHelper.pinId(forDynamicShelf: shelf.id)
+                pinId: SidebarPinHelper.pinId(forSmartShelf: shelf.id)
             )
         }
     }
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
         guard let shelfId = UUID(uuidString: group.id) else { return }
-        navigationPath.append(DynamicShelfDetailNavigation(shelfId: shelfId, initialSelectedBook: book))
+        navigationPath.append(SmartShelfDetailNavigation(shelfId: shelfId, initialSelectedBook: book))
     }
 
-    private func shelfForGroup(_ group: CategoryGroup) -> DynamicShelf? {
+    private func shelfForGroup(_ group: CategoryGroup) -> SmartShelf? {
         guard let shelfId = UUID(uuidString: group.id) else { return nil }
-        return mediaViewModel.dynamicShelves.first { $0.id == shelfId }
+        return mediaViewModel.smartShelves.first { $0.id == shelfId }
     }
 
     #if os(iOS)
@@ -102,7 +102,7 @@ struct DynamicShelvesView: View {
 }
 
 #if os(iOS)
-extension DynamicShelvesView {
+extension SmartShelvesView {
     private var iOSBody: some View {
         NavigationStack(path: $navigationPath) {
             Group {
@@ -111,7 +111,7 @@ extension DynamicShelvesView {
                 case .fan, .grid: fanGridContent
                 }
             }
-            .navigationTitle("Dynamic Shelves")
+            .navigationTitle("Smart Shelves")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -128,7 +128,7 @@ extension DynamicShelvesView {
                 }
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: DynamicShelfDetailNavigation.self) { nav in
+            .navigationDestination(for: SmartShelfDetailNavigation.self) { nav in
                 shelfDetailView(for: nav.shelfId, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
             }
@@ -173,7 +173,7 @@ extension DynamicShelvesView {
     private func shelfContextMenu(for group: CategoryGroup) -> some View {
         if let shelf = shelfForGroup(group) {
             Button(role: .destructive) {
-                Task { await mediaViewModel.deleteDynamicShelf(id: shelf.id) }
+                Task { await mediaViewModel.deleteSmartShelf(id: shelf.id) }
             } label: {
                 Label("Delete Shelf", systemImage: "trash")
             }
@@ -191,14 +191,14 @@ extension DynamicShelvesView {
 #endif
 
 #if os(macOS)
-extension DynamicShelvesView {
+extension SmartShelvesView {
     private var macOSBody: some View {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
                 case .list:
                     CategoryListSidebar(
-                        headerTitle: "Dynamic Shelves",
+                        headerTitle: "Smart Shelves",
                         sidebarTitle: "Shelves",
                         groups: categoryGroups,
                         selectedGroupId: $selectedGroupId,
@@ -208,9 +208,9 @@ extension DynamicShelvesView {
                             CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered)
                         },
                         detailContent: { group in
-                            if let shelfId = UUID(uuidString: group.id), let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {
+                            if let shelfId = UUID(uuidString: group.id), let shelf = mediaViewModel.smartShelves.first(where: { $0.id == shelfId }) {
                                 let books = mediaViewModel.booksForShelf(shelf)
-                                DynamicShelfDetailView(shelf: shelf, books: books, searchText: searchText, initialSelectedItem: nil)
+                                SmartShelfDetailView(shelf: shelf, books: books, searchText: searchText, initialSelectedItem: nil)
                             } else {
                                 Text("Shelf not found").foregroundStyle(.secondary)
                             }
@@ -222,18 +222,18 @@ extension DynamicShelvesView {
                     fanGridContent
                 }
             }
-            .navigationDestination(for: DynamicShelfDetailNavigation.self) { nav in
+            .navigationDestination(for: SmartShelfDetailNavigation.self) { nav in
                 shelfDetailView(for: nav.shelfId, initialSelectedItem: nav.initialSelectedBook)
             }
         }
         .sheet(isPresented: $showCreator) {
-            DynamicShelfCreatorView { shelf in
-                Task { await mediaViewModel.saveDynamicShelf(shelf) }
+            SmartShelfCreatorView { shelf in
+                Task { await mediaViewModel.saveSmartShelf(shelf) }
             }
         }
         .sheet(item: $editingShelf) { shelf in
-            DynamicShelfCreatorView(existingShelf: shelf) { updatedShelf in
-                Task { await mediaViewModel.saveDynamicShelf(updatedShelf) }
+            SmartShelfCreatorView(existingShelf: shelf) { updatedShelf in
+                Task { await mediaViewModel.saveSmartShelf(updatedShelf) }
             }
         }
     }
@@ -256,7 +256,7 @@ extension DynamicShelvesView {
                 Label("Edit Shelf", systemImage: "pencil")
             }
             Button(role: .destructive) {
-                Task { await mediaViewModel.deleteDynamicShelf(id: shelf.id) }
+                Task { await mediaViewModel.deleteSmartShelf(id: shelf.id) }
             } label: {
                 Label("Delete Shelf", systemImage: "trash")
             }
@@ -265,10 +265,10 @@ extension DynamicShelvesView {
 }
 #endif
 
-extension DynamicShelvesView {
+extension SmartShelvesView {
     fileprivate var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Dynamic Shelves")
+            Text("Smart Shelves")
                 .font(.system(size: 32, weight: .regular, design: .serif))
 
             HStack(spacing: 12) {
@@ -293,19 +293,19 @@ extension DynamicShelvesView {
         }
     }
 
-    fileprivate func filteredShelves() -> [DynamicShelf] {
-        guard !searchText.isEmpty else { return mediaViewModel.dynamicShelves }
+    fileprivate func filteredShelves() -> [SmartShelf] {
+        guard !searchText.isEmpty else { return mediaViewModel.smartShelves }
         let searchLower = searchText.lowercased()
-        return mediaViewModel.dynamicShelves.filter { shelf in
+        return mediaViewModel.smartShelves.filter { shelf in
             shelf.name.lowercased().contains(searchLower)
         }
     }
 
     @ViewBuilder
     fileprivate func shelfDetailView(for shelfId: UUID, initialSelectedItem: BookMetadata? = nil) -> some View {
-        if let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == shelfId }) {
+        if let shelf = mediaViewModel.smartShelves.first(where: { $0.id == shelfId }) {
             let books = mediaViewModel.booksForShelf(shelf)
-            DynamicShelfDetailView(shelf: shelf, books: books, searchText: "", initialSelectedItem: initialSelectedItem)
+            SmartShelfDetailView(shelf: shelf, books: books, searchText: "", initialSelectedItem: initialSelectedItem)
                 .navigationTitle(shelf.name)
         } else {
             Text("Shelf not found").foregroundStyle(.secondary)
@@ -313,14 +313,14 @@ extension DynamicShelvesView {
     }
 }
 
-struct DynamicShelfDetailView: View {
-    let shelf: DynamicShelf
+struct SmartShelfDetailView: View {
+    let shelf: SmartShelf
     let books: [BookMetadata]
     let searchText: String
     let initialSelectedItem: BookMetadata?
     @Environment(MediaViewModel.self) private var mediaViewModel
 
-    init(shelf: DynamicShelf, books: [BookMetadata], searchText: String, initialSelectedItem: BookMetadata? = nil) {
+    init(shelf: SmartShelf, books: [BookMetadata], searchText: String, initialSelectedItem: BookMetadata? = nil) {
         self.shelf = shelf
         self.books = books
         self.searchText = searchText

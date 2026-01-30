@@ -15,12 +15,12 @@ private struct IdentifiedCondition: Identifiable, Equatable {
     }
 }
 
-struct DynamicShelfCreatorView: View {
+struct SmartShelfCreatorView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @Environment(\.dismiss) private var dismiss
 
-    let existingShelf: DynamicShelf?
-    let onSave: (DynamicShelf) -> Void
+    let existingShelf: SmartShelf?
+    let onSave: (SmartShelf) -> Void
 
     @State private var shelfName: String
     @State private var identifiedConditions: [IdentifiedCondition]
@@ -40,7 +40,7 @@ struct DynamicShelfCreatorView: View {
         identifiedConditions.map(\.condition)
     }
 
-    init(existingShelf: DynamicShelf? = nil, onSave: @escaping (DynamicShelf) -> Void) {
+    init(existingShelf: SmartShelf? = nil, onSave: @escaping (SmartShelf) -> Void) {
         self.existingShelf = existingShelf
         self.onSave = onSave
         _shelfName = State(initialValue: existingShelf?.name ?? "")
@@ -52,7 +52,7 @@ struct DynamicShelfCreatorView: View {
     private var matchingBooks: [BookMetadata] {
         let raw = conditions
         guard !raw.isEmpty else { return [] }
-        let shelf = DynamicShelf(
+        let shelf = SmartShelf(
             id: existingShelf?.id ?? UUID(),
             name: shelfName,
             conditions: raw
@@ -479,9 +479,9 @@ struct DynamicShelfCreatorView: View {
             }
             .keyboardShortcut(.cancelAction)
 
-            Button(existingShelf != nil ? "Save Changes" : "Create Dynamic Shelf") {
+            Button(existingShelf != nil ? "Save Changes" : "Create Smart Shelf") {
                 if canSave {
-                    let shelf = DynamicShelf(
+                    let shelf = SmartShelf(
                         id: existingShelf?.id ?? UUID(),
                         name: shelfName.trimmingCharacters(in: .whitespacesAndNewlines),
                         conditions: conditions,

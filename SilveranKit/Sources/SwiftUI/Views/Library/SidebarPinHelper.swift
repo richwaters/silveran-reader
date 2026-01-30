@@ -91,7 +91,7 @@ enum HomeSectionConfigHelper {
             return RatingDisplayHelper.label(for: rating)
         }
         if id.hasPrefix("pin.status:") { return String(id.dropFirst("pin.status:".count)) }
-        if id.hasPrefix("pin.dynamicShelf:") { return nil }
+        if id.hasPrefix("pin.smartShelf:") { return nil }
         return nil
     }
 
@@ -113,7 +113,7 @@ enum HomeSectionConfigHelper {
             default: return "questionmark.circle.fill"
             }
         }
-        if id.hasPrefix("pin.dynamicShelf:") { return "sparkles.rectangle.stack" }
+        if id.hasPrefix("pin.smartShelf:") { return "sparkles.rectangle.stack" }
         return nil
     }
 }
@@ -155,7 +155,7 @@ enum SidebarPinHelper {
     static func pinId(forYear year: String) -> String { "pin.year:\(year)" }
     static func pinId(forRating rating: String) -> String { "pin.rating:\(rating)" }
     static func pinId(forStatus status: String) -> String { "pin.status:\(status)" }
-    static func pinId(forDynamicShelf id: UUID) -> String { "pin.dynamicShelf:\(id.uuidString)" }
+    static func pinId(forSmartShelf id: UUID) -> String { "pin.smartShelf:\(id.uuidString)" }
 }
 
 enum SidebarHideHelper {

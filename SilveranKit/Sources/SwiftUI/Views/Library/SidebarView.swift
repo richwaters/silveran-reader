@@ -52,10 +52,10 @@ struct SidebarView: View {
         if let resolved = Self.resolveDynamicPin(id: id) {
             return resolved
         }
-        guard id.hasPrefix("pin.dynamicShelf:") else { return nil }
-        let uuidString = String(id.dropFirst("pin.dynamicShelf:".count))
+        guard id.hasPrefix("pin.smartShelf:") else { return nil }
+        let uuidString = String(id.dropFirst("pin.smartShelf:".count))
         guard let uuid = UUID(uuidString: uuidString),
-              let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) else {
+              let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) else {
             return nil
         }
         return SidebarItemDescription(
@@ -63,7 +63,7 @@ struct SidebarView: View {
             name: shelf.name,
             systemImage: "sparkles.rectangle.stack",
             badge: -1,
-            content: .dynamicShelfDetail(uuid)
+            content: .smartShelfDetail(uuid)
         )
     }
 
@@ -624,10 +624,10 @@ struct SidebarView: View {
     }
 
     private func homeSectionDisplayName(for id: String) -> String {
-        if id.hasPrefix("pin.dynamicShelf:") {
-            let uuidString = String(id.dropFirst("pin.dynamicShelf:".count))
+        if id.hasPrefix("pin.smartShelf:") {
+            let uuidString = String(id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.dynamicShelves.first(where: { $0.id == uuid }) {
+               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
                 return shelf.name
             }
             return id
