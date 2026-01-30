@@ -229,6 +229,7 @@ struct SidebarView: View {
     }
 
     var body: some View {
+        let _ = mediaViewModel.smartShelves
         List(selection: $selectedId) {
             homeSection
             librarySection

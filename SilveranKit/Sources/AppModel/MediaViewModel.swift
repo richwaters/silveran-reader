@@ -240,6 +240,9 @@ public final class MediaViewModel {
     }
 
     public func refreshMetadata(source: String = "unknown") async {
+        if smartShelves.isEmpty {
+            await loadSmartShelves()
+        }
         let status = await StorytellerActor.shared.connectionStatus
         let storytellerPaths = await LocalMediaActor.shared.localStorytellerBookPaths
         let standalonePaths = await LocalMediaActor.shared.localStandaloneBookPaths
@@ -286,10 +289,6 @@ public final class MediaViewModel {
         )
 
         await loadCachedCoversFromDisk()
-
-        if smartShelves.isEmpty {
-            await loadSmartShelves()
-        }
     }
 
     private func startMetadataRefreshTask() {
