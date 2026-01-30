@@ -750,27 +750,27 @@ public final class MediaViewModel {
     public func booksByTag(for kind: MediaKind) -> [(tag: String, books: [BookMetadata])] {
         let allBooks = library.bookMetaData
 
-        var tagMap: [String: [BookMetadata]] = [:]
+        var tagMap: [String: (displayName: String, books: [BookMetadata])] = [:]
 
         for book in allBooks {
             for tagName in book.tagNames {
                 let key = tagName.lowercased()
                 if var existing = tagMap[key] {
-                    existing.append(book)
+                    existing.books.append(book)
                     tagMap[key] = existing
                 } else {
-                    tagMap[key] = [book]
+                    tagMap[key] = (displayName: tagName, books: [book])
                 }
             }
         }
 
         for key in tagMap.keys {
-            tagMap[key]?.sort { a, b in
+            tagMap[key]?.books.sort { a, b in
                 a.title.articleStrippedCompare(b.title) == .orderedAscending
             }
         }
 
-        var result: [(tag: String, books: [BookMetadata])] = tagMap.map { (tag: $0.key, books: $0.value) }
+        var result: [(tag: String, books: [BookMetadata])] = tagMap.map { (tag: $0.value.displayName, books: $0.value.books) }
         result.sort { a, b in
             a.tag.localizedCaseInsensitiveCompare(b.tag) == .orderedAscending
         }
