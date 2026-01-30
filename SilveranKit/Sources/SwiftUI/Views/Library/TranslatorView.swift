@@ -99,10 +99,17 @@ extension TranslatorView {
     }
 
     private var listContent: some View {
-        ScrollView { LazyVStack(spacing: 0) { ForEach(categoryGroups) { group in
-            Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "character.book.closed.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
-            Divider().padding(.leading, 48)
-        }}.padding(.top, 8) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                headerView.padding(.horizontal).padding(.bottom, 16)
+                LazyVStack(spacing: 0) {
+                    ForEach(categoryGroups) { group in
+                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "character.book.closed.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Divider().padding(.leading, 48)
+                    }
+                }
+            }.padding(.top, 8)
+        }
     }
 
     @ViewBuilder

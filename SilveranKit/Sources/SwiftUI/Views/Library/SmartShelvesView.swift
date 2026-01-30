@@ -145,15 +145,18 @@ extension SmartShelvesView {
 
     private var listContent: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(categoryGroups) { group in
-                    Button { handleNavigation(group, nil) } label: {
-                        CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: false)
-                            .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 0) {
+                headerView.padding(.horizontal).padding(.bottom, 16)
+                LazyVStack(spacing: 0) {
+                    ForEach(categoryGroups) { group in
+                        Button { handleNavigation(group, nil) } label: {
+                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: false)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu { shelfContextMenu(for: group) }
+                        Divider().padding(.leading, 48)
                     }
-                    .buttonStyle(.plain)
-                    .contextMenu { shelfContextMenu(for: group) }
-                    Divider().padding(.leading, 48)
                 }
             }
             .padding(.top, 8)
