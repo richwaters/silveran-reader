@@ -32,7 +32,6 @@ struct MediaGridSortAndFilterBar: View {
     #if os(macOS)
     var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
     var onResetColumns: (() -> Void)? = nil
-    var tableDateFormat: Binding<String>? = nil
     #endif
 
     @State private var showViewOptions = false
@@ -557,16 +556,6 @@ struct MediaGridSortAndFilterBar: View {
                 Toggle("Source Badge", isOn: $showSourceBadge)
             }
             Toggle("Series Position", isOn: $showSeriesPositionBadge)
-            #if os(macOS)
-            if isTableLayout, let dateFormatBinding = tableDateFormat {
-                Picker("Date Format", selection: dateFormatBinding) {
-                    Text("Year").tag("year")
-                    Text("Month Year").tag("yearMonth")
-                    Text("Full Date").tag("yearMonthDay")
-                }
-                .pickerStyle(.menu)
-            }
-            #endif
         }
     }
 

@@ -138,7 +138,6 @@ struct MediaGridView: View {
     @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("coverSize.global") private var coverSizeValue: Double = CoverSizeRange.defaultValue
-    @AppStorage("library.table.dateFormat") private var tableDateFormat: String = "yearMonthDay"
     #if os(macOS)
     @State private var columnCustomization: TableColumnCustomization<BookMetadata> = Self.loadColumnCustomization()
     @State private var tableSortOrder: [KeyPathComparator<BookMetadata>]
@@ -558,7 +557,6 @@ struct MediaGridView: View {
                     items: tableSortedItems,
                     coverPreference: coverPreference,
                     mediaViewModel: mediaViewModel,
-                    dateFormat: tableDateFormat,
                     tableContext: tableContext,
                     selection: Binding(
                         get: { activeInfoItem?.id },
@@ -716,8 +714,7 @@ struct MediaGridView: View {
                 onResetColumns: {
                     columnCustomization = TableColumnCustomization<BookMetadata>()
                     UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
-                },
-                tableDateFormat: $tableDateFormat
+                }
             )
         }
     }

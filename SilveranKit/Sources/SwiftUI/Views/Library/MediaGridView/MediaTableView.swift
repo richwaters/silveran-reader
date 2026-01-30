@@ -106,7 +106,6 @@ struct MediaTableView: NSViewRepresentable {
     let items: [BookMetadata]
     let coverPreference: CoverPreference
     let mediaViewModel: MediaViewModel
-    let dateFormat: String
     let tableContext: String
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
@@ -119,7 +118,6 @@ struct MediaTableView: NSViewRepresentable {
         items: [BookMetadata],
         coverPreference: CoverPreference,
         mediaViewModel: MediaViewModel,
-        dateFormat: String,
         tableContext: String = "main",
         selection: Binding<BookMetadata.ID?>,
         columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
@@ -131,7 +129,6 @@ struct MediaTableView: NSViewRepresentable {
         self.items = items
         self.coverPreference = coverPreference
         self.mediaViewModel = mediaViewModel
-        self.dateFormat = dateFormat
         self.tableContext = tableContext
         self._selection = selection
         self._columnCustomization = columnCustomization
@@ -197,13 +194,11 @@ struct MediaTableView: NSViewRepresentable {
         let newItems = items
         let oldCoverPreference = coordinator.coverPreference
         let oldCoverHidden = coordinator.isCoverHidden
-        let oldDateFormat = coordinator.dateFormat
 
         coordinator.parent = self
         coordinator.items = items
         coordinator.coverPreference = coverPreference
         coordinator.mediaViewModel = mediaViewModel
-        coordinator.dateFormat = dateFormat
 
         let newCoverHidden = isCoverColumnHidden
         coordinator.isCoverHidden = newCoverHidden
@@ -218,8 +213,6 @@ struct MediaTableView: NSViewRepresentable {
             tableView.reloadData()
         } else if oldCoverHidden != newCoverHidden {
             tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<items.count))
-            tableView.reloadData()
-        } else if oldDateFormat != dateFormat {
             tableView.reloadData()
         }
 
@@ -392,7 +385,6 @@ struct MediaTableView: NSViewRepresentable {
         var items: [BookMetadata]
         var coverPreference: CoverPreference
         var mediaViewModel: MediaViewModel
-        var dateFormat: String
         var isCoverHidden: Bool = false
         var visibleColumnIDs: Set<String> = []
         weak var tableView: NSTableView?
@@ -403,7 +395,6 @@ struct MediaTableView: NSViewRepresentable {
             self.items = parent.items
             self.coverPreference = parent.coverPreference
             self.mediaViewModel = mediaViewModel
-            self.dateFormat = parent.dateFormat
             self.isCoverHidden = parent.isCoverColumnHidden
             super.init()
         }
@@ -451,15 +442,15 @@ struct MediaTableView: NSViewRepresentable {
             case "publicationYear":
                 let year = item.sortablePublicationYear
                 let target: MetadataLinkTarget? = year.isEmpty ? nil : .publicationYear(year)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.publicationDate), linkTarget: target)
+                return makeLinkDateCell(tableView: tableView, cellID: cellID, dateString: item.publicationDate, linkTarget: target)
             case "status":
                 let statusName = item.status?.name ?? ""
                 let target: MetadataLinkTarget? = statusName.isEmpty ? nil : .status(statusName)
                 return makeLinkTextCell(tableView: tableView, cellID: cellID, text: statusName, linkTarget: target)
             case "added":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.createdAt), secondary: true)
+                return makeDateCell(tableView: tableView, cellID: cellID, dateString: item.createdAt)
             case "lastRead":
-                return makeTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.position?.updatedAt), secondary: true)
+                return makeDateCell(tableView: tableView, cellID: cellID, dateString: item.position?.updatedAt)
             case "tags":
                 return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
             case "media":
@@ -607,6 +598,22 @@ struct MediaTableView: NSViewRepresentable {
             return cell
         }
 
+        private func makeDateCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, dateString: String?) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? DateCellView
+                ?? DateCellView(identifier: cellID)
+            let parsedDate = dateString.flatMap { DateFormatterCache.shared.parseDate($0) }
+            cell.configure(date: parsedDate, rawString: dateString ?? "")
+            return cell
+        }
+
+        private func makeLinkDateCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, dateString: String?, linkTarget: MetadataLinkTarget?) -> NSView {
+            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? LinkDateCellView
+                ?? LinkDateCellView(identifier: cellID)
+            let parsedDate = dateString.flatMap { DateFormatterCache.shared.parseDate($0) }
+            cell.configure(date: parsedDate, rawString: dateString ?? "", linkTarget: linkTarget)
+            return cell
+        }
+
         private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
             switch coverPreference {
             case .preferEbook:
@@ -616,20 +623,6 @@ struct MediaTableView: NSViewRepresentable {
                 if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
                 return .standard
             }
-        }
-
-        private func formatDate(_ dateString: String?) -> String {
-            guard let dateString, !dateString.isEmpty else { return "" }
-            let style: DateFormatterCache.DateStyle
-            switch dateFormat {
-            case "year":
-                style = .yearOnly
-            case "yearMonth":
-                style = .monthYear
-            default:
-                style = .full
-            }
-            return DateFormatterCache.shared.format(dateString, style: style)
         }
     }
 }
@@ -930,6 +923,206 @@ private final class SeriesCellView: NSTableCellView {
             nameLabel.textColor = .secondaryLabelColor
             positionLabel.textColor = .tertiaryLabelColor
         }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pointingHand.push()
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if linkTarget != nil {
+            NSCursor.pop()
+        }
+    }
+}
+
+private final class DateCellView: NSTableCellView {
+    private let label = NSTextField(labelWithString: "")
+    private var parsedDate: Date?
+    private var rawDateString: String = ""
+
+    private static let fullWidthThreshold: CGFloat = 110
+    private static let monthYearWidthThreshold: CGFloat = 85
+
+    private let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+    private let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+        return formatter
+    }()
+    private let yearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.font = .systemFont(ofSize: 13)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(date: Date?, rawString: String) {
+        parsedDate = date
+        rawDateString = rawString
+        updateLabel()
+        updateTextColor()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateLabel()
+    }
+
+    private func updateLabel() {
+        guard let date = parsedDate else {
+            label.stringValue = rawDateString
+            return
+        }
+
+        if bounds.width >= Self.fullWidthThreshold {
+            label.stringValue = displayFormatter.string(from: date)
+        } else if bounds.width >= Self.monthYearWidthThreshold {
+            label.stringValue = monthYearFormatter.string(from: date)
+        } else {
+            label.stringValue = yearFormatter.string(from: date)
+        }
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColor() }
+    }
+
+    private func updateTextColor() {
+        label.textColor = backgroundStyle == .emphasized ? .white : .secondaryLabelColor
+    }
+}
+
+private final class LinkDateCellView: NSTableCellView {
+    private let label = NSTextField(labelWithString: "")
+    private var parsedDate: Date?
+    private var rawDateString: String = ""
+    var linkTarget: MetadataLinkTarget?
+    private var trackingArea: NSTrackingArea?
+
+    private static let fullWidthThreshold: CGFloat = 110
+    private static let monthYearWidthThreshold: CGFloat = 85
+
+    private let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+    private let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+        return formatter
+    }()
+    private let yearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
+
+    init(identifier: NSUserInterfaceItemIdentifier) {
+        super.init(frame: .zero)
+        self.identifier = identifier
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.font = .systemFont(ofSize: 13)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func configure(date: Date?, rawString: String, linkTarget: MetadataLinkTarget?) {
+        parsedDate = date
+        rawDateString = rawString
+        self.linkTarget = linkTarget
+        updateLabel()
+        updateTextColor()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateLabel()
+    }
+
+    private func updateLabel() {
+        guard let date = parsedDate else {
+            label.stringValue = rawDateString
+            return
+        }
+
+        if bounds.width >= Self.fullWidthThreshold {
+            label.stringValue = displayFormatter.string(from: date)
+        } else if bounds.width >= Self.monthYearWidthThreshold {
+            label.stringValue = monthYearFormatter.string(from: date)
+        } else {
+            label.stringValue = yearFormatter.string(from: date)
+        }
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColor() }
+    }
+
+    private func updateTextColor() {
+        label.textColor = backgroundStyle == .emphasized ? .white : .secondaryLabelColor
     }
 
     override func updateTrackingAreas() {
@@ -1594,7 +1787,7 @@ private final class DateFormatterCache {
         }
     }
 
-    private func parseDate(_ dateString: String) -> Date? {
+    func parseDate(_ dateString: String) -> Date? {
         isoWithFractional.date(from: dateString)
             ?? isoWithoutFractional.date(from: dateString)
             ?? fallbackWithTimeFormatter.date(from: dateString)
