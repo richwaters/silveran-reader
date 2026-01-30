@@ -21,7 +21,7 @@ struct AuthorView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 330
+    @State private var listWidth: CGFloat = CategoryListSidebarDefaults.width
     @State private var sortByCount = false
     #endif
 

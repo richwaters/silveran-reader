@@ -39,6 +39,10 @@ public enum CoverSizeRange {
     public static let defaultValue: CGFloat = 125
 }
 
+public enum CategoryListSidebarDefaults {
+    public static let width: CGFloat = 265
+}
+
 public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {
     case preferEbook
     case preferAudiobook

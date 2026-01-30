@@ -21,7 +21,7 @@ struct StatusView: View {
 
     #if os(macOS)
     @State private var selectedGroupId: String? = nil
-    @State private var listWidth: CGFloat = 330
+    @State private var listWidth: CGFloat = 210
     @State private var sortByCount = false
     #endif
 
