@@ -120,10 +120,6 @@ struct CategoryFanSection<ContextMenu: View>: View {
                     }
                     .buttonStyle(.plain)
 
-                    if let pinId = group.pinId {
-                        CategoryPinButton(pinId: pinId)
-                            .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
-                    }
                 }
 
                 Text("\(group.books.count) book\(group.books.count == 1 ? "" : "s")")
@@ -139,18 +135,24 @@ struct CategoryFanSection<ContextMenu: View>: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .modifier(OptionalContextMenuModifier(content: contextMenu))
-    }
-}
-
-private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
-    let content: MenuContent?
-
-    func body(content: Content) -> some View {
-        if let menuContent = self.content {
-            content.contextMenu { menuContent }
-        } else {
-            content
+        .contextMenu {
+            if let pinId = group.pinId {
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    if SidebarPinHelper.isPinned(pinId) {
+                        Label("Remove Pin", systemImage: "pin.slash")
+                    } else {
+                        Label("Pin", systemImage: "pin")
+                    }
+                }
+            }
+            if let menuContent = contextMenu {
+                if group.pinId != nil {
+                    Divider()
+                }
+                menuContent
+            }
         }
     }
 }

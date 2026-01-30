@@ -118,16 +118,67 @@ enum HomeSectionConfigHelper {
     }
 }
 
-enum SidebarPinHelper {
-    private static let key = "sidebar.pinnedItems"
+struct PinItem: Codable, Identifiable, Equatable {
+    var id: String
+    var alias: String?
+    var visible: Bool
 
-    static var pinnedItemIds: [String] {
-        guard let json = UserDefaults.standard.string(forKey: key),
+    init(id: String, alias: String? = nil, visible: Bool = true) {
+        self.id = id
+        self.alias = alias
+        self.visible = visible
+    }
+}
+
+struct PinGroup: Codable, Identifiable, Equatable {
+    var id: UUID
+    var name: String
+    var items: [PinItem]
+    var expanded: Bool
+
+    init(id: UUID = UUID(), name: String = "Pins", items: [PinItem] = [], expanded: Bool = true) {
+        self.id = id
+        self.name = name
+        self.items = items
+        self.expanded = expanded
+    }
+}
+
+enum SidebarPinHelper {
+    private static let legacyKey = "sidebar.pinnedItems"
+    private static let groupsKey = "sidebar.pinGroups"
+
+    static var pinGroups: [PinGroup] {
+        get {
+            if let json = UserDefaults.standard.string(forKey: groupsKey),
+               let data = json.data(using: .utf8),
+               let groups = try? JSONDecoder().decode([PinGroup].self, from: data) {
+                return groups
+            }
+            return migrateLegacyPins()
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            UserDefaults.standard.set(json, forKey: groupsKey)
+        }
+    }
+
+    private static func migrateLegacyPins() -> [PinGroup] {
+        guard let json = UserDefaults.standard.string(forKey: legacyKey),
               let data = json.data(using: .utf8),
-              let ids = try? JSONDecoder().decode([String].self, from: data) else {
+              let ids = try? JSONDecoder().decode([String].self, from: data),
+              !ids.isEmpty else {
             return []
         }
-        return ids
+        let items = ids.map { PinItem(id: $0) }
+        let group = PinGroup(name: "Pins", items: items)
+        pinGroups = [group]
+        return [group]
+    }
+
+    static var pinnedItemIds: [String] {
+        pinGroups.flatMap { $0.items.map(\.id) }
     }
 
     static func isPinned(_ id: String) -> Bool {
@@ -135,15 +186,32 @@ enum SidebarPinHelper {
     }
 
     static func togglePin(_ id: String) {
-        var ids = pinnedItemIds
-        if let index = ids.firstIndex(of: id) {
-            ids.remove(at: index)
-        } else {
-            ids.append(id)
+        var groups = pinGroups
+
+        for i in groups.indices {
+            if let itemIndex = groups[i].items.firstIndex(where: { $0.id == id }) {
+                groups[i].items.remove(at: itemIndex)
+                if groups.allSatisfy({ $0.items.isEmpty }) {
+                    groups = []
+                }
+                pinGroups = groups
+                return
+            }
         }
-        guard let data = try? JSONEncoder().encode(ids),
-              let json = String(data: data, encoding: .utf8) else { return }
-        UserDefaults.standard.set(json, forKey: key)
+
+        if groups.isEmpty {
+            groups = [PinGroup(name: "Pins", items: [PinItem(id: id)])]
+        } else {
+            groups[0].items.append(PinItem(id: id))
+        }
+        pinGroups = groups
+    }
+
+    static func displayName(for item: PinItem) -> String? {
+        if let alias = item.alias, !alias.isEmpty {
+            return alias
+        }
+        return nil
     }
 
     static func pinId(forSeries name: String) -> String { "pin.series:\(name)" }

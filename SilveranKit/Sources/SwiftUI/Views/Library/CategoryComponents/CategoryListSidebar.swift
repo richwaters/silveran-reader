@@ -216,14 +216,6 @@ struct CategoryRowContent: View {
 
             Spacer()
 
-            #if os(macOS)
-            if let pinId = pinId {
-                CategoryPinButton(pinId: pinId)
-                    .opacity(isHovered || isPinned ? 1 : 0)
-                    .padding(.trailing, 4)
-            }
-            #endif
-
             Text("\(bookCount)")
                 #if os(iOS)
                 .font(.subheadline)
@@ -247,6 +239,19 @@ struct CategoryRowContent: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         )
+        .contextMenu {
+            if let pinId = pinId {
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    if SidebarPinHelper.isPinned(pinId) {
+                        Label("Remove Pin", systemImage: "pin.slash")
+                    } else {
+                        Label("Pin", systemImage: "pin")
+                    }
+                }
+            }
+        }
         .onAppear { isPinned = pinId.map { SidebarPinHelper.isPinned($0) } ?? false }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             let newValue = pinId.map { SidebarPinHelper.isPinned($0) } ?? false

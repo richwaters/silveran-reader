@@ -15,12 +15,15 @@ struct SidebarView: View {
     @State private var homeSectionConfig: [HomeSectionConfigItem] = HomeSectionConfigHelper.config
     #if os(macOS)
     @State private var editingShelf: SmartShelf?
+    @State private var showPinConfiguration: Bool = false
     #endif
+    @AppStorage("sidebar.pinGroups") private var pinGroupsJSON: String = "[]"
 
     @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
     @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
     @AppStorage("sidebar.collections.expanded") private var collectionsExpanded: Bool = false
     @AppStorage("sidebar.mediaSources.expanded") private var mediaSourcesExpanded: Bool = true
+    @State private var emptyPinsExpanded: Bool = false
     @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
     @AppStorage("sidebar.hiddenItems") private var hiddenItemsJSON: String = "[]"
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
@@ -41,6 +44,11 @@ struct SidebarView: View {
         return ids
     }
 
+    private var pinGroups: [PinGroup] {
+        let _ = pinGroupsJSON
+        return SidebarPinHelper.pinGroups
+    }
+
     private var storytellerConfigured: Bool {
         mediaViewModel.connectionStatus != .disconnected
     }
@@ -49,6 +57,15 @@ struct SidebarView: View {
         pinnedItemIds
             .filter { $0.hasPrefix("pin.") }
             .compactMap { resolvePin(id: $0) }
+    }
+
+    private func resolvePinItem(_ item: PinItem) -> SidebarItemDescription? {
+        guard item.visible else { return nil }
+        guard var description = resolvePin(id: item.id) else { return nil }
+        if let alias = item.alias, !alias.isEmpty {
+            description.name = alias
+        }
+        return description
     }
 
     private func resolvePin(id: String) -> SidebarItemDescription? {
@@ -257,12 +274,12 @@ struct SidebarView: View {
             }
         }
         .onAppear {
-            HomeSectionConfigHelper.syncWithPinnedItems(pinnedItemIds)
+            HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfig = HomeSectionConfigHelper.config
             homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
-        .onChange(of: pinnedItemsJSON) {
-            HomeSectionConfigHelper.syncWithPinnedItems(pinnedItemIds)
+        .onChange(of: pinGroupsJSON) {
+            HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfig = HomeSectionConfigHelper.config
             homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
@@ -278,6 +295,9 @@ struct SidebarView: View {
             SmartShelfCreatorView(existingShelf: shelf) { updatedShelf in
                 Task { await mediaViewModel.saveSmartShelf(updatedShelf) }
             }
+        }
+        .sheet(isPresented: $showPinConfiguration) {
+            PinConfigurationView()
         }
         #endif
     }
@@ -295,19 +315,93 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var pinsSection: some View {
-        if !pinnedItems.isEmpty {
-            Section {
-                ForEach(pinnedItems) { item in
-                    sidebarRow(for: item, isPinned: true)
+        let groups = pinGroups
+        let hasVisiblePins = groups.contains { group in
+            group.items.contains { resolvePinItem($0) != nil }
+        }
+
+        if hasVisiblePins {
+            ForEach(groups) { group in
+                let items = group.items.compactMap { resolvePinItem($0) }
+                if !items.isEmpty {
+                    Section(isExpanded: pinGroupExpandedBinding(for: group.id)) {
+                        ForEach(items) { item in
+                            sidebarRow(for: item, isPinned: true)
+                        }
+                    } header: {
+                        HStack {
+                            Text(group.name)
+                                .font(.headline)
+                            #if os(macOS)
+                            pinConfigButton(for: group)
+                            #endif
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { togglePinGroupExpanded(group.id) }
+                        .padding(.bottom, 3)
+                        .padding(.trailing, 16)
+                        #if os(macOS)
+                        .onHover { hovering in
+                            hoveredSectionId = hovering ? group.id.uuidString : nil
+                        }
+                        #endif
+                    }
                 }
+            }
+        } else {
+            Section(isExpanded: $emptyPinsExpanded) {
+                Text("Right-click any series or category to pin it here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 8)
             } header: {
-                Text("Pins")
-                    .font(.headline)
-                    .padding(.bottom, 3)
-                    .padding(.trailing, 16)
+                HStack {
+                    Text("Pins")
+                        .font(.headline)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { emptyPinsExpanded.toggle() }
+                .padding(.bottom, 3)
+                .padding(.trailing, 16)
             }
         }
     }
+
+    private func pinGroupExpandedBinding(for groupId: UUID) -> Binding<Bool> {
+        Binding(
+            get: { SidebarPinHelper.pinGroups.first(where: { $0.id == groupId })?.expanded ?? true },
+            set: { _ in }
+        )
+    }
+
+    private func togglePinGroupExpanded(_ groupId: UUID) {
+        var groups = SidebarPinHelper.pinGroups
+        if let index = groups.firstIndex(where: { $0.id == groupId }) {
+            groups[index].expanded.toggle()
+            SidebarPinHelper.pinGroups = groups
+        }
+    }
+
+    #if os(macOS)
+    private func pinConfigButton(for group: PinGroup) -> some View {
+        let showButton = hoveredSectionId == group.id.uuidString || showPinConfiguration
+        return Button {
+            showPinConfiguration = true
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11))
+                .foregroundColor(Color(white: 0.5))
+                .frame(width: 12, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(showButton ? 1 : 0)
+    }
+    #endif
 
     // MARK: - Library Section
 
@@ -490,17 +584,26 @@ struct SidebarView: View {
         .onHover { hovering in
             hoveredItemId = hovering ? item.id : nil
         }
-        .contextMenu { smartShelfContextMenu(for: item) }
+        .contextMenu { sidebarRowContextMenu(for: item, isPinned: isPinned) }
         #endif
     }
 
     #if os(macOS)
     @ViewBuilder
-    private func smartShelfContextMenu(for item: SidebarItemDescription) -> some View {
+    private func sidebarRowContextMenu(for item: SidebarItemDescription, isPinned: Bool) -> some View {
+        if isPinned {
+            Button {
+                SidebarPinHelper.togglePin(item.id)
+            } label: {
+                Label("Remove Pin", systemImage: "pin.slash")
+            }
+        }
+
         if item.id.hasPrefix("pin.smartShelf:") {
             let uuidString = String(item.id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
+                Divider()
                 Button {
                     editingShelf = shelf
                 } label: {
@@ -519,12 +622,11 @@ struct SidebarView: View {
     #if os(macOS)
     @ViewBuilder
     private func pinButton(for item: SidebarItemDescription, isPinned: Bool) -> some View {
-        if item.id.hasPrefix("pin.") {
-            let isCurrentlyPinned = isPinned || SidebarPinHelper.isPinned(item.id)
+        if item.id.hasPrefix("pin.") && !isPinned {
             Button {
                 SidebarPinHelper.togglePin(item.id)
             } label: {
-                Image(systemName: isCurrentlyPinned ? "pin.fill" : "pin")
+                Image(systemName: "pin")
                     .font(.system(size: 10))
                     .foregroundStyle(.gray)
             }

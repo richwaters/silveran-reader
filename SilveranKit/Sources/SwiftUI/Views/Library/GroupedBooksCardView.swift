@@ -61,16 +61,6 @@ struct GroupedBooksCardView: View {
             .padding(.horizontal, cardPadding)
             .padding(.bottom, 12)
             .frame(width: tileWidth, height: maxCardHeight, alignment: .top)
-            #if os(macOS)
-            .overlay(alignment: .bottomTrailing) {
-                if let pinId = pinId {
-                    CategoryPinButton(pinId: pinId)
-                        .opacity(isHovered || SidebarPinHelper.isPinned(pinId) ? 1 : 0)
-                        .padding(.trailing, 8)
-                        .padding(.bottom, 14)
-                }
-            }
-            #endif
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.secondary.opacity(0.08))
@@ -81,6 +71,19 @@ struct GroupedBooksCardView: View {
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.25)) {
                 isHovered = hovering
+            }
+        }
+        .contextMenu {
+            if let pinId = pinId {
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    if SidebarPinHelper.isPinned(pinId) {
+                        Label("Remove Pin", systemImage: "pin.slash")
+                    } else {
+                        Label("Pin", systemImage: "pin")
+                    }
+                }
             }
         }
         #endif
