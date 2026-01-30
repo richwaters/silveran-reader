@@ -17,8 +17,9 @@ private final class ImmediateSelectTableView: NSTableView {
                 selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
             }
 
+            let isCmdClick = event.modifierFlags.contains(.command)
             let clickedCol = column(at: point)
-            if clickedCol >= 0 {
+            if clickedCol >= 0 && isCmdClick {
                 let colID = tableColumns[clickedCol].identifier.rawValue
                 if colID == "tags" {
                     super.mouseDown(with: event)
@@ -105,6 +106,7 @@ struct MediaTableView: NSViewRepresentable {
     let items: [BookMetadata]
     let coverPreference: CoverPreference
     let mediaViewModel: MediaViewModel
+    let dateFormat: String
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
@@ -131,7 +133,7 @@ struct MediaTableView: NSViewRepresentable {
         tableView.rowHeight = 48
         tableView.usesAutomaticRowHeights = false
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
-        tableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.allowsColumnReordering = true
         tableView.allowsColumnResizing = true
         tableView.allowsColumnSelection = false
@@ -167,17 +169,30 @@ struct MediaTableView: NSViewRepresentable {
         let oldItems = coordinator.items
         let newItems = items
         let oldCoverPreference = coordinator.coverPreference
+        let oldCoverHidden = coordinator.isCoverHidden
+        let oldDateFormat = coordinator.dateFormat
 
         coordinator.parent = self
         coordinator.items = items
         coordinator.coverPreference = coverPreference
         coordinator.mediaViewModel = mediaViewModel
+        coordinator.dateFormat = dateFormat
+
+        let newCoverHidden = isCoverColumnHidden
+        coordinator.isCoverHidden = newCoverHidden
+
+        updateColumnVisibility(tableView: tableView)
 
         if oldItems.map(\.id) != newItems.map(\.id) {
             tableView.reloadData()
         } else if oldItems != newItems {
             tableView.reloadData()
         } else if oldCoverPreference != coverPreference {
+            tableView.reloadData()
+        } else if oldCoverHidden != newCoverHidden {
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<items.count))
+            tableView.reloadData()
+        } else if oldDateFormat != dateFormat {
             tableView.reloadData()
         }
 
@@ -192,12 +207,40 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         updateSortIndicators(tableView: tableView, context: context)
-        updateColumnVisibility(tableView: tableView)
+    }
+
+    private var isCoverColumnHidden: Bool {
+        let visibility = columnCustomization[visibility: "cover"]
+        switch visibility {
+        case .visible:
+            return false
+        case .hidden:
+            return true
+        default:
+            return !Self.defaultVisibleColumns.contains("cover")
+        }
     }
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
-    private static let columnOrderKey = "library.table.columnOrder"
-    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
+    private static let columnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
+    private static let columnWidthsKey = "library.table.columnWidths"
+
+    fileprivate static func saveColumnWidths(from tableView: NSTableView) {
+        var widths: [String: Double] = [:]
+        for column in tableView.tableColumns {
+            widths[column.identifier.rawValue] = Double(column.width)
+        }
+        UserDefaults.standard.set(widths, forKey: columnWidthsKey)
+    }
+
+    private static func loadColumnWidths() -> [String: CGFloat] {
+        guard let dict = UserDefaults.standard.dictionary(forKey: columnWidthsKey) as? [String: Double] else {
+            print("[COLWIDTH] No saved column widths found")
+            return [:]
+        }
+        print("[COLWIDTH] Loading column widths: \(dict)")
+        return dict.mapValues { CGFloat($0) }
+    }
 
     private func updateColumnVisibility(tableView: NSTableView) {
         for column in tableView.tableColumns {
@@ -214,6 +257,7 @@ struct MediaTableView: NSViewRepresentable {
             }
             column.isHidden = !isVisible
         }
+        tableView.sizeToFit()
     }
 
     private func setupColumns(tableView: NSTableView, context: Context) {
@@ -233,17 +277,14 @@ struct MediaTableView: NSViewRepresentable {
             "media": ("Media", 100, 120, 150),
         ]
 
-        let savedOrder = UserDefaults.standard.stringArray(forKey: Self.columnOrderKey) ?? Self.defaultColumnOrder
-        let columnOrder = savedOrder.filter { columnDefs[$0] != nil }
-        let missingColumns = Self.defaultColumnOrder.filter { !columnOrder.contains($0) }
-        let finalOrder = columnOrder + missingColumns
+        let savedWidths = Self.loadColumnWidths()
 
-        for id in finalOrder {
+        for id in Self.columnOrder {
             guard let def = columnDefs[id] else { continue }
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = def.title
             column.minWidth = def.minWidth
-            column.width = def.width
+            column.width = savedWidths[id] ?? def.width
             column.maxWidth = def.maxWidth
             column.isEditable = false
 
@@ -263,10 +304,6 @@ struct MediaTableView: NSViewRepresentable {
 
             tableView.addTableColumn(column)
         }
-    }
-
-    fileprivate static func saveColumnOrder(_ order: [String]) {
-        UserDefaults.standard.set(order, forKey: columnOrderKey)
     }
 
     private func updateSortIndicators(tableView: NSTableView, context: Context) {
@@ -307,6 +344,8 @@ struct MediaTableView: NSViewRepresentable {
         var items: [BookMetadata]
         var coverPreference: CoverPreference
         var mediaViewModel: MediaViewModel
+        var dateFormat: String
+        var isCoverHidden: Bool = false
         weak var tableView: NSTableView?
         weak var scrollView: NSScrollView?
 
@@ -315,7 +354,16 @@ struct MediaTableView: NSViewRepresentable {
             self.items = parent.items
             self.coverPreference = parent.coverPreference
             self.mediaViewModel = mediaViewModel
+            self.dateFormat = parent.dateFormat
+            self.isCoverHidden = parent.isCoverColumnHidden
             super.init()
+        }
+
+        func tableViewColumnDidResize(_ notification: Notification) {
+            guard let tableView = notification.object as? NSTableView else { return }
+            print("[COLWIDTH] Column resized, saving widths...")
+            MediaTableView.saveColumnWidths(from: tableView)
+            print("[COLWIDTH] Saved widths: \(UserDefaults.standard.dictionary(forKey: "library.table.columnWidths") ?? [:])")
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {
@@ -350,9 +398,8 @@ struct MediaTableView: NSViewRepresentable {
                 return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
             case "publicationYear":
                 let year = item.sortablePublicationYear
-                let displayText = formatDate(item.publicationDate)
                 let target: MetadataLinkTarget? = year.isEmpty ? nil : .publicationYear(year)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: displayText, linkTarget: target)
+                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: formatDate(item.publicationDate), linkTarget: target)
             case "status":
                 let statusName = item.status?.name ?? ""
                 let target: MetadataLinkTarget? = statusName.isEmpty ? nil : .status(statusName)
@@ -420,6 +467,10 @@ struct MediaTableView: NSViewRepresentable {
             return true
         }
 
+        func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+            isCoverHidden ? 28 : 48
+        }
+
         func handleRowClicked(_ row: Int) {
             guard row >= 0 && row < items.count else { return }
             let item = items[row]
@@ -428,12 +479,6 @@ struct MediaTableView: NSViewRepresentable {
 
         func handleLinkClicked(_ target: MetadataLinkTarget) {
             parent.onMetadataLinkClicked?(target)
-        }
-
-        func tableViewColumnDidMove(_ notification: Notification) {
-            guard let tableView = notification.object as? NSTableView else { return }
-            let order = tableView.tableColumns.map { $0.identifier.rawValue }
-            MediaTableView.saveColumnOrder(order)
         }
 
         private func makeCoverCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
@@ -454,7 +499,9 @@ struct MediaTableView: NSViewRepresentable {
             let stackedCellID = NSUserInterfaceItemIdentifier("titleStackedCell")
             let cell = tableView.makeView(withIdentifier: stackedCellID, owner: self) as? TitleAuthorCellView
                 ?? TitleAuthorCellView(identifier: stackedCellID)
-            cell.configure(title: item.title, author: item.authors?.first?.name)
+            let coverColumn = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("cover"))
+            let showAuthor = !(coverColumn?.isHidden ?? false)
+            cell.configure(title: item.title, author: item.authors?.first?.name, showAuthor: showAuthor)
             return cell
         }
 
@@ -493,7 +540,8 @@ struct MediaTableView: NSViewRepresentable {
             let onLinkClicked = parent.onMetadataLinkClicked
             let content = TagFlowCellContent(
                 tags: item.tagNames.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
-                onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil
+                onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil,
+                compact: isCoverHidden
             )
             cell.setContent(content)
             return cell
@@ -520,13 +568,23 @@ struct MediaTableView: NSViewRepresentable {
 
         private func formatDate(_ dateString: String?) -> String {
             guard let dateString, !dateString.isEmpty else { return "" }
-            return DateFormatterCache.shared.format(dateString)
+            let style: DateFormatterCache.DateStyle
+            switch dateFormat {
+            case "year":
+                style = .yearOnly
+            case "yearMonth":
+                style = .monthYear
+            default:
+                style = .full
+            }
+            return DateFormatterCache.shared.format(dateString, style: style)
         }
     }
 }
 
 private final class TextCellView: NSTableCellView {
     private let label = NSTextField(labelWithString: "")
+    private var isSecondary = false
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -553,8 +611,21 @@ private final class TextCellView: NSTableCellView {
 
     func configure(text: String, secondary: Bool) {
         label.stringValue = text
-        label.textColor = secondary ? .secondaryLabelColor : .labelColor
+        isSecondary = secondary
         label.font = .systemFont(ofSize: 13)
+        updateTextColor()
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColor() }
+    }
+
+    private func updateTextColor() {
+        if backgroundStyle == .emphasized {
+            label.textColor = .white
+        } else {
+            label.textColor = isSecondary ? .secondaryLabelColor : .labelColor
+        }
     }
 }
 
@@ -590,7 +661,15 @@ private final class LinkTextCellView: NSTableCellView {
         label.stringValue = text
         self.linkTarget = linkTarget
         label.font = .systemFont(ofSize: 13)
-        label.textColor = .secondaryLabelColor
+        updateTextColor()
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColor() }
+    }
+
+    private func updateTextColor() {
+        label.textColor = backgroundStyle == .emphasized ? .white : .secondaryLabelColor
     }
 
     override func updateTrackingAreas() {
@@ -665,14 +744,29 @@ private final class TitleAuthorCellView: NSTableCellView {
         ])
     }
 
-    func configure(title: String, author: String?) {
+    func configure(title: String, author: String?, showAuthor: Bool = true) {
         titleLabel.stringValue = title
         authorLabel.stringValue = author ?? ""
-        authorLabel.isHidden = author?.isEmpty ?? true
+        authorLabel.isHidden = !showAuthor || (author?.isEmpty ?? true)
         if let author, !author.isEmpty {
             authorLinkTarget = .author(author)
         } else {
             authorLinkTarget = nil
+        }
+        updateTextColors()
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColors() }
+    }
+
+    private func updateTextColors() {
+        if backgroundStyle == .emphasized {
+            titleLabel.textColor = .white
+            authorLabel.textColor = .white.withAlphaComponent(0.8)
+        } else {
+            titleLabel.textColor = .labelColor
+            authorLabel.textColor = .secondaryLabelColor
         }
     }
 
@@ -756,7 +850,6 @@ private final class SeriesCellView: NSTableCellView {
         if let series {
             nameLabel.stringValue = series.name
             nameLabel.font = .systemFont(ofSize: 13)
-            nameLabel.textColor = .secondaryLabelColor
             linkTarget = .series(series.name)
             if let formatted = series.formattedPosition {
                 positionLabel.stringValue = "#\(formatted)"
@@ -767,9 +860,23 @@ private final class SeriesCellView: NSTableCellView {
             }
         } else {
             nameLabel.stringValue = ""
-            nameLabel.textColor = .secondaryLabelColor
             linkTarget = nil
             positionLabel.isHidden = true
+        }
+        updateTextColors()
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColors() }
+    }
+
+    private func updateTextColors() {
+        if backgroundStyle == .emphasized {
+            nameLabel.textColor = .white
+            positionLabel.textColor = .white.withAlphaComponent(0.7)
+        } else {
+            nameLabel.textColor = .secondaryLabelColor
+            positionLabel.textColor = .tertiaryLabelColor
         }
     }
 
@@ -806,6 +913,9 @@ private final class ProgressCellView: NSTableCellView {
     private let fillLayer = CALayer()
     private let percentLabel = NSTextField(labelWithString: "")
     private var currentProgress: Double = 0
+    private var percentLabelCenterConstraint: NSLayoutConstraint?
+    private var percentLabelTrailingConstraint: NSLayoutConstraint?
+    private static let compactWidthThreshold: CGFloat = 75
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -833,22 +943,50 @@ private final class ProgressCellView: NSTableCellView {
         percentLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(percentLabel)
 
+        percentLabelTrailingConstraint = percentLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)
+        percentLabelCenterConstraint = percentLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
+
         NSLayoutConstraint.activate([
-            percentLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             percentLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             percentLabel.widthAnchor.constraint(equalToConstant: 32),
+            percentLabelTrailingConstraint!,
         ])
     }
 
     override func layout() {
         super.layout()
+        updateLayout()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateLayout()
+    }
+
+    private func updateLayout() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let barHeight: CGFloat = 4
-        let barWidth = bounds.width - 48
-        let y = (bounds.height - barHeight) / 2
-        trackLayer.frame = CGRect(x: 4, y: y, width: barWidth, height: barHeight)
-        fillLayer.frame = CGRect(x: 4, y: y, width: barWidth * currentProgress, height: barHeight)
+
+        let isCompact = bounds.width < Self.compactWidthThreshold
+        trackLayer.isHidden = isCompact
+        fillLayer.isHidden = isCompact
+
+        if isCompact {
+            percentLabelTrailingConstraint?.isActive = false
+            percentLabelCenterConstraint?.isActive = true
+            percentLabel.alignment = .center
+        } else {
+            percentLabelCenterConstraint?.isActive = false
+            percentLabelTrailingConstraint?.isActive = true
+            percentLabel.alignment = .right
+
+            let barHeight: CGFloat = 4
+            let barWidth = bounds.width - 48
+            let y = (bounds.height - barHeight) / 2
+            trackLayer.frame = CGRect(x: 4, y: y, width: barWidth, height: barHeight)
+            fillLayer.frame = CGRect(x: 4, y: y, width: barWidth * currentProgress, height: barHeight)
+        }
+
         CATransaction.commit()
     }
 
@@ -861,7 +999,16 @@ private final class ProgressCellView: NSTableCellView {
         trackLayer.cornerRadius = barHeight / 2
         fillLayer.cornerRadius = barHeight / 2
 
+        updateTextColor()
         needsLayout = true
+    }
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateTextColor() }
+    }
+
+    private func updateTextColor() {
+        percentLabel.textColor = backgroundStyle == .emphasized ? .white : .secondaryLabelColor
     }
 }
 
@@ -930,6 +1077,7 @@ private final class TagLayoutState: @unchecked Sendable {
 private struct TagFlowCellContent: View {
     let tags: [String]
     var onTagClicked: ((String) -> Void)?
+    var compact: Bool = false
     @State private var showPopover = false
     @State private var layoutState = TagLayoutState()
 
@@ -940,11 +1088,13 @@ private struct TagFlowCellContent: View {
     }
 
     var body: some View {
-        TagFlowLayout(spacing: 4, maxRows: 2, state: layoutState) {
+        TagFlowLayout(spacing: 4, maxRows: compact ? 1 : 2, state: layoutState) {
             ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
                 if let onTagClicked {
                     Button {
-                        onTagClicked(tag)
+                        if NSEvent.modifierFlags.contains(.command) {
+                            onTagClicked(tag)
+                        }
                     } label: {
                         Text(tag)
                             .font(.system(size: 10))
@@ -955,10 +1105,6 @@ private struct TagFlowCellContent: View {
                             .background(Capsule().fill(Color.secondary.opacity(0.15)))
                     }
                     .buttonStyle(.plain)
-                    .onHover { hovering in
-                        if hovering { NSCursor.pointingHand.push() }
-                        else { NSCursor.pop() }
-                    }
                 } else {
                     Text(tag)
                         .font(.system(size: 10))
@@ -1327,6 +1473,12 @@ private struct MediaIndicatorCellContent: View {
 private final class DateFormatterCache {
     static let shared = DateFormatterCache()
 
+    enum DateStyle {
+        case full
+        case monthYear
+        case yearOnly
+    }
+
     private let isoWithFractional: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -1342,25 +1494,59 @@ private final class DateFormatterCache {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
+    private let fallbackWithTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
     private let displayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter
     }()
+    private let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+        return formatter
+    }()
+    private let yearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
     private var cache: [String: String] = [:]
+    private var monthYearCache: [String: String] = [:]
+    private var yearCache: [String: String] = [:]
 
-    func format(_ dateString: String) -> String {
-        if let cached = cache[dateString] { return cached }
+    func format(_ dateString: String, style: DateStyle = .full) -> String {
+        switch style {
+        case .full:
+            if let cached = cache[dateString] { return cached }
+            let parsedDate = parseDate(dateString)
+            let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
+            cache[dateString] = formatted
+            return formatted
+        case .monthYear:
+            if let cached = monthYearCache[dateString] { return cached }
+            let parsedDate = parseDate(dateString)
+            let formatted = parsedDate.map { monthYearFormatter.string(from: $0) } ?? dateString
+            monthYearCache[dateString] = formatted
+            return formatted
+        case .yearOnly:
+            if let cached = yearCache[dateString] { return cached }
+            let parsedDate = parseDate(dateString)
+            let formatted = parsedDate.map { yearFormatter.string(from: $0) } ?? dateString
+            yearCache[dateString] = formatted
+            return formatted
+        }
+    }
 
-        let parsedDate =
-            isoWithFractional.date(from: dateString)
+    private func parseDate(_ dateString: String) -> Date? {
+        isoWithFractional.date(from: dateString)
             ?? isoWithoutFractional.date(from: dateString)
+            ?? fallbackWithTimeFormatter.date(from: dateString)
             ?? fallbackFormatter.date(from: dateString)
-
-        let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
-        cache[dateString] = formatted
-        return formatted
     }
 }
 #endif
