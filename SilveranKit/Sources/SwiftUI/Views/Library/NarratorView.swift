@@ -181,7 +181,7 @@ extension NarratorView {
                 case .list:
                     CategoryListSidebar(headerTitle: "Books by Narrator", sidebarTitle: "Narrators", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
                         rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                        detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, narratorFilter: group.name, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
+                        detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, narratorFilter: group.name, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
                         toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
                     )
                 case .fan, .grid: fanGridContent

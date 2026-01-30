@@ -94,6 +94,7 @@ struct MediaGridView: View {
     let ratingFilter: String?
     let statusFilter: String?
     let defaultSort: String?
+    let tableContext: String
     let preferredTileWidth: CGFloat
     let minimumTileWidth: CGFloat
     let columnBreakpoints: [ColumnBreakpoint]
@@ -239,6 +240,7 @@ struct MediaGridView: View {
         ratingFilter: String? = nil,
         statusFilter: String? = nil,
         defaultSort: String? = nil,
+        tableContext: String = "main",
         preferredTileWidth: CGFloat = 250,
         minimumTileWidth: CGFloat = 10,
         columnBreakpoints: [ColumnBreakpoint]? = nil,
@@ -266,6 +268,7 @@ struct MediaGridView: View {
         self.ratingFilter = ratingFilter
         self.statusFilter = statusFilter
         self.defaultSort = defaultSort
+        self.tableContext = tableContext
         self.preferredTileWidth = preferredTileWidth
         self.minimumTileWidth = minimumTileWidth
         let resolvedBreakpoints: [ColumnBreakpoint] =
@@ -556,6 +559,7 @@ struct MediaGridView: View {
                     coverPreference: coverPreference,
                     mediaViewModel: mediaViewModel,
                     dateFormat: tableDateFormat,
+                    tableContext: tableContext,
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in

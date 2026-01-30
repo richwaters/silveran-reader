@@ -139,7 +139,7 @@ extension SeriesView {
                     detailContent: { group in
                         let isNoSeries = group.id == Self.noSeriesFilterKey
                         let sortKey = isNoSeries ? "title" : "seriesPosition"
-                        return MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, seriesFilter: group.id, defaultSort: sortKey, preferredTileWidth: 120, minimumTileWidth: 50, onSeriesSelected: { newSeriesName in navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)) }, initialNarrationFilterOption: .both, scrollPosition: nil)
+                        return MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, seriesFilter: group.id, defaultSort: sortKey, tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, onSeriesSelected: { newSeriesName in navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)) }, initialNarrationFilterOption: .both, scrollPosition: nil)
                     },
                     toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
                 case .fan, .grid: fanGridContent

@@ -208,6 +208,7 @@ extension TagView {
                                 mediaKind: mediaKind,
                                 tagFilter: group.name,
                                 defaultSort: "title",
+                                tableContext: "category",
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
                                 initialNarrationFilterOption: .both,

@@ -107,12 +107,39 @@ struct MediaTableView: NSViewRepresentable {
     let coverPreference: CoverPreference
     let mediaViewModel: MediaViewModel
     let dateFormat: String
+    let tableContext: String
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
+
+    init(
+        items: [BookMetadata],
+        coverPreference: CoverPreference,
+        mediaViewModel: MediaViewModel,
+        dateFormat: String,
+        tableContext: String = "main",
+        selection: Binding<BookMetadata.ID?>,
+        columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
+        sortOrder: Binding<[KeyPathComparator<BookMetadata>]>,
+        onSelect: @escaping (BookMetadata) -> Void,
+        onInfo: @escaping (BookMetadata) -> Void,
+        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil
+    ) {
+        self.items = items
+        self.coverPreference = coverPreference
+        self.mediaViewModel = mediaViewModel
+        self.dateFormat = dateFormat
+        self.tableContext = tableContext
+        self._selection = selection
+        self._columnCustomization = columnCustomization
+        self._sortOrder = sortOrder
+        self.onSelect = onSelect
+        self.onInfo = onInfo
+        self.onMetadataLinkClicked = onMetadataLinkClicked
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self, mediaViewModel: mediaViewModel)
@@ -181,7 +208,7 @@ struct MediaTableView: NSViewRepresentable {
         let newCoverHidden = isCoverColumnHidden
         coordinator.isCoverHidden = newCoverHidden
 
-        updateColumnVisibility(tableView: tableView)
+        updateColumnVisibility(tableView: tableView, coordinator: coordinator)
 
         if oldItems.map(\.id) != newItems.map(\.id) {
             tableView.reloadData()
@@ -222,10 +249,12 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
-    private static let columnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
-    private static let columnWidthsKey = "library.table.columnWidths"
+    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
 
-    fileprivate static func saveColumnWidths(from tableView: NSTableView) {
+    private var columnWidthsKey: String { "library.table.\(tableContext).columnWidths" }
+    private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
+
+    fileprivate func saveColumnWidths(from tableView: NSTableView) {
         var widths: [String: Double] = [:]
         for column in tableView.tableColumns {
             widths[column.identifier.rawValue] = Double(column.width)
@@ -233,16 +262,24 @@ struct MediaTableView: NSViewRepresentable {
         UserDefaults.standard.set(widths, forKey: columnWidthsKey)
     }
 
-    private static func loadColumnWidths() -> [String: CGFloat] {
+    fileprivate func saveColumnOrder(from tableView: NSTableView) {
+        let order = tableView.tableColumns.map { $0.identifier.rawValue }
+        UserDefaults.standard.set(order, forKey: columnOrderKey)
+    }
+
+    private func loadColumnWidths() -> [String: CGFloat] {
         guard let dict = UserDefaults.standard.dictionary(forKey: columnWidthsKey) as? [String: Double] else {
-            print("[COLWIDTH] No saved column widths found")
             return [:]
         }
-        print("[COLWIDTH] Loading column widths: \(dict)")
         return dict.mapValues { CGFloat($0) }
     }
 
-    private func updateColumnVisibility(tableView: NSTableView) {
+    private func loadColumnOrder() -> [String] {
+        UserDefaults.standard.stringArray(forKey: columnOrderKey) ?? Self.defaultColumnOrder
+    }
+
+    private func updateColumnVisibility(tableView: NSTableView, coordinator: Coordinator) {
+        var newVisibleIDs: Set<String> = []
         for column in tableView.tableColumns {
             let id = column.identifier.rawValue
             let visibility = columnCustomization[visibility: id]
@@ -256,8 +293,15 @@ struct MediaTableView: NSViewRepresentable {
                 isVisible = Self.defaultVisibleColumns.contains(id)
             }
             column.isHidden = !isVisible
+            if isVisible {
+                newVisibleIDs.insert(id)
+            }
         }
-        tableView.sizeToFit()
+
+        if !coordinator.visibleColumnIDs.isEmpty && newVisibleIDs != coordinator.visibleColumnIDs {
+            tableView.sizeToFit()
+        }
+        coordinator.visibleColumnIDs = newVisibleIDs
     }
 
     private func setupColumns(tableView: NSTableView, context: Context) {
@@ -277,9 +321,13 @@ struct MediaTableView: NSViewRepresentable {
             "media": ("Media", 100, 120, 150),
         ]
 
-        let savedWidths = Self.loadColumnWidths()
+        let savedWidths = loadColumnWidths()
+        let savedOrder = loadColumnOrder()
+        let columnOrder = savedOrder.filter { columnDefs[$0] != nil }
+        let missingColumns = Self.defaultColumnOrder.filter { !columnOrder.contains($0) }
+        let finalOrder = columnOrder + missingColumns
 
-        for id in Self.columnOrder {
+        for id in finalOrder {
             guard let def = columnDefs[id] else { continue }
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = def.title
@@ -346,6 +394,7 @@ struct MediaTableView: NSViewRepresentable {
         var mediaViewModel: MediaViewModel
         var dateFormat: String
         var isCoverHidden: Bool = false
+        var visibleColumnIDs: Set<String> = []
         weak var tableView: NSTableView?
         weak var scrollView: NSScrollView?
 
@@ -361,9 +410,12 @@ struct MediaTableView: NSViewRepresentable {
 
         func tableViewColumnDidResize(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
-            print("[COLWIDTH] Column resized, saving widths...")
-            MediaTableView.saveColumnWidths(from: tableView)
-            print("[COLWIDTH] Saved widths: \(UserDefaults.standard.dictionary(forKey: "library.table.columnWidths") ?? [:])")
+            parent.saveColumnWidths(from: tableView)
+        }
+
+        func tableViewColumnDidMove(_ notification: Notification) {
+            guard let tableView = notification.object as? NSTableView else { return }
+            parent.saveColumnOrder(from: tableView)
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {

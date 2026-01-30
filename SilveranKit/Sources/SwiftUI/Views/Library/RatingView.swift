@@ -138,7 +138,7 @@ extension RatingView {
                 switch layoutStyle {
                 case .list: CategoryListSidebar(headerTitle: "Books by Rating", sidebarTitle: "Ratings", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
                     rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "star.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, ratingFilter: group.id, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
+                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, ratingFilter: group.id, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
                     toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
                 case .fan, .grid: fanGridContent
                 }
