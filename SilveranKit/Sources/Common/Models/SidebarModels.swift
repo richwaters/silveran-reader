@@ -54,6 +54,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case smartShelfDetail(UUID)
     case placeholder(title: String)
     case currentlyDownloading
+    case downloaded
     case importLocalFile
     case storytellerServer
 
@@ -91,6 +92,8 @@ public enum SidebarContentKind: Hashable, Sendable {
             return "placeholder.\(title)"
         case .currentlyDownloading:
             return "currentlyDownloading"
+        case .downloaded:
+            return "downloaded"
         case .importLocalFile:
             return "importLocalFile"
         case .storytellerServer:
@@ -303,6 +306,12 @@ public enum LibrarySidebarDefaults {
                         systemImage: "folder",
                         badge: -1,
                         content: .importLocalFile
+                    ),
+                    SidebarItemDescription(
+                        name: "Downloaded",
+                        systemImage: "arrow.down.circle",
+                        badge: -1,
+                        content: .downloaded
                     ),
                     SidebarItemDescription(
                         name: "Currently Downloading",

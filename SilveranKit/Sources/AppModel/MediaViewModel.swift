@@ -985,6 +985,9 @@ public final class MediaViewModel {
                 return 0
             case .currentlyDownloading:
                 return 0
+            case .downloaded:
+                let allItems = items(for: .ebook, narrationFilter: .both, tagFilter: nil)
+                return allItems.filter { matchesLocationFilter($0, filter: .downloaded) }.count
             case .importLocalFile:
                 return 0
             case .storytellerServer:
@@ -1017,9 +1020,10 @@ public final class MediaViewModel {
             case .all:
                 return true
             case .downloaded:
-                return isCategoryDownloaded(.ebook, for: item)
+                let hasDownload = isCategoryDownloaded(.ebook, for: item)
                     || isCategoryDownloaded(.audio, for: item)
                     || isCategoryDownloaded(.synced, for: item)
+                return hasDownload && !isLocalStandaloneBook(item.id)
             case .serverOnly:
                 let hasDownload =
                     isCategoryDownloaded(.ebook, for: item)
@@ -1429,7 +1433,15 @@ public final class MediaViewModel {
     public func booksForShelf(_ shelf: SmartShelf) -> [BookMetadata] {
         library.bookMetaData.filter { book in
             let prog = progress(for: book.id)
-            return shelf.matchesAll(book, progress: prog)
+            let isLocal = isLocalStandaloneBook(book.id)
+            let hasDownloadedContent = isCategoryDownloaded(.ebook, for: book)
+                || isCategoryDownloaded(.audio, for: book)
+                || isCategoryDownloaded(.synced, for: book)
+            let locationInfo = ShelfLocationInfo(
+                isDownloaded: hasDownloadedContent && !isLocal,
+                isLocalStandalone: isLocal
+            )
+            return shelf.matchesAll(book, progress: prog, locationInfo: locationInfo)
         }.sorted {
             $0.title.articleStrippedCompare($1.title) == .orderedAscending
         }

@@ -1084,10 +1084,11 @@ struct MediaGridView: View {
     private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID: ItemLocationInfo] {
         var info: [BookMetadata.ID: ItemLocationInfo] = [:]
         for item in items {
-            let isDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+            let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
+            let hasDownloadedContent = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
                 || mediaViewModel.isCategoryDownloaded(.audio, for: item)
                 || mediaViewModel.isCategoryDownloaded(.synced, for: item)
-            let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
+            let isDownloaded = hasDownloadedContent && !isLocal
             info[item.id] = ItemLocationInfo(isDownloaded: isDownloaded, isLocalStandalone: isLocal)
         }
         return info

@@ -378,6 +378,17 @@ public struct LibraryView: View {
                     .border(.yellow)
             case .currentlyDownloading:
                 CurrentlyDownloadingView()
+            case .downloaded:
+                MediaGridView(
+                    title: "Downloaded",
+                    mediaKind: .ebook,
+                    preferredTileWidth: 120,
+                    minimumTileWidth: 50,
+                    onMetadataLinkClicked: { target in
+                        navigateToMetadataFilter(target, mediaKind: .ebook)
+                    },
+                    initialLocationFilter: .downloaded
+                )
             case .importLocalFile:
                 ImportLocalFileView()
             case .storytellerServer:

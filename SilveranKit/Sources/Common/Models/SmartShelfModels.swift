@@ -13,7 +13,7 @@ public struct SmartShelf: Codable, Identifiable, Hashable, Sendable {
         self.createdAt = createdAt
     }
 
-    public func matchesAll(_ book: BookMetadata, progress: Double) -> Bool {
+    public func matchesAll(_ book: BookMetadata, progress: Double, locationInfo: ShelfLocationInfo = .init()) -> Bool {
         guard !conditions.isEmpty else { return false }
 
         // Split conditions into OR-separated groups.
@@ -32,8 +32,18 @@ public struct SmartShelf: Codable, Identifiable, Hashable, Sendable {
         guard !groups.isEmpty else { return false }
 
         return groups.contains { group in
-            group.allSatisfy { $0.matches(book, progress: progress) }
+            group.allSatisfy { $0.matches(book, progress: progress, locationInfo: locationInfo) }
         }
+    }
+}
+
+public struct ShelfLocationInfo: Sendable {
+    public let isDownloaded: Bool
+    public let isLocalStandalone: Bool
+
+    public init(isDownloaded: Bool = false, isLocalStandalone: Bool = false) {
+        self.isDownloaded = isDownloaded
+        self.isLocalStandalone = isLocalStandalone
     }
 }
 
@@ -66,7 +76,7 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
     case noTag
     case orSeparator
 
-    public func matches(_ book: BookMetadata, progress: Double) -> Bool {
+    public func matches(_ book: BookMetadata, progress: Double, locationInfo: ShelfLocationInfo = .init()) -> Bool {
         switch self {
         case .format(let mode, let conditions):
             let matches = conditions.contains { formatConditionMatches($0, book) }
@@ -82,8 +92,9 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
             let targets = values.map { $0.lowercased() }
             return matchesInclusion(mode: mode, bookValues: bookStatuses, targets: targets)
 
-        case .location:
-            return true
+        case .location(let mode, let conditions):
+            let matches = conditions.contains { locationConditionMatches($0, locationInfo: locationInfo) }
+            return mode == .include ? matches : !matches
 
         case .rating(let comparison, let value):
             let bookRating = Int((book.rating ?? 0).rounded())
@@ -200,6 +211,14 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
         case .notStarted: return progress <= 0
         case .inProgress: return progress > 0 && progress < 1
         case .completed: return progress >= 1
+        }
+    }
+
+    private func locationConditionMatches(_ condition: LocationCondition, locationInfo: ShelfLocationInfo) -> Bool {
+        switch condition {
+        case .downloaded: return locationInfo.isDownloaded
+        case .serverOnly: return !locationInfo.isDownloaded && !locationInfo.isLocalStandalone
+        case .localFiles: return locationInfo.isLocalStandalone
         }
     }
 
