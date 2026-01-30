@@ -914,46 +914,26 @@ public final class MediaViewModel {
                 base = base.filter { matchesLocationFilter($0, filter: config.locationFilter) }
 
                 return base.count
-            case .seriesView:
-                return library.bookMetaData.filter { book in
-                    book.series?.isEmpty == false
-                }.count
-            case .authorView:
-                return library.bookMetaData.filter { book in
-                    book.authors?.isEmpty == false
-                }.count
-            case .narratorView:
-                return library.bookMetaData.filter { book in
-                    book.narrators?.isEmpty == false
-                }.count
-            case .tagView:
-                return library.bookMetaData.filter { book in
-                    book.tags?.isEmpty == false
-                }.count
-            case .translatorView:
-                return library.bookMetaData.filter { book in
-                    book.creators?.contains(where: { $0.role == "trl" }) == true
-                }.count
-            case .publicationYearView:
-                return library.bookMetaData.count
-            case .ratingView:
-                return library.bookMetaData.filter { book in
-                    book.rating != nil && book.rating! > 0
-                }.count
-            case .collectionsView:
-                return library.bookMetaData.filter { book in
-                    book.collections?.isEmpty == false
-                }.count
-            case .statusView:
-                return library.bookMetaData.count
+            case .seriesView(let mediaKind):
+                return booksBySeries(for: mediaKind).count
+            case .authorView(let mediaKind):
+                return booksByAuthor(for: mediaKind).count
+            case .narratorView(let mediaKind):
+                return booksByNarrator(for: mediaKind).count
+            case .tagView(let mediaKind):
+                return booksByTag(for: mediaKind).count
+            case .translatorView(let mediaKind):
+                return booksByTranslator(for: mediaKind).count
+            case .publicationYearView(let mediaKind):
+                return booksByPublicationYear(for: mediaKind).count
+            case .ratingView(let mediaKind):
+                return booksByRating(for: mediaKind).count
+            case .collectionsView(let mediaKind):
+                return booksByCollection(for: mediaKind).count
+            case .statusView(let mediaKind):
+                return booksByStatus(for: mediaKind).count
             case .dynamicShelves:
-                var all = Set<String>()
-                for shelf in dynamicShelves {
-                    for book in booksForShelf(shelf) {
-                        all.insert(book.id)
-                    }
-                }
-                return all.count
+                return dynamicShelves.count
             case .dynamicShelfDetail(let shelfId):
                 guard let shelf = dynamicShelves.first(where: { $0.id == shelfId }) else { return 0 }
                 return booksForShelf(shelf).count
