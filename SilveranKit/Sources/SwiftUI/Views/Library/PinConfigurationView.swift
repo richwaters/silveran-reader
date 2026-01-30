@@ -7,6 +7,8 @@ struct PinConfigurationView: View {
     @State private var groups: [PinGroup]
     @State private var editingItemId: String?
     @State private var editingGroupId: UUID?
+    @FocusState private var focusedItemId: String?
+    @FocusState private var focusedGroupId: UUID?
 
     init() {
         _groups = State(initialValue: SidebarPinHelper.pinGroups)
@@ -67,10 +69,12 @@ struct PinConfigurationView: View {
                 ))
                 .textFieldStyle(.roundedBorder)
                 .font(.subheadline.weight(.semibold))
-                .onSubmit { editingGroupId = nil }
+                .focused($focusedGroupId, equals: group.id)
+                .onSubmit { editingGroupId = nil; focusedGroupId = nil }
 
                 Button {
                     editingGroupId = nil
+                    focusedGroupId = nil
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
@@ -82,6 +86,7 @@ struct PinConfigurationView: View {
 
                 Button {
                     editingGroupId = group.id
+                    focusedGroupId = group.id
                 } label: {
                     Image(systemName: "pencil")
                         .font(.caption)
@@ -128,10 +133,12 @@ struct PinConfigurationView: View {
                 ))
                 .textFieldStyle(.roundedBorder)
                 .font(.callout)
-                .onSubmit { editingItemId = nil }
+                .focused($focusedItemId, equals: item.id)
+                .onSubmit { editingItemId = nil; focusedItemId = nil }
 
                 Button {
                     editingItemId = nil
+                    focusedItemId = nil
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
@@ -146,6 +153,7 @@ struct PinConfigurationView: View {
 
                 Button {
                     editingItemId = item.id
+                    focusedItemId = item.id
                 } label: {
                     Image(systemName: "pencil")
                         .font(.caption2)
