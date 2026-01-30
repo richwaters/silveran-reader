@@ -14,12 +14,26 @@ struct TagView: View {
     var showOfflineSheet: Binding<Bool>?
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
+    @State private var navigationPath = NavigationPath()
+    @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
-    @State private var selectedTag: String? = nil
-    @State private var tagListWidth: CGFloat = 220
+    @State private var selectedGroupId: String? = nil
+    @State private var listWidth: CGFloat = 220
     @State private var sortByCount = false
     #endif
+
+    private var layoutStyle: CategoryLayoutStyle {
+        get { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
+        set { layoutStyleRaw = newValue.rawValue }
+    }
+
+    private var coverPreference: CoverPreference {
+        get { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+        set { coverPrefRaw = newValue.rawValue }
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -29,314 +43,244 @@ struct TagView: View {
     }
 
     private var connectionErrorIcon: String {
-        if case .error = mediaViewModel.connectionStatus {
-            return "exclamationmark.triangle"
-        }
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
         return "wifi.slash"
     }
     #endif
 
-    private var tagGroups: [(tag: String, books: [BookMetadata])] {
-        mediaViewModel.booksByTag(for: mediaKind)
+    private var categoryGroups: [CategoryGroup] {
+        let groups = mediaViewModel.booksByTag(for: mediaKind)
+        let filtered = filterGroups(groups)
+        return filtered.map { group in
+            CategoryGroup(
+                id: group.tag,
+                name: group.tag,
+                books: group.books,
+                pinId: SidebarPinHelper.pinId(forTag: group.tag)
+            )
+        }
     }
 
-    private var filteredTagGroups: [(tag: String, books: [BookMetadata])] {
-        filterTags(tagGroups)
-    }
-
-    var body: some View {
-        #if os(macOS)
-        macOSSplitView
-        #else
-        iOSTagList
-        #endif
-    }
-
-    private func filterTags(_ groups: [(tag: String, books: [BookMetadata])]) -> [(
-        tag: String, books: [BookMetadata]
-    )] {
+    private func filterGroups(_ groups: [(tag: String, books: [BookMetadata])]) -> [(tag: String, books: [BookMetadata])] {
         guard !searchText.isEmpty else { return groups }
-
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let tagMatches = group.tag.lowercased().contains(searchLower)
-
             let filteredBooks = group.books.filter { book in
-                book.title.lowercased().contains(searchLower)
-                    || book.tagNames.contains(where: { $0.lowercased().contains(searchLower) })
+                book.title.lowercased().contains(searchLower) || book.tagNames.contains(where: { $0.lowercased().contains(searchLower) })
             }
-
-            if tagMatches {
-                return (tag: group.tag, books: group.books)
-            }
-
+            if tagMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
             return (tag: group.tag, books: filteredBooks)
         }
     }
-}
-
-// MARK: - Shared Tag Row
-
-struct TagRowContent: View {
-    let tagName: String
-    let bookCount: Int
-    let isSelected: Bool
 
     var body: some View {
-        HStack {
-            Image(systemName: "tag.fill")
-                #if os(iOS)
-                .font(.body)
-                #else
-                .font(.system(size: 14))
-                #endif
-                .foregroundStyle(.secondary)
-                .frame(width: 28)
-
-            Text(tagName)
-                #if os(iOS)
-                .font(.body)
-                #else
-                .font(.system(size: 14))
-                #endif
-                .lineLimit(1)
-
-            Spacer()
-
-            Text("\(bookCount)")
-                #if os(iOS)
-                .font(.subheadline)
-                #else
-                .font(.system(size: 12))
-                #endif
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.15))
-                )
-        }
-        .padding(.horizontal, 16)
-        #if os(iOS)
-        .padding(.vertical, 12)
+        #if os(macOS)
+        macOSBody
         #else
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-        )
+        iOSBody
         #endif
+    }
+
+    private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
+        navigationPath.append(TagDetailNavigation(tagName: group.id, initialSelectedBook: book))
     }
 }
 
-// MARK: - iOS Implementation
+struct TagDetailNavigation: Hashable {
+    let tagName: String
+    let initialSelectedBook: BookMetadata?
+}
+
+// MARK: - iOS
 
 #if os(iOS)
 extension TagView {
-    @ViewBuilder
-    fileprivate var iOSTagList: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(filteredTagGroups, id: \.tag) { group in
-                        NavigationLink(value: group.tag) {
-                            TagRowContent(
-                                tagName: group.tag,
-                                bookCount: group.books.count,
-                                isSelected: false
-                            )
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider()
-                            .padding(.leading, 48)
-                    }
+    private var iOSBody: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                switch layoutStyle {
+                case .list: listContent
+                case .fan, .grid: fanGridContent
                 }
-                .padding(.top, 8)
             }
             .navigationTitle("Tags")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
-                        if hasConnectionError,
-                            let showOfflineSheet
-                        {
-                            Button {
-                                showOfflineSheet.wrappedValue = true
-                            } label: {
-                                Image(systemName: connectionErrorIcon)
-                                    .foregroundStyle(.red)
+                        if hasConnectionError, let showOfflineSheet {
+                            Button { showOfflineSheet.wrappedValue = true } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
                             }
                         }
-                        Button {
-                            showSettings = true
-                        } label: {
+                        Button { showSettings = true } label: {
                             Label("Settings", systemImage: "gearshape")
                         }
                     }
                 }
             }
-            .searchable(
-                text: $searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
-            )
-            .navigationDestination(for: String.self) { tagName in
-                iOSTagBooksView(tagName: tagName)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .navigationDestination(for: TagDetailNavigation.self) { nav in
+                tagDetailView(for: nav.tagName, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind)
+                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
-                iOSPlayerView(for: bookData)
+                playerView(for: bookData)
+            }
+        }
+        .environment(\.mediaNavigationPath, $navigationPath)
+    }
+
+    private var listContent: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(categoryGroups) { group in
+                    Button { handleNavigation(group, nil) } label: {
+                        CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: false)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 48)
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var fanGridContent: some View {
+        if layoutStyle == .fan {
+            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+        } else {
+            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+        }
+    }
+
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Books by Tag").font(.system(size: 32, weight: .regular, design: .serif))
+            HStack {
+                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                Spacer()
+            }.font(.callout)
+        }
+    }
+
+    @ViewBuilder
+    private func playerView(for bookData: PlayerBookData) -> some View {
+        switch bookData.category {
+        case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+#endif
+
+// MARK: - macOS
+
+#if os(macOS)
+extension TagView {
+    private var macOSBody: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                switch layoutStyle {
+                case .list:
+                    CategoryListSidebar(
+                        headerTitle: "Books by Tag",
+                        sidebarTitle: "Tags",
+                        groups: categoryGroups,
+                        selectedGroupId: $selectedGroupId,
+                        listWidth: $listWidth,
+                        sortByCount: $sortByCount,
+                        rowContent: { group, isSelected in
+                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected)
+                        },
+                        detailContent: { group in
+                            MediaGridView(
+                                title: group.name,
+                                searchText: searchText,
+                                mediaKind: mediaKind,
+                                tagFilter: group.name,
+                                defaultSort: "title",
+                                preferredTileWidth: 120,
+                                minimumTileWidth: 50,
+                                initialNarrationFilterOption: .both,
+                                scrollPosition: nil
+                            )
+                        },
+                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
+                    )
+                case .fan, .grid:
+                    fanGridContent
+                }
+            }
+            .navigationDestination(for: TagDetailNavigation.self) { nav in
+                tagDetailView(for: nav.tagName, initialSelectedItem: nav.initialSelectedBook)
             }
         }
     }
 
     @ViewBuilder
-    private func iOSTagBooksView(tagName: String) -> some View {
+    private var fanGridContent: some View {
+        if layoutStyle == .fan {
+            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+        } else {
+            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+        }
+    }
+
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Books by Tag").font(.system(size: 32, weight: .regular, design: .serif))
+            HStack {
+                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                Spacer()
+            }.font(.callout)
+        }
+    }
+}
+#endif
+
+// MARK: - Shared
+
+extension TagView {
+    @ViewBuilder
+    fileprivate func tagDetailView(for tagName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+        #if os(iOS)
         MediaGridView(
             title: tagName,
             searchText: "",
             mediaKind: mediaKind,
             tagFilter: tagName,
-            seriesFilter: nil,
-            authorFilter: nil,
-            statusFilter: nil,
             defaultSort: "title",
             preferredTileWidth: 110,
             minimumTileWidth: 90,
-            columnBreakpoints: [
-                MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
-            ],
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
         )
         .navigationTitle(tagName)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    @ViewBuilder
-    private func iOSPlayerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category {
-            case .audio:
-                AudiobookPlayerView(bookData: bookData)
-                    .navigationBarTitleDisplayMode(.inline)
-            case .ebook, .synced:
-                EbookPlayerView(bookData: bookData)
-                    .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-#endif
-
-// MARK: - macOS Implementation
-
-#if os(macOS)
-extension TagView {
-    @ViewBuilder
-    fileprivate var macOSSplitView: some View {
-        HStack(spacing: 0) {
-            macOSTagListSidebar
-
-            ResizableDivider(width: $tagListWidth, minWidth: 150, maxWidth: 400)
-
-            macOSBooksContentArea
-        }
-    }
-
-    private var sortedTagGroups: [(tag: String, books: [BookMetadata])] {
-        let groups = filteredTagGroups
-        guard sortByCount else { return groups }
-        return groups.sorted { lhs, rhs in
-            if lhs.books.count != rhs.books.count {
-                return lhs.books.count > rhs.books.count
-            }
-            return lhs.tag.localizedCaseInsensitiveCompare(rhs.tag) == .orderedAscending
-        }
-    }
-
-    @ViewBuilder
-    private var macOSTagListSidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Tags")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                SidebarSortButton(sortByCount: $sortByCount)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(sortedTagGroups, id: \.tag) { group in
-                        Button {
-                            selectedTag = group.tag
-                        } label: {
-                            TagRowContent(
-                                tagName: group.tag,
-                                bookCount: group.books.count,
-                                isSelected: selectedTag == group.tag
-                            )
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            let pinId = SidebarPinHelper.pinId(forTag: group.tag)
-                            Button {
-                                SidebarPinHelper.togglePin(pinId)
-                            } label: {
-                                Label(
-                                    SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
-                                    systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
-                                )
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 16)
-            }
-        }
-        .frame(width: tagListWidth)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-    }
-
-    @ViewBuilder
-    private var macOSBooksContentArea: some View {
-        if let tagName = selectedTag {
-            MediaGridView(
-                title: tagName,
-                searchText: searchText,
-                mediaKind: mediaKind,
-                tagFilter: tagName,
-                seriesFilter: nil,
-                authorFilter: nil,
-                statusFilter: nil,
-                defaultSort: "title",
-                preferredTileWidth: 120,
-                minimumTileWidth: 50,
-                initialNarrationFilterOption: .both,
-                scrollPosition: nil
-            )
-            .id(tagName)
-        } else {
-            VStack {
-                Spacer()
-                Text("Select a tag")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-        }
+        #else
+        MediaGridView(
+            title: tagName,
+            searchText: "",
+            mediaKind: mediaKind,
+            tagFilter: tagName,
+            defaultSort: "title",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        )
+        .navigationTitle(tagName)
+        #endif
     }
 }
-#endif

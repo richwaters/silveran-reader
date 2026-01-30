@@ -14,12 +14,26 @@ struct NarratorView: View {
     var showOfflineSheet: Binding<Bool>?
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
+    @State private var navigationPath = NavigationPath()
+    @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
-    @State private var selectedNarrator: String? = nil
-    @State private var narratorListWidth: CGFloat = 220
+    @State private var selectedGroupId: String? = nil
+    @State private var listWidth: CGFloat = 220
     @State private var sortByCount = false
     #endif
+
+    private var layoutStyle: CategoryLayoutStyle {
+        get { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
+        set { layoutStyleRaw = newValue.rawValue }
+    }
+
+    private var coverPreference: CoverPreference {
+        get { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+        set { coverPrefRaw = newValue.rawValue }
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -29,324 +43,181 @@ struct NarratorView: View {
     }
 
     private var connectionErrorIcon: String {
-        if case .error = mediaViewModel.connectionStatus {
-            return "exclamationmark.triangle"
-        }
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
         return "wifi.slash"
     }
     #endif
 
-    private var narratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        mediaViewModel.booksByNarrator(for: mediaKind)
+    private var categoryGroups: [CategoryGroup] {
+        let groups = mediaViewModel.booksByNarrator(for: mediaKind)
+        let filtered = filterGroups(groups)
+        return filtered.map { group in
+            let name = group.narrator?.name ?? "Unknown Narrator"
+            return CategoryGroup(
+                id: name,
+                name: name,
+                books: group.books,
+                pinId: group.narrator?.name != nil ? SidebarPinHelper.pinId(forNarrator: name) : nil
+            )
+        }
     }
 
-    private var filteredNarratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        filterNarrators(narratorGroups)
-    }
-
-    var body: some View {
-        #if os(macOS)
-        macOSSplitView
-        #else
-        iOSNarratorList
-        #endif
-    }
-
-    private func filterNarrators(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(
-        narrator: BookCreator?, books: [BookMetadata]
-    )] {
+    private func filterGroups(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(narrator: BookCreator?, books: [BookMetadata])] {
         guard !searchText.isEmpty else { return groups }
-
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let narratorNameMatches = group.narrator?.name?.lowercased().contains(searchLower) ?? false
-
+            let nameMatches = group.narrator?.name?.lowercased().contains(searchLower) ?? false
             let filteredBooks = group.books.filter { book in
-                book.title.lowercased().contains(searchLower)
-                    || book.narrators?.contains(where: {
-                        $0.name?.lowercased().contains(searchLower) ?? false
-                    }) ?? false
+                book.title.lowercased().contains(searchLower) || book.narrators?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false
             }
-
-            if narratorNameMatches {
-                return (narrator: group.narrator, books: group.books)
-            }
-
+            if nameMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
             return (narrator: group.narrator, books: filteredBooks)
         }
     }
-}
-
-// MARK: - Shared Narrator Row
-
-struct NarratorRowContent: View {
-    let narratorName: String
-    let bookCount: Int
-    let isSelected: Bool
 
     var body: some View {
-        HStack {
-            Image(systemName: "mic.fill")
-                #if os(iOS)
-                .font(.body)
-                #else
-                .font(.system(size: 14))
-                #endif
-                .foregroundStyle(.secondary)
-                .frame(width: 28)
-
-            Text(narratorName)
-                #if os(iOS)
-                .font(.body)
-                #else
-                .font(.system(size: 14))
-                #endif
-                .lineLimit(1)
-
-            Spacer()
-
-            Text("\(bookCount)")
-                #if os(iOS)
-                .font(.subheadline)
-                #else
-                .font(.system(size: 12))
-                #endif
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.15))
-                )
-        }
-        .padding(.horizontal, 16)
-        #if os(iOS)
-        .padding(.vertical, 12)
+        #if os(macOS)
+        macOSBody
         #else
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-        )
+        iOSBody
         #endif
+    }
+
+    private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
+        navigationPath.append(NarratorDetailNavigation(narratorName: group.id, initialSelectedBook: book))
     }
 }
 
-// MARK: - iOS Implementation
+struct NarratorDetailNavigation: Hashable {
+    let narratorName: String
+    let initialSelectedBook: BookMetadata?
+}
 
 #if os(iOS)
 extension NarratorView {
-    @ViewBuilder
-    fileprivate var iOSNarratorList: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(filteredNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
-                        NavigationLink(value: narratorName) {
-                            NarratorRowContent(
-                                narratorName: narratorName,
-                                bookCount: group.books.count,
-                                isSelected: false
-                            )
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider()
-                            .padding(.leading, 48)
-                    }
+    private var iOSBody: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                switch layoutStyle {
+                case .list: listContent
+                case .fan, .grid: fanGridContent
                 }
-                .padding(.top, 8)
             }
             .navigationTitle("Narrators")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
-                        if hasConnectionError,
-                            let showOfflineSheet
-                        {
-                            Button {
-                                showOfflineSheet.wrappedValue = true
-                            } label: {
-                                Image(systemName: connectionErrorIcon)
-                                    .foregroundStyle(.red)
-                            }
+                        if hasConnectionError, let showOfflineSheet {
+                            Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) }
                         }
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Label("Settings", systemImage: "gearshape")
-                        }
+                        Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
                     }
                 }
             }
-            .searchable(
-                text: $searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
-            )
-            .navigationDestination(for: String.self) { narratorName in
-                iOSNarratorBooksView(narratorName: narratorName)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .navigationDestination(for: NarratorDetailNavigation.self) { nav in
+                narratorDetailView(for: nav.narratorName, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
             }
             .navigationDestination(for: BookMetadata.self) { item in
-                iOSBookDetailView(item: item, mediaKind: mediaKind)
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
             }
-            .navigationDestination(for: PlayerBookData.self) { bookData in
-                iOSPlayerView(for: bookData)
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+        }
+        .environment(\.mediaNavigationPath, $navigationPath)
+    }
+
+    private var listContent: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(categoryGroups) { group in
+                    Button { handleNavigation(group, nil) } label: {
+                        CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 48)
+                }
             }
+            .padding(.top, 8)
         }
     }
 
     @ViewBuilder
-    private func iOSNarratorBooksView(narratorName: String) -> some View {
-        MediaGridView(
-            title: narratorName,
-            searchText: "",
-            mediaKind: mediaKind,
-            tagFilter: nil,
-            seriesFilter: nil,
-            authorFilter: nil,
-            narratorFilter: narratorName,
-            statusFilter: nil,
-            defaultSort: "title",
-            preferredTileWidth: 110,
-            minimumTileWidth: 90,
-            columnBreakpoints: [
-                MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
-            ],
-            initialNarrationFilterOption: .both,
-            scrollPosition: nil
-        )
-        .navigationTitle(narratorName)
-        .navigationBarTitleDisplayMode(.inline)
+    private var fanGridContent: some View {
+        if layoutStyle == .fan {
+            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+        } else {
+            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+        }
     }
 
-    @ViewBuilder
-    private func iOSPlayerView(for bookData: PlayerBookData) -> some View {
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
+            HStack {
+                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                Spacer()
+            }.font(.callout)
+        }
+    }
+
+    @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
         switch bookData.category {
-            case .audio:
-                AudiobookPlayerView(bookData: bookData)
-                    .navigationBarTitleDisplayMode(.inline)
-            case .ebook, .synced:
-                EbookPlayerView(bookData: bookData)
-                    .navigationBarTitleDisplayMode(.inline)
+        case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
         }
     }
 }
 #endif
-
-// MARK: - macOS Implementation
 
 #if os(macOS)
 extension NarratorView {
-    private var sortedNarratorGroups: [(narrator: BookCreator?, books: [BookMetadata])] {
-        let groups = filteredNarratorGroups
-        guard sortByCount else { return groups }
-        return groups.sorted { lhs, rhs in
-            if lhs.books.count != rhs.books.count {
-                return lhs.books.count > rhs.books.count
-            }
-            let lName = lhs.narrator?.name ?? ""
-            let rName = rhs.narrator?.name ?? ""
-            return lName.localizedCaseInsensitiveCompare(rName) == .orderedAscending
-        }
-    }
-
-    @ViewBuilder
-    fileprivate var macOSSplitView: some View {
-        HStack(spacing: 0) {
-            macOSNarratorListSidebar
-
-            ResizableDivider(width: $narratorListWidth, minWidth: 150, maxWidth: 400)
-
-            macOSBooksContentArea
-        }
-    }
-
-    @ViewBuilder
-    private var macOSNarratorListSidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Narrators")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                SidebarSortButton(sortByCount: $sortByCount)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(sortedNarratorGroups, id: \.narrator?.name) { group in
-                        let narratorName = group.narrator?.name ?? "Unknown Narrator"
-                        Button {
-                            selectedNarrator = narratorName
-                        } label: {
-                            NarratorRowContent(
-                                narratorName: narratorName,
-                                bookCount: group.books.count,
-                                isSelected: selectedNarrator == narratorName
-                            )
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if group.narrator?.name != nil {
-                                let pinId = SidebarPinHelper.pinId(forNarrator: narratorName)
-                                Button {
-                                    SidebarPinHelper.togglePin(pinId)
-                                } label: {
-                                    Label(
-                                        SidebarPinHelper.isPinned(pinId) ? "Unpin from Sidebar" : "Pin to Sidebar",
-                                        systemImage: SidebarPinHelper.isPinned(pinId) ? "pin.slash" : "pin"
-                                    )
-                                }
-                            }
-                        }
-                    }
+    private var macOSBody: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                switch layoutStyle {
+                case .list:
+                    CategoryListSidebar(headerTitle: "Books by Narrator", sidebarTitle: "Narrators", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
+                        rowContent: { group, isSelected in CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected) },
+                        detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, narratorFilter: group.name, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
+                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
+                    )
+                case .fan, .grid: fanGridContent
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 16)
             }
+            .navigationDestination(for: NarratorDetailNavigation.self) { nav in narratorDetailView(for: nav.narratorName, initialSelectedItem: nav.initialSelectedBook) }
         }
-        .frame(width: narratorListWidth)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
     }
 
     @ViewBuilder
-    private var macOSBooksContentArea: some View {
-        if let narratorName = selectedNarrator {
-            MediaGridView(
-                title: narratorName,
-                searchText: searchText,
-                mediaKind: mediaKind,
-                tagFilter: nil,
-                seriesFilter: nil,
-                authorFilter: nil,
-                narratorFilter: narratorName,
-                statusFilter: nil,
-                defaultSort: "title",
-                preferredTileWidth: 120,
-                minimumTileWidth: 50,
-                initialNarrationFilterOption: .both,
-                scrollPosition: nil
-            )
-            .id(narratorName)
+    private var fanGridContent: some View {
+        if layoutStyle == .fan {
+            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
         } else {
-            VStack {
+            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+        }
+    }
+
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
+            HStack {
+                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
                 Spacer()
-                Text("Select a narrator")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
+            }.font(.callout)
         }
     }
 }
 #endif
+
+extension NarratorView {
+    @ViewBuilder fileprivate func narratorDetailView(for narratorName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+        #if os(iOS)
+        MediaGridView(title: narratorName, searchText: "", mediaKind: mediaKind, narratorFilter: narratorName, defaultSort: "title", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(narratorName)
+        #else
+        MediaGridView(title: narratorName, searchText: "", mediaKind: mediaKind, narratorFilter: narratorName, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(narratorName)
+        #endif
+    }
+}

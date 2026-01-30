@@ -887,8 +887,9 @@ struct AuthorsRowListView: View {
                 ForEach(filteredGroups, id: \.author?.name) { group in
                     let authorName = group.author?.name ?? "Unknown Author"
                     NavigationLink(value: authorName) {
-                        AuthorRowContent(
-                            authorName: authorName,
+                        CategoryRowContent(
+                            iconName: "person.fill",
+                            name: authorName,
                             bookCount: group.books.count,
                             isSelected: false
                         )
@@ -1463,8 +1464,9 @@ struct NarratorsListView: View {
                 ForEach(filteredGroups, id: \.narrator?.name) { group in
                     let narratorName = group.narrator?.name ?? "Unknown Narrator"
                     NavigationLink(value: NarratorNavIdentifier(name: narratorName)) {
-                        NarratorRowContent(
-                            narratorName: narratorName,
+                        CategoryRowContent(
+                            iconName: "mic.fill",
+                            name: narratorName,
                             bookCount: group.books.count,
                             isSelected: false
                         )
@@ -1516,8 +1518,9 @@ struct TagsListView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filteredGroups, id: \.tag) { group in
                     NavigationLink(value: TagNavIdentifier(name: group.tag)) {
-                        TagRowContent(
-                            tagName: group.tag,
+                        CategoryRowContent(
+                            iconName: "tag.fill",
+                            name: group.tag,
                             bookCount: group.books.count,
                             isSelected: false
                         )
@@ -1582,8 +1585,9 @@ struct TranslatorsListView: View {
                 ForEach(filteredGroups, id: \.translator?.name) { group in
                     let translatorName = group.translator?.name ?? "Unknown Translator"
                     NavigationLink(value: TranslatorNavIdentifier(name: translatorName)) {
-                        TranslatorRowContent(
-                            translatorName: translatorName,
+                        CategoryRowContent(
+                            iconName: "character.book.closed.fill",
+                            name: translatorName,
                             bookCount: group.books.count,
                             isSelected: false
                         )
@@ -1631,8 +1635,9 @@ struct PublicationYearsListView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filteredGroups, id: \.year) { group in
                     NavigationLink(value: PublicationYearNavIdentifier(name: group.year)) {
-                        YearRowContent(
-                            year: group.year,
+                        CategoryRowContent(
+                            iconName: "calendar",
+                            name: group.year,
                             bookCount: group.books.count,
                             isSelected: false
                         )
@@ -1680,8 +1685,9 @@ struct RatingsListView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filteredGroups, id: \.rating) { group in
                     NavigationLink(value: RatingNavIdentifier(name: group.rating)) {
-                        RatingRowContent(
-                            rating: group.rating,
+                        CategoryRowContent(
+                            iconName: "star.fill",
+                            name: RatingDisplayHelper.label(for: group.rating),
                             bookCount: group.books.count,
                             isSelected: false
                         )
