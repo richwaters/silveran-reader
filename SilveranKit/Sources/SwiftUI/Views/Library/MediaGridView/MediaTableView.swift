@@ -6,6 +6,7 @@ private final class ImmediateSelectTableView: NSTableView {
     var onRowClicked: ((Int) -> Void)?
     var onLinkClicked: ((MetadataLinkTarget) -> Void)?
     private var lastFittedWidth: CGFloat = 0
+    fileprivate var isProgrammaticResize: Bool = false
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -63,7 +64,11 @@ private final class ImmediateSelectTableView: NSTableView {
         guard availableWidth > 0, !tableColumns.isEmpty else { return }
 
         if abs(availableWidth - lastFittedWidth) > 0.5 {
+            isProgrammaticResize = true
             fitVisibleColumns(to: availableWidth)
+            DispatchQueue.main.async { [weak self] in
+                self?.isProgrammaticResize = false
+            }
             lastFittedWidth = availableWidth
         }
 
@@ -77,8 +82,7 @@ private final class ImmediateSelectTableView: NSTableView {
         guard !visibleColumns.isEmpty else { return }
 
         let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
-        let extraWidth = max(frame.width - totalWidth, 0)
-        let targetWidth = max(availableWidth - extraWidth, 0)
+        let targetWidth = max(availableWidth, 0)
         guard totalWidth > targetWidth + 0.5 else { return }
 
         let minTotal = visibleColumns.reduce(0) { $0 + $1.minWidth }
@@ -401,6 +405,10 @@ struct MediaTableView: NSViewRepresentable {
 
         func tableViewColumnDidResize(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
+            if let immediateTable = tableView as? ImmediateSelectTableView,
+               immediateTable.isProgrammaticResize {
+                return
+            }
             parent.saveColumnWidths(from: tableView)
         }
 

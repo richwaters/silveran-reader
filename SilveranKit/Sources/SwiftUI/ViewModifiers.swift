@@ -220,7 +220,7 @@ struct WindowFrameAdjuster: NSViewRepresentable {
                 }
                 if needsUpdate {
                     sharedState.setExpansion(for: capturedWindow, right: newRight, left: newLeft)
-                    capturedWindow.setFrame(frame, display: true, animate: true)
+                    capturedWindow.setFrame(frame, display: true, animate: false)
                 }
             }
         }

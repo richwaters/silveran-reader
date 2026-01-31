@@ -437,9 +437,13 @@ struct HomeView: View {
     }
 
     private func dismissSidebar() {
+        #if os(macOS)
+        isSidebarVisible = false
+        #else
         withAnimation(.easeInOut(duration: 0.2)) {
             isSidebarVisible = false
         }
+        #endif
     }
 
     private func firstAvailableSelection() -> Selection? {
@@ -942,9 +946,13 @@ private struct HomeSectionRow: View {
     private func openInfo(for item: BookMetadata) {
         select(item)
         if !isSidebarVisible {
+            #if os(macOS)
+            isSidebarVisible = true
+            #else
             withAnimation(.easeInOut(duration: 0.2)) {
                 isSidebarVisible = true
             }
+            #endif
         }
     }
 

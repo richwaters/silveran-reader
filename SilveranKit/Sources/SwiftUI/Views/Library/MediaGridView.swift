@@ -1025,16 +1025,24 @@ struct MediaGridView: View {
     private func openSidebar(for item: BookMetadata) {
         activeInfoItem = item
         if !isSidebarVisible {
+            #if os(macOS)
+            isSidebarVisible = true
+            #else
             withAnimation(.easeInOut(duration: 0.2)) {
                 isSidebarVisible = true
             }
+            #endif
         }
     }
 
     private func dismissSidebar() {
+        #if os(macOS)
+        isSidebarVisible = false
+        #else
         withAnimation(.easeInOut(duration: 0.2)) {
             isSidebarVisible = false
         }
+        #endif
     }
 
     #if os(iOS)
