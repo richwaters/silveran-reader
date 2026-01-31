@@ -152,6 +152,21 @@ struct WindowFrameAdjuster: NSViewRepresentable {
             queue: .main
         ) { _ in
             MainActor.assumeIsolated {
+                if window.contentView?.inLiveResize == true {
+                    return
+                }
+                let expansion = WindowExpansionState.shared.getExpansion(for: window)
+                guard expansion.right == 0 && expansion.left == 0 else { return }
+                UserDefaults.standard.set(window.frame.width, forKey: key)
+            }
+        }
+
+        coordinator.resizeEndObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didEndLiveResizeNotification,
+            object: window,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
                 let expansion = WindowExpansionState.shared.getExpansion(for: window)
                 guard expansion.right == 0 && expansion.left == 0 else { return }
                 UserDefaults.standard.set(window.frame.width, forKey: key)
@@ -164,12 +179,16 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         var lastExpandedRight = false
         var lastExpandedLeft = false
         var resizeObserver: Any?
+        var resizeEndObserver: Any?
         weak var window: NSWindow?
         var rightAmount: CGFloat = 0
         var leftAmount: CGFloat = 0
 
         deinit {
             if let observer = resizeObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let observer = resizeEndObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
             guard let window else { return }

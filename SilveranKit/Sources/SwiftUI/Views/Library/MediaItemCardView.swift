@@ -390,7 +390,6 @@ struct MediaItemCardView: View {
             .fill(Color.secondary.opacity(0.08))
                 #endif
         )
-        .drawingGroup()
         .contentShape(Rectangle())
         #if os(macOS)
         .onTapGesture {

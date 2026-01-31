@@ -395,7 +395,7 @@ struct MediaGridView: View {
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
             let usesTableLayout = layoutStyle == .table
             let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-            let contentWidth = baseContentWidth ?? (geometry.size.width - sidebarAdjustment)
+            let contentWidth = isAnimatingSidebar ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment)) : (geometry.size.width - sidebarAdjustment)
 
             HStack(spacing: 0) {
                 mainContent(usesTableLayout: usesTableLayout, contentWidth: max(contentWidth, minimumTileWidth), height: geometry.size.height)
@@ -431,19 +431,9 @@ struct MediaGridView: View {
                     }
                 }
             }
-            .onAppear {
-                if baseContentWidth == nil {
-                    let adj: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-                    baseContentWidth = geometry.size.width - adj
-                }
-            }
-            .onChange(of: geometry.size.width) { _, newWidth in
-                if !isAnimatingSidebar {
-                    let adj: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-                    baseContentWidth = newWidth - adj
-                }
-            }
-            .onChange(of: isSidebarVisible) { _, _ in
+            .onChange(of: isSidebarVisible) { _, newValue in
+                let currentAdj: CGFloat = newValue ? 0 : sidebarTotalWidth
+                baseContentWidth = geometry.size.width - currentAdj
                 isAnimatingSidebar = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     isAnimatingSidebar = false

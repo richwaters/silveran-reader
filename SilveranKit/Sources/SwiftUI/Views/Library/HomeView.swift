@@ -159,7 +159,7 @@ struct HomeView: View {
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && selectedItem != nil
             let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-            let contentWidth = baseContentWidth ?? (geometry.size.width - sidebarAdjustment)
+            let contentWidth = isAnimatingSidebar ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment)) : (geometry.size.width - sidebarAdjustment)
             #endif
 
             HStack(spacing: 0) {
@@ -290,19 +290,9 @@ struct HomeView: View {
                 #endif
             }
             #if os(macOS)
-            .onAppear {
-                if baseContentWidth == nil {
-                    let adj: CGFloat = (isSidebarVisible && selectedItem != nil) ? sidebarTotalWidth : 0
-                    baseContentWidth = geometry.size.width - adj
-                }
-            }
-            .onChange(of: geometry.size.width) { _, newWidth in
-                if !isAnimatingSidebar {
-                    let adj: CGFloat = (isSidebarVisible && selectedItem != nil) ? sidebarTotalWidth : 0
-                    baseContentWidth = newWidth - adj
-                }
-            }
-            .onChange(of: isSidebarVisible) { _, _ in
+            .onChange(of: isSidebarVisible) { _, newValue in
+                let currentAdj: CGFloat = newValue ? 0 : sidebarTotalWidth
+                baseContentWidth = geometry.size.width - currentAdj
                 isAnimatingSidebar = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     isAnimatingSidebar = false
@@ -898,7 +888,6 @@ private struct HomeSectionRow: View {
                         .fill(Color.secondary.opacity(0.08))
                 )
             } else {
-                #if os(iOS)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: horizontalSpacing) {
                         ForEach(section.items) { item in
@@ -909,57 +898,6 @@ private struct HomeSectionRow: View {
                     .padding(.vertical, 4)
                 }
                 .frame(height: calculateRowHeight(metrics: metrics))
-                #else
-                ScrollViewReader { proxy in
-                    GeometryReader { geometry in
-                        HStack(alignment: .top, spacing: horizontalSpacing) {
-                            ForEach(section.items) { item in
-                                card(for: item, metrics: metrics)
-                                    .id(item.id)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .offset(x: scrollOffset)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    isDragging = true
-                                    let newOffset = lastScrollOffset + value.translation.width
-                                    let maxOffset: CGFloat = 0
-                                    let minOffset = -max(
-                                        0,
-                                        CGFloat(section.items.count)
-                                            * (tileWidth + horizontalSpacing)
-                                            - geometry.size.width
-                                    )
-                                    scrollOffset = min(maxOffset, max(minOffset, newOffset))
-                                }
-                                .onEnded { value in
-                                    isDragging = false
-                                    withAnimation(.easeOut(duration: 0.3)) {
-                                        let itemWidth = tileWidth + horizontalSpacing
-                                        let targetIndex = -scrollOffset / itemWidth
-                                        let snappedIndex = round(targetIndex)
-                                        scrollOffset = -snappedIndex * itemWidth
-                                        lastScrollOffset = scrollOffset
-                                    }
-                                }
-                        )
-                    }
-                    .frame(height: calculateRowHeight(metrics: metrics))
-                    .onAppear {
-                        scrollProxy = proxy
-                        canScrollLeft = section.items.count > 3
-                        canScrollRight = section.items.count > 3
-                    }
-                    .onChange(of: selection) { _, newSelection in
-                        guard let newSelection, newSelection.sectionIndex == sectionIndex else {
-                            return
-                        }
-                        scrollToSelectionIfNeeded(newSelection.itemID, proxy: proxy)
-                    }
-                }
-                #endif
             }
         }
     }
