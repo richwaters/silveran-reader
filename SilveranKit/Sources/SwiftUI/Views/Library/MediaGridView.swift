@@ -135,6 +135,7 @@ struct MediaGridView: View {
     @State private var hasHandledInitialSelection: Bool = false
     @State private var showSourceBadge: Bool = false
     @State private var showSeriesPositionBadge: Bool
+    @State private var showStickyControls: Bool = false
     @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("coverSize.global") private var coverSizeValue: Double = CoverSizeRange.defaultValue
@@ -456,6 +457,7 @@ struct MediaGridView: View {
         #endif
         .frame(minWidth: platformMinimumWidth)
         #if os(macOS)
+        .ignoresSafeArea(.container, edges: .top)
         .focusable(true)
         .focusEffectDisabled(true)
         .onMoveCommand(perform: handleMoveCommand)
@@ -476,8 +478,14 @@ struct MediaGridView: View {
             tableContent(for: contentWidth)
                 .frame(width: contentWidth, height: height)
         } else {
-            scrollableContent(for: contentWidth)
-                .frame(width: contentWidth, height: height)
+            ZStack(alignment: .top) {
+                scrollableContent(for: contentWidth)
+                if showStickyControls {
+                    stickyControlsOverlay
+                        .transition(.opacity)
+                }
+            }
+            .frame(width: contentWidth, height: height)
         }
     }
     #endif
@@ -487,6 +495,17 @@ struct MediaGridView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
                 content(for: contentWidth)
+            }
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { oldValue, newValue in
+                let threshold: CGFloat = 60
+                let shouldShow = newValue > threshold
+                if shouldShow != showStickyControls {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        showStickyControls = shouldShow
+                    }
+                }
             }
             .frame(width: contentWidth)
             .contentMargins(.trailing, 10, for: .scrollIndicators)
@@ -508,6 +527,7 @@ struct MediaGridView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in }
             )
+            .contentMargins(.top, 52, for: .scrollContent)
             #endif
             #if os(iOS)
             .overlay(alignment: .trailing) {
@@ -772,6 +792,48 @@ struct MediaGridView: View {
             showLayoutOption: true
         )
     }
+
+    #if os(macOS)
+    private var stickyControlsOverlay: some View {
+        contentFilterBar
+            .padding(.horizontal, gridHorizontalPadding)
+            .padding(.leading, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(stickyControlsBackground)
+    }
+
+    @ViewBuilder
+    private var stickyControlsBackground: some View {
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(Color.clear)
+                .glassEffect(.regular.interactive(), in: Rectangle())
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: 0.75),
+                            .init(color: .white.opacity(0), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        } else {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(nsColor: .windowBackgroundColor), location: 0),
+                    .init(color: Color(nsColor: .windowBackgroundColor), location: 0.75),
+                    .init(color: Color(nsColor: .windowBackgroundColor).opacity(0), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+    #endif
 
     @ViewBuilder
     private func content(for containerWidth: CGFloat) -> some View {

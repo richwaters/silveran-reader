@@ -1,12 +1,15 @@
 import SwiftUI
 
-struct CategoryFanLayout<Header: View, ContextMenu: View>: View {
+struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: View {
     let groups: [CategoryGroup]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
     @ViewBuilder let header: () -> Header
+    @ViewBuilder let stickyHeader: () -> StickyHeader
     let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
+
+    @State private var showStickyControls: Bool = false
 
     private let sectionSpacing: CGFloat = 32
     private let horizontalPadding: CGFloat = 24
@@ -17,6 +20,7 @@ struct CategoryFanLayout<Header: View, ContextMenu: View>: View {
         coverPreference: CoverPreference,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
+        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
         @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
         self.groups = groups
@@ -24,6 +28,7 @@ struct CategoryFanLayout<Header: View, ContextMenu: View>: View {
         self.coverPreference = coverPreference
         self.onNavigate = onNavigate
         self.header = header
+        self.stickyHeader = stickyHeader
         self.contextMenuBuilder = contextMenuBuilder
     }
 
@@ -32,36 +37,126 @@ struct CategoryFanLayout<Header: View, ContextMenu: View>: View {
             let contentWidth = geometry.size.width
             let stackWidth = max(contentWidth - (horizontalPadding * 2), 100)
 
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: sectionSpacing) {
-                    header()
-                        .padding(.horizontal, horizontalPadding)
-
-                    LazyVStack(alignment: .leading, spacing: sectionSpacing) {
-                        ForEach(groups) { group in
-                            CategoryFanSection(
-                                group: group,
-                                mediaKind: mediaKind,
-                                stackWidth: stackWidth,
-                                coverPreference: coverPreference,
-                                onNavigate: onNavigate,
-                                contextMenu: contextMenuBuilder?(group)
-                            )
-                        }
-                    }
-                    .padding(.horizontal, horizontalPadding)
+            #if os(macOS)
+            ZStack(alignment: .top) {
+                scrollContent(contentWidth: contentWidth, stackWidth: stackWidth)
+                if showStickyControls {
+                    stickyHeaderOverlay
+                        .transition(.opacity)
                 }
-                .padding(.top, 24)
-                .padding(.bottom, 40)
             }
-            .frame(width: contentWidth)
-            .contentMargins(.trailing, 10, for: .scrollIndicators)
-            .modifier(SoftScrollEdgeModifier())
+            .ignoresSafeArea(.container, edges: .top)
+            #else
+            scrollContent(contentWidth: contentWidth, stackWidth: stackWidth)
+            #endif
         }
     }
+
+    @ViewBuilder
+    private func scrollContent(contentWidth: CGFloat, stackWidth: CGFloat) -> some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
+                header()
+                    .padding(.horizontal, horizontalPadding)
+
+                LazyVStack(alignment: .leading, spacing: sectionSpacing) {
+                    ForEach(groups) { group in
+                        CategoryFanSection(
+                            group: group,
+                            mediaKind: mediaKind,
+                            stackWidth: stackWidth,
+                            coverPreference: coverPreference,
+                            onNavigate: onNavigate,
+                            contextMenu: contextMenuBuilder?(group)
+                        )
+                    }
+                }
+                .padding(.horizontal, horizontalPadding)
+            }
+            .padding(.top, 24)
+            .padding(.bottom, 40)
+        }
+        #if os(macOS)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y
+        } action: { _, newValue in
+            let threshold: CGFloat = 60
+            let shouldShow = newValue > threshold
+            if shouldShow != showStickyControls {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showStickyControls = shouldShow
+                }
+            }
+        }
+        .contentMargins(.top, 52, for: .scrollContent)
+        #endif
+        .frame(width: contentWidth)
+        .contentMargins(.trailing, 10, for: .scrollIndicators)
+        .modifier(SoftScrollEdgeModifier())
+    }
+
+    #if os(macOS)
+    private var stickyHeaderOverlay: some View {
+        stickyHeader()
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(stickyHeaderBackground)
+    }
+
+    @ViewBuilder
+    private var stickyHeaderBackground: some View {
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(Color.clear)
+                .glassEffect(.regular.interactive(), in: Rectangle())
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: 0.75),
+                            .init(color: .white.opacity(0), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        } else {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(nsColor: .windowBackgroundColor), location: 0),
+                    .init(color: Color(nsColor: .windowBackgroundColor), location: 0.75),
+                    .init(color: Color(nsColor: .windowBackgroundColor).opacity(0), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+    #endif
 }
 
 extension CategoryFanLayout where ContextMenu == EmptyView {
+    init(
+        groups: [CategoryGroup],
+        mediaKind: MediaKind,
+        coverPreference: CoverPreference,
+        onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() },
+        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() }
+    ) {
+        self.groups = groups
+        self.mediaKind = mediaKind
+        self.coverPreference = coverPreference
+        self.onNavigate = onNavigate
+        self.header = header
+        self.stickyHeader = stickyHeader
+        self.contextMenuBuilder = nil
+    }
+}
+
+extension CategoryFanLayout where StickyHeader == EmptyView, ContextMenu == EmptyView {
     init(
         groups: [CategoryGroup],
         mediaKind: MediaKind,
@@ -74,6 +169,7 @@ extension CategoryFanLayout where ContextMenu == EmptyView {
         self.coverPreference = coverPreference
         self.onNavigate = onNavigate
         self.header = header
+        self.stickyHeader = { EmptyView() }
         self.contextMenuBuilder = nil
     }
 }

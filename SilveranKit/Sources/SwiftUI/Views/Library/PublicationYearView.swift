@@ -155,20 +155,24 @@ extension PublicationYearView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Year").font(.system(size: 32, weight: .regular, design: .serif))
-            HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
-                Spacer()
-            }.font(.callout)
+            stickyHeaderView
         }
+    }
+
+    private var stickyHeaderView: some View {
+        HStack {
+            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            Spacer()
+        }.font(.callout)
     }
 }
 #endif
