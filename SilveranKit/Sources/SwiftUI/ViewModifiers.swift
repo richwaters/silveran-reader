@@ -13,6 +13,20 @@ struct SoftScrollEdgeModifier: ViewModifier {
 #if os(macOS)
 import AppKit
 
+@MainActor
+private final class WindowExpansionState {
+    static let shared = WindowExpansionState()
+    private var windowStates: [ObjectIdentifier: (right: CGFloat, left: CGFloat)] = [:]
+
+    func getExpansion(for window: NSWindow) -> (right: CGFloat, left: CGFloat) {
+        return windowStates[ObjectIdentifier(window)] ?? (0, 0)
+    }
+
+    func setExpansion(for window: NSWindow, right: CGFloat, left: CGFloat) {
+        windowStates[ObjectIdentifier(window)] = (right, left)
+    }
+}
+
 struct WindowFrameAdjuster: NSViewRepresentable {
     let expandRight: Bool
     let expandLeft: Bool
@@ -49,6 +63,9 @@ struct WindowFrameAdjuster: NSViewRepresentable {
             coordinator.rightAmount = rightAmount
             coordinator.leftAmount = leftAmount
 
+            let sharedState = WindowExpansionState.shared
+            let currentExpansion = sharedState.getExpansion(for: window)
+
             if !coordinator.initialized {
                 coordinator.initialized = true
                 coordinator.lastExpandedRight = expandRight
@@ -57,41 +74,66 @@ struct WindowFrameAdjuster: NSViewRepresentable {
 
                 if let key = savedWidthKey,
                    let savedWidth = UserDefaults.standard.object(forKey: key) as? CGFloat,
-                   savedWidth > 0,
-                   window.frame.width != savedWidth {
+                   savedWidth > 0 {
+                    let expectedWidth = savedWidth + currentExpansion.right + currentExpansion.left
+                    if abs(window.frame.width - expectedWidth) > 1 {
+                        var frame = window.frame
+                        frame.size.width = expectedWidth
+                        window.setFrame(frame, display: true, animate: false)
+                    }
+                }
+
+                if expandRight && currentExpansion.right == 0 {
                     var frame = window.frame
-                    frame.size.width = savedWidth
-                    window.setFrame(frame, display: true, animate: false)
+                    frame.size.width += rightAmount
+                    sharedState.setExpansion(for: window, right: rightAmount, left: currentExpansion.left)
+                    window.setFrame(frame, display: true, animate: true)
+                }
+                if expandLeft && currentExpansion.left == 0 {
+                    var frame = window.frame
+                    frame.size.width += leftAmount
+                    frame.origin.x -= leftAmount
+                    sharedState.setExpansion(for: window, right: currentExpansion.right, left: leftAmount)
+                    window.setFrame(frame, display: true, animate: true)
                 }
                 return
             }
 
             var frame = window.frame
             var needsUpdate = false
+            var newRight = currentExpansion.right
+            var newLeft = currentExpansion.left
 
             if expandRight != coordinator.lastExpandedRight {
-                if expandRight {
+                if expandRight && currentExpansion.right == 0 {
                     frame.size.width += rightAmount
-                } else {
+                    newRight = rightAmount
+                    needsUpdate = true
+                } else if !expandRight && currentExpansion.right > 0 {
                     frame.size.width -= rightAmount
+                    newRight = 0
+                    needsUpdate = true
                 }
                 coordinator.lastExpandedRight = expandRight
-                needsUpdate = true
             }
 
             if expandLeft != coordinator.lastExpandedLeft {
-                if expandLeft {
+                if expandLeft && currentExpansion.left == 0 {
                     frame.size.width += leftAmount
                     frame.origin.x -= leftAmount
-                } else {
+                    newLeft = leftAmount
+                    needsUpdate = true
+                } else if !expandLeft && currentExpansion.left > 0 {
                     frame.size.width -= leftAmount
                     frame.origin.x += leftAmount
+                    newLeft = 0
+                    needsUpdate = true
                 }
                 coordinator.lastExpandedLeft = expandLeft
-                needsUpdate = true
             }
 
             if needsUpdate {
+                sharedState.setExpansion(for: window, right: newRight, left: newLeft)
                 window.setFrame(frame, display: true, animate: true)
             }
         }
@@ -109,10 +151,11 @@ struct WindowFrameAdjuster: NSViewRepresentable {
             object: window,
             queue: .main
         ) { _ in
-            // Only save the base width when sidebars are collapsed to prevent window "walking"
-            // (where each app launch would restore an expanded size then expand again)
-            guard !coordinator.lastExpandedRight && !coordinator.lastExpandedLeft else { return }
-            UserDefaults.standard.set(window.frame.width, forKey: key)
+            MainActor.assumeIsolated {
+                let expansion = WindowExpansionState.shared.getExpansion(for: window)
+                guard expansion.right == 0 && expansion.left == 0 else { return }
+                UserDefaults.standard.set(window.frame.width, forKey: key)
+            }
         }
     }
 
@@ -130,14 +173,36 @@ struct WindowFrameAdjuster: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             guard let window else { return }
-            var frame = window.frame
-            if lastExpandedRight { frame.size.width -= rightAmount }
-            if lastExpandedLeft {
-                frame.size.width -= leftAmount
-                frame.origin.x += leftAmount
-            }
-            if lastExpandedRight || lastExpandedLeft {
-                window.setFrame(frame, display: true, animate: false)
+
+            let capturedWindow = window
+            let capturedLastExpandedRight = lastExpandedRight
+            let capturedLastExpandedLeft = lastExpandedLeft
+            let capturedRightAmount = rightAmount
+            let capturedLeftAmount = leftAmount
+
+            DispatchQueue.main.async {
+                let sharedState = WindowExpansionState.shared
+                let currentExpansion = sharedState.getExpansion(for: capturedWindow)
+                var frame = capturedWindow.frame
+                var newRight = currentExpansion.right
+                var newLeft = currentExpansion.left
+                var needsUpdate = false
+
+                if capturedLastExpandedRight && currentExpansion.right > 0 {
+                    frame.size.width -= capturedRightAmount
+                    newRight = 0
+                    needsUpdate = true
+                }
+                if capturedLastExpandedLeft && currentExpansion.left > 0 {
+                    frame.size.width -= capturedLeftAmount
+                    frame.origin.x += capturedLeftAmount
+                    newLeft = 0
+                    needsUpdate = true
+                }
+                if needsUpdate {
+                    sharedState.setExpansion(for: capturedWindow, right: newRight, left: newLeft)
+                    capturedWindow.setFrame(frame, display: true, animate: true)
+                }
             }
         }
     }
