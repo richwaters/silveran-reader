@@ -81,8 +81,16 @@ private final class ImmediateSelectTableView: NSTableView {
         let visibleColumns = tableColumns.filter { !$0.isHidden }
         guard !visibleColumns.isEmpty else { return }
 
+        let spacingTotal = intercellSpacing.width * CGFloat(max(visibleColumns.count - 1, 0))
         let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
-        let targetWidth = max(availableWidth, 0)
+        let targetWidth = max(availableWidth - spacingTotal, 0)
+
+        if totalWidth + 0.5 < targetWidth {
+            if let last = visibleColumns.last {
+                last.width += (targetWidth - totalWidth)
+            }
+            return
+        }
         guard totalWidth > targetWidth + 0.5 else { return }
 
         let minTotal = visibleColumns.reduce(0) { $0 + $1.minWidth }
