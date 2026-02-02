@@ -496,6 +496,7 @@ struct MediaGridView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 content(for: contentWidth)
             }
+            #if os(macOS)
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y
             } action: { oldValue, newValue in
@@ -507,6 +508,7 @@ struct MediaGridView: View {
                     }
                 }
             }
+            #endif
             .frame(width: contentWidth)
             .contentMargins(.trailing, 10, for: .scrollIndicators)
             .scrollClipDisabled(true)
