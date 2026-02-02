@@ -112,6 +112,7 @@ public struct AudiobookPlayerView: View {
                     if let observerId = incomingPositionObserverId {
                         await ProgressSyncActor.shared.removeIncomingPositionObserver(id: observerId)
                     }
+                    debugLog("[AudiobookPlayerView] onDisappear: calling AudiobookActor.cleanup()")
                     await AudiobookActor.shared.cleanup()
                 }
             }

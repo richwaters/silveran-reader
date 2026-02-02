@@ -429,6 +429,7 @@ public actor AudiobookActor {
     #if os(iOS)
     @MainActor
     private func configureRemoteCommands() {
+        debugLog("[AudiobookActor] Configuring remote commands")
         let commandCenter = MPRemoteCommandCenter.shared()
 
         commandCenter.playCommand.removeTarget(nil)
@@ -492,6 +493,9 @@ public actor AudiobookActor {
             return .success
         }
 
+        debugLog(
+            "[AudiobookActor] Remote commands enabled: play=\(commandCenter.playCommand.isEnabled), pause=\(commandCenter.pauseCommand.isEnabled), skipF=\(commandCenter.skipForwardCommand.isEnabled), skipB=\(commandCenter.skipBackwardCommand.isEnabled), changePos=\(commandCenter.changePlaybackPositionCommand.isEnabled)"
+        )
         Task { @SMILPlayerActor in
             await SMILPlayerActor.shared.setActiveAudioPlayer(.audiobook)
         }
@@ -687,6 +691,9 @@ public actor AudiobookActor {
     private func clearRemoteCommands() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
+        debugLog(
+            "[AudiobookActor] Clearing remote commands (before): play=\(commandCenter.playCommand.isEnabled), pause=\(commandCenter.pauseCommand.isEnabled), skipF=\(commandCenter.skipForwardCommand.isEnabled), skipB=\(commandCenter.skipBackwardCommand.isEnabled), changePos=\(commandCenter.changePlaybackPositionCommand.isEnabled)"
+        )
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)
         commandCenter.skipForwardCommand.removeTarget(nil)
@@ -761,6 +768,7 @@ public actor AudiobookActor {
     #endif
 
     public func cleanup() async {
+        debugLog("[AudiobookActor] Cleanup called")
         player?.stop()
         player = nil
         metadata = nil

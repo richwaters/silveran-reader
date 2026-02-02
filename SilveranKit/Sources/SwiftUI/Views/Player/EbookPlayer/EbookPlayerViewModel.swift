@@ -498,6 +498,7 @@ class EbookPlayerViewModel {
         Task { @MainActor in
             await mediaOverlayManager?.cleanup()
             await progressManager?.cleanup()
+            debugLog("[EbookPlayerViewModel] onDisappear: calling SMILPlayerActor.cleanup()")
             await SMILPlayerActor.shared.cleanup()
         }
     }

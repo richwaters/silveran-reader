@@ -216,7 +216,9 @@ public actor SMILPlayerActor {
         title: String?,
         author: String?
     ) async throws {
-        debugLog("[SMILPlayerActor] Loading book: \(bookId) from \(epubPath.path)")
+        debugLog(
+            "[SMILPlayerActor] Loading book: \(bookId) from \(epubPath.path) (existingBookId=\(self.bookId ?? "nil"), structureCount=\(bookStructure.count))"
+        )
 
         if self.bookId == bookId && !bookStructure.isEmpty {
             debugLog("[SMILPlayerActor] Same book already loaded, skipping reload")
@@ -591,7 +593,7 @@ public actor SMILPlayerActor {
             return
         }
 
-        debugLog("[SMILPlayerActor] Cleanup")
+        debugLog("[SMILPlayerActor] Cleanup: activeAudioPlayer=\(activeAudioPlayer)")
         clearBookState()
 
         #if os(iOS)
@@ -1151,6 +1153,7 @@ public actor SMILPlayerActor {
     // MARK: - Audio Manager
 
     private func setupAudioManager() async {
+        debugLog("[SMILPlayerActor] setupAudioManager: existing=\(audioManager != nil)")
         let title = bookTitle
         let author = bookAuthor
         #if os(iOS)
@@ -1183,6 +1186,7 @@ public actor SMILPlayerActor {
     }
 
     private func cleanupAudioManager() async {
+        debugLog("[SMILPlayerActor] cleanupAudioManager: existing=\(audioManager != nil)")
         let manager = audioManager
         await MainActor.run {
             manager?.cleanup()
@@ -1238,6 +1242,7 @@ class SMILAudioManager {
     }
 
     private func setupRemoteCommandCenter() {
+        debugLog("[SMILAudioManager] Configuring remote commands")
         let commandCenter = MPRemoteCommandCenter.shared()
 
         commandCenter.playCommand.removeTarget(nil)
@@ -1301,6 +1306,9 @@ class SMILAudioManager {
             return .success
         }
 
+        debugLog(
+            "[SMILAudioManager] Remote commands enabled: play=\(commandCenter.playCommand.isEnabled), pause=\(commandCenter.pauseCommand.isEnabled), toggle=\(commandCenter.togglePlayPauseCommand.isEnabled), skipF=\(commandCenter.skipForwardCommand.isEnabled), skipB=\(commandCenter.skipBackwardCommand.isEnabled), changePos=\(commandCenter.changePlaybackPositionCommand.isEnabled)"
+        )
         Task { @SMILPlayerActor in
             await SMILPlayerActor.shared.setActiveAudioPlayer(.smil)
         }
@@ -1346,6 +1354,9 @@ class SMILAudioManager {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
 
         let commandCenter = MPRemoteCommandCenter.shared()
+        debugLog(
+            "[SMILAudioManager] Clearing remote commands (before): play=\(commandCenter.playCommand.isEnabled), pause=\(commandCenter.pauseCommand.isEnabled), toggle=\(commandCenter.togglePlayPauseCommand.isEnabled), skipF=\(commandCenter.skipForwardCommand.isEnabled), skipB=\(commandCenter.skipBackwardCommand.isEnabled), changePos=\(commandCenter.changePlaybackPositionCommand.isEnabled)"
+        )
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)
         commandCenter.togglePlayPauseCommand.removeTarget(nil)
