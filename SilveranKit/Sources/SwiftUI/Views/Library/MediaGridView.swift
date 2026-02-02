@@ -811,6 +811,21 @@ struct MediaGridView: View {
                 .fill(Color.clear)
                 .glassEffect(.regular.interactive(), in: Rectangle())
                 .mask(
+                    HStack(spacing: 0) {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .clear, location: 0.4),
+                                .init(color: .white, location: 1),
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 20)
+                        Rectangle().fill(Color.white)
+                    }
+                )
+                .mask(
                     LinearGradient(
                         stops: [
                             .init(color: .white, location: 0),
@@ -819,6 +834,31 @@ struct MediaGridView: View {
                         ],
                         startPoint: .top,
                         endPoint: .bottom
+                    )
+                )
+                .background(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.75), location: 0),
+                            .init(color: .black.opacity(0.5), location: 0.5),
+                            .init(color: .black.opacity(0), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .mask(
+                        HStack(spacing: 0) {
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .white, location: 1),
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: 20)
+                            Rectangle().fill(Color.white)
+                        }
                     )
                 )
         } else {
