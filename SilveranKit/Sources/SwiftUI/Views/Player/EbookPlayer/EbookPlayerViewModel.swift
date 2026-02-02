@@ -390,8 +390,10 @@ class EbookPlayerViewModel {
             )
         }
 
-        await AudiobookActor.shared.cleanup()
-        debugLog("[EbookPlayerViewModel] Cleaned up AudiobookActor before loading readaloud")
+        if await SMILPlayerActor.shared.activeAudioPlayer == .audiobook {
+            await AudiobookActor.shared.cleanup()
+            debugLog("[EbookPlayerViewModel] Cleaned up AudiobookActor before loading readaloud")
+        }
 
         do {
             try await SMILPlayerActor.shared.loadBook(

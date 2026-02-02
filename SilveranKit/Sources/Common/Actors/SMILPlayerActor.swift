@@ -137,11 +137,26 @@ public struct SMILPlaybackState: Sendable {
     }
 }
 
+// MARK: - Active Audio Player Tracking
+
+public enum ActiveAudioPlayer: Sendable {
+    case none
+    case smil
+    case audiobook
+}
+
 // MARK: - Global Actor
 
 @globalActor
 public actor SMILPlayerActor {
     public static let shared = SMILPlayerActor()
+
+    public private(set) var activeAudioPlayer: ActiveAudioPlayer = .none
+
+    public func setActiveAudioPlayer(_ player: ActiveAudioPlayer) {
+        activeAudioPlayer = player
+        debugLog("[SMILPlayerActor] Active audio player set to: \(player)")
+    }
 
     // MARK: - Player State
 
@@ -582,6 +597,9 @@ public actor SMILPlayerActor {
         #if os(iOS)
         removeAudioSessionObservers()
         await cleanupAudioManager()
+        if activeAudioPlayer == .smil {
+            activeAudioPlayer = .none
+        }
         audioSessionInitialized = false
         do {
             try AVAudioSession.sharedInstance().setActive(
@@ -1283,6 +1301,9 @@ class SMILAudioManager {
             return .success
         }
 
+        Task { @SMILPlayerActor in
+            await SMILPlayerActor.shared.setActiveAudioPlayer(.smil)
+        }
         debugLog("[SMILAudioManager] Remote commands configured")
     }
 

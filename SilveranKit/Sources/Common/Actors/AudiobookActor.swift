@@ -492,6 +492,9 @@ public actor AudiobookActor {
             return .success
         }
 
+        Task { @SMILPlayerActor in
+            await SMILPlayerActor.shared.setActiveAudioPlayer(.audiobook)
+        }
         debugLog("[AudiobookActor] Remote commands configured")
     }
 
@@ -767,6 +770,9 @@ public actor AudiobookActor {
         #if os(iOS)
         stopNowPlayingUpdateTimer()
         clearRemoteCommands()
+        if await SMILPlayerActor.shared.activeAudioPlayer == .audiobook {
+            await SMILPlayerActor.shared.setActiveAudioPlayer(.none)
+        }
         removeAudioSessionObservers()
         artworkImage = nil
 

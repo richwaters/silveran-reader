@@ -246,8 +246,10 @@ public struct AudiobookPlayerView: View {
             return
         }
 
-        await SMILPlayerActor.shared.cleanup()
-        debugLog("[AudiobookPlayerView] Cleaned up SMILPlayerActor before loading audiobook")
+        if await SMILPlayerActor.shared.activeAudioPlayer == .smil {
+            await SMILPlayerActor.shared.cleanup()
+            debugLog("[AudiobookPlayerView] Cleaned up SMILPlayerActor before loading audiobook")
+        }
 
         do {
             let loadedMetadata = try await AudiobookActor.shared.validateAndLoadAudiobook(

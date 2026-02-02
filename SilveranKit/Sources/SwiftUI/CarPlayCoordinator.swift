@@ -289,7 +289,9 @@ public final class CarPlayCoordinator {
     }
 
     private func loadM4BAudiobook(metadata: BookMetadata, localPath: URL) async throws {
-        await SMILPlayerActor.shared.cleanup()
+        if await SMILPlayerActor.shared.activeAudioPlayer == .smil {
+            await SMILPlayerActor.shared.cleanup()
+        }
         activePlayer = .audiobook
         currentBookId = metadata.uuid
         currentBookTitle = metadata.title
@@ -349,7 +351,9 @@ public final class CarPlayCoordinator {
     }
 
     private func loadSMILBook(metadata: BookMetadata, localPath: URL) async throws {
-        await AudiobookActor.shared.cleanup()
+        if await SMILPlayerActor.shared.activeAudioPlayer == .audiobook {
+            await AudiobookActor.shared.cleanup()
+        }
         activePlayer = .smil
         currentBookId = metadata.uuid
         currentBookTitle = metadata.title
