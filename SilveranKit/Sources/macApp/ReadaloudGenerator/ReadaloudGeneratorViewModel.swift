@@ -157,8 +157,8 @@ public final class ReadaloudGeneratorViewModel {
         defer { if access { epubURL.stopAccessingSecurityScopedResource() } }
 
         do {
-            // Use SMILParser for proper chapter names (display)
-            let sections = try SMILParser.parseEPUB(at: epubURL)
+            let parseResult = try SMILParser.parseEPUB(at: epubURL)
+            let sections = parseResult.sections
 
             // Also get StoryAlign's manifest IDs for filtering
             let logger = ReadaloudLogger(minLevel: .error)

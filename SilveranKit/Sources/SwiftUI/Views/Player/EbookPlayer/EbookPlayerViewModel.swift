@@ -14,6 +14,8 @@ class EbookPlayerViewModel {
     var settingsVM: SettingsViewModel
 
     var bookStructure: [SectionInfo] = []
+    var tocEntries: [TocEntry] = []
+    private var userSelectedTocId: String? = nil
     var mediaOverlayManager: MediaOverlayManager? = nil
     var progressManager: EbookProgressManager? = nil
     var styleManager: ReaderStyleManager? = nil
@@ -25,7 +27,17 @@ class EbookPlayerViewModel {
     #endif
 
     var chapterList: [ChapterItem] {
-        bookStructure.filter { $0.label != nil }.map {
+        if !tocEntries.isEmpty {
+            return tocEntries.enumerated().map { idx, entry in
+                ChapterItem(
+                    id: "toc-\(idx)",
+                    label: entry.label,
+                    href: entry.href,
+                    level: entry.level
+                )
+            }
+        }
+        return bookStructure.filter { $0.label != nil }.map {
             ChapterItem(id: $0.id, label: $0.label ?? "Untitled", href: $0.id, level: $0.level ?? 0)
         }
     }
@@ -82,6 +94,33 @@ class EbookPlayerViewModel {
 
     var selectedChapterHref: String? {
         guard let index = progressManager?.selectedChapterId else { return nil }
+        if !tocEntries.isEmpty {
+            // If user explicitly clicked a toc entry, and it still matches the current section, use it
+            if let userSelected = userSelectedTocId,
+               userSelected.hasPrefix("toc-"),
+               let idx = Int(userSelected.dropFirst(4)),
+               idx < tocEntries.count,
+               tocEntries[idx].sectionIndex == index {
+                return userSelected
+            }
+            // Otherwise find the first toc entry that matches this section index
+            for (offset, entry) in tocEntries.enumerated() {
+                if entry.sectionIndex == index {
+                    return "toc-\(offset)"
+                }
+            }
+            // No exact match - find the last entry with a lower section index
+            var lastOffset: Int? = nil
+            for (offset, entry) in tocEntries.enumerated() {
+                if entry.sectionIndex < index {
+                    lastOffset = offset
+                }
+            }
+            if let offset = lastOffset {
+                return "toc-\(offset)"
+            }
+            return nil
+        }
         return bookStructure[safe: index]?.id
     }
 
@@ -138,6 +177,28 @@ class EbookPlayerViewModel {
         #endif
     }
 
+    func handleChapterSelection(_ chapter: ChapterItem) {
+        debugLog("[TOC-DEBUG] handleChapterSelection: id=\(chapter.id) label=\"\(chapter.label)\" href=\"\(chapter.href)\" level=\(chapter.level)")
+        userSelectedTocId = chapter.id
+        if !tocEntries.isEmpty, chapter.id.hasPrefix("toc-"),
+           let idx = Int(chapter.id.dropFirst(4)), idx < tocEntries.count {
+            let entry = tocEntries[idx]
+            let fragment = entry.href.components(separatedBy: "#").dropFirst().first
+
+            if let fragment, let sectionId = bookStructure[safe: entry.sectionIndex]?.id {
+                let fullHref = "\(sectionId)#\(fragment)"
+                debugLog("[TOC-DEBUG] -> EPM href navigation to \(fullHref)")
+                progressManager?.handleUserChapterSelectedWithHref(entry.sectionIndex, href: fullHref)
+            } else {
+                debugLog("[TOC-DEBUG] -> EPM section navigation to sectionIndex=\(entry.sectionIndex)")
+                progressManager?.handleUserChapterSelected(entry.sectionIndex)
+            }
+            return
+        }
+        debugLog("[TOC-DEBUG] -> falling back to href-based lookup")
+        handleChapterSelectionByHref(chapter.href)
+    }
+
     func handleChapterSelectionByHref(_ href: String) {
         debugLog("[EbookPlayerViewModel] Chapter selected by href: \(href)")
 
@@ -151,6 +212,7 @@ class EbookPlayerViewModel {
     }
 
     func handlePrevChapter() {
+        userSelectedTocId = nil
         guard let currentIndex = progressManager?.selectedChapterId else {
             debugLog("[EbookPlayerViewModel] Cannot navigate - no chapter selected")
             return
@@ -188,6 +250,7 @@ class EbookPlayerViewModel {
     }
 
     func handleNextChapter() {
+        userSelectedTocId = nil
         guard let currentIndex = progressManager?.selectedChapterId,
             currentIndex < bookStructure.count - 1
         else {
@@ -315,6 +378,8 @@ class EbookPlayerViewModel {
 
                         if needsNativeAudio {
                             await loadBookIntoActor(epubPath: localPath)
+                        } else {
+                            await parseNativeTocEntries(epubPath: localPath)
                         }
                     } catch {
                         debugLog("[EbookPlayerViewModel] Failed to extract EPUB: \(error)")
@@ -367,6 +432,17 @@ class EbookPlayerViewModel {
         showServerPositionDialog = false
     }
 
+    private func parseNativeTocEntries(epubPath: URL) async {
+        do {
+            let result = try SMILParser.parseEPUB(at: epubPath)
+            self.tocEntries = result.tocEntries
+            self.bookStructure = result.sections
+            debugLog("[EbookPlayerViewModel] Parsed \(result.tocEntries.count) native TOC entries for ebook-only mode")
+        } catch {
+            debugLog("[EbookPlayerViewModel] Failed to parse native TOC: \(error)")
+        }
+    }
+
     private func loadBookIntoActor(epubPath: URL) async {
         let currentBookId = bookData?.metadata.uuid ?? "unknown"
         let loadedBookId = await SMILPlayerActor.shared.getLoadedBookId()
@@ -380,6 +456,7 @@ class EbookPlayerViewModel {
             isJoiningExistingSession = true
             let nativeStructure = await SMILPlayerActor.shared.getBookStructure()
             self.bookStructure = nativeStructure
+            self.tocEntries = await SMILPlayerActor.shared.getTocEntries()
             debugLog("[EbookPlayerViewModel] Joined session with \(nativeStructure.count) sections")
             return
         }
@@ -407,6 +484,7 @@ class EbookPlayerViewModel {
 
             let nativeStructure = await SMILPlayerActor.shared.getBookStructure()
             self.bookStructure = nativeStructure
+            self.tocEntries = await SMILPlayerActor.shared.getTocEntries()
             debugLog(
                 "[EbookPlayerViewModel] Native book structure loaded: \(nativeStructure.count) sections"
             )
@@ -607,20 +685,22 @@ class EbookPlayerViewModel {
                 let isRecovering = false
                 #endif
 
-                if self.bookData?.category == .synced, let loadingTask = self.nativeLoadingTask {
+                if let loadingTask = self.nativeLoadingTask {
                     debugLog(
-                        "[EbookPlayerViewModel] Waiting for native SMIL parsing to complete..."
+                        "[EbookPlayerViewModel] Waiting for native EPUB parsing to complete..."
                     )
                     await loadingTask.value
-                    debugLog("[EbookPlayerViewModel] Native SMIL parsing complete")
+                    debugLog("[EbookPlayerViewModel] Native EPUB parsing complete")
                 }
 
-                let useNativeStructure =
-                    self.bookData?.category == .synced && !self.bookStructure.isEmpty
-                let structureToUse = useNativeStructure ? self.bookStructure : message.sections
+                let useNativeStructure = !self.bookStructure.isEmpty
+                let structureToUse: [SectionInfo]
 
-                if !useNativeStructure {
+                if useNativeStructure {
+                    structureToUse = self.bookStructure
+                } else {
                     self.bookStructure = message.sections
+                    structureToUse = message.sections
                 }
 
                 self.progressManager?.bookStructure = structureToUse
@@ -694,6 +774,7 @@ class EbookPlayerViewModel {
         bridge.onPageFlipped = { [weak self] message in
             guard let self else { return }
             Task { @MainActor in
+                self.userSelectedTocId = nil
                 self.progressManager?.handleUserNavSwipeDetected(message)
             }
         }
@@ -701,6 +782,7 @@ class EbookPlayerViewModel {
         bridge.onMarginClickNav = { [weak self] message in
             guard let self else { return }
             Task { @MainActor in
+                self.userSelectedTocId = nil
                 if message.direction == "left" {
                     self.progressManager?.handleUserNavLeft()
                 } else {

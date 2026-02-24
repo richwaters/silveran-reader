@@ -182,9 +182,9 @@ public struct AudiobookPlayerView: View {
                     bookCurrentFraction: msg.bookCurrentFraction
                 )
             },
-            onChapterSelected: { href in
+            onChapterSelected: { chapter in
                 Task {
-                    await AudiobookActor.shared.seekToChapter(href: href)
+                    await AudiobookActor.shared.seekToChapter(href: chapter.href)
                 }
             },
             onPrevChapter: {

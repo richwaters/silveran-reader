@@ -47,6 +47,20 @@ public func findSectionIndex(for locatorHref: String, in sections: [SectionInfo]
     return nil
 }
 
+public struct TocEntry: Sendable {
+    public let label: String
+    public let href: String
+    public let level: Int
+    public let sectionIndex: Int
+
+    public init(label: String, href: String, level: Int, sectionIndex: Int) {
+        self.label = label
+        self.href = href
+        self.level = level
+        self.sectionIndex = sectionIndex
+    }
+}
+
 /// SMIL media overlay entry with cumulative timing
 public struct SMILEntry: Codable, Sendable {
     public let textId: String

@@ -31,7 +31,7 @@ struct DraggableAudioCard<FullContent: View>: View {
     let onNextChapter: () -> Void
     let onProgressSeek: ((Double) -> Void)?
     let onPlaybackRateChange: (Double) -> Void
-    let onChapterSelected: (String) -> Void
+    let onChapterSelected: (ChapterItem) -> Void
     let onSleepTimerStart: (TimeInterval?, SleepTimerType) -> Void
     let onSleepTimerCancel: () -> Void
     let onDismiss: () -> Void

@@ -20,7 +20,7 @@ struct EbookPlayerTopToolbar: View {
     let searchManager: EbookSearchManager?
 
     let onDismiss: () -> Void
-    let onChapterSelected: (String) -> Void
+    let onChapterSelected: (ChapterItem) -> Void
     let onSyncToggle: (Bool) async throws -> Void
     let onSearchResultSelected: (SearchResult) -> Void
     let onSleepTimerStart: (TimeInterval?, SleepTimerType) -> Void

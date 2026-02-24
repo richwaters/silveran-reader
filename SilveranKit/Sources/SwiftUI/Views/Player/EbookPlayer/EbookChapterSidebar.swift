@@ -1,40 +1,35 @@
 import SwiftUI
 
-/// Chapter sidebar for ebook reader showing table of contents
 struct EbookChapterSidebar: View {
-    @Binding var selectedChapterId: Int?
-    let bookStructure: [SectionInfo]
+    let chapters: [ChapterItem]
+    let selectedChapterId: String?
     let backgroundColor: Color
-    let onChapterSelected: (Int?) -> Void
-
-    private var chaptersWithIndices: [(index: Int, chapter: SectionInfo)] {
-        bookStructure.enumerated().compactMap { index, chapter in
-            guard chapter.label != nil else { return nil }
-            return (index, chapter)
-        }
-    }
+    let onChapterSelected: (ChapterItem) -> Void
 
     var body: some View {
-        List(selection: $selectedChapterId) {
+        List {
             Section("Chapters") {
-                ForEach(chaptersWithIndices, id: \.chapter.id) { item in
-                    HStack {
-                        Text(String(repeating: "  ", count: item.chapter.level ?? 0))
-                            .font(.system(size: 1))
-                        Text(item.chapter.label ?? "Untitled")
+                ForEach(chapters, id: \.id) { chapter in
+                    Button {
+                        debugLog("[TOC-DEBUG] Sidebar button tapped: id=\(chapter.id) label=\"\(chapter.label)\"")
+                        onChapterSelected(chapter)
+                    } label: {
+                        Text(chapter.label)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
-                    .tag(item.index)
+                    .buttonStyle(.plain)
+                    .padding(.leading, CGFloat(chapter.level) * 16)
+                    .listRowBackground(
+                        chapter.id == selectedChapterId
+                            ? Color.accentColor.opacity(0.2)
+                            : Color.clear
+                    )
                 }
             }
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(backgroundColor)
-        .onChange(of: selectedChapterId) { oldValue, newValue in
-            debugLog(
-                "[EbookPlayerView] EbookChapterSidebar - selectedChapterId changed from \(oldValue?.description ?? "nil") to \(newValue?.description ?? "nil")"
-            )
-            onChapterSelected(newValue)
-        }
     }
 }

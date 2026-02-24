@@ -163,6 +163,7 @@ public actor SMILPlayerActor {
     private var player: AVPlayer?
     private let endObserver = AVPlayerEndObserver()
     private var bookStructure: [SectionInfo] = []
+    private var tocEntries: [TocEntry] = []
     private var cachedBookTotal: Double = 0
     private var cachedChapterStartCumSums: [Int: Double] = [:]
     private var epubPath: URL?
@@ -234,13 +235,14 @@ public actor SMILPlayerActor {
         sessionID = UUID()
         clearBookState()
 
-        let structure = try SMILParser.parseEPUB(at: epubPath)
+        let result = try SMILParser.parseEPUB(at: epubPath)
 
-        guard structure.contains(where: { !$0.mediaOverlay.isEmpty }) else {
+        guard result.sections.contains(where: { !$0.mediaOverlay.isEmpty }) else {
             throw SMILPlayerError.noMediaOverlay
         }
 
-        self.bookStructure = structure
+        self.bookStructure = result.sections
+        self.tocEntries = result.tocEntries
         self.epubPath = epubPath
         self.bookId = bookId
         self.bookTitle = title
@@ -256,12 +258,16 @@ public actor SMILPlayerActor {
         await setupAudioManager()
         #endif
 
-        debugLog("[SMILPlayerActor] Book loaded with \(structure.count) sections")
+        debugLog("[SMILPlayerActor] Book loaded with \(result.sections.count) sections")
         await notifyStateChange()
     }
 
     public func getBookStructure() -> [SectionInfo] {
         return bookStructure
+    }
+
+    public func getTocEntries() -> [TocEntry] {
+        return tocEntries
     }
 
     public func getLoadedBookId() -> String? {
@@ -571,6 +577,7 @@ public actor SMILPlayerActor {
         }
 
         bookStructure = []
+        tocEntries = []
         cachedBookTotal = 0
         cachedChapterStartCumSums = [:]
         epubPath = nil

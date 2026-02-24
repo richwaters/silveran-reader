@@ -328,18 +328,13 @@ class FoliateManager {
 
   #reportBookStructureReady() {
     const bookSections = this.#view?.book?.sections || [];
-    const toc = this.#view?.book?.toc || [];
-
-    const tocMap = this.#buildTOCMap(toc);
 
     const sections = bookSections.map((section, index) => {
-      const tocEntry = tocMap.get(section.id);
-
       return {
         index: index,
         id: section.id,
-        label: tocEntry?.label || null,
-        level: tocEntry?.level ?? null,
+        label: null,
+        level: null,
         mediaOverlay: [],
       };
     });
@@ -425,22 +420,6 @@ class FoliateManager {
       delta: delta,
       isRtl: !!isRtl,
     });
-  }
-
-  #buildTOCMap(items, level = 0, map = new Map()) {
-    for (const item of items) {
-      if (item.href) {
-        const baseHref = item.href.split("#")[0];
-        if (!map.has(baseHref)) {
-          map.set(baseHref, { label: item.label, level: level });
-        }
-      }
-
-      if (item.subitems && item.subitems.length > 0) {
-        this.#buildTOCMap(item.subitems, level + 1, map);
-      }
-    }
-    return map;
   }
 
   goLeft() {

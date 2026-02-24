@@ -847,6 +847,48 @@ class EbookProgressManager {
         )
     }
 
+    /// User clicked on a TOC entry that has a specific href (with fragment anchor)
+    func handleUserChapterSelectedWithHref(_ newId: Int, href: String) {
+        guard let bridge = commsBridge else {
+            debugLog("[EPM] Cannot navigate - no bridge")
+            return
+        }
+
+        let isSameSection = newId == selectedChapterId
+
+        pendingPageNav = nil
+        pendingSeekNav = nil
+        cancelUserNavFallback()
+
+        if !isSameSection {
+            pendingChapterTransition = newId
+            debugLog("[EPM] Chapter transition pending → Section.\(newId) (user selection with href)")
+        }
+
+        if !isFreeBrowseMode {
+            pendingUserNavSyncReason = .userSelectedChapter
+        }
+
+        let previousChapterId = selectedChapterId
+        selectedChapterId = newId
+
+        debugLog("[EPM] Navigating to href: \(href) (sameSection=\(isSameSection))")
+
+        Task { @MainActor in
+            do {
+                try await bridge.sendJsGoToHrefCommand(href: href)
+
+                if !isSameSection, let mom = mediaOverlayManager {
+                    await mom.handleUserChapterNavigation(sectionIndex: newId)
+                }
+            } catch {
+                debugLog("[EPM] Failed to navigate to href: \(error)")
+                pendingChapterTransition = nil
+                selectedChapterId = previousChapterId
+            }
+        }
+    }
+
     /// User dragged progress bar to seek within chapter (0.0 - 1.0)
     func handleUserProgressSeek(_ progress: Double) {
         let clampedProgress = max(0.0, min(1.0, progress))

@@ -12,8 +12,13 @@ public enum SMILParserError: Error {
 
 public enum SMILParser {
 
+    public struct ParseResult {
+        public let sections: [SectionInfo]
+        public let tocEntries: [TocEntry]
+    }
+
     /// Parse EPUB to extract SMIL structure for audio playback
-    public static func parseEPUB(at url: URL) throws -> [SectionInfo] {
+    public static func parseEPUB(at url: URL) throws -> ParseResult {
         let archive = try Archive(url: url, accessMode: .read)
 
         let opfPath = try findOPFPath(in: archive)
@@ -22,7 +27,6 @@ public enum SMILParser {
         let opfDir = (opfPath as NSString).deletingLastPathComponent
 
         let (manifest, spine) = try parseOPF(opfData)
-        let tocLabels = try parseTOCLabels(from: archive, manifest: manifest, opfDir: opfDir)
 
         var sections: [SectionInfo] = []
         var cumulativeTime: Double = 0
@@ -31,8 +35,6 @@ public enum SMILParser {
             guard let manifestItem = manifest[spineItem.idref] else { continue }
 
             let sectionId = resolvePath(manifestItem.href, relativeTo: opfDir)
-            let label =
-                tocLabels[manifestItem.href] ?? tocLabels[sectionId] ?? tocLabels[spineItem.idref]
 
             var mediaOverlay: [SMILEntry] = []
 
@@ -64,14 +66,54 @@ public enum SMILParser {
                 SectionInfo(
                     index: index,
                     id: sectionId,
-                    label: label,
+                    label: nil,
                     level: nil,
                     mediaOverlay: mediaOverlay
                 )
             )
         }
 
-        return sections
+        let rawTocEntries = try parseTOC(from: archive, manifest: manifest, opfDir: opfDir)
+
+        debugLog("[TOC-DEBUG] Raw TOC entries from parser: \(rawTocEntries.count)")
+        for (i, raw) in rawTocEntries.enumerated() {
+            debugLog("[TOC-DEBUG]   raw[\(i)] level=\(raw.level) label=\"\(raw.label)\" href=\"\(raw.href)\"")
+        }
+
+        debugLog("[TOC-DEBUG] Spine sections: \(sections.count)")
+        for (i, sec) in sections.enumerated() {
+            debugLog("[TOC-DEBUG]   spine[\(i)] id=\"\(sec.id)\"")
+        }
+
+        let tocEntries = rawTocEntries.compactMap { raw -> TocEntry? in
+            let baseHref = raw.href.components(separatedBy: "#").first ?? raw.href
+            guard let idx = findSectionIndex(for: baseHref, in: sections) else {
+                debugLog("[TOC-DEBUG]   DROPPED raw entry: no section match for baseHref=\"\(baseHref)\" (label=\"\(raw.label)\")")
+                return nil
+            }
+            return TocEntry(label: raw.label, href: raw.href, level: raw.level, sectionIndex: idx)
+        }
+
+        debugLog("[TOC-DEBUG] Final tocEntries: \(tocEntries.count)")
+        for (i, entry) in tocEntries.enumerated() {
+            debugLog("[TOC-DEBUG]   toc[\(i)] level=\(entry.level) sectionIdx=\(entry.sectionIndex) label=\"\(entry.label)\" href=\"\(entry.href)\"")
+        }
+
+        let labelsBySection = labelsFromTocEntries(tocEntries)
+        let labeledSections = sections.map { section -> SectionInfo in
+            if let (label, level) = labelsBySection[section.index] {
+                return SectionInfo(
+                    index: section.index,
+                    id: section.id,
+                    label: label,
+                    level: level,
+                    mediaOverlay: section.mediaOverlay
+                )
+            }
+            return section
+        }
+
+        return ParseResult(sections: labeledSections, tocEntries: tocEntries)
     }
 
     // MARK: - Time Parsing
@@ -162,21 +204,27 @@ public enum SMILParser {
         return (delegate.manifest, delegate.spine)
     }
 
-    private static func parseTOCLabels(
+    struct RawTocEntry {
+        let label: String
+        let href: String
+        let level: Int
+    }
+
+    private static func parseTOC(
         from archive: Archive,
         manifest: [String: ManifestItem],
         opfDir: String
-    ) throws -> [String: String] {
+    ) throws -> [RawTocEntry] {
         let ncxItem = manifest.values.first { $0.mediaType == "application/x-dtbncx+xml" }
 
         if let ncxItem = ncxItem {
             let ncxPath = resolvePath(ncxItem.href, relativeTo: opfDir)
             debugLog("[SMILParser] Found NCX at: \(ncxPath)")
             if let ncxData = try? extractFile(from: archive, path: ncxPath) {
-                let labels = parseNCXLabels(ncxData)
-                debugLog("[SMILParser] NCX parsed: \(labels.count) labels")
-                if !labels.isEmpty {
-                    return labels
+                let entries = parseNCXTocEntries(ncxData)
+                debugLog("[SMILParser] NCX parsed: \(entries.count) entries")
+                if !entries.isEmpty {
+                    return entries
                 }
             } else {
                 debugLog("[SMILParser] Failed to extract NCX file")
@@ -196,12 +244,12 @@ public enum SMILParser {
             let navDir = (navPath as NSString).deletingLastPathComponent
             debugLog("[SMILParser] Found EPUB3 nav at: \(navPath)")
             if let navData = try? extractFile(from: archive, path: navPath) {
-                let labels = parseNavLabels(navData, navDir: navDir)
-                debugLog("[SMILParser] Nav parsed: \(labels.count) labels")
-                if labels.isEmpty {
+                let entries = parseNavTocEntries(navData, navDir: navDir)
+                debugLog("[SMILParser] Nav parsed: \(entries.count) entries")
+                if entries.isEmpty {
                     debugLog("[SMILParser] Nav file contained no TOC entries")
                 }
-                return labels
+                return entries
             } else {
                 debugLog("[SMILParser] Failed to extract nav file")
             }
@@ -209,24 +257,34 @@ public enum SMILParser {
             debugLog("[SMILParser] No EPUB3 nav document in manifest")
         }
 
-        debugLog("[SMILParser] No TOC labels found (no NCX or nav)")
-        return [:]
+        debugLog("[SMILParser] No TOC entries found (no NCX or nav)")
+        return []
     }
 
-    private static func parseNavLabels(_ data: Data, navDir: String) -> [String: String] {
+    private static func parseNavTocEntries(_ data: Data, navDir: String) -> [RawTocEntry] {
         let delegate = NavXMLDelegate(navDir: navDir)
         let parser = XMLParser(data: data)
         parser.delegate = delegate
         _ = parser.parse()
-        return delegate.labels
+        return delegate.entries
     }
 
-    private static func parseNCXLabels(_ data: Data) -> [String: String] {
+    private static func parseNCXTocEntries(_ data: Data) -> [RawTocEntry] {
         let delegate = NCXXMLDelegate()
         let parser = XMLParser(data: data)
         parser.delegate = delegate
         _ = parser.parse()
-        return delegate.labels
+        return delegate.entries
+    }
+
+    static func labelsFromTocEntries(_ entries: [TocEntry]) -> [Int: (label: String, level: Int)] {
+        var result: [Int: (label: String, level: Int)] = [:]
+        for entry in entries {
+            if result[entry.sectionIndex] == nil {
+                result[entry.sectionIndex] = (entry.label, entry.level)
+            }
+        }
+        return result
     }
 
     // MARK: - SMIL Parsing
@@ -341,10 +399,16 @@ private class OPFXMLDelegate: NSObject, XMLParserDelegate {
 }
 
 private class NCXXMLDelegate: NSObject, XMLParserDelegate {
-    var labels: [String: String] = [:]
+    var entries: [SMILParser.RawTocEntry] = []
 
-    private var currentNavPointSrc: String?
-    private var currentText: String = ""
+    private struct NavPointState {
+        var src: String?
+        var text: String = ""
+        var emitted: Bool = false
+        let depth: Int
+    }
+
+    private var stack: [NavPointState] = []
     private var inNavLabel = false
     private var inText = false
 
@@ -359,19 +423,31 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
 
         switch localName {
             case "navPoint":
-                currentNavPointSrc = nil
-                currentText = ""
+                stack.append(NavPointState(depth: stack.count))
             case "navLabel":
                 inNavLabel = true
             case "text":
                 if inNavLabel {
                     inText = true
-                    currentText = ""
+                    if !stack.isEmpty {
+                        stack[stack.count - 1].text = ""
+                    }
                 }
             case "content":
-                if let src = attributes["src"] {
-                    let baseSrc = src.components(separatedBy: "#").first ?? ""
-                    currentNavPointSrc = baseSrc.removingPercentEncoding ?? baseSrc
+                if let src = attributes["src"], !stack.isEmpty {
+                    let decoded = src.removingPercentEncoding ?? src
+                    stack[stack.count - 1].src = decoded
+                    // Emit entry now (preserves document order: parent before children)
+                    let state = stack[stack.count - 1]
+                    let trimmedText = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedText.isEmpty {
+                        entries.append(SMILParser.RawTocEntry(
+                            label: trimmedText,
+                            href: decoded,
+                            level: state.depth
+                        ))
+                        stack[stack.count - 1].emitted = true
+                    }
                 }
             default:
                 break
@@ -379,8 +455,8 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
-        if inText {
-            currentText += string
+        if inText, !stack.isEmpty {
+            stack[stack.count - 1].text += string
         }
     }
 
@@ -398,10 +474,7 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
             case "text":
                 inText = false
             case "navPoint":
-                if let src = currentNavPointSrc, !currentText.isEmpty {
-                    let trimmedText = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    labels[src] = trimmedText
-                }
+                _ = stack.popLast()
             default:
                 break
         }
@@ -410,12 +483,13 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
 
 private class NavXMLDelegate: NSObject, XMLParserDelegate {
     let navDir: String
-    var labels: [String: String] = [:]
+    var entries: [SMILParser.RawTocEntry] = []
 
     private var inTocNav = false
     private var inAnchor = false
     private var currentHref: String?
     private var currentText: String = ""
+    private var olDepth = 0
 
     init(navDir: String) {
         self.navDir = navDir
@@ -439,11 +513,14 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
                 if epubTypeTokens.contains("toc") || roleTokens.contains("doc-toc") {
                     inTocNav = true
                 }
+            case "ol":
+                if inTocNav {
+                    olDepth += 1
+                }
             case "a":
                 if inTocNav, let href = attributes["href"] {
                     inAnchor = true
-                    let baseSrc = href.components(separatedBy: "#").first ?? ""
-                    let decoded = baseSrc.removingPercentEncoding ?? baseSrc
+                    let decoded = href.removingPercentEncoding ?? href
                     currentHref = resolvePath(decoded, relativeTo: navDir)
                     currentText = ""
                 }
@@ -469,11 +546,19 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
         switch localName {
             case "nav":
                 inTocNav = false
+            case "ol":
+                if inTocNav {
+                    olDepth -= 1
+                }
             case "a":
                 if inAnchor, let href = currentHref {
                     let trimmedText = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedText.isEmpty {
-                        labels[href] = trimmedText
+                        entries.append(SMILParser.RawTocEntry(
+                            label: trimmedText,
+                            href: href,
+                            level: max(0, olDepth - 1)
+                        ))
                     }
                 }
                 inAnchor = false

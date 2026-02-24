@@ -63,7 +63,7 @@ public struct ReadingSidebarView: View {
     private let progressData: ProgressData?
     @Binding private var chapterProgress: Double
     private let chapters: [ChapterItem]
-    private let onChapterSelected: (String) -> Void
+    private let onChapterSelected: (ChapterItem) -> Void
     private let onProgressSeek: ((Double) -> Void)?
     private let seekWhileDragging: Bool
 
@@ -92,7 +92,7 @@ public struct ReadingSidebarView: View {
         chapterProgress: Binding<Double>,
         chapters: [ChapterItem] = [],
         progressData: ProgressData? = nil,
-        onChapterSelected: @escaping (String) -> Void = { _ in },
+        onChapterSelected: @escaping (ChapterItem) -> Void = { _ in },
         onPrevChapter: @escaping () -> Void = {},
         onSkipBackward: @escaping () -> Void = {},
         onPlayPause: @escaping () -> Void = {},

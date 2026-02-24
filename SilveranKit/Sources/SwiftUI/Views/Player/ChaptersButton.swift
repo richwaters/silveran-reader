@@ -3,7 +3,7 @@ import SwiftUI
 public struct ChaptersButton: View {
     private let chapters: [ChapterItem]
     private let selectedChapterId: String?
-    private let onChapterSelected: (String) -> Void
+    private let onChapterSelected: (ChapterItem) -> Void
     private let backgroundColor: Color
     private let foregroundColor: Color
     private let transparency: Double
@@ -16,7 +16,7 @@ public struct ChaptersButton: View {
     public init(
         chapters: [ChapterItem],
         selectedChapterId: String? = nil,
-        onChapterSelected: @escaping (String) -> Void,
+        onChapterSelected: @escaping (ChapterItem) -> Void,
         backgroundColor: Color = Color.secondary,
         foregroundColor: Color = Color.primary,
         transparency: Double = 1.0,
@@ -60,7 +60,7 @@ public struct ChaptersButton: View {
             Menu {
                 ForEach(chapters, id: \.id) { chapter in
                     Button(action: {
-                        onChapterSelected(chapter.href)
+                        onChapterSelected(chapter)
                     }) {
                         HStack {
                             Text(String(repeating: "  ", count: chapter.level) + chapter.label)
@@ -102,7 +102,7 @@ public struct ChaptersButton: View {
             ScrollViewReader { proxy in
                 List(chapters, id: \.id) { chapter in
                     Button(action: {
-                        onChapterSelected(chapter.href)
+                        onChapterSelected(chapter)
                         showSheet = false
                     }) {
                         HStack {

@@ -284,10 +284,12 @@ public struct EbookPlayerView: View {
 
     private var chapterSidebar: some View {
         EbookChapterSidebar(
-            selectedChapterId: viewModel.uiSelectedChapterIdBinding,
-            bookStructure: viewModel.bookStructure,
+            chapters: viewModel.chapterList,
+            selectedChapterId: viewModel.selectedChapterHref,
             backgroundColor: readerBackgroundColor,
-            onChapterSelected: { _ in }
+            onChapterSelected: { chapter in
+                viewModel.handleChapterSelection(chapter)
+            }
         )
     }
     #endif
@@ -421,7 +423,7 @@ public struct EbookPlayerView: View {
                     showBookmarksPanel: $viewModel.showBookmarksPanel,
                     searchManager: viewModel.searchManager,
                     onDismiss: { dismiss() },
-                    onChapterSelected: viewModel.handleChapterSelectionByHref,
+                    onChapterSelected: viewModel.handleChapterSelection,
                     onSyncToggle: { enabled in
                         viewModel.settingsVM.lockViewToAudio = enabled
                         Task { try? await viewModel.settingsVM.save() }
@@ -553,7 +555,7 @@ public struct EbookPlayerView: View {
             },
             onProgressSeek: viewModel.handleProgressSeek,
             onPlaybackRateChange: viewModel.handlePlaybackRateChange,
-            onChapterSelected: viewModel.handleChapterSelectionByHref,
+            onChapterSelected: viewModel.handleChapterSelection,
             onSleepTimerStart: viewModel.handleSleepTimerStart,
             onSleepTimerCancel: viewModel.handleSleepTimerCancel,
             onDismiss: {
@@ -668,8 +670,8 @@ public struct EbookPlayerView: View {
             chapterProgress: viewModel.chapterProgressBinding,
             chapters: viewModel.chapterList,
             progressData: progressData,
-            onChapterSelected: { href in
-                viewModel.handleChapterSelectionByHref(href)
+            onChapterSelected: { chapter in
+                viewModel.handleChapterSelection(chapter)
             },
             onPrevChapter: {
                 viewModel.handlePrevChapter()
