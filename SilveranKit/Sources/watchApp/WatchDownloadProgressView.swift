@@ -197,20 +197,20 @@ struct WatchDownloadProgressView: View {
         }
 
         switch record.state {
-        case .completed:
-            isComplete = true
-            isDownloading = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                onDismiss()
-            }
-        case .failed, .paused:
-            didFail = true
-            isDownloading = false
-        case .downloading:
-            isDownloading = true
-            didFail = false
-        case .queued, .importing:
-            isDownloading = true
+            case .completed:
+                isComplete = true
+                isDownloading = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    onDismiss()
+                }
+            case .failed, .paused:
+                didFail = true
+                isDownloading = false
+            case .downloading:
+                isDownloading = true
+                didFail = false
+            case .queued, .importing:
+                isDownloading = true
         }
     }
 
@@ -242,7 +242,8 @@ struct WatchDownloadProgressView: View {
                 let elapsed = now.timeIntervalSince(lastSpeedUpdate)
                 if elapsed >= 1.0 && record.receivedBytes > lastBytesDownloaded {
                     let instantSpeed = Double(record.receivedBytes - lastBytesDownloaded) / elapsed
-                    downloadSpeed = downloadSpeed > 0 ? 0.3 * instantSpeed + 0.7 * downloadSpeed : instantSpeed
+                    downloadSpeed =
+                        downloadSpeed > 0 ? 0.3 * instantSpeed + 0.7 * downloadSpeed : instantSpeed
                     lastBytesDownloaded = record.receivedBytes
                     lastSpeedUpdate = now
                 }
@@ -255,20 +256,20 @@ struct WatchDownloadProgressView: View {
             }
 
             switch record.state {
-            case .completed:
-                isComplete = true
-                isDownloading = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    onDismiss()
-                }
-            case .failed, .paused:
-                didFail = true
-                isDownloading = false
-            case .downloading:
-                isDownloading = true
-                didFail = false
-            case .queued, .importing:
-                isDownloading = true
+                case .completed:
+                    isComplete = true
+                    isDownloading = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        onDismiss()
+                    }
+                case .failed, .paused:
+                    didFail = true
+                    isDownloading = false
+                case .downloading:
+                    isDownloading = true
+                    didFail = false
+                case .queued, .importing:
+                    isDownloading = true
             }
         }
     }

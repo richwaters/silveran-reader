@@ -56,7 +56,8 @@ public actor DownloadManager {
     }
 
     private func reconnectOutstandingTasks() async {
-        let tasks = await withCheckedContinuation { (continuation: CheckedContinuation<[URLSessionDownloadTask], Never>) in
+        let tasks = await withCheckedContinuation {
+            (continuation: CheckedContinuation<[URLSessionDownloadTask], Never>) in
             downloadSession.getTasksWithCompletionHandler { _, _, downloadTasks in
                 continuation.resume(returning: downloadTasks)
             }
@@ -160,7 +161,8 @@ public actor DownloadManager {
         let id = "\(bookId)-\(category.rawValue)"
         guard let task = activeTasks.removeValue(forKey: id) else { return }
 
-        let resumeData = await withCheckedContinuation { (continuation: CheckedContinuation<Data?, Never>) in
+        let resumeData = await withCheckedContinuation {
+            (continuation: CheckedContinuation<Data?, Never>) in
             task.cancel { data in
                 continuation.resume(returning: data)
             }
@@ -199,7 +201,9 @@ public actor DownloadManager {
         }
 
         if book == nil && !hasResume {
-            debugLog("[DownloadManager] Cannot resume: no metadata and no resume data for \(bookId)")
+            debugLog(
+                "[DownloadManager] Cannot resume: no metadata and no resume data for \(bookId)"
+            )
             return
         }
 
@@ -242,7 +246,9 @@ public actor DownloadManager {
         }
     }
 
-    public func downloadState(for bookId: String, category: LocalMediaCategory) async -> DownloadRecord? {
+    public func downloadState(for bookId: String, category: LocalMediaCategory) async
+        -> DownloadRecord?
+    {
         await ensureInitialized()
         let id = "\(bookId)-\(category.rawValue)"
         return downloads[id]
@@ -255,7 +261,8 @@ public actor DownloadManager {
         return record.isActive
     }
 
-    public func downloadProgress(for bookId: String, category: LocalMediaCategory) async -> Double? {
+    public func downloadProgress(for bookId: String, category: LocalMediaCategory) async -> Double?
+    {
         await ensureInitialized()
         let id = "\(bookId)-\(category.rawValue)"
         guard let record = downloads[id], record.isActive else { return nil }
@@ -266,7 +273,9 @@ public actor DownloadManager {
 
     // Ensures the retry loop starts on boot: called from MediaViewModel.init on iOS/macOS/tvOS,
     // and from SilveranWatchApp.task on watchOS.
-    public func addObserver(_ callback: @escaping @Sendable @MainActor ([DownloadRecord]) -> Void) async -> UUID {
+    public func addObserver(_ callback: @escaping @Sendable @MainActor ([DownloadRecord]) -> Void)
+        async -> UUID
+    {
         await ensureInitialized()
         let id = UUID()
         observers[id] = callback
@@ -289,7 +298,9 @@ public actor DownloadManager {
 
     // MARK: - Background Session
 
-    public func handleBackgroundSessionEvents(completionHandler: @escaping @Sendable () -> Void) async {
+    public func handleBackgroundSessionEvents(completionHandler: @escaping @Sendable () -> Void)
+        async
+    {
         await ensureInitialized()
         backgroundCompletionHandler = completionHandler
     }
@@ -413,7 +424,9 @@ public actor DownloadManager {
         await deleteResumeData(for: downloadId)
 
         if statusCode == 401 || statusCode == 403 {
-            debugLog("[DownloadManager] Auth expired for \(record.bookTitle), retrying with fresh credentials")
+            debugLog(
+                "[DownloadManager] Auth expired for \(record.bookTitle), retrying with fresh credentials"
+            )
 
             var book = bookMetadataCache[record.bookId]
             if book == nil {
@@ -453,7 +466,9 @@ public actor DownloadManager {
             await deleteResumeData(for: record.id)
         } else {
             guard let book else {
-                debugLog("[DownloadManager] Cannot start download: no metadata for \(record.bookTitle)")
+                debugLog(
+                    "[DownloadManager] Cannot start download: no metadata for \(record.bookTitle)"
+                )
                 var updated = record
                 updated.state = .failed(error: "Missing book metadata", hasResumeData: false)
                 updated.lastUpdatedAt = Date()
@@ -463,10 +478,12 @@ public actor DownloadManager {
                 return
             }
 
-            guard let request = await StorytellerActor.shared.createAuthenticatedDownloadRequest(
-                for: record.bookId,
-                format: record.format
-            ) else {
+            guard
+                let request = await StorytellerActor.shared.createAuthenticatedDownloadRequest(
+                    for: record.bookId,
+                    format: record.format
+                )
+            else {
                 debugLog("[DownloadManager] Failed to create request for \(record.bookTitle)")
                 var updated = record
                 updated.state = .failed(error: "Authentication failed", hasResumeData: false)
@@ -495,22 +512,25 @@ public actor DownloadManager {
         notifyObservers()
     }
 
-    private func formatForCategory(_ category: LocalMediaCategory, book: BookMetadata) -> StorytellerBookFormat? {
+    private func formatForCategory(_ category: LocalMediaCategory, book: BookMetadata)
+        -> StorytellerBookFormat?
+    {
         switch category {
-        case .ebook:
-            return book.hasAvailableEbook ? .ebook : nil
-        case .audio:
-            return book.hasAvailableAudiobook ? .audiobook : nil
-        case .synced:
-            return book.hasAvailableReadaloud ? .readaloud : nil
+            case .ebook:
+                return book.hasAvailableEbook ? .ebook : nil
+            case .audio:
+                return book.hasAvailableAudiobook ? .audiobook : nil
+            case .synced:
+                return book.hasAvailableReadaloud ? .readaloud : nil
         }
     }
 
     private func fallbackFilename(bookId: String, format: StorytellerBookFormat) -> String {
-        let ext: String = switch format {
-        case .ebook, .readaloud: "epub"
-        case .audiobook: "m4b"
-        }
+        let ext: String =
+            switch format {
+                case .ebook, .readaloud: "epub"
+                case .audiobook: "m4b"
+            }
         return "\(bookId).\(ext)"
     }
 

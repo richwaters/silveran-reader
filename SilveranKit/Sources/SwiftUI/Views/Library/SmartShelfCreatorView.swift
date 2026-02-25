@@ -30,7 +30,8 @@ struct SmartShelfCreatorView: View {
     @State private var cachedStatuses: [String] = []
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -65,7 +66,10 @@ struct SmartShelfCreatorView: View {
     }
 
     private var hasConditions: Bool {
-        conditions.contains(where: { if case .orSeparator = $0 { return false }; return true })
+        conditions.contains(where: {
+            if case .orSeparator = $0 { return false }
+            return true
+        })
     }
 
     private var canSave: Bool {
@@ -128,7 +132,9 @@ struct SmartShelfCreatorView: View {
             for s in book.series ?? [] { seriesSet.insert(s.name) }
             for a in book.authors ?? [] { if let n = a.name { authorSet.insert(n) } }
             for n in book.narrators ?? [] { if let name = n.name { narratorSet.insert(name) } }
-            for c in book.creators ?? [] where c.role == "trl" { if let n = c.name { translatorSet.insert(n) } }
+            for c in book.creators ?? [] where c.role == "trl" {
+                if let n = c.name { translatorSet.insert(n) }
+            }
             let year = book.sortablePublicationYear
             if !year.isEmpty { yearSet.insert(year) }
             if let name = book.status?.name { statusSet.insert(name) }
@@ -179,7 +185,9 @@ struct SmartShelfCreatorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(Array(identifiedConditions.enumerated()), id: \.element.id) { index, ic in
+                    ForEach(Array(identifiedConditions.enumerated()), id: \.element.id) {
+                        index,
+                        ic in
                         conditionRow(ic.condition, at: index)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
@@ -300,11 +308,11 @@ struct SmartShelfCreatorView: View {
 
     private func isInclusionCondition(_ condition: ShelfCondition) -> Bool {
         switch condition {
-        case .format, .status, .location, .progress,
-             .tag, .series, .author, .narrator, .translator, .publicationYear:
-            return true
-        default:
-            return false
+            case .format, .status, .location, .progress,
+                .tag, .series, .author, .narrator, .translator, .publicationYear:
+                return true
+            default:
+                return false
         }
     }
 
@@ -319,52 +327,59 @@ struct SmartShelfCreatorView: View {
             inclusionConditionMatches($0.condition, condition)
         }) {
             identifiedConditions[existingIndex].condition =
-                mergedInclusionValues(existing: identifiedConditions[existingIndex].condition, new: condition)
+                mergedInclusionValues(
+                    existing: identifiedConditions[existingIndex].condition,
+                    new: condition
+                )
         } else {
             identifiedConditions.append(IdentifiedCondition(condition))
         }
     }
 
-    private func inclusionConditionMatches(_ existing: ShelfCondition, _ new: ShelfCondition) -> Bool {
+    private func inclusionConditionMatches(_ existing: ShelfCondition, _ new: ShelfCondition)
+        -> Bool
+    {
         switch (existing, new) {
-        case (.format(let m1, _), .format(let m2, _)): return m1 == m2
-        case (.status(let m1, _), .status(let m2, _)): return m1 == m2
-        case (.location(let m1, _), .location(let m2, _)): return m1 == m2
-        case (.progress(let m1, _), .progress(let m2, _)): return m1 == m2
-        case (.tag(let m1, _), .tag(let m2, _)): return m1 == m2
-        case (.series(let m1, _), .series(let m2, _)): return m1 == m2
-        case (.author(let m1, _), .author(let m2, _)): return m1 == m2
-        case (.narrator(let m1, _), .narrator(let m2, _)): return m1 == m2
-        case (.translator(let m1, _), .translator(let m2, _)): return m1 == m2
-        case (.publicationYear(let m1, _), .publicationYear(let m2, _)): return m1 == m2
-        default: return false
+            case (.format(let m1, _), .format(let m2, _)): return m1 == m2
+            case (.status(let m1, _), .status(let m2, _)): return m1 == m2
+            case (.location(let m1, _), .location(let m2, _)): return m1 == m2
+            case (.progress(let m1, _), .progress(let m2, _)): return m1 == m2
+            case (.tag(let m1, _), .tag(let m2, _)): return m1 == m2
+            case (.series(let m1, _), .series(let m2, _)): return m1 == m2
+            case (.author(let m1, _), .author(let m2, _)): return m1 == m2
+            case (.narrator(let m1, _), .narrator(let m2, _)): return m1 == m2
+            case (.translator(let m1, _), .translator(let m2, _)): return m1 == m2
+            case (.publicationYear(let m1, _), .publicationYear(let m2, _)): return m1 == m2
+            default: return false
         }
     }
 
-    private func mergedInclusionValues(existing: ShelfCondition, new: ShelfCondition) -> ShelfCondition {
+    private func mergedInclusionValues(existing: ShelfCondition, new: ShelfCondition)
+        -> ShelfCondition
+    {
         switch (existing, new) {
-        case (.format(let m, let c1), .format(_, let c2)):
-            return .format(mode: m, conditions: mergedValues(c1, c2))
-        case (.status(let m, let v1), .status(_, let v2)):
-            return .status(mode: m, values: mergedValues(v1, v2))
-        case (.location(let m, let c1), .location(_, let c2)):
-            return .location(mode: m, conditions: mergedValues(c1, c2))
-        case (.progress(let m, let c1), .progress(_, let c2)):
-            return .progress(mode: m, conditions: mergedValues(c1, c2))
-        case (.tag(let m, let v1), .tag(_, let v2)):
-            return .tag(mode: m, values: mergedValues(v1, v2))
-        case (.series(let m, let v1), .series(_, let v2)):
-            return .series(mode: m, values: mergedValues(v1, v2))
-        case (.author(let m, let v1), .author(_, let v2)):
-            return .author(mode: m, values: mergedValues(v1, v2))
-        case (.narrator(let m, let v1), .narrator(_, let v2)):
-            return .narrator(mode: m, values: mergedValues(v1, v2))
-        case (.translator(let m, let v1), .translator(_, let v2)):
-            return .translator(mode: m, values: mergedValues(v1, v2))
-        case (.publicationYear(let m, let v1), .publicationYear(_, let v2)):
-            return .publicationYear(mode: m, values: mergedValues(v1, v2))
-        default:
-            return existing
+            case (.format(let m, let c1), .format(_, let c2)):
+                return .format(mode: m, conditions: mergedValues(c1, c2))
+            case (.status(let m, let v1), .status(_, let v2)):
+                return .status(mode: m, values: mergedValues(v1, v2))
+            case (.location(let m, let c1), .location(_, let c2)):
+                return .location(mode: m, conditions: mergedValues(c1, c2))
+            case (.progress(let m, let c1), .progress(_, let c2)):
+                return .progress(mode: m, conditions: mergedValues(c1, c2))
+            case (.tag(let m, let v1), .tag(_, let v2)):
+                return .tag(mode: m, values: mergedValues(v1, v2))
+            case (.series(let m, let v1), .series(_, let v2)):
+                return .series(mode: m, values: mergedValues(v1, v2))
+            case (.author(let m, let v1), .author(_, let v2)):
+                return .author(mode: m, values: mergedValues(v1, v2))
+            case (.narrator(let m, let v1), .narrator(_, let v2)):
+                return .narrator(mode: m, values: mergedValues(v1, v2))
+            case (.translator(let m, let v1), .translator(_, let v2)):
+                return .translator(mode: m, values: mergedValues(v1, v2))
+            case (.publicationYear(let m, let v1), .publicationYear(_, let v2)):
+                return .publicationYear(mode: m, values: mergedValues(v1, v2))
+            default:
+                return existing
         }
     }
 
@@ -454,12 +469,12 @@ struct SmartShelfCreatorView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook { return .standard }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
-            return .standard
+            case .preferEbook:
+                if item.hasAvailableEbook { return .standard }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
+                return .standard
         }
     }
 

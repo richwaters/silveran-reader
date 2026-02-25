@@ -156,7 +156,10 @@ struct CreateReadaloudRow: View {
                 Button {
                     Task {
                         isStartingAlignment = true
-                        _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
+                        _ = await StorytellerActor.shared.startAlignment(
+                            for: item.uuid,
+                            restart: isErrorOrStopped
+                        )
                         await StorytellerActor.shared.fetchLibraryInformation()
                         isStartingAlignment = false
                     }
@@ -306,7 +309,8 @@ struct MediaDownloadOptionRow: View {
     }
 
     private var isDownloadFailed: Bool {
-        !isDownloadInProgress && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
+        !isDownloadInProgress
+            && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
     }
 
     private func cancelDownload() {
@@ -565,7 +569,11 @@ struct MediaDownloadOptionRow: View {
         .onHover { hovering in
             isDownloadAreaHovered = hovering
         }
-        .accessibilityLabel(isDownloadFailed ? "Retry \(option.downloadTitle)" : isDownloadInProgress ? "Cancel \(option.downloadTitle)" : option.downloadTitle)
+        .accessibilityLabel(
+            isDownloadFailed
+                ? "Retry \(option.downloadTitle)"
+                : isDownloadInProgress ? "Cancel \(option.downloadTitle)" : option.downloadTitle
+        )
         #endif
     }
 
@@ -575,7 +583,8 @@ struct MediaDownloadOptionRow: View {
         let variant: MediaViewModel.CoverVariant =
             freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: freshMetadata, variant: variant)
-        let ebookCover = freshMetadata.hasAvailableAudiobook
+        let ebookCover =
+            freshMetadata.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: freshMetadata, variant: .standard)
             : nil
         return PlayerBookData(
@@ -602,4 +611,3 @@ struct MediaDownloadOptionRow: View {
         onAction?()
     }
 }
-

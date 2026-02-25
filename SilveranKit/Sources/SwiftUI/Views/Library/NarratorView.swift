@@ -15,8 +15,10 @@ struct NarratorView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -62,13 +64,18 @@ struct NarratorView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(narrator: BookCreator?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(
+        narrator: BookCreator?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let nameMatches = group.narrator?.name?.lowercased().contains(searchLower) ?? false
             let filteredBooks = group.books.filter { book in
-                book.title.lowercased().contains(searchLower) || book.narrators?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false
+                book.title.lowercased().contains(searchLower)
+                    || book.narrators?.contains(where: {
+                        $0.name?.lowercased().contains(searchLower) ?? false
+                    }) ?? false
             }
             if nameMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
@@ -85,7 +92,9 @@ struct NarratorView: View {
     }
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
-        navigationPath.append(NarratorDetailNavigation(narratorName: group.id, initialSelectedBook: book))
+        navigationPath.append(
+            NarratorDetailNavigation(narratorName: group.id, initialSelectedBook: book)
+        )
     }
 }
 
@@ -100,8 +109,8 @@ extension NarratorView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Narrators")
@@ -110,21 +119,43 @@ extension NarratorView {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if hasConnectionError, let showOfflineSheet {
-                            Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) }
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
                         }
-                        Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
                     }
                 }
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
             .navigationDestination(for: NarratorDetailNavigation.self) { nav in
-                narratorDetailView(for: nav.narratorName, initialSelectedItem: nav.initialSelectedBook)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                narratorDetailView(
+                    for: nav.narratorName,
+                    initialSelectedItem: nav.initialSelectedBook
+                )
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
             }
             .navigationDestination(for: BookMetadata.self) { item in
-                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
             }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }
         .environment(\.mediaNavigationPath, $navigationPath)
     }
@@ -135,8 +166,15 @@ extension NarratorView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: {
-                            CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "mic.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -150,9 +188,20 @@ extension NarratorView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -160,7 +209,17 @@ extension NarratorView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -168,8 +227,10 @@ extension NarratorView {
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
         switch bookData.category {
-        case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
-        case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .audio:
+                AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -181,25 +242,89 @@ extension NarratorView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list:
-                    CategoryListSidebar(headerTitle: "Books by Narrator", sidebarTitle: "Narrators", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                        rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                        detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, narratorFilter: group.name, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
-                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
-                    )
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Narrator",
+                            sidebarTitle: "Narrators",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "mic.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    narratorFilter: group.name,
+                                    defaultSort: "title",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
             }
-            .navigationDestination(for: NarratorDetailNavigation.self) { nav in narratorDetailView(for: nav.narratorName, initialSelectedItem: nav.initialSelectedBook) }
+            .navigationDestination(for: NarratorDetailNavigation.self) { nav in
+                narratorDetailView(
+                    for: nav.narratorName,
+                    initialSelectedItem: nav.initialSelectedBook
+                )
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -212,7 +337,14 @@ extension NarratorView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -220,11 +352,37 @@ extension NarratorView {
 #endif
 
 extension NarratorView {
-    @ViewBuilder fileprivate func narratorDetailView(for narratorName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func narratorDetailView(
+        for narratorName: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         #if os(iOS)
-        MediaGridView(title: narratorName, searchText: "", mediaKind: mediaKind, narratorFilter: narratorName, defaultSort: "title", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(narratorName)
+        MediaGridView(
+            title: narratorName,
+            searchText: "",
+            mediaKind: mediaKind,
+            narratorFilter: narratorName,
+            defaultSort: "title",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(narratorName)
         #else
-        MediaGridView(title: narratorName, searchText: "", mediaKind: mediaKind, narratorFilter: narratorName, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(narratorName)
+        MediaGridView(
+            title: narratorName,
+            searchText: "",
+            mediaKind: mediaKind,
+            narratorFilter: narratorName,
+            defaultSort: "title",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(narratorName)
         #endif
     }
 }

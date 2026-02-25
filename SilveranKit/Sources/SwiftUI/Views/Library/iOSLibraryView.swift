@@ -59,7 +59,8 @@ public struct iOSLibraryView: View {
     @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
 
     private var coverPreference: CoverPreference {
@@ -217,7 +218,8 @@ public struct iOSLibraryView: View {
                 let variant: MediaViewModel.CoverVariant =
                     book.hasAvailableAudiobook ? .audioSquare : .standard
                 let cover = mediaViewModel.coverImage(for: book, variant: variant)
-                let ebookCover = book.hasAvailableAudiobook
+                let ebookCover =
+                    book.hasAvailableAudiobook
                     ? mediaViewModel.coverImage(for: book, variant: .standard)
                     : nil
                 NavigationStack {
@@ -287,7 +289,10 @@ public struct iOSLibraryView: View {
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Search"
                 )
-                .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .libraryNavigationDestinations(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet
+                )
         }
         .environment(\.mediaNavigationPath, $booksNavigationPath)
     }
@@ -356,7 +361,10 @@ public struct iOSLibraryView: View {
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Search"
                 )
-                .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .libraryNavigationDestinations(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet
+                )
         }
         .environment(\.mediaNavigationPath, $downloadedNavigationPath)
     }
@@ -566,31 +574,69 @@ struct MoreMenuView: View {
             switch destination {
                 case .books:
                     BooksContentView(searchText: searchText)
-                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .iOSLibraryToolbar(
+                            showSettings: $showSettings,
+                            showOfflineSheet: $showOfflineSheet
+                        )
                         .searchable(
                             text: $searchText,
                             placement: .navigationBarDrawer(displayMode: .always),
                             prompt: "Search"
                         )
                 case .series:
-                    MoreSeriesView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreSeriesView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .authors:
-                    MoreAuthorsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreAuthorsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .narrators:
-                    MoreNarratorsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreNarratorsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .tags:
-                    MoreTagsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreTagsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .translators:
-                    MoreTranslatorsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreTranslatorsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .publicationYears:
-                    MorePublicationYearsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MorePublicationYearsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .ratings:
-                    MoreRatingsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreRatingsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .collections:
-                    MoreCollectionsView(searchText: $searchText, showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    MoreCollectionsView(
+                        searchText: $searchText,
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
                 case .downloaded:
                     DownloadedContentView(searchText: searchText)
-                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .iOSLibraryToolbar(
+                            showSettings: $showSettings,
+                            showOfflineSheet: $showOfflineSheet
+                        )
                         .searchable(
                             text: $searchText,
                             placement: .navigationBarDrawer(displayMode: .always),
@@ -598,18 +644,30 @@ struct MoreMenuView: View {
                         )
                 case .currentlyDownloading:
                     CurrentlyDownloadingView()
-                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .iOSLibraryToolbar(
+                            showSettings: $showSettings,
+                            showOfflineSheet: $showOfflineSheet
+                        )
                 case .addLocalFile:
                     ImportLocalFileView()
                         .navigationTitle("Manage Local Files")
                         .navigationBarTitleDisplayMode(.inline)
-                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .iOSLibraryToolbar(
+                            showSettings: $showSettings,
+                            showOfflineSheet: $showOfflineSheet
+                        )
                 case .appleWatch:
                     WatchTransferView()
-                        .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                        .iOSLibraryToolbar(
+                            showSettings: $showSettings,
+                            showOfflineSheet: $showOfflineSheet
+                        )
             }
         }
-        .libraryNavigationDestinations(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+        .libraryNavigationDestinations(
+            showSettings: $showSettings,
+            showOfflineSheet: $showOfflineSheet
+        )
     }
 }
 
@@ -672,7 +730,8 @@ struct CollectionsListView: View {
     @Binding var navigationPath: NavigationPath
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -864,7 +923,8 @@ struct SeriesContentView: View {
     @Binding var searchText: String
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -1217,7 +1277,10 @@ struct LibraryNavigationDestinations: ViewModifier {
         content
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: .ebook)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: $showOfflineSheet
+                    )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
                 switch bookData.category {
@@ -1519,7 +1582,8 @@ struct TranslatorsListView: View {
         guard !searchText.isEmpty else { return translatorGroups }
         let searchLower = searchText.lowercased()
         return translatorGroups.compactMap { group in
-            let translatorMatches = group.translator?.name?.lowercased().contains(searchLower) ?? false
+            let translatorMatches =
+                group.translator?.name?.lowercased().contains(searchLower) ?? false
             if translatorMatches {
                 return group
             }
@@ -1659,8 +1723,15 @@ struct RatingsListView: View {
 }
 
 extension View {
-    func libraryNavigationDestinations(showSettings: Binding<Bool>, showOfflineSheet: Binding<Bool>) -> some View {
-        modifier(LibraryNavigationDestinations(showSettings: showSettings, showOfflineSheet: showOfflineSheet))
+    func libraryNavigationDestinations(showSettings: Binding<Bool>, showOfflineSheet: Binding<Bool>)
+        -> some View
+    {
+        modifier(
+            LibraryNavigationDestinations(
+                showSettings: showSettings,
+                showOfflineSheet: showOfflineSheet
+            )
+        )
     }
 }
 
@@ -1671,12 +1742,18 @@ struct MoreSeriesView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     static let noSeriesFilterKey = BookMetadata.noSeriesSentinel
 
@@ -1689,13 +1766,20 @@ struct MoreSeriesView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(series: BookSeries?, books: [BookMetadata])]) -> [(series: BookSeries?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(series: BookSeries?, books: [BookMetadata])]) -> [(
+        series: BookSeries?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let nameMatches = group.series?.name.lowercased().contains(searchLower) ?? false
             if nameMatches { return group }
-            let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) || $0.authors?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false }
+            let filteredBooks = group.books.filter {
+                $0.title.lowercased().contains(searchLower)
+                    || $0.authors?.contains(where: {
+                        $0.name?.lowercased().contains(searchLower) ?? false
+                    }) ?? false
+            }
             guard !filteredBooks.isEmpty else { return nil }
             return (series: group.series, books: filteredBooks)
         }
@@ -1704,14 +1788,18 @@ struct MoreSeriesView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Series")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -1721,7 +1809,12 @@ struct MoreSeriesView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: SeriesNavIdentifier(name: group.id)) {
-                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "books.vertical.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -1734,9 +1827,20 @@ struct MoreSeriesView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -1744,7 +1848,17 @@ struct MoreSeriesView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Series").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -1756,12 +1870,18 @@ struct MoreCollectionsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .fan.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByCollection(for: .ebook)
@@ -1772,13 +1892,21 @@ struct MoreCollectionsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]) -> [(collection: BookCollectionSummary?, books: [BookMetadata])] {
+    private func filterGroups(
+        _ groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]
+    ) -> [(collection: BookCollectionSummary?, books: [BookMetadata])] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let collectionMatches = group.collection?.name.lowercased().contains(searchLower) ?? false
+            let collectionMatches =
+                group.collection?.name.lowercased().contains(searchLower) ?? false
             if collectionMatches { return group }
-            let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) || $0.authors?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false }
+            let filteredBooks = group.books.filter {
+                $0.title.lowercased().contains(searchLower)
+                    || $0.authors?.contains(where: {
+                        $0.name?.lowercased().contains(searchLower) ?? false
+                    }) ?? false
+            }
             guard !filteredBooks.isEmpty else { return nil }
             return (collection: group.collection, books: filteredBooks)
         }
@@ -1787,14 +1915,18 @@ struct MoreCollectionsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Collections")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -1803,8 +1935,15 @@ struct MoreCollectionsView: View {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        NavigationLink(value: CollectionNavIdentifier(id: group.id, name: group.name)) {
-                            CategoryRowContent(iconName: "rectangle.stack.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                        NavigationLink(
+                            value: CollectionNavIdentifier(id: group.id, name: group.name)
+                        ) {
+                            CategoryRowContent(
+                                iconName: "rectangle.stack.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -1817,9 +1956,20 @@ struct MoreCollectionsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -1827,7 +1977,17 @@ struct MoreCollectionsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Collection").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -1839,12 +1999,18 @@ struct MoreAuthorsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByAuthor(for: .ebook)
@@ -1854,7 +2020,9 @@ struct MoreAuthorsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(author: BookCreator?, books: [BookMetadata])]) -> [(author: BookCreator?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(author: BookCreator?, books: [BookMetadata])]) -> [(
+        author: BookCreator?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -1869,14 +2037,18 @@ struct MoreAuthorsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Authors")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -1886,7 +2058,12 @@ struct MoreAuthorsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: group.name) {
-                            CategoryRowContent(iconName: "person.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "person.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -1899,9 +2076,20 @@ struct MoreAuthorsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -1909,7 +2097,17 @@ struct MoreAuthorsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Author").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -1921,12 +2119,18 @@ struct MoreNarratorsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByNarrator(for: .ebook)
@@ -1936,7 +2140,9 @@ struct MoreNarratorsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(narrator: BookCreator?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(narrator: BookCreator?, books: [BookMetadata])]) -> [(
+        narrator: BookCreator?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -1951,14 +2157,18 @@ struct MoreNarratorsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Narrators")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -1968,7 +2178,12 @@ struct MoreNarratorsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: NarratorNavIdentifier(name: group.name)) {
-                            CategoryRowContent(iconName: "mic.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "mic.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -1981,9 +2196,20 @@ struct MoreNarratorsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -1991,7 +2217,17 @@ struct MoreNarratorsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -2003,12 +2239,18 @@ struct MoreTagsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByTag(for: .ebook)
@@ -2017,7 +2259,9 @@ struct MoreTagsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(tag: String, books: [BookMetadata])]) -> [(tag: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(tag: String, books: [BookMetadata])]) -> [(
+        tag: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -2032,14 +2276,18 @@ struct MoreTagsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Tags")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -2049,7 +2297,12 @@ struct MoreTagsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: TagNavIdentifier(name: group.name)) {
-                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "tag.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -2062,9 +2315,20 @@ struct MoreTagsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -2072,7 +2336,17 @@ struct MoreTagsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Tag").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -2084,12 +2358,18 @@ struct MoreTranslatorsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByTranslator(for: .ebook)
@@ -2099,11 +2379,14 @@ struct MoreTranslatorsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(translator: BookCreator?, books: [BookMetadata])]) -> [(translator: BookCreator?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(translator: BookCreator?, books: [BookMetadata])]) -> [(
+        translator: BookCreator?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let translatorMatches = group.translator?.name?.lowercased().contains(searchLower) ?? false
+            let translatorMatches =
+                group.translator?.name?.lowercased().contains(searchLower) ?? false
             if translatorMatches { return group }
             let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) }
             guard !filteredBooks.isEmpty else { return nil }
@@ -2114,14 +2397,18 @@ struct MoreTranslatorsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Translators")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -2131,7 +2418,12 @@ struct MoreTranslatorsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: TranslatorNavIdentifier(name: group.name)) {
-                            CategoryRowContent(iconName: "character.book.closed.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "character.book.closed.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -2144,9 +2436,20 @@ struct MoreTranslatorsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -2154,7 +2457,17 @@ struct MoreTranslatorsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Translator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -2166,12 +2479,18 @@ struct MorePublicationYearsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByPublicationYear(for: .ebook)
@@ -2180,7 +2499,9 @@ struct MorePublicationYearsView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(year: String, books: [BookMetadata])]) -> [(year: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(year: String, books: [BookMetadata])]) -> [(
+        year: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -2195,14 +2516,18 @@ struct MorePublicationYearsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Publication Year")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -2212,7 +2537,12 @@ struct MorePublicationYearsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: PublicationYearNavIdentifier(name: group.name)) {
-                            CategoryRowContent(iconName: "calendar", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "calendar",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -2225,9 +2555,20 @@ struct MorePublicationYearsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -2235,7 +2576,17 @@ struct MorePublicationYearsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Year").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -2247,21 +2598,34 @@ struct MoreRatingsView: View {
     @Binding var showSettings: Bool
     @Binding var showOfflineSheet: Bool
     @Environment(MediaViewModel.self) private var mediaViewModel
-    @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByRating(for: .ebook)
         return filterGroups(groups).map { group in
-            return CategoryGroup(id: group.rating, name: RatingDisplayHelper.label(for: group.rating), books: group.books, pinId: nil)
+            return CategoryGroup(
+                id: group.rating,
+                name: RatingDisplayHelper.label(for: group.rating),
+                books: group.books,
+                pinId: nil
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(rating: String, books: [BookMetadata])]) -> [(rating: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(rating: String, books: [BookMetadata])]) -> [(
+        rating: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -2276,14 +2640,18 @@ struct MoreRatingsView: View {
     var body: some View {
         Group {
             switch layoutStyle {
-            case .list: listContent
-            case .fan, .grid: fanGridContent
+                case .list: listContent
+                case .fan, .grid: fanGridContent
             }
         }
         .navigationTitle("Ratings")
         .navigationBarTitleDisplayMode(.inline)
         .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search"
+        )
     }
 
     private var listContent: some View {
@@ -2293,7 +2661,12 @@ struct MoreRatingsView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
                         NavigationLink(value: RatingNavIdentifier(name: group.id)) {
-                            CategoryRowContent(iconName: "star.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle())
+                            CategoryRowContent(
+                                iconName: "star.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -2306,9 +2679,20 @@ struct MoreRatingsView: View {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: { _, _ in }) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: { _, _ in }
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: { _, _ in }) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: { _, _ in }
+            ) { headerView }
         }
     }
 
@@ -2316,7 +2700,17 @@ struct MoreRatingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Rating").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }

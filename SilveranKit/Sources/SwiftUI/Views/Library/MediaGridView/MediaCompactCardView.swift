@@ -82,7 +82,10 @@ struct MediaCompactCardView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
-                        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .background(
+                            .black.opacity(0.6),
+                            in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        )
                         .padding(2)
                 }
             }
@@ -117,16 +120,16 @@ struct MediaCompactCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook {
+            case .preferEbook:
+                if item.hasAvailableEbook {
+                    return .standard
+                }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                    return .audioSquare
+                }
                 return .standard
-            }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly {
-                return .audioSquare
-            }
-            return .standard
         }
     }
 
@@ -136,17 +139,17 @@ struct MediaCompactCardView: View {
 
         var localCategory: LocalMediaCategory {
             switch self {
-            case .ebook: return .ebook
-            case .audio: return .audio
-            case .synced: return .synced
+                case .ebook: return .ebook
+                case .audio: return .audio
+                case .synced: return .synced
             }
         }
 
         var iconName: String {
             switch self {
-            case .ebook: return "book.fill"
-            case .audio: return "headphones"
-            case .synced: return "text.bubble"
+                case .ebook: return "book.fill"
+                case .audio: return "headphones"
+                case .synced: return "text.bubble"
             }
         }
     }
@@ -187,9 +190,9 @@ struct MediaCompactCardView: View {
 
         let available: Bool
         switch tab {
-        case .ebook: available = item.hasAvailableEbook
-        case .audio: available = item.hasAvailableAudiobook
-        case .synced: available = item.hasAvailableReadaloud
+            case .ebook: available = item.hasAvailableEbook
+            case .audio: available = item.hasAvailableAudiobook
+            case .synced: available = item.hasAvailableReadaloud
         }
 
         return available ? .availableNotDownloaded : .unavailable
@@ -197,11 +200,11 @@ struct MediaCompactCardView: View {
 
     private func statusColor(for status: TabStatus) -> Color {
         switch status {
-        case .unavailable: return .gray.opacity(0.4)
-        case .availableNotDownloaded: return .blue
-        case .downloaded: return .green
-        case .downloading: return .blue
-        case .failed: return .red
+            case .unavailable: return .gray.opacity(0.4)
+            case .availableNotDownloaded: return .blue
+            case .downloaded: return .green
+            case .downloading: return .blue
+            case .failed: return .red
         }
     }
 
@@ -278,15 +281,17 @@ struct MediaCompactCardView: View {
     private func openMedia(for category: LocalMediaCategory) {
         let windowID: String
         switch category {
-        case .audio:
-            windowID = "AudiobookPlayer"
-        case .ebook, .synced:
-            windowID = "EbookPlayer"
+            case .audio:
+                windowID = "AudiobookPlayer"
+            case .ebook, .synced:
+                windowID = "EbookPlayer"
         }
         let path = mediaViewModel.localMediaPath(for: item.id, category: category)
-        let variant: MediaViewModel.CoverVariant = item.hasAvailableAudiobook ? .audioSquare : .standard
+        let variant: MediaViewModel.CoverVariant =
+            item.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: item, variant: variant)
-        let ebookCover = item.hasAvailableAudiobook
+        let ebookCover =
+            item.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: item, variant: .standard)
             : nil
         let bookData = PlayerBookData(

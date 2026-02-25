@@ -43,40 +43,40 @@ public struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
 
     public var progressFraction: Double {
         switch state {
-        case .downloading(let progress):
-            return progress
-        case .completed:
-            return 1.0
-        default:
-            guard let expected = expectedBytes, expected > 0 else { return 0 }
-            return min(max(Double(receivedBytes) / Double(expected), 0), 1)
+            case .downloading(let progress):
+                return progress
+            case .completed:
+                return 1.0
+            default:
+                guard let expected = expectedBytes, expected > 0 else { return 0 }
+                return min(max(Double(receivedBytes) / Double(expected), 0), 1)
         }
     }
 
     public var isResumable: Bool {
         switch state {
-        case .paused(let has), .failed(_, let has):
-            return has
-        default:
-            return false
+            case .paused(let has), .failed(_, let has):
+                return has
+            default:
+                return false
         }
     }
 
     public var isActive: Bool {
         switch state {
-        case .queued, .downloading, .importing:
-            return true
-        default:
-            return false
+            case .queued, .downloading, .importing:
+                return true
+            default:
+                return false
         }
     }
 
     public var isIncomplete: Bool {
         switch state {
-        case .completed:
-            return false
-        default:
-            return true
+            case .completed:
+                return false
+            default:
+                return true
         }
     }
 }

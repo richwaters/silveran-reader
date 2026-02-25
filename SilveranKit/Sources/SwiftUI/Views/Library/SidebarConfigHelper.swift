@@ -35,9 +35,10 @@ enum SidebarConfigHelper {
     static var config: [SidebarConfigGroup] {
         get {
             if let json = UserDefaults.standard.string(forKey: configKey),
-               let data = json.data(using: .utf8),
-               let groups = try? JSONDecoder().decode([SidebarConfigGroup].self, from: data),
-               !groups.isEmpty {
+                let data = json.data(using: .utf8),
+                let groups = try? JSONDecoder().decode([SidebarConfigGroup].self, from: data),
+                !groups.isEmpty
+            {
                 return groups
             }
             let migrated = migrateFromLegacy()
@@ -49,7 +50,8 @@ enum SidebarConfigHelper {
         }
         set {
             guard let data = try? JSONEncoder().encode(newValue),
-                  let json = String(data: data, encoding: .utf8) else { return }
+                let json = String(data: data, encoding: .utf8)
+            else { return }
             UserDefaults.standard.set(json, forKey: configKey)
         }
     }
@@ -73,11 +75,15 @@ enum SidebarConfigHelper {
             groups.append(SidebarConfigGroup(name: "Library", items: items))
         }
 
-        groups.append(SidebarConfigGroup(
-            name: "Pins",
-            items: [SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true)],
-            expanded: true
-        ))
+        groups.append(
+            SidebarConfigGroup(
+                name: "Pins",
+                items: [
+                    SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true)
+                ],
+                expanded: true
+            )
+        )
 
         if let collectionsSection = sections.first(where: { $0.id == "section.collections" }) {
             let items = collectionsSection.items.map {
@@ -103,21 +109,24 @@ enum SidebarConfigHelper {
 
         var oldPinGroups: [PinGroup] = []
         if let json = UserDefaults.standard.string(forKey: legacyPinGroupsKey),
-           let data = json.data(using: .utf8),
-           let groups = try? JSONDecoder().decode([PinGroup].self, from: data) {
+            let data = json.data(using: .utf8),
+            let groups = try? JSONDecoder().decode([PinGroup].self, from: data)
+        {
             oldPinGroups = groups
         } else if let json = UserDefaults.standard.string(forKey: legacyPinnedItemsKey),
-                  let data = json.data(using: .utf8),
-                  let ids = try? JSONDecoder().decode([String].self, from: data),
-                  !ids.isEmpty {
+            let data = json.data(using: .utf8),
+            let ids = try? JSONDecoder().decode([String].self, from: data),
+            !ids.isEmpty
+        {
             let items = ids.map { PinItem(id: $0) }
             oldPinGroups = [PinGroup(name: "Pins", items: items)]
         }
 
         var hiddenIds: Set<String> = []
         if let json = UserDefaults.standard.string(forKey: legacyHiddenItemsKey),
-           let data = json.data(using: .utf8),
-           let ids = try? JSONDecoder().decode([String].self, from: data) {
+            let data = json.data(using: .utf8),
+            let ids = try? JSONDecoder().decode([String].self, from: data)
+        {
             hiddenIds = Set(ids)
         }
 
@@ -143,9 +152,16 @@ enum SidebarConfigHelper {
                 var insertIndex = pinsIndex
                 for oldGroup in oldPinGroups {
                     var configItems = oldGroup.items.map {
-                        SidebarConfigItem(id: $0.id, alias: $0.alias, visible: $0.visible, permanent: false)
+                        SidebarConfigItem(
+                            id: $0.id,
+                            alias: $0.alias,
+                            visible: $0.visible,
+                            permanent: false
+                        )
                     }
-                    configItems.append(SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true))
+                    configItems.append(
+                        SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true)
+                    )
                     let newGroup = SidebarConfigGroup(
                         id: oldGroup.id,
                         name: oldGroup.name,

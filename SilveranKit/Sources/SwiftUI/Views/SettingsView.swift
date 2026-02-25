@@ -310,7 +310,10 @@ extension SettingsView {
                 Section {
                     Toggle("Tap Cover to Play", isOn: $config.library.tapToPlayPreferredPlayer)
                     if config.library.tapToPlayPreferredPlayer {
-                        Picker("When Both Available", selection: $config.library.preferAudioOverEbook) {
+                        Picker(
+                            "When Both Available",
+                            selection: $config.library.preferAudioOverEbook
+                        ) {
                             Text("Prefer Ebook").tag(false)
                             Text("Prefer Audiobook").tag(true)
                         }
@@ -319,9 +322,13 @@ extension SettingsView {
                     Text("Library")
                 } footer: {
                     if config.library.tapToPlayPreferredPlayer {
-                        Text("Tapping a book cover opens the preferred player if media is downloaded. Readaloud always takes priority. Long press to access book details via context menu.")
+                        Text(
+                            "Tapping a book cover opens the preferred player if media is downloaded. Readaloud always takes priority. Long press to access book details via context menu."
+                        )
                     } else {
-                        Text("When enabled, tapping a book cover opens the preferred player instead of book details.")
+                        Text(
+                            "When enabled, tapping a book cover opens the preferred player instead of book details."
+                        )
                     }
                 }
 
@@ -508,7 +515,9 @@ private struct MacGeneralSettingsView: View {
                     "Auto-navigate to server position",
                     isOn: $sync.autoSyncToNewerServerPosition
                 )
-                .help("When the server has a newer reading position (from another device), automatically jump to that position.")
+                .help(
+                    "When the server has a newer reading position (from another device), automatically jump to that position."
+                )
             }
 
         }
@@ -597,7 +606,10 @@ private struct MacReaderSettingsView: View {
                                 }
                             }
 
-                            if isCustomFont(reading.fontFamily) && !customFamilies.contains(where: { $0.name == reading.fontFamily }) {
+                            if isCustomFont(reading.fontFamily)
+                                && !customFamilies.contains(where: { $0.name == reading.fontFamily }
+                                )
+                            {
                                 Divider()
                                 Text(reading.fontFamily).tag(reading.fontFamily)
                             }
@@ -931,9 +943,11 @@ private struct CustomFontManagerView: View {
                         HStack {
                             Text(family.name)
                                 .fontWeight(.medium)
-                            Text("(\(family.variants.count) variant\(family.variants.count == 1 ? "" : "s"))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "(\(family.variants.count) variant\(family.variants.count == 1 ? "" : "s"))"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             Spacer()
                             Button {
                                 deleteFamily(family)
@@ -1296,7 +1310,9 @@ private struct GeneralSettingsFields: View {
                 isOn: $sync.autoSyncToNewerServerPosition
             )
         } footer: {
-            Text("When the server has a newer reading position (from another device), automatically jump to that position.")
+            Text(
+                "When the server has a newer reading position (from another device), automatically jump to that position."
+            )
         }
     }
 

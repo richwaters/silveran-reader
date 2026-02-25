@@ -104,9 +104,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
         }
         let chapterNum =
             bookStructure
-                .prefix(sectionIndex + 1)
-                .filter { !$0.mediaOverlay.isEmpty }
-                .count
+            .prefix(sectionIndex + 1)
+            .filter { !$0.mediaOverlay.isEmpty }
+            .count
         return "Chapter \(chapterNum)"
     }
 
@@ -271,7 +271,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
         let entryChanged = state.currentEntryIndex != currentEntryIndex
 
         if entryChanged {
-            print("[TVDBG] handleStateUpdate entryChanged: \(currentEntryIndex) -> \(state.currentEntryIndex)")
+            print(
+                "[TVDBG] handleStateUpdate entryChanged: \(currentEntryIndex) -> \(state.currentEntryIndex)"
+            )
         }
 
         if playingChanged { isPlaying = state.isPlaying }
@@ -387,7 +389,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 targetSectionIndex = nextSectionIndex
                 targetEntryIndex = 0
             }
-            print("[TVDBG] nextSentence: current=\(position.entryIndex) target=\(targetEntryIndex) viewModel.currentEntryIndex=\(currentEntryIndex)")
+            print(
+                "[TVDBG] nextSentence: current=\(position.entryIndex) target=\(targetEntryIndex) viewModel.currentEntryIndex=\(currentEntryIndex)"
+            )
             try? await SMILPlayerActor.shared.seekToEntry(
                 sectionIndex: targetSectionIndex,
                 entryIndex: targetEntryIndex
@@ -427,7 +431,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
             else {
                 return
             }
-            print("[TVDBG] previousSentence: current=\(position.entryIndex) target=\(targetEntryIndex) viewModel.currentEntryIndex=\(currentEntryIndex)")
+            print(
+                "[TVDBG] previousSentence: current=\(position.entryIndex) target=\(targetEntryIndex) viewModel.currentEntryIndex=\(currentEntryIndex)"
+            )
             try? await SMILPlayerActor.shared.seekToEntry(
                 sectionIndex: targetSectionIndex,
                 entryIndex: targetEntryIndex
@@ -556,7 +562,8 @@ public final class SMILTextPlaybackViewModel: NSObject {
     // MARK: - Text Display
 
     private func updateCachedTextIfNeeded() {
-        guard cachedEntryIndex != currentEntryIndex || cachedSectionIndex != currentSectionIndex else {
+        guard cachedEntryIndex != currentEntryIndex || cachedSectionIndex != currentSectionIndex
+        else {
             return
         }
         cachedEntryIndex = currentEntryIndex
@@ -706,7 +713,8 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 currentKey = key
             }
 
-            let text = chapterTextByIndex.indices.contains(entryIndex)
+            let text =
+                chapterTextByIndex.indices.contains(entryIndex)
                 ? chapterTextByIndex[entryIndex]
                 : ""
             currentSegments.append((entryIndex: entryIndex, text: text))
@@ -725,7 +733,8 @@ public final class SMILTextPlaybackViewModel: NSObject {
         segments.reserveCapacity(rawSegments.count)
         for index in rawSegments.indices {
             let raw = rawSegments[index]
-            let nextText = index + 1 < rawSegments.count
+            let nextText =
+                index + 1 < rawSegments.count
                 ? rawSegments[index + 1].text
                 : ""
             let separator = shouldInsertSpace(between: raw.text, and: nextText) ? " " : ""
@@ -860,7 +869,8 @@ public final class SMILTextPlaybackViewModel: NSObject {
             details.append("\(Int(prog * 100))%")
         }
         let locationStr = details.isEmpty ? "" : " (\(details.joined(separator: ", ")))"
-        return "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
+        return
+            "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
     }
 
     private func registerIncomingPositionObserver(bookId: String) {
@@ -971,7 +981,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
             await positionRegistrationTask?.value
             if let positionObserverId = incomingPositionObserverId {
                 incomingPositionObserverId = nil
-                await ProgressSyncActor.shared.removeIncomingPositionObserver(id: positionObserverId)
+                await ProgressSyncActor.shared.removeIncomingPositionObserver(
+                    id: positionObserverId
+                )
             }
         }
     }

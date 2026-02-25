@@ -49,15 +49,22 @@ class EbookPlayerViewModel {
     var showChapterSidebar: Bool = false {
         didSet {
             if _sidebarInitialized && oldValue != showChapterSidebar {
-                debugLog("[EbookPlayerViewModel] Chapter sidebar changed: \(oldValue) -> \(showChapterSidebar), saving...")
-                UserDefaults.standard.set(showChapterSidebar, forKey: "EbookPlayerShowChapterSidebar")
+                debugLog(
+                    "[EbookPlayerViewModel] Chapter sidebar changed: \(oldValue) -> \(showChapterSidebar), saving..."
+                )
+                UserDefaults.standard.set(
+                    showChapterSidebar,
+                    forKey: "EbookPlayerShowChapterSidebar"
+                )
             }
         }
     }
     var showAudioSidebar: Bool = false {
         didSet {
             if _sidebarInitialized && oldValue != showAudioSidebar {
-                debugLog("[EbookPlayerViewModel] Sidebar changed: \(oldValue) -> \(showAudioSidebar), saving...")
+                debugLog(
+                    "[EbookPlayerViewModel] Sidebar changed: \(oldValue) -> \(showAudioSidebar), saving..."
+                )
                 UserDefaults.standard.set(showAudioSidebar, forKey: "EbookPlayerShowAudioSidebar")
             }
         }
@@ -97,10 +104,11 @@ class EbookPlayerViewModel {
         if !tocEntries.isEmpty {
             // If user explicitly clicked a toc entry, and it still matches the current section, use it
             if let userSelected = userSelectedTocId,
-               userSelected.hasPrefix("toc-"),
-               let idx = Int(userSelected.dropFirst(4)),
-               idx < tocEntries.count,
-               tocEntries[idx].sectionIndex == index {
+                userSelected.hasPrefix("toc-"),
+                let idx = Int(userSelected.dropFirst(4)),
+                idx < tocEntries.count,
+                tocEntries[idx].sectionIndex == index
+            {
                 return userSelected
             }
             // Otherwise find the first toc entry that matches this section index
@@ -153,7 +161,8 @@ class EbookPlayerViewModel {
             details.append("\(Int(prog * 100))%")
         }
         let locationStr = details.isEmpty ? "" : " (\(details.joined(separator: ", ")))"
-        return "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
+        return
+            "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
     }
 
     var bookmarks: [Highlight] {
@@ -168,29 +177,41 @@ class EbookPlayerViewModel {
         self.bookData = bookData
         self.settingsVM = settingsVM
         #if os(macOS)
-        let savedAudioSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowAudioSidebar") as? Bool
+        let savedAudioSidebarState =
+            UserDefaults.standard.object(forKey: "EbookPlayerShowAudioSidebar") as? Bool
         self.showAudioSidebar = savedAudioSidebarState ?? true
-        let savedChapterSidebarState = UserDefaults.standard.object(forKey: "EbookPlayerShowChapterSidebar") as? Bool
+        let savedChapterSidebarState =
+            UserDefaults.standard.object(forKey: "EbookPlayerShowChapterSidebar") as? Bool
         self.showChapterSidebar = savedChapterSidebarState ?? false
         self._sidebarInitialized = true
-        debugLog("[EbookPlayerViewModel] Init - audio sidebar: \(self.showAudioSidebar), chapter sidebar: \(self.showChapterSidebar)")
+        debugLog(
+            "[EbookPlayerViewModel] Init - audio sidebar: \(self.showAudioSidebar), chapter sidebar: \(self.showChapterSidebar)"
+        )
         #endif
     }
 
     func handleChapterSelection(_ chapter: ChapterItem) {
-        debugLog("[TOC-DEBUG] handleChapterSelection: id=\(chapter.id) label=\"\(chapter.label)\" href=\"\(chapter.href)\" level=\(chapter.level)")
+        debugLog(
+            "[TOC-DEBUG] handleChapterSelection: id=\(chapter.id) label=\"\(chapter.label)\" href=\"\(chapter.href)\" level=\(chapter.level)"
+        )
         userSelectedTocId = chapter.id
         if !tocEntries.isEmpty, chapter.id.hasPrefix("toc-"),
-           let idx = Int(chapter.id.dropFirst(4)), idx < tocEntries.count {
+            let idx = Int(chapter.id.dropFirst(4)), idx < tocEntries.count
+        {
             let entry = tocEntries[idx]
             let fragment = entry.href.components(separatedBy: "#").dropFirst().first
 
             if let fragment, let sectionId = bookStructure[safe: entry.sectionIndex]?.id {
                 let fullHref = "\(sectionId)#\(fragment)"
                 debugLog("[TOC-DEBUG] -> EPM href navigation to \(fullHref)")
-                progressManager?.handleUserChapterSelectedWithHref(entry.sectionIndex, href: fullHref)
+                progressManager?.handleUserChapterSelectedWithHref(
+                    entry.sectionIndex,
+                    href: fullHref
+                )
             } else {
-                debugLog("[TOC-DEBUG] -> EPM section navigation to sectionIndex=\(entry.sectionIndex)")
+                debugLog(
+                    "[TOC-DEBUG] -> EPM section navigation to sectionIndex=\(entry.sectionIndex)"
+                )
                 progressManager?.handleUserChapterSelected(entry.sectionIndex)
             }
             return
@@ -437,7 +458,9 @@ class EbookPlayerViewModel {
             let result = try SMILParser.parseEPUB(at: epubPath)
             self.tocEntries = result.tocEntries
             self.bookStructure = result.sections
-            debugLog("[EbookPlayerViewModel] Parsed \(result.tocEntries.count) native TOC entries for ebook-only mode")
+            debugLog(
+                "[EbookPlayerViewModel] Parsed \(result.tocEntries.count) native TOC entries for ebook-only mode"
+            )
         } catch {
             debugLog("[EbookPlayerViewModel] Failed to parse native TOC: \(error)")
         }
@@ -605,7 +628,8 @@ class EbookPlayerViewModel {
                 debugLog("[EbookPlayerViewModel] Entering background - audio continues natively")
                 Task { @MainActor in
                     mediaOverlayManager?.isInBackground = true
-                    let wasPlaying = await SMILPlayerActor.shared.getCurrentState()?.isPlaying ?? false
+                    let wasPlaying =
+                        await SMILPlayerActor.shared.getCurrentState()?.isPlaying ?? false
                     if wasPlaying {
                         mediaOverlayManager?.backgroundAudioPlayed = true
                     }

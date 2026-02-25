@@ -15,8 +15,10 @@ struct TranslatorView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .list.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -25,8 +27,12 @@ struct TranslatorView: View {
     @State private var sortByCount = false
     #endif
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -34,7 +40,10 @@ struct TranslatorView: View {
         if case .error = mediaViewModel.connectionStatus { return true }
         return false
     }
-    private var connectionErrorIcon: String { if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }; return "wifi.slash" }
+    private var connectionErrorIcon: String {
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
+        return "wifi.slash"
+    }
     #endif
 
     private var categoryGroups: [CategoryGroup] {
@@ -42,11 +51,19 @@ struct TranslatorView: View {
         let filtered = filterGroups(groups)
         return filtered.map { group in
             let name = group.translator?.name ?? "Unknown Translator"
-            return CategoryGroup(id: name, name: name, books: group.books, pinId: group.translator?.name != nil ? SidebarPinHelper.pinId(forTranslator: name) : nil)
+            return CategoryGroup(
+                id: name,
+                name: name,
+                books: group.books,
+                pinId: group.translator?.name != nil
+                    ? SidebarPinHelper.pinId(forTranslator: name) : nil
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(translator: BookCreator?, books: [BookMetadata])]) -> [(translator: BookCreator?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(translator: BookCreator?, books: [BookMetadata])]) -> [(
+        translator: BookCreator?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -67,7 +84,9 @@ struct TranslatorView: View {
     }
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
-        navigationPath.append(TranslatorDetailNavigation(translatorName: group.id, initialSelectedBook: book))
+        navigationPath.append(
+            TranslatorDetailNavigation(translatorName: group.id, initialSelectedBook: book)
+        )
     }
 }
 
@@ -82,19 +101,51 @@ extension TranslatorView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Translators").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing: 12) {
-                if hasConnectionError, let showOfflineSheet { Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) } }
-                Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
-            }}}
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: TranslatorDetailNavigation.self) { nav in translatorDetailView(for: nav.translatorName, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: BookMetadata.self) { item in iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        if hasConnectionError, let showOfflineSheet {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
+            .navigationDestination(for: TranslatorDetailNavigation.self) { nav in
+                translatorDetailView(
+                    for: nav.translatorName,
+                    initialSelectedItem: nav.initialSelectedBook
+                ).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: BookMetadata.self) { item in
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }.environment(\.mediaNavigationPath, $navigationPath)
     }
 
@@ -104,7 +155,16 @@ extension TranslatorView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "character.book.closed.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "character.book.closed.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
                     }
                 }
@@ -115,9 +175,20 @@ extension TranslatorView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -125,14 +196,28 @@ extension TranslatorView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Translator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
     }
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category { case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline); case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline) }
+        switch bookData.category { case .audio:
+            AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 #endif
@@ -143,22 +228,88 @@ extension TranslatorView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: CategoryListSidebar(headerTitle: "Books by Translator", sidebarTitle: "Translators", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "character.book.closed.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, translatorFilter: group.name, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
-                    toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Translator",
+                            sidebarTitle: "Translators",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "character.book.closed.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    translatorFilter: group.name,
+                                    defaultSort: "title",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
-            }.navigationDestination(for: TranslatorDetailNavigation.self) { nav in translatorDetailView(for: nav.translatorName, initialSelectedItem: nav.initialSelectedBook) }
+            }.navigationDestination(for: TranslatorDetailNavigation.self) { nav in
+                translatorDetailView(
+                    for: nav.translatorName,
+                    initialSelectedItem: nav.initialSelectedBook
+                )
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -171,7 +322,14 @@ extension TranslatorView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -179,11 +337,37 @@ extension TranslatorView {
 #endif
 
 extension TranslatorView {
-    @ViewBuilder fileprivate func translatorDetailView(for translatorName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func translatorDetailView(
+        for translatorName: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         #if os(iOS)
-        MediaGridView(title: translatorName, searchText: "", mediaKind: mediaKind, translatorFilter: translatorName, defaultSort: "title", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(translatorName)
+        MediaGridView(
+            title: translatorName,
+            searchText: "",
+            mediaKind: mediaKind,
+            translatorFilter: translatorName,
+            defaultSort: "title",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(translatorName)
         #else
-        MediaGridView(title: translatorName, searchText: "", mediaKind: mediaKind, translatorFilter: translatorName, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(translatorName)
+        MediaGridView(
+            title: translatorName,
+            searchText: "",
+            mediaKind: mediaKind,
+            translatorFilter: translatorName,
+            defaultSort: "title",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(translatorName)
         #endif
     }
 }

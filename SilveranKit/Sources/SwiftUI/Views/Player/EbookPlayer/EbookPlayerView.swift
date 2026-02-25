@@ -210,7 +210,8 @@ public struct EbookPlayerView: View {
         GeometryReader { geometry in
             let rightAdjustment: CGFloat = viewModel.showAudioSidebar ? 361 : 0
             let leftAdjustment: CGFloat = viewModel.showChapterSidebar ? leftSidebarTotalWidth : 0
-            let contentWidth = baseContentWidth ?? (geometry.size.width - rightAdjustment - leftAdjustment)
+            let contentWidth =
+                baseContentWidth ?? (geometry.size.width - rightAdjustment - leftAdjustment)
 
             HStack(spacing: 0) {
                 if viewModel.showChapterSidebar {
@@ -310,13 +311,14 @@ public struct EbookPlayerView: View {
         }
         let defaultHex =
             colorScheme == .dark ? kDefaultBackgroundColorDark : kDefaultBackgroundColorLight
-        return Color(hex: defaultHex) ?? {
-            #if os(macOS)
-            Color(nsColor: .windowBackgroundColor)
-            #else
-            Color(uiColor: .systemBackground)
-            #endif
-        }()
+        return Color(hex: defaultHex)
+            ?? {
+                #if os(macOS)
+                Color(nsColor: .windowBackgroundColor)
+                #else
+                Color(uiColor: .systemBackground)
+                #endif
+            }()
     }
 
     private var separatorColor: Color {
@@ -459,7 +461,8 @@ public struct EbookPlayerView: View {
                 )
                 let bgHex =
                     viewModel.settingsVM.backgroundColor
-                    ?? (colorScheme == .dark ? kDefaultBackgroundColorDark : kDefaultBackgroundColorLight)
+                    ?? (colorScheme == .dark
+                        ? kDefaultBackgroundColorDark : kDefaultBackgroundColorLight)
                 let isLight = isLightColor(hex: bgHex)
 
                 EbookOverlayMac(
@@ -583,7 +586,6 @@ public struct EbookPlayerView: View {
         .ignoresSafeArea()
     }
     #endif
-
 
     private func sidebarToggleButton(
         isVisible: Bool,

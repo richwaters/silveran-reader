@@ -60,44 +60,44 @@ public enum SidebarContentKind: Hashable, Sendable {
 
     public var stableIdentifier: String {
         switch self {
-        case .home:
-            return "home"
-        case .mediaGrid(let config):
-            return "mediaGrid.\(config.title)"
-        case .seriesView(let kind):
-            return "seriesView.\(kind.rawValue)"
-        case .authorView(let kind):
-            return "authorView.\(kind.rawValue)"
-        case .narratorView(let kind):
-            return "narratorView.\(kind.rawValue)"
-        case .translatorView(let kind):
-            return "translatorView.\(kind.rawValue)"
-        case .tagView(let kind):
-            return "tagView.\(kind.rawValue)"
-        case .publicationYearView(let kind):
-            return "publicationYearView.\(kind.rawValue)"
-        case .ratingView(let kind):
-            return "ratingView.\(kind.rawValue)"
-        case .collectionsView(let kind):
-            return "collectionsView.\(kind.rawValue)"
-        case .statusView(let kind):
-            return "statusView.\(kind.rawValue)"
-        case .sourceView(let kind):
-            return "sourceView.\(kind.rawValue)"
-        case .smartShelves:
-            return "smartShelves"
-        case .smartShelfDetail(let id):
-            return "smartShelfDetail.\(id.uuidString)"
-        case .placeholder(let title):
-            return "placeholder.\(title)"
-        case .currentlyDownloading:
-            return "currentlyDownloading"
-        case .downloaded:
-            return "downloaded"
-        case .importLocalFile:
-            return "importLocalFile"
-        case .storytellerServer:
-            return "storytellerServer"
+            case .home:
+                return "home"
+            case .mediaGrid(let config):
+                return "mediaGrid.\(config.title)"
+            case .seriesView(let kind):
+                return "seriesView.\(kind.rawValue)"
+            case .authorView(let kind):
+                return "authorView.\(kind.rawValue)"
+            case .narratorView(let kind):
+                return "narratorView.\(kind.rawValue)"
+            case .translatorView(let kind):
+                return "translatorView.\(kind.rawValue)"
+            case .tagView(let kind):
+                return "tagView.\(kind.rawValue)"
+            case .publicationYearView(let kind):
+                return "publicationYearView.\(kind.rawValue)"
+            case .ratingView(let kind):
+                return "ratingView.\(kind.rawValue)"
+            case .collectionsView(let kind):
+                return "collectionsView.\(kind.rawValue)"
+            case .statusView(let kind):
+                return "statusView.\(kind.rawValue)"
+            case .sourceView(let kind):
+                return "sourceView.\(kind.rawValue)"
+            case .smartShelves:
+                return "smartShelves"
+            case .smartShelfDetail(let id):
+                return "smartShelfDetail.\(id.uuidString)"
+            case .placeholder(let title):
+                return "placeholder.\(title)"
+            case .currentlyDownloading:
+                return "currentlyDownloading"
+            case .downloaded:
+                return "downloaded"
+            case .importLocalFile:
+                return "importLocalFile"
+            case .storytellerServer:
+                return "storytellerServer"
         }
     }
 }

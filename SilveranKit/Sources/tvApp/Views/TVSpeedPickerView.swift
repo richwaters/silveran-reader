@@ -6,7 +6,9 @@ struct TVSpeedPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedIndex: Int?
 
-    private let speeds: [Double] = [0.75, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 5.0]
+    private let speeds: [Double] = [
+        0.75, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 5.0,
+    ]
 
     private var currentSpeedIndex: Int? {
         speeds.firstIndex { abs($0 - viewModel.playbackRate) < 0.01 }
@@ -20,7 +22,9 @@ struct TVSpeedPickerView: View {
                         Button {
                             viewModel.setPlaybackRate(speed)
                             Task {
-                                try? await SettingsActor.shared.updateConfig(defaultPlaybackSpeed: speed)
+                                try? await SettingsActor.shared.updateConfig(
+                                    defaultPlaybackSpeed: speed
+                                )
                             }
                             dismiss()
                         } label: {

@@ -29,90 +29,95 @@ struct TVPlayerView: View {
 
     var body: some View {
         playerContent
-        .ignoresSafeArea()
-        .onAppear {
-            viewModel.usesFullChapterCache = true
-            Task {
-                await viewModel.loadBook(book)
-                let config = await SettingsActor.shared.config
-                fontFamily = config.reading.fontFamily
-                subtitleFontSize = config.reading.tvSubtitleFontSize
+            .ignoresSafeArea()
+            .onAppear {
+                viewModel.usesFullChapterCache = true
+                Task {
+                    await viewModel.loadBook(book)
+                    let config = await SettingsActor.shared.config
+                    fontFamily = config.reading.fontFamily
+                    subtitleFontSize = config.reading.tvSubtitleFontSize
+                }
+                resetControlsTimer()
+                loadCoverImage()
+                focusedControl = .progressBar
             }
-            resetControlsTimer()
-            loadCoverImage()
-            focusedControl = .progressBar
-        }
-        .onChange(of: focusedControl) { _, newValue in
-            guard showControls else { return }
-            if let newValue {
-                lastFocusedControl = newValue
-                showControlsTemporarily()
-            } else {
-                DispatchQueue.main.async {
-                    if showControls, focusedControl == nil {
-                        focusedControl = lastFocusedControl
+            .onChange(of: focusedControl) { _, newValue in
+                guard showControls else { return }
+                if let newValue {
+                    lastFocusedControl = newValue
+                    showControlsTemporarily()
+                } else {
+                    DispatchQueue.main.async {
+                        if showControls, focusedControl == nil {
+                            focusedControl = lastFocusedControl
+                        }
                     }
                 }
             }
-        }
-        .onChange(of: showControls) { _, visible in
-            if visible {
-                isBackgroundFocused = false
-                focusedControl = .progressBar
-                lastFocusedControl = .progressBar
-            } else {
-                focusedControl = nil
-                isBackgroundFocused = true
+            .onChange(of: showControls) { _, visible in
+                if visible {
+                    isBackgroundFocused = false
+                    focusedControl = .progressBar
+                    lastFocusedControl = .progressBar
+                } else {
+                    focusedControl = nil
+                    isBackgroundFocused = true
+                }
             }
-        }
-        .onChange(of: mediaViewModel.coverState(for: book, variant: mediaViewModel.coverVariant(for: book)).image) { _, newImage in
-            if let newImage, cachedCoverImage == nil {
-                cachedCoverImage = newImage
+            .onChange(
+                of: mediaViewModel.coverState(
+                    for: book,
+                    variant: mediaViewModel.coverVariant(for: book)
+                ).image
+            ) { _, newImage in
+                if let newImage, cachedCoverImage == nil {
+                    cachedCoverImage = newImage
+                }
             }
-        }
-        .onChange(of: viewModel.chapterProgress) { _, newValue in
-            clearScrubSettlingIfNeeded(for: newValue)
-        }
-        .onDisappear {
-            viewModel.cleanup()
-        }
-        .onPlayPauseCommand {
-            print("[TVDBG] onPlayPauseCommand fired")
-            viewModel.playPause()
-            showControlsTemporarily()
-        }
-        .onChange(of: viewModel.isPlaying) { _, _ in
-            print("[TVDBG] isPlaying changed")
-            showControlsTemporarily()
-        }
-        .onExitCommand {
-            if showChapterList || showSpeedPicker {
-                showChapterList = false
-                showSpeedPicker = false
-            } else {
-                dismiss()
+            .onChange(of: viewModel.chapterProgress) { _, newValue in
+                clearScrubSettlingIfNeeded(for: newValue)
             }
-        }
-        .toolbar(.hidden, for: .navigationBar, .tabBar)
-        .sheet(isPresented: $showChapterList) {
-            TVChapterListView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showSpeedPicker) {
-            TVSpeedPickerView(viewModel: viewModel)
-        }
-        .alert(
-            "Server Has Newer Position",
-            isPresented: $viewModel.showServerPositionDialog
-        ) {
-            Button("Go to New Position") {
-                viewModel.acceptServerPosition()
+            .onDisappear {
+                viewModel.cleanup()
             }
-            Button("Stay Here", role: .cancel) {
-                viewModel.declineServerPosition()
+            .onPlayPauseCommand {
+                print("[TVDBG] onPlayPauseCommand fired")
+                viewModel.playPause()
+                showControlsTemporarily()
             }
-        } message: {
-            Text(viewModel.serverPositionDescription)
-        }
+            .onChange(of: viewModel.isPlaying) { _, _ in
+                print("[TVDBG] isPlaying changed")
+                showControlsTemporarily()
+            }
+            .onExitCommand {
+                if showChapterList || showSpeedPicker {
+                    showChapterList = false
+                    showSpeedPicker = false
+                } else {
+                    dismiss()
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar, .tabBar)
+            .sheet(isPresented: $showChapterList) {
+                TVChapterListView(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showSpeedPicker) {
+                TVSpeedPickerView(viewModel: viewModel)
+            }
+            .alert(
+                "Server Has Newer Position",
+                isPresented: $viewModel.showServerPositionDialog
+            ) {
+                Button("Go to New Position") {
+                    viewModel.acceptServerPosition()
+                }
+                Button("Stay Here", role: .cancel) {
+                    viewModel.declineServerPosition()
+                }
+            } message: {
+                Text(viewModel.serverPositionDescription)
+            }
     }
 
     private var playerContent: some View {
@@ -299,14 +304,14 @@ struct TVPlayerView: View {
 
     private var fontDesign: Font.Design? {
         switch fontFamily {
-        case "System Default", "sans-serif":
-            return .default
-        case "serif":
-            return .serif
-        case "monospace":
-            return .monospaced
-        default:
-            return nil
+            case "System Default", "sans-serif":
+                return .default
+            case "serif":
+                return .serif
+            case "monospace":
+                return .monospaced
+            default:
+                return nil
         }
     }
 
@@ -317,8 +322,10 @@ struct TVPlayerView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "bookmark.fill")
                         .font(.title3)
-                    Text(formatTimeMinutesSeconds(viewModel.chapterDuration - viewModel.currentTime))
-                        .font(.title3)
+                    Text(
+                        formatTimeMinutesSeconds(viewModel.chapterDuration - viewModel.currentTime)
+                    )
+                    .font(.title3)
                 }
                 .foregroundStyle(.white.opacity(0.7))
 
@@ -365,41 +372,41 @@ struct TVPlayerView: View {
                 Spacer()
 
                 HStack(spacing: 20) {
-                controlButton(
-                    systemName: "backward.end.fill",
-                    caption: nil,
-                    focused: .previousChapter
-                ) {
-                    viewModel.previousChapter()
-                    showControlsTemporarily()
-                }
+                    controlButton(
+                        systemName: "backward.end.fill",
+                        caption: nil,
+                        focused: .previousChapter
+                    ) {
+                        viewModel.previousChapter()
+                        showControlsTemporarily()
+                    }
 
-                controlButton(
-                    systemName: "list.bullet",
-                    caption: nil,
-                    focused: .chapterList
-                ) {
-                    showChapterList = true
-                    showControlsTemporarily()
-                }
+                    controlButton(
+                        systemName: "list.bullet",
+                        caption: nil,
+                        focused: .chapterList
+                    ) {
+                        showChapterList = true
+                        showControlsTemporarily()
+                    }
 
-                controlButton(
-                    systemName: "speedometer",
-                    caption: nil,
-                    focused: .speed
-                ) {
-                    showSpeedPicker = true
-                    showControlsTemporarily()
-                }
+                    controlButton(
+                        systemName: "speedometer",
+                        caption: nil,
+                        focused: .speed
+                    ) {
+                        showSpeedPicker = true
+                        showControlsTemporarily()
+                    }
 
-                controlButton(
-                    systemName: "forward.end.fill",
-                    caption: nil,
-                    focused: .nextChapter
-                ) {
-                    viewModel.nextChapter()
-                    showControlsTemporarily()
-                }
+                    controlButton(
+                        systemName: "forward.end.fill",
+                        caption: nil,
+                        focused: .nextChapter
+                    ) {
+                        viewModel.nextChapter()
+                        showControlsTemporarily()
+                    }
                 }
                 .padding(.horizontal, 24)
             }
@@ -411,7 +418,8 @@ struct TVPlayerView: View {
 
     private var progressBar: some View {
         let isFocused = focusedControl == .progressBar
-        let displayProgress = (isScrubbing || isScrubSettling)
+        let displayProgress =
+            (isScrubbing || isScrubSettling)
             ? scrubProgress
             : viewModel.chapterProgress
         return DirectionalPressButton(
@@ -452,30 +460,30 @@ struct TVPlayerView: View {
 
     private func handleBackgroundMove(_ direction: MoveCommandDirection) {
         switch direction {
-        case .left:
-            viewModel.previousSentence()
-        case .right:
-            viewModel.nextSentence()
-        case .up, .down:
-            showControlsTemporarily()
-            focusedControl = .progressBar
-        @unknown default:
-            break
+            case .left:
+                viewModel.previousSentence()
+            case .right:
+                viewModel.nextSentence()
+            case .up, .down:
+                showControlsTemporarily()
+                focusedControl = .progressBar
+            @unknown default:
+                break
         }
     }
 
     private func handleProgressBarMove(_ direction: MoveCommandDirection) {
         switch direction {
-        case .left:
-            viewModel.previousSentence()
-            showControlsTemporarily()
-        case .right:
-            viewModel.nextSentence()
-            showControlsTemporarily()
-        case .up, .down:
-            break
-        @unknown default:
-            break
+            case .left:
+                viewModel.previousSentence()
+                showControlsTemporarily()
+            case .right:
+                viewModel.nextSentence()
+                showControlsTemporarily()
+            case .up, .down:
+                break
+            @unknown default:
+                break
         }
     }
 
@@ -485,27 +493,27 @@ struct TVPlayerView: View {
     ) {
         let clamped = min(max(progress, 0), 1)
         switch state {
-        case .began, .changed:
-            scrubSettleTask?.cancel()
-            scrubSettleTask = nil
-            isScrubSettling = false
-            if !isScrubbing {
-                scrubProgress = viewModel.chapterProgress
-            }
-            isScrubbing = true
-            scrubProgress = clamped
-            showControlsTemporarily()
-        case .ended, .cancelled, .failed:
-            if isScrubbing {
-                let target = scrubProgress
-                isScrubbing = false
-                isScrubSettling = true
-                scrubTargetProgress = target
-                seekToChapterProgress(target)
-                scheduleScrubSettleTimeout()
-            }
-        default:
-            break
+            case .began, .changed:
+                scrubSettleTask?.cancel()
+                scrubSettleTask = nil
+                isScrubSettling = false
+                if !isScrubbing {
+                    scrubProgress = viewModel.chapterProgress
+                }
+                isScrubbing = true
+                scrubProgress = clamped
+                showControlsTemporarily()
+            case .ended, .cancelled, .failed:
+                if isScrubbing {
+                    let target = scrubProgress
+                    isScrubbing = false
+                    isScrubSettling = true
+                    scrubTargetProgress = target
+                    seekToChapterProgress(target)
+                    scheduleScrubSettleTimeout()
+                }
+            default:
+                break
         }
     }
 
@@ -564,9 +572,11 @@ struct TVPlayerView: View {
         animated: Bool = true,
         consumeForce: Bool = true
     ) {
-        guard let targetIndex = viewModel.scrollTargetIndex(
-            for: viewModel.currentEntryIndex
-        ) else {
+        guard
+            let targetIndex = viewModel.scrollTargetIndex(
+                for: viewModel.currentEntryIndex
+            )
+        else {
             return
         }
         let shouldAnimate = animated && !forceInstantScroll
@@ -664,7 +674,10 @@ private struct ProgressBarContent: View {
                         let clampedProgress = min(max(progress, 0), 1)
                         let xPosition = max(
                             handleSize / 2,
-                            min(proxy.size.width - handleSize / 2, proxy.size.width * clampedProgress)
+                            min(
+                                proxy.size.width - handleSize / 2,
+                                proxy.size.width * clampedProgress
+                            )
                         )
                         Circle()
                             .fill(.white)
@@ -736,7 +749,11 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
         button.backgroundColor = .clear
         button.contentHorizontalAlignment = .fill
         button.contentVerticalAlignment = .fill
-        button.addTarget(button, action: #selector(PressButton.handlePrimaryAction), for: .primaryActionTriggered)
+        button.addTarget(
+            button,
+            action: #selector(PressButton.handlePrimaryAction),
+            for: .primaryActionTriggered
+        )
 
         let host = UIHostingController(rootView: label)
         host.view.translatesAutoresizingMaskIntoConstraints = false
@@ -746,7 +763,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
             host.view.leadingAnchor.constraint(equalTo: button.leadingAnchor),
             host.view.trailingAnchor.constraint(equalTo: button.trailingAnchor),
             host.view.topAnchor.constraint(equalTo: button.topAnchor),
-            host.view.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+            host.view.bottomAnchor.constraint(equalTo: button.bottomAnchor),
         ])
         context.coordinator.host = host
 
@@ -837,52 +854,58 @@ private final class PressButton: UIButton {
     @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
         guard bounds.width > 0 else { return }
         switch recognizer.state {
-        case .began:
-            panStartProgress = CGFloat(currentProgress)
-            panActivationOffset = 0
-            scrubActivated = false
-            verticalSwipeTriggered = false
-        case .changed, .ended, .cancelled, .failed:
-            let translation = recognizer.translation(in: self)
+            case .began:
+                panStartProgress = CGFloat(currentProgress)
+                panActivationOffset = 0
+                scrubActivated = false
+                verticalSwipeTriggered = false
+            case .changed, .ended, .cancelled, .failed:
+                let translation = recognizer.translation(in: self)
 
-            if !scrubActivated && !verticalSwipeTriggered {
-                let verticalThreshold: CGFloat = 30
-                if abs(translation.y) > verticalThreshold && abs(translation.y) > abs(translation.x) {
-                    verticalSwipeTriggered = true
-                    let direction: MoveCommandDirection = translation.y < 0 ? .up : .down
-                    print("[TVDBG] vertical swipe -> onMove \(direction)")
-                    onMove?(direction)
-                    return
-                }
-            }
-
-            guard scrubbingEnabled else { return }
-
-            if !scrubActivated {
-                let requiredTranslation = CGFloat(scrubActivationProgress)
-                    * bounds.width
-                    / max(scrubScale, 0.01)
-                if abs(translation.x) < requiredTranslation {
-                    if recognizer.state != .ended {
+                if !scrubActivated && !verticalSwipeTriggered {
+                    let verticalThreshold: CGFloat = 30
+                    if abs(translation.y) > verticalThreshold
+                        && abs(translation.y) > abs(translation.x)
+                    {
+                        verticalSwipeTriggered = true
+                        let direction: MoveCommandDirection = translation.y < 0 ? .up : .down
+                        print("[TVDBG] vertical swipe -> onMove \(direction)")
+                        onMove?(direction)
                         return
                     }
-                } else {
-                    scrubActivated = true
-                    panActivationOffset = translation.x > 0
-                        ? requiredTranslation
-                        : -requiredTranslation
                 }
-            }
-            guard scrubActivated else { return }
-            let adjustedTranslation = translation.x - panActivationOffset
-            let delta = (adjustedTranslation / bounds.width) * scrubScale
-            let progress = min(max(panStartProgress + delta, 0), 1)
-            onScrub?(progress, recognizer.state)
-            if recognizer.state == .ended || recognizer.state == .cancelled || recognizer.state == .failed {
-                scrubActivated = false
-            }
-        default:
-            break
+
+                guard scrubbingEnabled else { return }
+
+                if !scrubActivated {
+                    let requiredTranslation =
+                        CGFloat(scrubActivationProgress)
+                        * bounds.width
+                        / max(scrubScale, 0.01)
+                    if abs(translation.x) < requiredTranslation {
+                        if recognizer.state != .ended {
+                            return
+                        }
+                    } else {
+                        scrubActivated = true
+                        panActivationOffset =
+                            translation.x > 0
+                            ? requiredTranslation
+                            : -requiredTranslation
+                    }
+                }
+                guard scrubActivated else { return }
+                let adjustedTranslation = translation.x - panActivationOffset
+                let delta = (adjustedTranslation / bounds.width) * scrubScale
+                let progress = min(max(panStartProgress + delta, 0), 1)
+                onScrub?(progress, recognizer.state)
+                if recognizer.state == .ended || recognizer.state == .cancelled
+                    || recognizer.state == .failed
+                {
+                    scrubActivated = false
+                }
+            default:
+                break
         }
     }
 
@@ -890,35 +913,35 @@ private final class PressButton: UIButton {
         for press in presses {
             print("[TVDBG] pressesBegan type=\(press.type.rawValue)")
             switch press.type {
-            case .leftArrow:
-                print("[TVDBG] leftArrow -> onMove")
-                onMove?(.left)
-                return
-            case .rightArrow:
-                print("[TVDBG] rightArrow -> onMove")
-                onMove?(.right)
-                return
-            case .playPause:
-                print("[TVDBG] playPause onPlayPause=\(onPlayPause == nil ? "nil" : "set")")
-                if let onPlayPause {
-                    print("[TVDBG] calling onPlayPause")
-                    onPlayPause()
+                case .leftArrow:
+                    print("[TVDBG] leftArrow -> onMove")
+                    onMove?(.left)
                     return
-                }
-            case .select:
-                print("[TVDBG] select -> fallthrough")
-                break
-            case .upArrow:
-                print("[TVDBG] upArrow -> onMove")
-                onMove?(.up)
-                return
-            case .downArrow:
-                print("[TVDBG] downArrow -> onMove")
-                onMove?(.down)
-                return
-            default:
-                print("[TVDBG] unknown type=\(press.type.rawValue)")
-                break
+                case .rightArrow:
+                    print("[TVDBG] rightArrow -> onMove")
+                    onMove?(.right)
+                    return
+                case .playPause:
+                    print("[TVDBG] playPause onPlayPause=\(onPlayPause == nil ? "nil" : "set")")
+                    if let onPlayPause {
+                        print("[TVDBG] calling onPlayPause")
+                        onPlayPause()
+                        return
+                    }
+                case .select:
+                    print("[TVDBG] select -> fallthrough")
+                    break
+                case .upArrow:
+                    print("[TVDBG] upArrow -> onMove")
+                    onMove?(.up)
+                    return
+                case .downArrow:
+                    print("[TVDBG] downArrow -> onMove")
+                    onMove?(.down)
+                    return
+                default:
+                    print("[TVDBG] unknown type=\(press.type.rawValue)")
+                    break
             }
         }
         print("[TVDBG] calling super.pressesBegan")

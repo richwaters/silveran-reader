@@ -59,10 +59,10 @@ struct MarqueeText: View {
 
         let testFont: UIFont
         switch font {
-        case .caption: testFont = .preferredFont(forTextStyle: .caption1)
-        case .caption2: testFont = .preferredFont(forTextStyle: .caption2)
-        case .headline: testFont = .preferredFont(forTextStyle: .headline)
-        default: testFont = .preferredFont(forTextStyle: .caption1)
+            case .caption: testFont = .preferredFont(forTextStyle: .caption1)
+            case .caption2: testFont = .preferredFont(forTextStyle: .caption2)
+            case .headline: testFont = .preferredFont(forTextStyle: .headline)
+            default: testFont = .preferredFont(forTextStyle: .caption1)
         }
 
         let size = (text as NSString).boundingRect(

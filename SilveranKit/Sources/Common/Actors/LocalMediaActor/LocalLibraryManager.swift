@@ -392,7 +392,9 @@ public final class LocalLibraryManager: Sendable {
         do {
             archive = try Archive(url: epubURL, accessMode: .read)
         } catch {
-            debugLog("[LocalLibraryManager] extractCoverFromEpub: failed to open archive at \(epubURL.lastPathComponent): \(error)")
+            debugLog(
+                "[LocalLibraryManager] extractCoverFromEpub: failed to open archive at \(epubURL.lastPathComponent): \(error)"
+            )
             return nil
         }
 

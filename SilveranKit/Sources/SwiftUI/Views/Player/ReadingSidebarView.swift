@@ -188,7 +188,9 @@ public struct ReadingSidebarView: View {
                         coverArt
                             .resizable()
                             .aspectRatio(1, contentMode: .fit)
-                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                            .clipShape(
+                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            )
                             .shadow(radius: 8)
                             .frame(maxWidth: .infinity, alignment: .center)
                     } else if isSquareCover && showEbookCover {
@@ -199,7 +201,12 @@ public struct ReadingSidebarView: View {
                                 coverArt
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                                    .clipShape(
+                                        RoundedRectangle(
+                                            cornerRadius: cornerRadius,
+                                            style: .continuous
+                                        )
+                                    )
                                     .shadow(radius: 8)
                             }
                     } else {
@@ -207,7 +214,9 @@ public struct ReadingSidebarView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 180 * scale, height: 180 * scale)
-                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                            .clipShape(
+                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            )
                             .shadow(radius: 8 * scale)
                     }
                 }

@@ -7,36 +7,45 @@ struct TVHomeView: View {
     @Binding var navigationPath: NavigationPath
 
     private var currentlyReading: [BookMetadata] {
-        Array(mediaViewModel.itemsByStatus(
-            "Reading",
-            sortBy: .recentPositionUpdate,
-            limit: .max
-        ).filter { $0.hasAvailableReadaloud }.prefix(12))
+        Array(
+            mediaViewModel.itemsByStatus(
+                "Reading",
+                sortBy: .recentPositionUpdate,
+                limit: .max
+            ).filter { $0.hasAvailableReadaloud }.prefix(12)
+        )
     }
 
     private var startReading: [BookMetadata] {
-        Array(mediaViewModel.itemsByStatus(
-            "To read",
-            sortBy: .recentlyAdded,
-            limit: .max
-        ).filter { $0.hasAvailableReadaloud }.prefix(12))
+        Array(
+            mediaViewModel.itemsByStatus(
+                "To read",
+                sortBy: .recentlyAdded,
+                limit: .max
+            ).filter { $0.hasAvailableReadaloud }.prefix(12)
+        )
     }
 
     private var recentlyAdded: [BookMetadata] {
-        Array(mediaViewModel.recentlyAddedItems(limit: .max)
-            .filter { $0.hasAvailableReadaloud }.prefix(12))
+        Array(
+            mediaViewModel.recentlyAddedItems(limit: .max)
+                .filter { $0.hasAvailableReadaloud }.prefix(12)
+        )
     }
 
     private var completed: [BookMetadata] {
-        Array(mediaViewModel.itemsByStatus(
-            "Read",
-            sortBy: .recentPositionUpdate,
-            limit: .max
-        ).filter { $0.hasAvailableReadaloud }.prefix(12))
+        Array(
+            mediaViewModel.itemsByStatus(
+                "Read",
+                sortBy: .recentPositionUpdate,
+                limit: .max
+            ).filter { $0.hasAvailableReadaloud }.prefix(12)
+        )
     }
 
     private var hasAnyContent: Bool {
-        !currentlyReading.isEmpty || !startReading.isEmpty || !recentlyAdded.isEmpty || !completed.isEmpty
+        !currentlyReading.isEmpty || !startReading.isEmpty || !recentlyAdded.isEmpty
+            || !completed.isEmpty
     }
 
     var body: some View {

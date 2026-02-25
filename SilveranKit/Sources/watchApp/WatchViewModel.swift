@@ -100,7 +100,7 @@ public final class WatchViewModel {
             await MainActor.run {
                 self.books = booksWithFiles
                 if let saving = self.savingBook,
-                   booksWithFiles.contains(where: { $0.uuid == saving.uuid })
+                    booksWithFiles.contains(where: { $0.uuid == saving.uuid })
                 {
                     self.savingBook = nil
                 }

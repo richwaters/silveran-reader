@@ -1,5 +1,5 @@
-import Foundation
 import AVFoundation
+import Foundation
 import SilveranKitCommon
 
 public enum MP3ToM4BConverterState: Equatable {
@@ -174,13 +174,16 @@ public final class MP3ToM4BConverterViewModel {
                     files[i].bitrate = kbps
 
                     if detectedBitrate == nil {
-                        let rounded = Self.bitrateOptions.min(by: { abs($0 - kbps) < abs($1 - kbps) }) ?? 128
+                        let rounded =
+                            Self.bitrateOptions.min(by: { abs($0 - kbps) < abs($1 - kbps) }) ?? 128
                         detectedBitrate = rounded
                         bitrate = rounded * 1000
                     }
                 }
             } catch {
-                debugLog("[MP3ToM4B] Failed to detect bitrate for \(url.lastPathComponent): \(error)")
+                debugLog(
+                    "[MP3ToM4B] Failed to detect bitrate for \(url.lastPathComponent): \(error)"
+                )
             }
         }
     }
@@ -199,7 +202,10 @@ public final class MP3ToM4BConverterViewModel {
     }
 
     public func sortFiles() {
-        files.sort { $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending }
+        files.sort {
+            $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent)
+                == .orderedAscending
+        }
     }
 
     public func clearFiles() {
@@ -222,7 +228,13 @@ public final class MP3ToM4BConverterViewModel {
         let bitrateValue = bitrate
 
         conversionTask = Task.detached { [weak self] in
-            await self?.runConversion(fileInfos: fileInfos, outputURL: outputURL, title: title, author: author, bitrate: bitrateValue)
+            await self?.runConversion(
+                fileInfos: fileInfos,
+                outputURL: outputURL,
+                title: title,
+                author: author,
+                bitrate: bitrateValue
+            )
         }
     }
 
@@ -232,7 +244,13 @@ public final class MP3ToM4BConverterViewModel {
         state = .idle
     }
 
-    private nonisolated func runConversion(fileInfos: [(url: URL, chapterName: String)], outputURL: URL, title: String, author: String, bitrate: Int) async {
+    private nonisolated func runConversion(
+        fileInfos: [(url: URL, chapterName: String)],
+        outputURL: URL,
+        title: String,
+        author: String,
+        bitrate: Int
+    ) async {
         var accessedURLs: [(URL, Bool)] = []
         defer {
             for (url, accessed) in accessedURLs {
@@ -279,21 +297,31 @@ public final class MP3ToM4BConverterViewModel {
                 if audioSettings == nil {
                     let formatDescriptions = try await track.load(.formatDescriptions)
                     if let formatDesc = formatDescriptions.first {
-                        let basicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee
+                        let basicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(
+                            formatDesc
+                        )?.pointee
                         audioSettings = [
                             AVFormatIDKey: kAudioFormatMPEG4AAC,
                             AVSampleRateKey: basicDesc?.mSampleRate ?? 44100.0,
                             AVNumberOfChannelsKey: basicDesc?.mChannelsPerFrame ?? 2,
-                            AVEncoderBitRateKey: bitrate
+                            AVEncoderBitRateKey: bitrate,
                         ]
 
-                        if let layout = CMAudioFormatDescriptionGetChannelLayout(formatDesc, sizeOut: nil) {
-                            channelLayout = Data(bytes: layout, count: MemoryLayout<AudioChannelLayout>.size)
+                        if let layout = CMAudioFormatDescriptionGetChannelLayout(
+                            formatDesc,
+                            sizeOut: nil
+                        ) {
+                            channelLayout = Data(
+                                bytes: layout,
+                                count: MemoryLayout<AudioChannelLayout>.size
+                            )
                         }
                     }
                 }
 
-                chapters.append((startTime: totalDuration, duration: duration, title: info.chapterName))
+                chapters.append(
+                    (startTime: totalDuration, duration: duration, title: info.chapterName)
+                )
                 totalDuration = CMTimeAdd(totalDuration, duration)
             }
 
@@ -320,7 +348,9 @@ public final class MP3ToM4BConverterViewModel {
             writer.metadata = createMetadata(title: title, author: author)
 
             guard writer.startWriting() else {
-                await setError("Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
+                await setError(
+                    "Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")"
+                )
                 return
             }
 
@@ -355,16 +385,21 @@ public final class MP3ToM4BConverterViewModel {
                     return
                 }
 
-                let readerOutput = AVAssetReaderTrackOutput(track: track, outputSettings: [
-                    AVFormatIDKey: kAudioFormatLinearPCM,
-                    AVLinearPCMBitDepthKey: 32,
-                    AVLinearPCMIsFloatKey: true,
-                    AVLinearPCMIsNonInterleaved: false
-                ])
+                let readerOutput = AVAssetReaderTrackOutput(
+                    track: track,
+                    outputSettings: [
+                        AVFormatIDKey: kAudioFormatLinearPCM,
+                        AVLinearPCMBitDepthKey: 32,
+                        AVLinearPCMIsFloatKey: true,
+                        AVLinearPCMIsNonInterleaved: false,
+                    ]
+                )
                 reader.add(readerOutput)
 
                 guard reader.startReading() else {
-                    await setError("Failed to start reading \(info.url.lastPathComponent): \(reader.error?.localizedDescription ?? "unknown")")
+                    await setError(
+                        "Failed to start reading \(info.url.lastPathComponent): \(reader.error?.localizedDescription ?? "unknown")"
+                    )
                     return
                 }
 
@@ -393,7 +428,9 @@ public final class MP3ToM4BConverterViewModel {
                 debugLog("[MP3ToM4B] Wrote \(samplesWritten) samples for \(displayName)")
 
                 if reader.status == .failed {
-                    await setError("Failed to read \(info.url.lastPathComponent): \(reader.error?.localizedDescription ?? "unknown")")
+                    await setError(
+                        "Failed to read \(info.url.lastPathComponent): \(reader.error?.localizedDescription ?? "unknown")"
+                    )
                     return
                 }
 
@@ -407,7 +444,9 @@ public final class MP3ToM4BConverterViewModel {
             await writer.finishWriting()
 
             if writer.status == .failed {
-                await setError("Failed to write: \(writer.error?.localizedDescription ?? "unknown")")
+                await setError(
+                    "Failed to write: \(writer.error?.localizedDescription ?? "unknown")"
+                )
                 return
             }
 
@@ -427,14 +466,17 @@ public final class MP3ToM4BConverterViewModel {
         }
     }
 
-    private nonisolated func writeChplAtom(to url: URL, chapters: [(startTime: CMTime, duration: CMTime, title: String)]) throws {
+    private nonisolated func writeChplAtom(
+        to url: URL,
+        chapters: [(startTime: CMTime, duration: CMTime, title: String)]
+    ) throws {
         var data = try Data(contentsOf: url)
 
         debugLog("[MP3ToM4B] File size: \(data.count) bytes")
         var debugPos = 0
         while debugPos + 8 <= data.count {
             var sz = readUInt32(from: data, at: debugPos)
-            let tp = String(data: data[debugPos+4..<debugPos+8], encoding: .ascii) ?? "????"
+            let tp = String(data: data[debugPos + 4..<debugPos + 8], encoding: .ascii) ?? "????"
             if sz == 1 && debugPos + 16 <= data.count {
                 sz = Int(readUInt64(from: data, at: debugPos + 8))
             }
@@ -444,7 +486,11 @@ public final class MP3ToM4BConverterViewModel {
         }
 
         guard let moovRange = findAtom("moov", in: data, start: 0) else {
-            throw NSError(domain: "MP3ToM4B", code: -1, userInfo: [NSLocalizedDescriptionKey: "No moov atom found"])
+            throw NSError(
+                domain: "MP3ToM4B",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No moov atom found"]
+            )
         }
 
         var chpl = Data()
@@ -490,7 +536,8 @@ public final class MP3ToM4BConverterViewModel {
 
     private nonisolated func readUInt32(from data: Data, at offset: Int) -> Int {
         guard offset + 4 <= data.count else { return 0 }
-        return Int(data[offset]) << 24 | Int(data[offset+1]) << 16 | Int(data[offset+2]) << 8 | Int(data[offset+3])
+        return Int(data[offset]) << 24 | Int(data[offset + 1]) << 16 | Int(data[offset + 2]) << 8
+            | Int(data[offset + 3])
     }
 
     private nonisolated func readUInt64(from data: Data, at offset: Int) -> UInt64 {
@@ -503,7 +550,10 @@ public final class MP3ToM4BConverterViewModel {
     }
 
     private nonisolated func uint32ToBytes(_ value: UInt32) -> [UInt8] {
-        return [UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)]
+        return [
+            UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF),
+        ]
     }
 
     private nonisolated func uint64ToBytes(_ value: UInt64) -> [UInt8] {
@@ -514,7 +564,7 @@ public final class MP3ToM4BConverterViewModel {
         var pos = start
         while pos + 8 <= data.count {
             var size = readUInt32(from: data, at: pos)
-            let t = String(data: data[pos+4..<pos+8], encoding: .ascii)
+            let t = String(data: data[pos + 4..<pos + 8], encoding: .ascii)
 
             if size == 1 && pos + 16 <= data.count {
                 size = Int(readUInt64(from: data, at: pos + 8))
@@ -527,11 +577,13 @@ public final class MP3ToM4BConverterViewModel {
         return nil
     }
 
-    private nonisolated func findAtomInside(_ type: String, in data: Data, parentRange: Range<Int>) -> Range<Int>? {
+    private nonisolated func findAtomInside(_ type: String, in data: Data, parentRange: Range<Int>)
+        -> Range<Int>?
+    {
         var pos = parentRange.lowerBound + 8
         while pos + 8 <= parentRange.upperBound {
             let size = readUInt32(from: data, at: pos)
-            let t = String(data: data[pos+4..<pos+8], encoding: .ascii)
+            let t = String(data: data[pos + 4..<pos + 8], encoding: .ascii)
             guard size >= 8 else { return nil }
             if t == type { return pos..<(pos + size) }
             pos += size
@@ -542,10 +594,13 @@ public final class MP3ToM4BConverterViewModel {
     private nonisolated func updateAtomSize(in data: inout Data, at offset: Int, delta: Int) {
         let current = readUInt32(from: data, at: offset)
         let new = uint32ToBytes(UInt32(current + delta))
-        data.replaceSubrange(offset..<offset+4, with: new)
+        data.replaceSubrange(offset..<offset + 4, with: new)
     }
 
-    private nonisolated func adjustSampleBufferTiming(_ sampleBuffer: CMSampleBuffer, offset: CMTime) -> CMSampleBuffer? {
+    private nonisolated func adjustSampleBufferTiming(
+        _ sampleBuffer: CMSampleBuffer,
+        offset: CMTime
+    ) -> CMSampleBuffer? {
         var timingInfo = CMSampleTimingInfo()
         CMSampleBufferGetSampleTimingInfo(sampleBuffer, at: 0, timingInfoOut: &timingInfo)
 

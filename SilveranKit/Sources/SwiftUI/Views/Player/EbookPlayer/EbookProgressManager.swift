@@ -379,7 +379,9 @@ class EbookProgressManager {
                 } else if let progression = locator.locations?.progression,
                     let sectionIndex = findSectionIndex(for: locator.href, in: bookStructure)
                 {
-                    debugLog("[EPM] Using section progression: section=\(sectionIndex), prog=\(progression)")
+                    debugLog(
+                        "[EPM] Using section progression: section=\(sectionIndex), prog=\(progression)"
+                    )
                     try await bridge.sendJsGoToFractionInSectionCommand(
                         sectionIndex: sectionIndex,
                         fraction: progression
@@ -387,7 +389,10 @@ class EbookProgressManager {
 
                     if hasSMIL,
                         let mom = mediaOverlayManager,
-                        let anchor = findSmilEntryBySectionFraction(sectionIndex, fraction: progression)
+                        let anchor = findSmilEntryBySectionFraction(
+                            sectionIndex,
+                            fraction: progression
+                        )
                     {
                         await mom.handleSeekEvent(sectionIndex: sectionIndex, anchor: anchor)
                     }
@@ -523,7 +528,9 @@ class EbookProgressManager {
             {
                 Task { @MainActor in
                     let foundSMILMatch = await mom.handleUserNavEvent(
-                        section: section, page: page, totalPages: total
+                        section: section,
+                        page: page,
+                        totalPages: total
                     )
                     self.recordActivity()
                     self.scheduleDebouncedSync(reason: reason, useFragment: foundSMILMatch)
@@ -583,7 +590,7 @@ class EbookProgressManager {
 
         let expectedPage = basePage + step
 
-        if let total = resolvedTotalPages, (expectedPage < 1 || expectedPage > total) {
+        if let total = resolvedTotalPages, expectedPage < 1 || expectedPage > total {
             let targetSection =
                 direction == .right
                 ? sectionIndex + 1
@@ -666,7 +673,7 @@ class EbookProgressManager {
 
             guard !Task.isCancelled else { return }
             guard pendingChapterTransition == nil,
-                (pendingPageNav != nil || pendingSeekNav != nil)
+                pendingPageNav != nil || pendingSeekNav != nil
             else { return }
             guard let section = selectedChapterId,
                 let page = chapterCurrentPage,
@@ -687,7 +694,9 @@ class EbookProgressManager {
 
                 if let mom = mediaOverlayManager {
                     let foundSMILMatch = await mom.handleUserNavEvent(
-                        section: section, page: page, totalPages: total
+                        section: section,
+                        page: page,
+                        totalPages: total
                     )
                     recordActivity()
                     scheduleDebouncedSync(reason: reason, useFragment: foundSMILMatch)
@@ -862,7 +871,9 @@ class EbookProgressManager {
 
         if !isSameSection {
             pendingChapterTransition = newId
-            debugLog("[EPM] Chapter transition pending → Section.\(newId) (user selection with href)")
+            debugLog(
+                "[EPM] Chapter transition pending → Section.\(newId) (user selection with href)"
+            )
         }
 
         if !isFreeBrowseMode {

@@ -43,7 +43,12 @@ struct SeriesStackView: View {
         VStack(spacing: 8) {
             ZStack(alignment: .leading) {
                 ForEach(Array(displayBooks.enumerated()), id: \.element.id) { index, book in
-                    coverView(for: book, index: index, layout: layout, totalCount: displayBooks.count)
+                    coverView(
+                        for: book,
+                        index: index,
+                        layout: layout,
+                        totalCount: displayBooks.count
+                    )
                 }
             }
             .frame(width: layout.totalWidth, height: coverHeight, alignment: .leading)
@@ -107,7 +112,9 @@ struct SeriesStackView: View {
         }
     }
 
-    private func coverView(for book: BookMetadata, index: Int, layout: LayoutInfo, totalCount: Int) -> some View {
+    private func coverView(for book: BookMetadata, index: Int, layout: LayoutInfo, totalCount: Int)
+        -> some View
+    {
         let coverVariant = resolveCoverVariant(for: book)
         let coverWidth = coverHeight * coverVariant.preferredAspectRatio
         let placeholderColor = Color(white: 0.2)
@@ -167,7 +174,9 @@ struct SeriesStackView: View {
         }
     }
 
-    private func calculateLayout(for pageBooks: [BookMetadata], availableWidth: CGFloat) -> LayoutInfo {
+    private func calculateLayout(for pageBooks: [BookMetadata], availableWidth: CGFloat)
+        -> LayoutInfo
+    {
         guard !pageBooks.isEmpty else {
             return LayoutInfo(offsets: [], totalWidth: 0)
         }
@@ -242,16 +251,16 @@ struct SeriesStackView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook {
+            case .preferEbook:
+                if item.hasAvailableEbook {
+                    return .standard
+                }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                    return .audioSquare
+                }
                 return .standard
-            }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly {
-                return .audioSquare
-            }
-            return .standard
         }
     }
 }

@@ -98,14 +98,14 @@ public final class ReadaloudProgressUpdater: ProgressUpdater, @unchecked Sendabl
 extension ProcessingStage {
     var displayName: String {
         switch self {
-        case .epub: return "Parsing EPUB"
-        case .audio: return "Processing Audio"
-        case .transcribe: return "Transcribing"
-        case .align: return "Aligning"
-        case .xml: return "Generating SMIL"
-        case .export: return "Exporting"
-        case .report: return "Creating Report"
-        case .all: return "Processing"
+            case .epub: return "Parsing EPUB"
+            case .audio: return "Processing Audio"
+            case .transcribe: return "Transcribing"
+            case .align: return "Aligning"
+            case .xml: return "Generating SMIL"
+            case .export: return "Exporting"
+            case .report: return "Creating Report"
+            case .all: return "Processing"
         }
     }
 }

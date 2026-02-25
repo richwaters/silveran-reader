@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 import UniformTypeIdentifiers
@@ -53,27 +54,29 @@ public struct UploadNewBookView: View {
                 } header: {
                     Text("Select Files")
                 } footer: {
-                    Text("Select up to three formats to upload. The book will be created from the uploaded media. Other formats can be added later.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "Select up to three formats to upload. The book will be created from the uploaded media. Other formats can be added later."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
 
                 if let result = uploadResult {
                     Section {
                         switch result {
-                        case .success:
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Upload complete")
-                            }
-                        case .failure(let message):
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                Text(message)
-                                    .foregroundStyle(.secondary)
-                            }
+                            case .success:
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                    Text("Upload complete")
+                                }
+                            case .failure(let message):
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.red)
+                                    Text(message)
+                                        .foregroundStyle(.secondary)
+                                }
                         }
                     }
                 }
@@ -230,7 +233,8 @@ public struct UploadNewBookView: View {
             if let url = selectedAudiobookURL {
                 await MainActor.run { uploadProgress = "Reading audiobook..." }
                 let data = try Data(contentsOf: url)
-                let contentType = url.pathExtension.lowercased() == "m4b" ? "audio/mp4" : "audio/mpeg"
+                let contentType =
+                    url.pathExtension.lowercased() == "m4b" ? "audio/mp4" : "audio/mpeg"
                 audiobookAsset = StorytellerUploadAsset(
                     format: .audiobook,
                     filename: url.lastPathComponent,
@@ -264,7 +268,12 @@ public struct UploadNewBookView: View {
             await MainActor.run {
                 isUploading = false
                 uploadProgress = nil
-                uploadResult = success ? .success : .failure("Upload failed. Your server may not support this feature yet. Please ensure you're running the latest server version.")
+                uploadResult =
+                    success
+                    ? .success
+                    : .failure(
+                        "Upload failed. Your server may not support this feature yet. Please ensure you're running the latest server version."
+                    )
             }
             await StorytellerActor.shared.fetchLibraryInformation()
         } catch {

@@ -220,17 +220,17 @@ public final class MediaViewModel {
             catState.latestReceived = record.receivedBytes
 
             switch record.state {
-            case .completed:
-                catState.isFinished = true
-            case .failed(let error, _):
-                catState.isFinished = true
-                catState.isFailed = true
-                state.errorDescription = error
-            case .queued, .downloading, .importing:
-                catState.isFinished = false
-            case .paused:
-                catState.isFinished = false
-                catState.isFailed = true
+                case .completed:
+                    catState.isFinished = true
+                case .failed(let error, _):
+                    catState.isFinished = true
+                    catState.isFailed = true
+                    state.errorDescription = error
+                case .queued, .downloading, .importing:
+                    catState.isFinished = false
+                case .paused:
+                    catState.isFinished = false
+                    catState.isFailed = true
             }
 
             state.categories[record.category] = catState
@@ -396,7 +396,8 @@ public final class MediaViewModel {
         readBookIds = Set(
             metadata.compactMap { metadata in
                 guard let status = metadata.status?.name,
-                      status.caseInsensitiveCompare("Read") == .orderedSame else { return nil }
+                    status.caseInsensitiveCompare("Read") == .orderedSame
+                else { return nil }
                 return metadata.id
             }
         )
@@ -509,8 +510,12 @@ public final class MediaViewModel {
         for key in seriesMap.keys {
             let seriesName = seriesMap[key]?.series?.name.lowercased()
             seriesMap[key]?.books.sort { a, b in
-                let posA = a.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? .greatestFiniteMagnitude
-                let posB = b.series?.first(where: { $0.name.lowercased() == seriesName })?.position ?? .greatestFiniteMagnitude
+                let posA =
+                    a.series?.first(where: { $0.name.lowercased() == seriesName })?.position
+                    ?? .greatestFiniteMagnitude
+                let posB =
+                    b.series?.first(where: { $0.name.lowercased() == seriesName })?.position
+                    ?? .greatestFiniteMagnitude
                 return posA < posB
             }
         }
@@ -736,7 +741,9 @@ public final class MediaViewModel {
             }
         }
 
-        var result: [(year: String, books: [BookMetadata])] = yearMap.map { (year: $0.key, books: $0.value) }
+        var result: [(year: String, books: [BookMetadata])] = yearMap.map {
+            (year: $0.key, books: $0.value)
+        }
         result.sort { a, b in
             if a.year == "Unknown" { return false }
             if b.year == "Unknown" { return true }
@@ -769,7 +776,9 @@ public final class MediaViewModel {
             }
         }
 
-        var result: [(tag: String, books: [BookMetadata])] = tagMap.map { (tag: $0.value.displayName, books: $0.value.books) }
+        var result: [(tag: String, books: [BookMetadata])] = tagMap.map {
+            (tag: $0.value.displayName, books: $0.value.books)
+        }
         result.sort { a, b in
             a.tag.localizedCaseInsensitiveCompare(b.tag) == .orderedAscending
         }
@@ -806,7 +815,9 @@ public final class MediaViewModel {
             }
         }
 
-        var result: [(rating: String, books: [BookMetadata])] = ratingMap.map { (rating: $0.key, books: $0.value) }
+        var result: [(rating: String, books: [BookMetadata])] = ratingMap.map {
+            (rating: $0.key, books: $0.value)
+        }
         result.sort { a, b in
             if a.rating == "Unrated" { return false }
             if b.rating == "Unrated" { return true }
@@ -840,7 +851,9 @@ public final class MediaViewModel {
         }
 
         let statusOrder = ["Reading", "To read", "Read", "Unknown"]
-        var result: [(status: String, books: [BookMetadata])] = statusMap.map { (status: $0.key, books: $0.value) }
+        var result: [(status: String, books: [BookMetadata])] = statusMap.map {
+            (status: $0.key, books: $0.value)
+        }
         result.sort { a, b in
             let indexA = statusOrder.firstIndex(of: a.status) ?? statusOrder.count
             let indexB = statusOrder.firstIndex(of: b.status) ?? statusOrder.count
@@ -883,7 +896,9 @@ public final class MediaViewModel {
         }
 
         let sourceOrder = ["Storyteller", "Local Files", "Unknown"]
-        var result: [(source: String, books: [BookMetadata])] = sourceMap.map { (source: $0.key, books: $0.value) }
+        var result: [(source: String, books: [BookMetadata])] = sourceMap.map {
+            (source: $0.key, books: $0.value)
+        }
         result.sort { a, b in
             let indexA = sourceOrder.firstIndex(of: a.source) ?? sourceOrder.count
             let indexB = sourceOrder.firstIndex(of: b.source) ?? sourceOrder.count
@@ -1020,7 +1035,8 @@ public final class MediaViewModel {
             case .all:
                 return true
             case .downloaded:
-                let hasDownload = isCategoryDownloaded(.ebook, for: item)
+                let hasDownload =
+                    isCategoryDownloaded(.ebook, for: item)
                     || isCategoryDownloaded(.audio, for: item)
                     || isCategoryDownloaded(.synced, for: item)
                 return hasDownload && !isLocalStandaloneBook(item.id)
@@ -1244,8 +1260,10 @@ public final class MediaViewModel {
         return state
     }
 
-    public func ensureCoverLoaded(for item: BookMetadata, variant overrideVariant: CoverVariant? = nil)
-    {
+    public func ensureCoverLoaded(
+        for item: BookMetadata,
+        variant overrideVariant: CoverVariant? = nil
+    ) {
         let variant = overrideVariant ?? coverVariant(for: item)
         let key = CoverKey(id: item.id, variant: variant)
         if coverStates[key]?.image != nil || missingCoverKeys.contains(key) {
@@ -1278,7 +1296,9 @@ public final class MediaViewModel {
                         )
                         self.registerCover(cover, for: item, variant: variant)
                     } else {
-                        debugLog("[MediaViewModel] ensureCoverLoaded: no cover found for local book '\(item.title)' (\(item.id))")
+                        debugLog(
+                            "[MediaViewModel] ensureCoverLoaded: no cover found for local book '\(item.title)' (\(item.id))"
+                        )
                         self.missingCoverKeys.insert(key)
                     }
                     self.coverTasks[key] = nil
@@ -1434,7 +1454,8 @@ public final class MediaViewModel {
         library.bookMetaData.filter { book in
             let prog = progress(for: book.id)
             let isLocal = isLocalStandaloneBook(book.id)
-            let hasDownloadedContent = isCategoryDownloaded(.ebook, for: book)
+            let hasDownloadedContent =
+                isCategoryDownloaded(.ebook, for: book)
                 || isCategoryDownloaded(.audio, for: book)
                 || isCategoryDownloaded(.synced, for: book)
             let locationInfo = ShelfLocationInfo(

@@ -25,7 +25,9 @@ extension BookMetadata {
         if filter == Self.unknownNarratorSentinel {
             guard let narrators, !narrators.isEmpty else { return true }
             return narrators.allSatisfy { n in
-                guard let name = n.name?.trimmingCharacters(in: .whitespacesAndNewlines) else { return true }
+                guard let name = n.name?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                    return true
+                }
                 return name.isEmpty
             }
         }

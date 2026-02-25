@@ -1,6 +1,6 @@
 import Foundation
-import StoryAlignCore
 import SilveranKitCommon
+import StoryAlignCore
 
 public final class ReadaloudLogger: Logger, @unchecked Sendable {
     private let lock = NSLock()
@@ -38,11 +38,11 @@ public final class ReadaloudLogger: Logger, @unchecked Sendable {
 
         let prefix: String
         switch level {
-        case .debug: prefix = "[DEBUG]"
-        case .info: prefix = "[INFO]"
-        case .timestamp: prefix = "[TIME]"
-        case .warn: prefix = "[WARN]"
-        case .error: prefix = "[ERROR]"
+            case .debug: prefix = "[DEBUG]"
+            case .info: prefix = "[INFO]"
+            case .timestamp: prefix = "[TIME]"
+            case .warn: prefix = "[WARN]"
+            case .error: prefix = "[ERROR]"
         }
 
         debugLog("[ReadaloudGenerator] \(prefix) \(formattedMessage)")
@@ -58,11 +58,11 @@ public final class ReadaloudLogger: Logger, @unchecked Sendable {
 extension LogLevel {
     var ordinalValue: Int {
         switch self {
-        case .debug: return 0
-        case .info: return 1
-        case .timestamp: return 2
-        case .warn: return 3
-        case .error: return 4
+            case .debug: return 0
+            case .info: return 1
+            case .timestamp: return 2
+            case .warn: return 3
+            case .error: return 4
         }
     }
 }

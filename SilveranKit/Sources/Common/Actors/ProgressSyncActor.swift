@@ -52,11 +52,11 @@ public actor ProgressSyncActor {
     private static let maxHistoryEntriesPerBook = 20
 
     private enum QueueResult {
-        case queued                      // Successfully added to queue
-        case replacedOlder               // Replaced an older entry in queue
-        case skippedNoChange             // Same timestamp as server/queue - nothing to do
-        case skippedQueueHasNewer        // Queue already has newer entry
-        case rejectedServerHasNewer      // Server position is newer than incoming
+        case queued  // Successfully added to queue
+        case replacedOlder  // Replaced an older entry in queue
+        case skippedNoChange  // Same timestamp as server/queue - nothing to do
+        case skippedQueueHasNewer  // Queue already has newer entry
+        case rejectedServerHasNewer  // Server position is newer than incoming
     }
 
     private var pendingProgressQueue: [PendingProgressSync] = []
@@ -72,7 +72,9 @@ public actor ProgressSyncActor {
     private var observers: [UUID: @Sendable @MainActor () -> Void] = [:]
     private var syncNotificationCallback: (@Sendable @MainActor (Int, Int) -> Void)?
 
-    private var incomingPositionObservers: [UUID: (bookId: String, callback: @Sendable @MainActor (IncomingServerPosition) -> Void)] = [:]
+    private var incomingPositionObservers:
+        [UUID: (bookId: String, callback: @Sendable @MainActor (IncomingServerPosition) -> Void)] =
+            [:]
     private var pollingTask: Task<Void, Never>? = nil
 
     public init() {
@@ -147,27 +149,27 @@ public actor ProgressSyncActor {
         )
 
         switch queueResult {
-        case .rejectedServerHasNewer:
-            let serverTs = serverPositions[bookId]?.timestamp ?? 0
-            let rejectionNote = "rejected: server has newer (\(serverTs) > \(timestamp))"
-            await addHistoryEntry(
-                bookId: bookId,
-                timestamp: timestamp,
-                sourceIdentifier: sourceIdentifier,
-                locationDescription: locationDescription,
-                reason: reason,
-                result: .rejectedAsOlder,
-                locatorSummary: "\(locatorSummary)\n\(rejectionNote)",
-                locator: locator
-            )
-            debugLog("[PSA] syncProgress: rejected as older than server")
-            return .success
+            case .rejectedServerHasNewer:
+                let serverTs = serverPositions[bookId]?.timestamp ?? 0
+                let rejectionNote = "rejected: server has newer (\(serverTs) > \(timestamp))"
+                await addHistoryEntry(
+                    bookId: bookId,
+                    timestamp: timestamp,
+                    sourceIdentifier: sourceIdentifier,
+                    locationDescription: locationDescription,
+                    reason: reason,
+                    result: .rejectedAsOlder,
+                    locatorSummary: "\(locatorSummary)\n\(rejectionNote)",
+                    locator: locator
+                )
+                debugLog("[PSA] syncProgress: rejected as older than server")
+                return .success
 
-        case .skippedNoChange, .skippedQueueHasNewer:
-            return .success
+            case .skippedNoChange, .skippedQueueHasNewer:
+                return .success
 
-        case .queued, .replacedOlder:
-            break
+            case .queued, .replacedOlder:
+                break
         }
 
         await updateLocalMetadataProgress(
@@ -591,13 +593,17 @@ public actor ProgressSyncActor {
     ) -> UUID {
         let id = UUID()
         incomingPositionObservers[id] = (bookId: bookId, callback: callback)
-        debugLog("[PSA] addIncomingPositionObserver: id=\(id), bookId=\(bookId), total=\(incomingPositionObservers.count)")
+        debugLog(
+            "[PSA] addIncomingPositionObserver: id=\(id), bookId=\(bookId), total=\(incomingPositionObservers.count)"
+        )
         return id
     }
 
     public func removeIncomingPositionObserver(id: UUID) {
         incomingPositionObservers.removeValue(forKey: id)
-        debugLog("[PSA] removeIncomingPositionObserver: id=\(id), total=\(incomingPositionObservers.count)")
+        debugLog(
+            "[PSA] removeIncomingPositionObserver: id=\(id), total=\(incomingPositionObservers.count)"
+        )
     }
 
     public func startPolling() {
@@ -643,7 +649,11 @@ public actor ProgressSyncActor {
         locator: BookLocator,
         timestamp: Double
     ) async {
-        let position = IncomingServerPosition(bookId: bookId, locator: locator, timestamp: timestamp)
+        let position = IncomingServerPosition(
+            bookId: bookId,
+            locator: locator,
+            timestamp: timestamp
+        )
         for (_, observer) in incomingPositionObservers where observer.bookId == bookId {
             await observer.callback(position)
         }

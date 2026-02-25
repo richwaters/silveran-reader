@@ -26,18 +26,28 @@ private final class ImmediateSelectTableView: NSTableView {
                     super.mouseDown(with: event)
                     return
                 }
-                if let cellView = view(atColumn: clickedCol, row: clickedRow, makeIfNecessary: false) {
-                    if let linkCell = cellView as? LinkTextCellView, let target = linkCell.linkTarget {
+                if let cellView = view(
+                    atColumn: clickedCol,
+                    row: clickedRow,
+                    makeIfNecessary: false
+                ) {
+                    if let linkCell = cellView as? LinkTextCellView,
+                        let target = linkCell.linkTarget
+                    {
                         onLinkClicked?(target)
                         super.mouseDown(with: event)
                         return
                     }
-                    if let seriesCell = cellView as? SeriesCellView, let target = seriesCell.linkTarget {
+                    if let seriesCell = cellView as? SeriesCellView,
+                        let target = seriesCell.linkTarget
+                    {
                         onLinkClicked?(target)
                         super.mouseDown(with: event)
                         return
                     }
-                    if let titleCell = cellView as? TitleAuthorCellView, let target = titleCell.authorLinkTarget {
+                    if let titleCell = cellView as? TitleAuthorCellView,
+                        let target = titleCell.authorLinkTarget
+                    {
                         let pointInCell = cellView.convert(point, from: self)
                         if titleCell.authorLabelContainsPoint(pointInCell) {
                             onLinkClicked?(target)
@@ -231,7 +241,10 @@ struct MediaTableView: NSViewRepresentable {
         if let selectedID = selection {
             if let index = items.firstIndex(where: { $0.id == selectedID }) {
                 if tableView.selectedRow != index {
-                    tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                    tableView.selectRowIndexes(
+                        IndexSet(integer: index),
+                        byExtendingSelection: false
+                    )
                 }
             }
         } else if tableView.selectedRow != -1 {
@@ -244,17 +257,20 @@ struct MediaTableView: NSViewRepresentable {
     private var isCoverColumnHidden: Bool {
         let visibility = columnCustomization[visibility: "cover"]
         switch visibility {
-        case .visible:
-            return false
-        case .hidden:
-            return true
-        default:
-            return !Self.defaultVisibleColumns.contains("cover")
+            case .visible:
+                return false
+            case .hidden:
+                return true
+            default:
+                return !Self.defaultVisibleColumns.contains("cover")
         }
     }
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
-    private static let defaultColumnOrder = ["cover", "title", "author", "series", "progress", "narrator", "translator", "publicationYear", "status", "added", "lastRead", "tags", "media"]
+    private static let defaultColumnOrder = [
+        "cover", "title", "author", "series", "progress", "narrator", "translator",
+        "publicationYear", "status", "added", "lastRead", "tags", "media",
+    ]
 
     private var columnWidthsKey: String { "library.table.\(tableContext).columnWidths" }
     private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
@@ -273,7 +289,10 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     private func loadColumnWidths() -> [String: CGFloat] {
-        guard let dict = UserDefaults.standard.dictionary(forKey: columnWidthsKey) as? [String: Double] else {
+        guard
+            let dict = UserDefaults.standard.dictionary(forKey: columnWidthsKey)
+                as? [String: Double]
+        else {
             return [:]
         }
         return dict.mapValues { CGFloat($0) }
@@ -290,12 +309,12 @@ struct MediaTableView: NSViewRepresentable {
             let visibility = columnCustomization[visibility: id]
             let isVisible: Bool
             switch visibility {
-            case .visible:
-                isVisible = true
-            case .hidden:
-                isVisible = false
-            default:
-                isVisible = Self.defaultVisibleColumns.contains(id)
+                case .visible:
+                    isVisible = true
+                case .hidden:
+                    isVisible = false
+                default:
+                    isVisible = Self.defaultVisibleColumns.contains(id)
             }
             column.isHidden = !isVisible
             if isVisible {
@@ -310,21 +329,22 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     private func setupColumns(tableView: NSTableView, context: Context) {
-        let columnDefs: [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
-            "cover": ("", 30, 50, 70),
-            "title": ("Title", 100, 200, 10000),
-            "author": ("Author", 80, 150, 10000),
-            "series": ("Series", 80, 140, 10000),
-            "progress": ("Progress", 60, 100, 140),
-            "narrator": ("Narrator", 80, 120, 10000),
-            "translator": ("Translator", 80, 120, 10000),
-            "publicationYear": ("Published", 80, 100, 10000),
-            "status": ("Status", 60, 80, 10000),
-            "added": ("Added", 80, 100, 10000),
-            "lastRead": ("Last Read", 80, 100, 10000),
-            "tags": ("Tags", 80, 120, 10000),
-            "media": ("Media", 100, 120, 150),
-        ]
+        let columnDefs:
+            [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
+                "cover": ("", 30, 50, 70),
+                "title": ("Title", 100, 200, 10000),
+                "author": ("Author", 80, 150, 10000),
+                "series": ("Series", 80, 140, 10000),
+                "progress": ("Progress", 60, 100, 140),
+                "narrator": ("Narrator", 80, 120, 10000),
+                "translator": ("Translator", 80, 120, 10000),
+                "publicationYear": ("Published", 80, 100, 10000),
+                "status": ("Status", 60, 80, 10000),
+                "added": ("Added", 80, 100, 10000),
+                "lastRead": ("Last Read", 80, 100, 10000),
+                "tags": ("Tags", 80, 120, 10000),
+                "media": ("Media", 100, 120, 150),
+            ]
 
         let savedWidths = loadColumnWidths()
         let savedOrder = loadColumnOrder()
@@ -341,9 +361,10 @@ struct MediaTableView: NSViewRepresentable {
             column.maxWidth = def.maxWidth
             column.isEditable = false
 
-            if id == "title" || id == "author" || id == "series" ||
-               id == "narrator" || id == "translator" || id == "publicationYear" ||
-               id == "status" || id == "added" || id == "tags" {
+            if id == "title" || id == "author" || id == "series" || id == "narrator"
+                || id == "translator" || id == "publicationYear" || id == "status" || id == "added"
+                || id == "tags"
+            {
                 column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
             }
 
@@ -381,11 +402,15 @@ struct MediaTableView: NSViewRepresentable {
         ]
 
         guard let columnID = keyPathToColumn[comparator.keyPath],
-              let column = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(columnID)) else {
+            let column = tableView.tableColumn(
+                withIdentifier: NSUserInterfaceItemIdentifier(columnID)
+            )
+        else {
             return
         }
 
-        let image = comparator.order == .forward
+        let image =
+            comparator.order == .forward
             ? NSImage(systemSymbolName: "chevron.up", accessibilityDescription: "Ascending")
             : NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Descending")
         tableView.setIndicatorImage(image, in: column)
@@ -414,7 +439,8 @@ struct MediaTableView: NSViewRepresentable {
         func tableViewColumnDidResize(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
             if let immediateTable = tableView as? ImmediateSelectTableView,
-               immediateTable.isProgrammaticResize {
+                immediateTable.isProgrammaticResize
+            {
                 return
             }
             parent.saveColumnWidths(from: tableView)
@@ -429,84 +455,141 @@ struct MediaTableView: NSViewRepresentable {
             items.count
         }
 
-        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-            guard let columnID = tableColumn?.identifier.rawValue, row < items.count else { return nil }
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
+            -> NSView?
+        {
+            guard let columnID = tableColumn?.identifier.rawValue, row < items.count else {
+                return nil
+            }
             let item = items[row]
             let cellID = NSUserInterfaceItemIdentifier("\(columnID)Cell")
 
             switch columnID {
-            case "cover":
-                return makeCoverCell(tableView: tableView, cellID: cellID, item: item)
-            case "title":
-                return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
-            case "author":
-                let name = item.authors?.first?.name ?? ""
-                let target: MetadataLinkTarget? = name.isEmpty ? nil : .author(name)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
-            case "series":
-                return makeSeriesCell(tableView: tableView, cellID: cellID, item: item)
-            case "progress":
-                return makeProgressCell(tableView: tableView, cellID: cellID, item: item)
-            case "narrator":
-                let name = item.narrators?.first?.name ?? ""
-                let target: MetadataLinkTarget? = name.isEmpty ? nil : .narrator(name)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
-            case "translator":
-                let name = item.sortableTranslator
-                let target: MetadataLinkTarget? = name.isEmpty ? nil : .translator(name)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: name, linkTarget: target)
-            case "publicationYear":
-                let year = item.sortablePublicationYear
-                let target: MetadataLinkTarget? = year.isEmpty ? nil : .publicationYear(year)
-                return makeLinkDateCell(tableView: tableView, cellID: cellID, dateString: item.publicationDate, linkTarget: target)
-            case "status":
-                let statusName = item.status?.name ?? ""
-                let target: MetadataLinkTarget? = statusName.isEmpty ? nil : .status(statusName)
-                return makeLinkTextCell(tableView: tableView, cellID: cellID, text: statusName, linkTarget: target)
-            case "added":
-                return makeDateCell(tableView: tableView, cellID: cellID, dateString: item.createdAt)
-            case "lastRead":
-                return makeDateCell(tableView: tableView, cellID: cellID, dateString: item.position?.updatedAt)
-            case "tags":
-                return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
-            case "media":
-                return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
-            default:
-                return nil
+                case "cover":
+                    return makeCoverCell(tableView: tableView, cellID: cellID, item: item)
+                case "title":
+                    return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
+                case "author":
+                    let name = item.authors?.first?.name ?? ""
+                    let target: MetadataLinkTarget? = name.isEmpty ? nil : .author(name)
+                    return makeLinkTextCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: name,
+                        linkTarget: target
+                    )
+                case "series":
+                    return makeSeriesCell(tableView: tableView, cellID: cellID, item: item)
+                case "progress":
+                    return makeProgressCell(tableView: tableView, cellID: cellID, item: item)
+                case "narrator":
+                    let name = item.narrators?.first?.name ?? ""
+                    let target: MetadataLinkTarget? = name.isEmpty ? nil : .narrator(name)
+                    return makeLinkTextCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: name,
+                        linkTarget: target
+                    )
+                case "translator":
+                    let name = item.sortableTranslator
+                    let target: MetadataLinkTarget? = name.isEmpty ? nil : .translator(name)
+                    return makeLinkTextCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: name,
+                        linkTarget: target
+                    )
+                case "publicationYear":
+                    let year = item.sortablePublicationYear
+                    let target: MetadataLinkTarget? = year.isEmpty ? nil : .publicationYear(year)
+                    return makeLinkDateCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        dateString: item.publicationDate,
+                        linkTarget: target
+                    )
+                case "status":
+                    let statusName = item.status?.name ?? ""
+                    let target: MetadataLinkTarget? = statusName.isEmpty ? nil : .status(statusName)
+                    return makeLinkTextCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: statusName,
+                        linkTarget: target
+                    )
+                case "added":
+                    return makeDateCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        dateString: item.createdAt
+                    )
+                case "lastRead":
+                    return makeDateCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        dateString: item.position?.updatedAt
+                    )
+                case "tags":
+                    return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
+                case "media":
+                    return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
+                default:
+                    return nil
             }
         }
 
-        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+        func tableView(
+            _ tableView: NSTableView,
+            sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]
+        ) {
             guard let descriptor = tableView.sortDescriptors.first,
-                  let key = descriptor.key else { return }
+                let key = descriptor.key
+            else { return }
 
             let order: SortOrder = descriptor.ascending ? .forward : .reverse
 
             switch key {
-            case "title":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.title, order: order)]
-            case "author":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableAuthor, order: order)]
-            case "series":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableSeries, order: order)]
-            case "progress":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.progress, order: order)]
-            case "narrator":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableNarrator, order: order)]
-            case "translator":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTranslator, order: order)]
-            case "publicationYear":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortablePublicationYear, order: order)]
-            case "status":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableStatus, order: order)]
-            case "added":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableAdded, order: order)]
-            case "lastRead":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableLastRead, order: order)]
-            case "tags":
-                parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
-            default:
-                break
+                case "title":
+                    parent.sortOrder = [KeyPathComparator(\BookMetadata.title, order: order)]
+                case "author":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAuthor, order: order)
+                    ]
+                case "series":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableSeries, order: order)
+                    ]
+                case "progress":
+                    parent.sortOrder = [KeyPathComparator(\BookMetadata.progress, order: order)]
+                case "narrator":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableNarrator, order: order)
+                    ]
+                case "translator":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableTranslator, order: order)
+                    ]
+                case "publicationYear":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortablePublicationYear, order: order)
+                    ]
+                case "status":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableStatus, order: order)
+                    ]
+                case "added":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAdded, order: order)
+                    ]
+                case "lastRead":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableLastRead, order: order)
+                    ]
+                case "tags":
+                    parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
+                default:
+                    break
             }
         }
 
@@ -540,10 +623,15 @@ struct MediaTableView: NSViewRepresentable {
             parent.onMetadataLinkClicked?(target)
         }
 
-        private func makeCoverCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+        private func makeCoverCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
             let coverVariant = resolveCoverVariant(for: item)
 
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
                 ?? HostingCellView(identifier: cellID)
             let content = CoverCellContent(
                 item: item,
@@ -554,51 +642,92 @@ struct MediaTableView: NSViewRepresentable {
             return cell
         }
 
-        private func makeTitleCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
+        private func makeTitleCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
             let stackedCellID = NSUserInterfaceItemIdentifier("titleStackedCell")
-            let cell = tableView.makeView(withIdentifier: stackedCellID, owner: self) as? TitleAuthorCellView
+            let cell =
+                tableView.makeView(withIdentifier: stackedCellID, owner: self)
+                as? TitleAuthorCellView
                 ?? TitleAuthorCellView(identifier: stackedCellID)
-            let coverColumn = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("cover"))
+            let coverColumn = tableView.tableColumn(
+                withIdentifier: NSUserInterfaceItemIdentifier("cover")
+            )
             let showAuthor = !(coverColumn?.isHidden ?? false)
-            cell.configure(title: item.title, author: item.authors?.first?.name, showAuthor: showAuthor)
+            cell.configure(
+                title: item.title,
+                author: item.authors?.first?.name,
+                showAuthor: showAuthor
+            )
             return cell
         }
 
-        private func makeTextCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, text: String, secondary: Bool) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? TextCellView
+        private func makeTextCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            text: String,
+            secondary: Bool
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? TextCellView
                 ?? TextCellView(identifier: cellID)
             cell.configure(text: text, secondary: secondary)
             return cell
         }
 
-        private func makeLinkTextCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, text: String, linkTarget: MetadataLinkTarget?) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? LinkTextCellView
+        private func makeLinkTextCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            text: String,
+            linkTarget: MetadataLinkTarget?
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? LinkTextCellView
                 ?? LinkTextCellView(identifier: cellID)
             cell.configure(text: text, linkTarget: linkTarget)
             return cell
         }
 
-        private func makeSeriesCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
+        private func makeSeriesCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
                 ?? SeriesCellView(identifier: cellID)
             cell.configure(series: item.series?.first)
             return cell
         }
 
-        private func makeProgressCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? ProgressCellView
+        private func makeProgressCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? ProgressCellView
                 ?? ProgressCellView(identifier: cellID)
             let progress = mediaViewModel.progress(for: item.id)
             cell.configure(progress: progress)
             return cell
         }
 
-        private func makeTagsCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+        private func makeTagsCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
                 ?? HostingCellView(identifier: cellID)
             let onLinkClicked = parent.onMetadataLinkClicked
             let content = TagFlowCellContent(
-                tags: item.tagNames.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
+                tags: item.tagNames.sorted {
+                    $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+                },
                 onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil,
                 compact: isCoverHidden
             )
@@ -606,24 +735,40 @@ struct MediaTableView: NSViewRepresentable {
             return cell
         }
 
-        private func makeMediaCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, item: BookMetadata) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+        private func makeMediaCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
                 ?? HostingCellView(identifier: cellID)
             let content = MediaIndicatorCellContent(item: item, mediaViewModel: mediaViewModel)
             cell.setContent(content)
             return cell
         }
 
-        private func makeDateCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, dateString: String?) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? DateCellView
+        private func makeDateCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            dateString: String?
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? DateCellView
                 ?? DateCellView(identifier: cellID)
             let parsedDate = dateString.flatMap { DateFormatterCache.shared.parseDate($0) }
             cell.configure(date: parsedDate, rawString: dateString ?? "")
             return cell
         }
 
-        private func makeLinkDateCell(tableView: NSTableView, cellID: NSUserInterfaceItemIdentifier, dateString: String?, linkTarget: MetadataLinkTarget?) -> NSView {
-            let cell = tableView.makeView(withIdentifier: cellID, owner: self) as? LinkDateCellView
+        private func makeLinkDateCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            dateString: String?,
+            linkTarget: MetadataLinkTarget?
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? LinkDateCellView
                 ?? LinkDateCellView(identifier: cellID)
             let parsedDate = dateString.flatMap { DateFormatterCache.shared.parseDate($0) }
             cell.configure(date: parsedDate, rawString: dateString ?? "", linkTarget: linkTarget)
@@ -632,12 +777,12 @@ struct MediaTableView: NSViewRepresentable {
 
         private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
             switch coverPreference {
-            case .preferEbook:
-                if item.hasAvailableEbook { return .standard }
-                return item.hasAvailableAudiobook ? .audioSquare : .standard
-            case .preferAudiobook:
-                if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
-                return .standard
+                case .preferEbook:
+                    if item.hasAvailableEbook { return .standard }
+                    return item.hasAvailableAudiobook ? .audioSquare : .standard
+                case .preferAudiobook:
+                    if item.hasAvailableAudiobook || item.isAudiobookOnly { return .audioSquare }
+                    return .standard
             }
         }
     }
@@ -1204,7 +1349,10 @@ private final class ProgressCellView: NSTableCellView {
         percentLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(percentLabel)
 
-        percentLabelTrailingConstraint = percentLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)
+        percentLabelTrailingConstraint = percentLabel.trailingAnchor.constraint(
+            equalTo: trailingAnchor,
+            constant: -4
+        )
         percentLabelCenterConstraint = percentLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
 
         NSLayoutConstraint.activate([
@@ -1245,7 +1393,12 @@ private final class ProgressCellView: NSTableCellView {
             let barWidth = bounds.width - 48
             let y = (bounds.height - barHeight) / 2
             trackLayer.frame = CGRect(x: 4, y: y, width: barWidth, height: barHeight)
-            fillLayer.frame = CGRect(x: 4, y: y, width: barWidth * currentProgress, height: barHeight)
+            fillLayer.frame = CGRect(
+                x: 4,
+                y: y,
+                width: barWidth * currentProgress,
+                height: barHeight
+            )
         }
 
         CATransaction.commit()
@@ -1411,7 +1564,12 @@ private struct TagFlowLayout: Layout {
         computeLayout(in: proposal.width ?? .infinity, subviews: subviews).size
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
         let result = computeLayout(in: bounds.width, subviews: subviews)
         state.visibleCount = result.visibleCount
         for (i, subview) in subviews.enumerated() {
@@ -1423,7 +1581,10 @@ private struct TagFlowLayout: Layout {
                     proposal: ProposedViewSize(width: cappedWidth, height: ideal.height)
                 )
             } else {
-                subview.place(at: CGPoint(x: bounds.minX - 10000, y: 0), proposal: .init(width: 0, height: 0))
+                subview.place(
+                    at: CGPoint(x: bounds.minX - 10000, y: 0),
+                    proposal: .init(width: 0, height: 0)
+                )
             }
         }
     }
@@ -1471,7 +1632,16 @@ private struct TagFlowLayout: Layout {
                 rowHeight = 0
                 currentRow += 1
             }
-            items.append(ItemInfo(index: idx, x: x, y: y, width: size.width, height: size.height, row: currentRow))
+            items.append(
+                ItemInfo(
+                    index: idx,
+                    x: x,
+                    y: y,
+                    width: size.width,
+                    height: size.height,
+                    row: currentRow
+                )
+            )
             rowHeight = max(rowHeight, size.height)
             x += size.width + spacing
         }
@@ -1487,7 +1657,11 @@ private struct TagFlowLayout: Layout {
                 maxW = max(maxW, item.x + item.width)
             }
             let h = items.last.map { $0.y + $0.height } ?? 0
-            return LayoutResult(size: CGSize(width: maxW, height: h), placements: placements, visibleCount: items.count)
+            return LayoutResult(
+                size: CGSize(width: maxW, height: h),
+                placements: placements,
+                visibleCount: items.count
+            )
         }
 
         var visible = items.filter { $0.row < maxRows }
@@ -1522,7 +1696,11 @@ private struct TagFlowLayout: Layout {
         }
 
         let h = visible.last.map { $0.y + $0.height } ?? overflowSize.height
-        return LayoutResult(size: CGSize(width: maxW, height: h), placements: placements, visibleCount: visible.count)
+        return LayoutResult(
+            size: CGSize(width: maxW, height: h),
+            placements: placements,
+            visibleCount: visible.count
+        )
     }
 }
 
@@ -1564,17 +1742,17 @@ private struct MediaIndicatorCellContent: View {
 
         var category: LocalMediaCategory {
             switch self {
-            case .ebook: return .ebook
-            case .audio: return .audio
-            case .synced: return .synced
+                case .ebook: return .ebook
+                case .audio: return .audio
+                case .synced: return .synced
             }
         }
 
         var iconName: String {
             switch self {
-            case .ebook: return "book.fill"
-            case .audio: return "headphones"
-            case .synced: return "text.bubble"
+                case .ebook: return "book.fill"
+                case .audio: return "headphones"
+                case .synced: return "text.bubble"
             }
         }
     }
@@ -1587,10 +1765,10 @@ private struct MediaIndicatorCellContent: View {
 
         var color: Color {
             switch self {
-            case .unavailable: return .gray.opacity(0.3)
-            case .availableNotDownloaded: return .blue
-            case .downloaded: return .green
-            case .downloading: return .blue
+                case .unavailable: return .gray.opacity(0.3)
+                case .availableNotDownloaded: return .blue
+                case .downloaded: return .green
+                case .downloading: return .blue
             }
         }
     }
@@ -1609,9 +1787,9 @@ private struct MediaIndicatorCellContent: View {
 
         let available: Bool
         switch type {
-        case .ebook: available = item.hasAvailableEbook
-        case .audio: available = item.hasAvailableAudiobook
-        case .synced: available = item.hasAvailableReadaloud
+            case .ebook: available = item.hasAvailableEbook
+            case .audio: available = item.hasAvailableAudiobook
+            case .synced: available = item.hasAvailableReadaloud
         }
 
         return available ? .availableNotDownloaded : .unavailable
@@ -1689,18 +1867,18 @@ private struct MediaIndicatorCellContent: View {
         let category = type.category
 
         switch status {
-        case .availableNotDownloaded:
-            if hasConnectionError {
-                showConnectionAlert = true
-            } else {
-                mediaViewModel.startDownload(for: item, category: category)
-            }
-        case .downloaded:
-            openMedia(for: category)
-        case .downloading:
-            mediaViewModel.cancelDownload(for: item, category: category)
-        case .unavailable:
-            break
+            case .availableNotDownloaded:
+                if hasConnectionError {
+                    showConnectionAlert = true
+                } else {
+                    mediaViewModel.startDownload(for: item, category: category)
+                }
+            case .downloaded:
+                openMedia(for: category)
+            case .downloading:
+                mediaViewModel.cancelDownload(for: item, category: category)
+            case .unavailable:
+                break
         }
     }
 
@@ -1708,15 +1886,17 @@ private struct MediaIndicatorCellContent: View {
         guard #available(macOS 13.0, *) else { return }
         let windowID: String
         switch category {
-        case .audio:
-            windowID = "AudiobookPlayer"
-        case .ebook, .synced:
-            windowID = "EbookPlayer"
+            case .audio:
+                windowID = "AudiobookPlayer"
+            case .ebook, .synced:
+                windowID = "EbookPlayer"
         }
         let path = mediaViewModel.localMediaPath(for: item.id, category: category)
-        let variant: MediaViewModel.CoverVariant = item.hasAvailableAudiobook ? .audioSquare : .standard
+        let variant: MediaViewModel.CoverVariant =
+            item.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: item, variant: variant)
-        let ebookCover = item.hasAvailableAudiobook
+        let ebookCover =
+            item.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: item, variant: .standard)
             : nil
         let bookData = PlayerBookData(
@@ -1782,24 +1962,24 @@ private final class DateFormatterCache {
 
     func format(_ dateString: String, style: DateStyle = .full) -> String {
         switch style {
-        case .full:
-            if let cached = cache[dateString] { return cached }
-            let parsedDate = parseDate(dateString)
-            let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
-            cache[dateString] = formatted
-            return formatted
-        case .monthYear:
-            if let cached = monthYearCache[dateString] { return cached }
-            let parsedDate = parseDate(dateString)
-            let formatted = parsedDate.map { monthYearFormatter.string(from: $0) } ?? dateString
-            monthYearCache[dateString] = formatted
-            return formatted
-        case .yearOnly:
-            if let cached = yearCache[dateString] { return cached }
-            let parsedDate = parseDate(dateString)
-            let formatted = parsedDate.map { yearFormatter.string(from: $0) } ?? dateString
-            yearCache[dateString] = formatted
-            return formatted
+            case .full:
+                if let cached = cache[dateString] { return cached }
+                let parsedDate = parseDate(dateString)
+                let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
+                cache[dateString] = formatted
+                return formatted
+            case .monthYear:
+                if let cached = monthYearCache[dateString] { return cached }
+                let parsedDate = parseDate(dateString)
+                let formatted = parsedDate.map { monthYearFormatter.string(from: $0) } ?? dateString
+                monthYearCache[dateString] = formatted
+                return formatted
+            case .yearOnly:
+                if let cached = yearCache[dateString] { return cached }
+                let parsedDate = parseDate(dateString)
+                let formatted = parsedDate.map { yearFormatter.string(from: $0) } ?? dateString
+                yearCache[dateString] = formatted
+                return formatted
         }
     }
 

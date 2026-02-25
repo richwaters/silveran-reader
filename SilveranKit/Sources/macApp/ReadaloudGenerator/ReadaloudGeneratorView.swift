@@ -1,6 +1,6 @@
-import SwiftUI
 import AppKit
 import StoryAlignCore
+import SwiftUI
 import UniformTypeIdentifiers
 
 public struct ReadaloudGeneratorView: View {
@@ -278,7 +278,10 @@ public struct ReadaloudGeneratorView: View {
 
             HStack {
                 Button("Show in Finder") {
-                    NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+                    NSWorkspace.shared.selectFile(
+                        url.path,
+                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+                    )
                 }
                 Button("Open") {
                     NSWorkspace.shared.open(url)
@@ -316,7 +319,9 @@ public struct ReadaloudGeneratorView: View {
                     viewModel.startAlignment()
                 } label: {
                     Text("Create Readaloud")
-                        .foregroundStyle(isDisabled ? Color(nsColor: .disabledControlTextColor) : .white)
+                        .foregroundStyle(
+                            isDisabled ? Color(nsColor: .disabledControlTextColor) : .white
+                        )
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(isDisabled)
@@ -371,7 +376,8 @@ public struct ReadaloudGeneratorView: View {
                 if isSavePanel {
                     let panel = NSSavePanel()
                     panel.allowedContentTypes = allowedTypes
-                    panel.nameFieldStringValue = suggestedFilename ?? url?.lastPathComponent ?? "output.epub"
+                    panel.nameFieldStringValue =
+                        suggestedFilename ?? url?.lastPathComponent ?? "output.epub"
                     if panel.runModal() == .OK {
                         onSelect(panel.url)
                     }

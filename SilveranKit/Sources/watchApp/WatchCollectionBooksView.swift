@@ -104,9 +104,13 @@ struct WatchCollectionBooksView: View {
                     if let record = downloadRecords[book.uuid], record.isIncomplete {
                         showDownloads = true
                     } else if !isBookDownloaded(book.uuid) {
-                        let category: LocalMediaCategory = book.hasAvailableReadaloud ? .synced : .ebook
+                        let category: LocalMediaCategory =
+                            book.hasAvailableReadaloud ? .synced : .ebook
                         Task {
-                            await DownloadManager.shared.startDownload(for: book, category: category)
+                            await DownloadManager.shared.startDownload(
+                                for: book,
+                                category: category
+                            )
                         }
                         showDownloads = true
                     }

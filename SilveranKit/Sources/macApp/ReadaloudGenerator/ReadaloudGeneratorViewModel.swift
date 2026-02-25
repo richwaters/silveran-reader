@@ -1,9 +1,10 @@
 import Foundation
-import StoryAlignCore
 import SilveranKitCommon
+import StoryAlignCore
 import ZIPFoundation
 
-private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
+{
     private let progressHandler: @Sendable (Double) -> Void
     private let completionHandler: @Sendable (URL?, Error?) -> Void
     var retainedSession: URLSession?
@@ -28,7 +29,9 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
             let pct = Int(progress * 100)
             if pct % 5 == 0 {
-                debugLog("[ReadaloudGenerator] Download progress: \(pct)% (\(totalBytesWritten / 1_000_000)MB / \(totalBytesExpectedToWrite / 1_000_000)MB)")
+                debugLog(
+                    "[ReadaloudGenerator] Download progress: \(pct)% (\(totalBytesWritten / 1_000_000)MB / \(totalBytesExpectedToWrite / 1_000_000)MB)"
+                )
             }
             progressHandler(progress)
         }
@@ -79,11 +82,11 @@ public enum WhisperModelSize: String, CaseIterable, Identifiable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .tiny: return "Tiny (fastest, ~75MB)"
-        case .base: return "Base (balanced, ~142MB)"
-        case .small: return "Small (good quality, ~466MB)"
-        case .largeV3Turbo: return "Large v3 Turbo (best, multilingual, ~809MB)"
-        case .custom: return "Custom..."
+            case .tiny: return "Tiny (fastest, ~75MB)"
+            case .base: return "Base (balanced, ~142MB)"
+            case .small: return "Small (good quality, ~466MB)"
+            case .largeV3Turbo: return "Large v3 Turbo (best, multilingual, ~809MB)"
+            case .custom: return "Custom..."
         }
     }
 
@@ -92,12 +95,18 @@ public enum WhisperModelSize: String, CaseIterable, Identifiable, Sendable {
 
     var downloadURLs: [URL]? {
         switch self {
-        case .custom: return nil
-        default:
-            return [
-                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue).bin")!,
-                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue)-encoder.mlmodelc.zip")!,
-            ]
+            case .custom: return nil
+            default:
+                return [
+                    URL(
+                        string:
+                            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue).bin"
+                    )!,
+                    URL(
+                        string:
+                            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue)-encoder.mlmodelc.zip"
+                    )!,
+                ]
         }
     }
 }
@@ -189,7 +198,8 @@ public final class ReadaloudGeneratorViewModel {
             // Combine: SMILParser labels for display, StoryAlign nameOrId for filtering
             let chapters = sections.enumerated().map { (index, section) in
                 let displayName = section.label ?? "[Section \(index + 1)] (Unknown)"
-                let filterId = index < storyAlignItems.count ? storyAlignItems[index].nameOrId : displayName
+                let filterId =
+                    index < storyAlignItems.count ? storyAlignItems[index].nameOrId : displayName
                 return (name: displayName, id: filterId)
             }
 
@@ -251,11 +261,15 @@ public final class ReadaloudGeneratorViewModel {
         let startIdx = await self.startChapterIndex
         let endIdx = await self.endChapterIndex
 
-        let startChapter = startIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].id : nil }
+        let startChapter = startIdx.flatMap {
+            chapters.indices.contains($0) ? chapters[$0].id : nil
+        }
         let endChapter = endIdx.flatMap { chapters.indices.contains($0) ? chapters[$0].id : nil }
 
         guard let modelPath else {
-            await MainActor.run { self.state = .error("Whisper model not found. Please download it first.") }
+            await MainActor.run {
+                self.state = .error("Whisper model not found. Please download it first.")
+            }
             return
         }
 
@@ -391,14 +405,20 @@ public final class ReadaloudGeneratorViewModel {
             debugLog("[ReadaloudGenerator] Created models directory")
         } catch {
             debugLog("[ReadaloudGenerator] Failed to create directory: \(error)")
-            await MainActor.run { self.state = .error("Failed to create models directory: \(error.localizedDescription)") }
+            await MainActor.run {
+                self.state = .error(
+                    "Failed to create models directory: \(error.localizedDescription)"
+                )
+            }
             return
         }
 
         debugLog("[ReadaloudGenerator] Will download \(urls.count) files")
 
         for (index, url) in urls.enumerated() {
-            debugLog("[ReadaloudGenerator] Processing file \(index + 1)/\(urls.count): \(url.lastPathComponent)")
+            debugLog(
+                "[ReadaloudGenerator] Processing file \(index + 1)/\(urls.count): \(url.lastPathComponent)"
+            )
             if Task.isCancelled {
                 await MainActor.run { self.state = .idle }
                 return
@@ -416,7 +436,11 @@ public final class ReadaloudGeneratorViewModel {
 
             do {
                 debugLog("[ReadaloudGenerator] Starting download from \(url)")
-                let localURL = try await downloadFile(from: url, baseProgress: baseProgress, fileWeight: fileWeight)
+                let localURL = try await downloadFile(
+                    from: url,
+                    baseProgress: baseProgress,
+                    fileWeight: fileWeight
+                )
                 debugLog("[ReadaloudGenerator] Download complete: \(url.lastPathComponent)")
 
                 if url.pathExtension == "zip" {
@@ -430,13 +454,17 @@ public final class ReadaloudGeneratorViewModel {
                 }
 
                 let progress = Double(index + 1) / Double(urls.count)
-                debugLog("[ReadaloudGenerator] File \(index + 1)/\(urls.count) done, progress: \(Int(progress * 100))%")
+                debugLog(
+                    "[ReadaloudGenerator] File \(index + 1)/\(urls.count) done, progress: \(Int(progress * 100))%"
+                )
                 await MainActor.run { self.state = .downloading(progress) }
 
             } catch {
                 let errorMessage = error.localizedDescription
                 debugLog("[ReadaloudGenerator] Download failed: \(errorMessage)")
-                await MainActor.run { self.state = .error("Failed to download model: \(errorMessage)") }
+                await MainActor.run {
+                    self.state = .error("Failed to download model: \(errorMessage)")
+                }
                 return
             }
         }
@@ -445,7 +473,9 @@ public final class ReadaloudGeneratorViewModel {
         await MainActor.run { self.state = .idle }
     }
 
-    private nonisolated func downloadFile(from url: URL, baseProgress: Double, fileWeight: Double) async throws -> URL {
+    private nonisolated func downloadFile(from url: URL, baseProgress: Double, fileWeight: Double)
+        async throws -> URL
+    {
         try await withCheckedThrowingContinuation { continuation in
             let delegate = ModelDownloadDelegate(
                 progressHandler: { [weak self] fileProgress in
@@ -460,7 +490,13 @@ public final class ReadaloudGeneratorViewModel {
                     } else if let downloadedURL {
                         continuation.resume(returning: downloadedURL)
                     } else {
-                        continuation.resume(throwing: NSError(domain: "ReadaloudGenerator", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download failed"]))
+                        continuation.resume(
+                            throwing: NSError(
+                                domain: "ReadaloudGenerator",
+                                code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "Download failed"]
+                            )
+                        )
                     }
                 }
             )
@@ -476,7 +512,10 @@ public final class ReadaloudGeneratorViewModel {
     }
 
     private func modelsDirectory() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!
         return appSupport.appendingPathComponent("SilveranReader/WhisperModels")
     }
 

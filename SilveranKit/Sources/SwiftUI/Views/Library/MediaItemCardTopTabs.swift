@@ -304,7 +304,8 @@ struct MediaItemCardTopTabsButtonOverlay: View {
         let variant: MediaViewModel.CoverVariant =
             item.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: item, variant: variant)
-        let ebookCover = item.hasAvailableAudiobook
+        let ebookCover =
+            item.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: item, variant: .standard)
             : nil
         let bookData = PlayerBookData(

@@ -81,14 +81,17 @@ struct TVSettingsView: View {
                 }
 
                 Section("Display") {
-                    Picker("Font", selection: Binding(
-                        get: { settingsViewModel.fontFamily },
-                        set: { newValue in
-                            Task {
-                                await settingsViewModel.updateFontFamily(newValue)
+                    Picker(
+                        "Font",
+                        selection: Binding(
+                            get: { settingsViewModel.fontFamily },
+                            set: { newValue in
+                                Task {
+                                    await settingsViewModel.updateFontFamily(newValue)
+                                }
                             }
-                        }
-                    )) {
+                        )
+                    ) {
                         Text("System Default").tag("System Default")
                         Text("Serif").tag("serif")
                         Text("Sans-Serif").tag("sans-serif")
@@ -102,14 +105,17 @@ struct TVSettingsView: View {
                         }
                     }
 
-                    Picker("Book Font Size", selection: Binding(
-                        get: { settingsViewModel.tvSubtitleFontSize },
-                        set: { newValue in
-                            Task {
-                                await settingsViewModel.updateSubtitleFontSize(newValue)
+                    Picker(
+                        "Book Font Size",
+                        selection: Binding(
+                            get: { settingsViewModel.tvSubtitleFontSize },
+                            set: { newValue in
+                                Task {
+                                    await settingsViewModel.updateSubtitleFontSize(newValue)
+                                }
                             }
-                        }
-                    )) {
+                        )
+                    ) {
                         Text("Small").tag(36.0)
                         Text("Medium").tag(48.0)
                         Text("Large").tag(64.0)

@@ -74,9 +74,11 @@ struct MediaTableRowView: View {
         guard let category else { return nil }
         let freshMetadata = mediaViewModel.library.bookMetaData.first { $0.id == item.id } ?? item
         let path = mediaViewModel.localMediaPath(for: item.id, category: category)
-        let variant: MediaViewModel.CoverVariant = freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
+        let variant: MediaViewModel.CoverVariant =
+            freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: freshMetadata, variant: variant)
-        let ebookCover = freshMetadata.hasAvailableAudiobook
+        let ebookCover =
+            freshMetadata.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: freshMetadata, variant: .standard)
             : nil
         return PlayerBookData(
@@ -107,9 +109,9 @@ struct MediaTableRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 #if os(macOS)
-                .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
                 #else
-                .fill(Color.clear)
+            .fill(Color.clear)
                 #endif
         )
         .contentShape(Rectangle())
@@ -215,22 +217,26 @@ struct MediaTableRowView: View {
 
         var category: LocalMediaCategory {
             switch self {
-            case .ebook: return .ebook
-            case .audio: return .audio
-            case .synced: return .synced
+                case .ebook: return .ebook
+                case .audio: return .audio
+                case .synced: return .synced
             }
         }
 
         var iconName: String {
             switch self {
-            case .ebook: return "book.fill"
-            case .audio: return "headphones"
-            case .synced: return "text.bubble"
+                case .ebook: return "book.fill"
+                case .audio: return "headphones"
+                case .synced: return "text.bubble"
             }
         }
     }
 
-    private func mediaColor(for status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool)) -> Color {
+    private func mediaColor(
+        for status: (
+            available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
+        )
+    ) -> Color {
         if !status.available {
             return .gray.opacity(0.3)
         } else if status.downloaded {
@@ -242,18 +248,23 @@ struct MediaTableRowView: View {
         }
     }
 
-    private func mediaStatus(for type: MediaType) -> (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool) {
+    private func mediaStatus(for type: MediaType) -> (
+        available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
+    ) {
         let category = type.category
         let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
         let downloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
-        let progress = downloading ? mediaViewModel.downloadProgressFraction(for: item, category: category) : nil
-        let failed = !downloading && mediaViewModel.isCategoryDownloadFailed(for: item, category: category)
+        let progress =
+            downloading
+            ? mediaViewModel.downloadProgressFraction(for: item, category: category) : nil
+        let failed =
+            !downloading && mediaViewModel.isCategoryDownloadFailed(for: item, category: category)
 
         let available: Bool
         switch type {
-        case .ebook: available = item.hasAvailableEbook
-        case .audio: available = item.hasAvailableAudiobook
-        case .synced: available = item.hasAvailableReadaloud
+            case .ebook: available = item.hasAvailableEbook
+            case .audio: available = item.hasAvailableAudiobook
+            case .synced: available = item.hasAvailableReadaloud
         }
 
         return (available, downloaded, downloading, progress, failed)
@@ -330,7 +341,12 @@ struct MediaTableRowView: View {
         #endif
     }
 
-    private func handleMediaTap(for type: MediaType, status: (available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool)) {
+    private func handleMediaTap(
+        for type: MediaType,
+        status: (
+            available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
+        )
+    ) {
         let category = type.category
 
         if status.downloading {
@@ -350,15 +366,17 @@ struct MediaTableRowView: View {
     private func openMedia(for category: LocalMediaCategory) {
         let windowID: String
         switch category {
-        case .audio:
-            windowID = "AudiobookPlayer"
-        case .ebook, .synced:
-            windowID = "EbookPlayer"
+            case .audio:
+                windowID = "AudiobookPlayer"
+            case .ebook, .synced:
+                windowID = "EbookPlayer"
         }
         let path = mediaViewModel.localMediaPath(for: item.id, category: category)
-        let variant: MediaViewModel.CoverVariant = item.hasAvailableAudiobook ? .audioSquare : .standard
+        let variant: MediaViewModel.CoverVariant =
+            item.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: item, variant: variant)
-        let ebookCover = item.hasAvailableAudiobook
+        let ebookCover =
+            item.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: item, variant: .standard)
             : nil
         let bookData = PlayerBookData(
@@ -374,16 +392,16 @@ struct MediaTableRowView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook {
+            case .preferEbook:
+                if item.hasAvailableEbook {
+                    return .standard
+                }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                    return .audioSquare
+                }
                 return .standard
-            }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly {
-                return .audioSquare
-            }
-            return .standard
         }
     }
 

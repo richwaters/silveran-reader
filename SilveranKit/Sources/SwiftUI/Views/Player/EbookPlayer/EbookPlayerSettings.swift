@@ -166,7 +166,9 @@ struct EbookPlayerSettings: View {
                         }
                     }
 
-                    if isCustomFont(settingsVM.fontFamily) && !customFamilies.contains(where: { $0.name == settingsVM.fontFamily }) {
+                    if isCustomFont(settingsVM.fontFamily)
+                        && !customFamilies.contains(where: { $0.name == settingsVM.fontFamily })
+                    {
                         Text(settingsVM.fontFamily).tag(settingsVM.fontFamily)
                     }
                 }
@@ -535,19 +537,19 @@ private struct IOSFontManagerView: View {
                         allowedContentTypes: [
                             UTType(filenameExtension: "ttf") ?? .data,
                             UTType(filenameExtension: "otf") ?? .data,
-                            UTType.font
+                            UTType.font,
                         ],
                         allowsMultipleSelection: true
                     ) { result in
                         Task {
                             switch result {
-                            case .success(let urls):
-                                for url in urls {
-                                    try? await CustomFontsActor.shared.importFont(from: url)
-                                }
-                                await refreshFonts()
-                            case .failure:
-                                break
+                                case .success(let urls):
+                                    for url in urls {
+                                        try? await CustomFontsActor.shared.importFont(from: url)
+                                    }
+                                    await refreshFonts()
+                                case .failure:
+                                    break
                             }
                         }
                     }
@@ -579,9 +581,11 @@ private struct IOSFontManagerView: View {
                                 HStack {
                                     VStack(alignment: .leading) {
                                         Text(family.name)
-                                        Text("\(family.variants.count) variant\(family.variants.count == 1 ? "" : "s")")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                        Text(
+                                            "\(family.variants.count) variant\(family.variants.count == 1 ? "" : "s")"
+                                        )
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     if selectedFont == family.name {

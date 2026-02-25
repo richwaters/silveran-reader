@@ -68,10 +68,10 @@ public actor StorytellerActor {
     private var reconnectFailureCount: Int = 0
     private var reconnectCooldownUntil: Date? = nil
     public private(set) var lastNetworkOpSucceeded: Bool? = nil
-#if canImport(Network)
+    #if canImport(Network)
     private var networkMonitor: NWPathMonitor? = nil
     private let networkMonitorQueue = DispatchQueue(label: "StorytellerActor.NetworkMonitor")
-#endif
+    #endif
 
     public init(
         session: URLSession? = nil
@@ -176,11 +176,12 @@ public actor StorytellerActor {
 
             while !Task.isCancelled {
                 let currentStatus = await self.connectionStatus
-                let sleepInterval: Duration = if currentStatus == .connected {
-                    .seconds(30)
-                } else {
-                    .seconds(3)
-                }
+                let sleepInterval: Duration =
+                    if currentStatus == .connected {
+                        .seconds(30)
+                    } else {
+                        .seconds(3)
+                    }
 
                 try? await Task.sleep(for: sleepInterval)
                 guard !Task.isCancelled else { break }
@@ -291,7 +292,7 @@ public actor StorytellerActor {
     }
 
     private func startNetworkMonitoring() {
-#if canImport(Network)
+        #if canImport(Network)
         guard networkMonitor == nil else { return }
         let monitor = NWPathMonitor()
         networkMonitor = monitor
@@ -300,17 +301,17 @@ public actor StorytellerActor {
             Task { await self.handleNetworkPathUpdate(path) }
         }
         monitor.start(queue: networkMonitorQueue)
-#endif
+        #endif
     }
 
     private func stopNetworkMonitoring() {
-#if canImport(Network)
+        #if canImport(Network)
         networkMonitor?.cancel()
         networkMonitor = nil
-#endif
+        #endif
     }
 
-#if canImport(Network)
+    #if canImport(Network)
     private func handleNetworkPathUpdate(_ path: NWPath) async {
         debugLog("[StorytellerActor] network path update: status=\(path.status)")
         if path.status == .satisfied && isAppActive {
@@ -325,7 +326,7 @@ public actor StorytellerActor {
             await updateConnectionStatus(.error("No network"))
         }
     }
-#endif
+    #endif
 
     public func setLastNetworkOpSucceeded(_ succeeded: Bool) {
         lastNetworkOpSucceeded = succeeded
@@ -729,7 +730,8 @@ public actor StorytellerActor {
     ) async -> URLRequest? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
 
-        let fileURL = baseURL
+        let fileURL =
+            baseURL
             .appendingPathComponent("books")
             .appendingPathComponent(bookId)
             .appendingPathComponent("files")
@@ -1076,7 +1078,9 @@ public actor StorytellerActor {
 
             let status = response.statusCode
             if status == 404 || status == 405 {
-                debugLog("[StorytellerActor] deleteBookAsset: endpoint not supported (status \(status))")
+                debugLog(
+                    "[StorytellerActor] deleteBookAsset: endpoint not supported (status \(status))"
+                )
                 return .notSupported
             }
 
@@ -1490,7 +1494,9 @@ public actor StorytellerActor {
             }
 
             let uploadURL = resolveUploadLocation(locationHeader, relativeTo: uploadBaseURL)
-            debugLog("[StorytellerActor] uploadAsset: POST succeeded, Location=\(locationHeader), PATCH URL=\(uploadURL.absoluteString), dataSize=\(asset.data.count)")
+            debugLog(
+                "[StorytellerActor] uploadAsset: POST succeeded, Location=\(locationHeader), PATCH URL=\(uploadURL.absoluteString), dataSize=\(asset.data.count)"
+            )
 
             var patchAllowedStatuses = Set(200..<300)
             patchAllowedStatuses.insert(401)
@@ -1588,11 +1594,15 @@ public actor StorytellerActor {
             .joined(separator: ",")
 
         guard !asset.data.isEmpty else {
-            debugLog("[StorytellerActor] replaceBookAsset received empty data for \(asset.filename).")
+            debugLog(
+                "[StorytellerActor] replaceBookAsset received empty data for \(asset.filename)."
+            )
             return .failed
         }
 
-        debugLog("[StorytellerActor] replaceBookAsset: URL=\(uploadBaseURL.absoluteString), bookUUID=\(bookUUID), metadata=\(metadata)")
+        debugLog(
+            "[StorytellerActor] replaceBookAsset: URL=\(uploadBaseURL.absoluteString), bookUUID=\(bookUUID), metadata=\(metadata)"
+        )
 
         do {
             var createAllowedStatuses = Set(200..<300)
@@ -1617,7 +1627,9 @@ public actor StorytellerActor {
 
             let status = createResponse.statusCode
             if status == 404 || status == 405 {
-                debugLog("[StorytellerActor] replaceBookAsset: endpoint not supported (status \(status))")
+                debugLog(
+                    "[StorytellerActor] replaceBookAsset: endpoint not supported (status \(status))"
+                )
                 return .notSupported
             }
 
@@ -1732,7 +1744,9 @@ public actor StorytellerActor {
 
     /// Updates the status for a set of books using `/api/v2/books/status`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/status/route.ts` (PUT handler).
-    public func updateStatus(forBooks bookIds: [String], toStatusNamed statusName: String) async -> Bool {
+    public func updateStatus(forBooks bookIds: [String], toStatusNamed statusName: String) async
+        -> Bool
+    {
         guard !bookIds.isEmpty else {
             debugLog("[StorytellerActor] updateStatus requires at least one book id.")
             return false
@@ -1743,7 +1757,9 @@ public actor StorytellerActor {
         }
 
         guard let status = cachedStatuses.first(where: { $0.name == statusName }) else {
-            debugLog("[StorytellerActor] updateStatus error: status '\(statusName)' not found in cached statuses")
+            debugLog(
+                "[StorytellerActor] updateStatus error: status '\(statusName)' not found in cached statuses"
+            )
             return false
         }
 
@@ -2568,7 +2584,8 @@ public actor StorytellerActor {
     public func fetchBookPosition(bookId: String) async -> BookReadingPosition? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
 
-        let url = baseURL
+        let url =
+            baseURL
             .appendingPathComponent("books")
             .appendingPathComponent(bookId)
             .appendingPathComponent("positions")

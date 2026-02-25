@@ -73,7 +73,9 @@ struct ConditionEditorSheet: View {
                 Text("Add \(conditionType.label) Condition")
                     .font(.headline)
                 Spacer()
-                Button { dismiss() } label: {
+                Button {
+                    dismiss()
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                         .imageScale(.large)
@@ -111,31 +113,67 @@ struct ConditionEditorSheet: View {
     @ViewBuilder
     private var editorContent: some View {
         switch conditionType {
-        case .format:
-            let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
-            multiSelectEditor(items: basicFormats.map(\.label), itemLabel: "Formats", searchable: false)
-        case .status:
-            multiSelectEditor(items: cachedStatuses, itemLabel: "Statuses", searchable: cachedStatuses.count > 5)
-        case .location:
-            multiSelectEditor(items: LocationCondition.allCases.map(\.label), itemLabel: "Locations", searchable: false)
-        case .progress:
-            multiSelectEditor(items: ProgressCondition.allCases.map(\.label), itemLabel: "Progress States", searchable: false)
-        case .rating:
-            ratingEditor
-        case .publicationYear:
-            publicationYearEditor
-        case .tag:
-            multiSelectEditor(items: cachedValues[.tag] ?? [], itemLabel: "Tags", supportsPresence: true)
-        case .series:
-            multiSelectEditor(items: cachedValues[.series] ?? [], itemLabel: "Series", supportsPresence: true)
-        case .author:
-            multiSelectEditor(items: cachedValues[.author] ?? [], itemLabel: "Authors", supportsPresence: true)
-        case .narrator:
-            multiSelectEditor(items: cachedValues[.narrator] ?? [], itemLabel: "Narrators", supportsPresence: true)
-        case .translator:
-            multiSelectEditor(items: cachedValues[.translator] ?? [], itemLabel: "Translators", supportsPresence: true)
-        case .boolean:
-            EmptyView()
+            case .format:
+                let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
+                multiSelectEditor(
+                    items: basicFormats.map(\.label),
+                    itemLabel: "Formats",
+                    searchable: false
+                )
+            case .status:
+                multiSelectEditor(
+                    items: cachedStatuses,
+                    itemLabel: "Statuses",
+                    searchable: cachedStatuses.count > 5
+                )
+            case .location:
+                multiSelectEditor(
+                    items: LocationCondition.allCases.map(\.label),
+                    itemLabel: "Locations",
+                    searchable: false
+                )
+            case .progress:
+                multiSelectEditor(
+                    items: ProgressCondition.allCases.map(\.label),
+                    itemLabel: "Progress States",
+                    searchable: false
+                )
+            case .rating:
+                ratingEditor
+            case .publicationYear:
+                publicationYearEditor
+            case .tag:
+                multiSelectEditor(
+                    items: cachedValues[.tag] ?? [],
+                    itemLabel: "Tags",
+                    supportsPresence: true
+                )
+            case .series:
+                multiSelectEditor(
+                    items: cachedValues[.series] ?? [],
+                    itemLabel: "Series",
+                    supportsPresence: true
+                )
+            case .author:
+                multiSelectEditor(
+                    items: cachedValues[.author] ?? [],
+                    itemLabel: "Authors",
+                    supportsPresence: true
+                )
+            case .narrator:
+                multiSelectEditor(
+                    items: cachedValues[.narrator] ?? [],
+                    itemLabel: "Narrators",
+                    supportsPresence: true
+                )
+            case .translator:
+                multiSelectEditor(
+                    items: cachedValues[.translator] ?? [],
+                    itemLabel: "Translators",
+                    supportsPresence: true
+                )
+            case .boolean:
+                EmptyView()
         }
     }
 
@@ -209,9 +247,12 @@ struct ConditionEditorSheet: View {
             }
             .frame(maxWidth: 200)
 
-            Text(verbatim: "Rating \(ratingComparison.symbol) \(ratingValue) star\(ratingValue == 1 ? "" : "s")")
-                .foregroundStyle(.secondary)
-                .font(.callout)
+            Text(
+                verbatim:
+                    "Rating \(ratingComparison.symbol) \(ratingValue) star\(ratingValue == 1 ? "" : "s")"
+            )
+            .foregroundStyle(.secondary)
+            .font(.callout)
         }
     }
 
@@ -421,7 +462,12 @@ struct ConditionEditorSheet: View {
     // MARK: - Multi-select editor
 
     @ViewBuilder
-    private func multiSelectEditor(items: [String], itemLabel: String, supportsPresence: Bool = false, searchable: Bool = true) -> some View {
+    private func multiSelectEditor(
+        items: [String],
+        itemLabel: String,
+        supportsPresence: Bool = false,
+        searchable: Bool = true
+    ) -> some View {
         VStack(spacing: 0) {
             if supportsPresence {
                 Picker("Presence", selection: $presenceMode) {
@@ -469,14 +515,20 @@ struct ConditionEditorSheet: View {
                         Text("No \(itemLabel.lowercased()) available in your library.")
                     }
                 } else {
-                    searchableList(items: items, prompt: "Filter \(itemLabel.lowercased())", searchable: searchable)
+                    searchableList(
+                        items: items,
+                        prompt: "Filter \(itemLabel.lowercased())",
+                        searchable: searchable
+                    )
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func searchableList(items: [String], prompt: String, searchable: Bool = true) -> some View {
+    private func searchableList(items: [String], prompt: String, searchable: Bool = true)
+        -> some View
+    {
         if searchable {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
@@ -502,7 +554,8 @@ struct ConditionEditorSheet: View {
             .padding(.bottom, 8)
         }
 
-        let filtered = searchable && !searchText.isEmpty
+        let filtered =
+            searchable && !searchText.isEmpty
             ? items.filter { $0.localizedCaseInsensitiveContains(searchText) }
             : items
 
@@ -546,86 +599,100 @@ struct ConditionEditorSheet: View {
 
     private var canAdd: Bool {
         switch conditionType {
-        case .format, .status, .location, .progress:
-            return !selectedItems.isEmpty
-        case .rating:
-            if presenceMode != .selectSpecific { return true }
-            return ratingMode == .single || ratingRangeLow < ratingRangeHigh
-        case .publicationYear:
-            if presenceMode != .selectSpecific { return true }
-            if yearTab == .beforeAfter {
-                let hasYears = !(cachedValues[.publicationYear] ?? []).isEmpty
-                if !hasYears { return false }
-                return yearCompareMode == .single || yearRangeLow <= yearRangeHigh
-            }
-            return !selectedItems.isEmpty
-        case .tag, .series, .author, .narrator, .translator:
-            return presenceMode != .selectSpecific || !selectedItems.isEmpty
-        case .boolean:
-            return false
+            case .format, .status, .location, .progress:
+                return !selectedItems.isEmpty
+            case .rating:
+                if presenceMode != .selectSpecific { return true }
+                return ratingMode == .single || ratingRangeLow < ratingRangeHigh
+            case .publicationYear:
+                if presenceMode != .selectSpecific { return true }
+                if yearTab == .beforeAfter {
+                    let hasYears = !(cachedValues[.publicationYear] ?? []).isEmpty
+                    if !hasYears { return false }
+                    return yearCompareMode == .single || yearRangeLow <= yearRangeHigh
+                }
+                return !selectedItems.isEmpty
+            case .tag, .series, .author, .narrator, .translator:
+                return presenceMode != .selectSpecific || !selectedItems.isEmpty
+            case .boolean:
+                return false
         }
     }
 
     private func buildConditions() -> [ShelfCondition]? {
         guard canAdd else { return nil }
         switch conditionType {
-        case .format:
-            let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
-            let conditions = basicFormats.filter { selectedItems.contains($0.label) }
-            return [.format(mode: inclusionMode, conditions: conditions)]
-        case .status:
-            return [.status(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .location:
-            let conditions = LocationCondition.allCases.filter { selectedItems.contains($0.label) }
-            return [.location(mode: inclusionMode, conditions: conditions)]
-        case .progress:
-            let conditions = ProgressCondition.allCases.filter { selectedItems.contains($0.label) }
-            return [.progress(mode: inclusionMode, conditions: conditions)]
-        case .rating:
-            if presenceMode == .anyPresent { return [.hasRating] }
-            if presenceMode == .nonePresent { return [.noRating] }
-            if ratingMode == .single {
-                return [.rating(comparison: ratingComparison, value: ratingValue)]
-            }
-            return [
-                .rating(comparison: .greaterThanOrEqual, value: ratingRangeLow),
-                .rating(comparison: .lessThanOrEqual, value: ratingRangeHigh),
-            ]
-        case .publicationYear:
-            if presenceMode == .anyPresent { return [.hasPublicationYear] }
-            if presenceMode == .nonePresent { return [.noPublicationYear] }
-            if yearTab == .beforeAfter {
-                if yearCompareMode == .single {
-                    return [.publicationYearComparison(comparison: yearComparison, value: selectedYear)]
+            case .format:
+                let basicFormats: [FormatCondition] = [.ebook, .audiobook, .readaloud]
+                let conditions = basicFormats.filter { selectedItems.contains($0.label) }
+                return [.format(mode: inclusionMode, conditions: conditions)]
+            case .status:
+                return [.status(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .location:
+                let conditions = LocationCondition.allCases.filter {
+                    selectedItems.contains($0.label)
+                }
+                return [.location(mode: inclusionMode, conditions: conditions)]
+            case .progress:
+                let conditions = ProgressCondition.allCases.filter {
+                    selectedItems.contains($0.label)
+                }
+                return [.progress(mode: inclusionMode, conditions: conditions)]
+            case .rating:
+                if presenceMode == .anyPresent { return [.hasRating] }
+                if presenceMode == .nonePresent { return [.noRating] }
+                if ratingMode == .single {
+                    return [.rating(comparison: ratingComparison, value: ratingValue)]
                 }
                 return [
-                    .publicationYearComparison(comparison: .newerThan, value: yearRangeLow - 1),
-                    .publicationYearComparison(comparison: .olderThan, value: yearRangeHigh + 1),
+                    .rating(comparison: .greaterThanOrEqual, value: ratingRangeLow),
+                    .rating(comparison: .lessThanOrEqual, value: ratingRangeHigh),
                 ]
-            }
-            return [.publicationYear(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .tag:
-            if presenceMode == .anyPresent { return [.hasTag] }
-            if presenceMode == .nonePresent { return [.noTag] }
-            return [.tag(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .series:
-            if presenceMode == .anyPresent { return [.hasSeries] }
-            if presenceMode == .nonePresent { return [.noSeries] }
-            return [.series(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .author:
-            if presenceMode == .anyPresent { return [.hasAuthor] }
-            if presenceMode == .nonePresent { return [.noAuthor] }
-            return [.author(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .narrator:
-            if presenceMode == .anyPresent { return [.hasNarrator] }
-            if presenceMode == .nonePresent { return [.noNarrator] }
-            return [.narrator(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .translator:
-            if presenceMode == .anyPresent { return [.hasTranslator] }
-            if presenceMode == .nonePresent { return [.noTranslator] }
-            return [.translator(mode: inclusionMode, values: Array(selectedItems).sorted())]
-        case .boolean:
-            return nil
+            case .publicationYear:
+                if presenceMode == .anyPresent { return [.hasPublicationYear] }
+                if presenceMode == .nonePresent { return [.noPublicationYear] }
+                if yearTab == .beforeAfter {
+                    if yearCompareMode == .single {
+                        return [
+                            .publicationYearComparison(
+                                comparison: yearComparison,
+                                value: selectedYear
+                            )
+                        ]
+                    }
+                    return [
+                        .publicationYearComparison(comparison: .newerThan, value: yearRangeLow - 1),
+                        .publicationYearComparison(
+                            comparison: .olderThan,
+                            value: yearRangeHigh + 1
+                        ),
+                    ]
+                }
+                return [
+                    .publicationYear(mode: inclusionMode, values: Array(selectedItems).sorted())
+                ]
+            case .tag:
+                if presenceMode == .anyPresent { return [.hasTag] }
+                if presenceMode == .nonePresent { return [.noTag] }
+                return [.tag(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .series:
+                if presenceMode == .anyPresent { return [.hasSeries] }
+                if presenceMode == .nonePresent { return [.noSeries] }
+                return [.series(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .author:
+                if presenceMode == .anyPresent { return [.hasAuthor] }
+                if presenceMode == .nonePresent { return [.noAuthor] }
+                return [.author(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .narrator:
+                if presenceMode == .anyPresent { return [.hasNarrator] }
+                if presenceMode == .nonePresent { return [.noNarrator] }
+                return [.narrator(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .translator:
+                if presenceMode == .anyPresent { return [.hasTranslator] }
+                if presenceMode == .nonePresent { return [.noTranslator] }
+                return [.translator(mode: inclusionMode, values: Array(selectedItems).sorted())]
+            case .boolean:
+                return nil
         }
     }
 }

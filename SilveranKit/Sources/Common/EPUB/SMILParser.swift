@@ -77,7 +77,9 @@ public enum SMILParser {
 
         debugLog("[TOC-DEBUG] Raw TOC entries from parser: \(rawTocEntries.count)")
         for (i, raw) in rawTocEntries.enumerated() {
-            debugLog("[TOC-DEBUG]   raw[\(i)] level=\(raw.level) label=\"\(raw.label)\" href=\"\(raw.href)\"")
+            debugLog(
+                "[TOC-DEBUG]   raw[\(i)] level=\(raw.level) label=\"\(raw.label)\" href=\"\(raw.href)\""
+            )
         }
 
         debugLog("[TOC-DEBUG] Spine sections: \(sections.count)")
@@ -88,7 +90,9 @@ public enum SMILParser {
         let tocEntries = rawTocEntries.compactMap { raw -> TocEntry? in
             let baseHref = raw.href.components(separatedBy: "#").first ?? raw.href
             guard let idx = findSectionIndex(for: baseHref, in: sections) else {
-                debugLog("[TOC-DEBUG]   DROPPED raw entry: no section match for baseHref=\"\(baseHref)\" (label=\"\(raw.label)\")")
+                debugLog(
+                    "[TOC-DEBUG]   DROPPED raw entry: no section match for baseHref=\"\(baseHref)\" (label=\"\(raw.label)\")"
+                )
                 return nil
             }
             return TocEntry(label: raw.label, href: raw.href, level: raw.level, sectionIndex: idx)
@@ -96,7 +100,9 @@ public enum SMILParser {
 
         debugLog("[TOC-DEBUG] Final tocEntries: \(tocEntries.count)")
         for (i, entry) in tocEntries.enumerated() {
-            debugLog("[TOC-DEBUG]   toc[\(i)] level=\(entry.level) sectionIdx=\(entry.sectionIndex) label=\"\(entry.label)\" href=\"\(entry.href)\"")
+            debugLog(
+                "[TOC-DEBUG]   toc[\(i)] level=\(entry.level) sectionIdx=\(entry.sectionIndex) label=\"\(entry.label)\" href=\"\(entry.href)\""
+            )
         }
 
         let labelsBySection = labelsFromTocEntries(tocEntries)
@@ -441,11 +447,13 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
                     let state = stack[stack.count - 1]
                     let trimmedText = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedText.isEmpty {
-                        entries.append(SMILParser.RawTocEntry(
-                            label: trimmedText,
-                            href: decoded,
-                            level: state.depth
-                        ))
+                        entries.append(
+                            SMILParser.RawTocEntry(
+                                label: trimmedText,
+                                href: decoded,
+                                level: state.depth
+                            )
+                        )
                         stack[stack.count - 1].emitted = true
                     }
                 }
@@ -554,11 +562,13 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
                 if inAnchor, let href = currentHref {
                     let trimmedText = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedText.isEmpty {
-                        entries.append(SMILParser.RawTocEntry(
-                            label: trimmedText,
-                            href: href,
-                            level: max(0, olDepth - 1)
-                        ))
+                        entries.append(
+                            SMILParser.RawTocEntry(
+                                label: trimmedText,
+                                href: href,
+                                level: max(0, olDepth - 1)
+                            )
+                        )
                     }
                 }
                 inAnchor = false

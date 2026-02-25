@@ -57,8 +57,12 @@ struct TVSearchView: View {
             .filter { $0.hasAvailableReadaloud }
             .filter { book in
                 book.title.localizedCaseInsensitiveContains(searchText)
-                    || book.authors?.contains { $0.name?.localizedCaseInsensitiveContains(searchText) == true } == true
-                    || book.series?.contains { $0.name.localizedCaseInsensitiveContains(searchText) } == true
+                    || book.authors?.contains {
+                        $0.name?.localizedCaseInsensitiveContains(searchText) == true
+                    } == true
+                    || book.series?.contains {
+                        $0.name.localizedCaseInsensitiveContains(searchText)
+                    } == true
             }
             .sorted { $0.title.articleStrippedCompare($1.title) == .orderedAscending }
     }

@@ -42,7 +42,13 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         self.savedWidthKey = savedWidthKey
     }
 
-    init(expandRight: Bool, expandLeft: Bool, rightAmount: CGFloat, leftAmount: CGFloat, savedWidthKey: String? = nil) {
+    init(
+        expandRight: Bool,
+        expandLeft: Bool,
+        rightAmount: CGFloat,
+        leftAmount: CGFloat,
+        savedWidthKey: String? = nil
+    ) {
         self.expandRight = expandRight
         self.expandLeft = expandLeft
         self.rightAmount = rightAmount
@@ -73,8 +79,9 @@ struct WindowFrameAdjuster: NSViewRepresentable {
                 setupResizeObserver(window: window, coordinator: coordinator)
 
                 if let key = savedWidthKey,
-                   let savedWidth = UserDefaults.standard.object(forKey: key) as? CGFloat,
-                   savedWidth > 0 {
+                    let savedWidth = UserDefaults.standard.object(forKey: key) as? CGFloat,
+                    savedWidth > 0
+                {
                     let expectedWidth = savedWidth + currentExpansion.right + currentExpansion.left
                     if abs(window.frame.width - expectedWidth) > 1 {
                         var frame = window.frame
@@ -86,14 +93,22 @@ struct WindowFrameAdjuster: NSViewRepresentable {
                 if expandRight && currentExpansion.right == 0 {
                     var frame = window.frame
                     frame.size.width += rightAmount
-                    sharedState.setExpansion(for: window, right: rightAmount, left: currentExpansion.left)
+                    sharedState.setExpansion(
+                        for: window,
+                        right: rightAmount,
+                        left: currentExpansion.left
+                    )
                     window.setFrame(frame, display: true, animate: true)
                 }
                 if expandLeft && currentExpansion.left == 0 {
                     var frame = window.frame
                     frame.size.width += leftAmount
                     frame.origin.x -= leftAmount
-                    sharedState.setExpansion(for: window, right: currentExpansion.right, left: leftAmount)
+                    sharedState.setExpansion(
+                        for: window,
+                        right: currentExpansion.right,
+                        left: leftAmount
+                    )
                     window.setFrame(frame, display: true, animate: true)
                 }
                 return

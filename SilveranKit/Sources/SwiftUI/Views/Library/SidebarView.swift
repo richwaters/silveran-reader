@@ -54,7 +54,8 @@ struct SidebarView: View {
         guard id.hasPrefix("pin.smartShelf:") else { return nil }
         let uuidString = String(id.dropFirst("pin.smartShelf:".count))
         guard let uuid = UUID(uuidString: uuidString),
-              let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) else {
+            let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+        else {
             return nil
         }
         return SidebarItemDescription(
@@ -74,14 +75,16 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "books.vertical",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    seriesFilter: name,
-                    defaultSort: "seriesPosition"
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        seriesFilter: name,
+                        defaultSort: "seriesPosition"
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.collection:") {
@@ -91,13 +94,15 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "rectangle.stack",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    collectionFilter: name
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        collectionFilter: name
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.author:") {
@@ -107,13 +112,15 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "person.2",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    authorFilter: name
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        authorFilter: name
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.narrator:") {
@@ -123,13 +130,15 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "mic",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    narratorFilter: name
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        narratorFilter: name
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.translator:") {
@@ -139,13 +148,15 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "character.book.closed.fill",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    translatorFilter: name
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        translatorFilter: name
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.tag:") {
@@ -155,13 +166,15 @@ struct SidebarView: View {
                 name: name,
                 systemImage: "tag",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: name,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    tagFilter: name
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: name,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        tagFilter: name
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.year:") {
@@ -171,13 +184,15 @@ struct SidebarView: View {
                 name: year,
                 systemImage: "calendar",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: year,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    publicationYearFilter: year
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: year,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        publicationYearFilter: year
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.rating:") {
@@ -188,37 +203,41 @@ struct SidebarView: View {
                 name: label,
                 systemImage: "star",
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: label,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    ratingFilter: rating
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: label,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        ratingFilter: rating
+                    )
+                )
             )
         }
         if id.hasPrefix("pin.status:") {
             let status = String(id.dropFirst("pin.status:".count))
             let icon: String
             switch status.lowercased() {
-            case "reading": icon = "arrow.right.circle.fill"
-            case "to read": icon = "bookmark.fill"
-            case "read": icon = "checkmark.circle.fill"
-            default: icon = "questionmark.circle.fill"
+                case "reading": icon = "arrow.right.circle.fill"
+                case "to read": icon = "bookmark.fill"
+                case "read": icon = "checkmark.circle.fill"
+                default: icon = "questionmark.circle.fill"
             }
             return SidebarItemDescription(
                 id: id,
                 name: status,
                 systemImage: icon,
                 badge: -1,
-                content: .mediaGrid(MediaGridConfiguration(
-                    title: status,
-                    mediaKind: .ebook,
-                    preferredTileWidth: 120,
-                    minimumTileWidth: 50,
-                    statusFilter: status,
-                    defaultSort: "recentlyRead"
-                ))
+                content: .mediaGrid(
+                    MediaGridConfiguration(
+                        title: status,
+                        mediaKind: .ebook,
+                        preferredTileWidth: 120,
+                        minimumTileWidth: 50,
+                        statusFilter: status,
+                        defaultSort: "recentlyRead"
+                    )
+                )
             )
         }
         return nil
@@ -252,11 +271,13 @@ struct SidebarView: View {
         }
         .onAppear {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
-            homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            homeSectionConfigJSON =
+                UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
         .onChange(of: sidebarConfigJSON) {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
-            homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            homeSectionConfigJSON =
+                UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
         .searchable(
             text: $searchText,
@@ -291,7 +312,9 @@ struct SidebarView: View {
     // MARK: - Data-driven section rendering
 
     @ViewBuilder
-    private func sidebarSection(for group: SidebarConfigGroup, config: [SidebarConfigGroup]) -> some View {
+    private func sidebarSection(for group: SidebarConfigGroup, config: [SidebarConfigGroup])
+        -> some View
+    {
         let resolvedItems = group.items.compactMap { resolveConfigItem($0) }
         let isPinGroup = group.items.contains { $0.id == SidebarConfigHelper.newPinLocationMarker }
 
@@ -318,7 +341,9 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
-    private func sectionHeader(for group: SidebarConfigGroup, config: [SidebarConfigGroup]) -> some View {
+    private func sectionHeader(for group: SidebarConfigGroup, config: [SidebarConfigGroup])
+        -> some View
+    {
         HStack {
             Text(group.name)
                 .font(.headline)
@@ -402,7 +427,9 @@ struct SidebarView: View {
 
     #if os(macOS)
     @ViewBuilder
-    private func sidebarRowContextMenu(for item: SidebarItemDescription, isPinned: Bool) -> some View {
+    private func sidebarRowContextMenu(for item: SidebarItemDescription, isPinned: Bool)
+        -> some View
+    {
         if isPinned {
             Button {
                 SidebarPinHelper.togglePin(item.id)
@@ -414,7 +441,8 @@ struct SidebarView: View {
         if item.id.hasPrefix("pin.smartShelf:") {
             let uuidString = String(item.id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
+                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+            {
                 Divider()
                 Button {
                     editingShelf = shelf

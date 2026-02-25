@@ -1,7 +1,12 @@
 import SwiftUI
 
 #if os(macOS)
-struct CategoryListSidebar<RowContent: View, DetailContent: View, ToolbarContent: View, ContextMenu: View>: View {
+struct CategoryListSidebar<
+    RowContent: View,
+    DetailContent: View,
+    ToolbarContent: View,
+    ContextMenu: View
+>: View {
     let headerTitle: String
     let sidebarTitle: String
     let groups: [CategoryGroup]
@@ -199,18 +204,18 @@ struct CategoryRowContent: View {
         HStack {
             Image(systemName: iconName)
                 #if os(iOS)
-                .font(.body)
+            .font(.body)
                 #else
-                .font(.system(size: 14))
+            .font(.system(size: 14))
                 #endif
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
 
             Text(name)
                 #if os(iOS)
-                .font(.body)
+            .font(.body)
                 #else
-                .font(.system(size: 14))
+            .font(.system(size: 14))
                 #endif
                 .lineLimit(1)
 
@@ -218,9 +223,9 @@ struct CategoryRowContent: View {
 
             Text("\(bookCount)")
                 #if os(iOS)
-                .font(.subheadline)
+            .font(.subheadline)
                 #else
-                .font(.system(size: 12))
+            .font(.system(size: 12))
                 #endif
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
@@ -253,7 +258,8 @@ struct CategoryRowContent: View {
             }
         }
         .onAppear { isPinned = pinId.map { SidebarPinHelper.isPinned($0) } ?? false }
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
+            _ in
             let newValue = pinId.map { SidebarPinHelper.isPinned($0) } ?? false
             if isPinned != newValue { isPinned = newValue }
         }

@@ -15,8 +15,10 @@ struct RatingView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -25,8 +27,12 @@ struct RatingView: View {
     @State private var sortByCount = false
     #endif
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -34,7 +40,10 @@ struct RatingView: View {
         if case .error = mediaViewModel.connectionStatus { return true }
         return false
     }
-    private var connectionErrorIcon: String { if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }; return "wifi.slash" }
+    private var connectionErrorIcon: String {
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
+        return "wifi.slash"
+    }
     #endif
 
     private var categoryGroups: [CategoryGroup] {
@@ -42,15 +51,24 @@ struct RatingView: View {
         let filtered = filterGroups(groups)
         return filtered.map { group in
             let displayName = RatingDisplayHelper.label(for: group.rating)
-            return CategoryGroup(id: group.rating, name: displayName, books: group.books, pinId: SidebarPinHelper.pinId(forRating: group.rating))
+            return CategoryGroup(
+                id: group.rating,
+                name: displayName,
+                books: group.books,
+                pinId: SidebarPinHelper.pinId(forRating: group.rating)
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(rating: String, books: [BookMetadata])]) -> [(rating: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(rating: String, books: [BookMetadata])]) -> [(
+        rating: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let ratingMatches = RatingDisplayHelper.label(for: group.rating).lowercased().contains(searchLower)
+            let ratingMatches = RatingDisplayHelper.label(for: group.rating).lowercased().contains(
+                searchLower
+            )
             let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) }
             if ratingMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
@@ -82,19 +100,49 @@ extension RatingView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Ratings").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing: 12) {
-                if hasConnectionError, let showOfflineSheet { Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) } }
-                Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
-            }}}
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: RatingDetailNavigation.self) { nav in ratingDetailView(for: nav.rating, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: BookMetadata.self) { item in iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        if hasConnectionError, let showOfflineSheet {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
+            .navigationDestination(for: RatingDetailNavigation.self) { nav in
+                ratingDetailView(for: nav.rating, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
+            }
+            .navigationDestination(for: BookMetadata.self) { item in
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }.environment(\.mediaNavigationPath, $navigationPath)
     }
 
@@ -104,7 +152,16 @@ extension RatingView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "star.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "star.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
                     }
                 }
@@ -115,9 +172,20 @@ extension RatingView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -125,14 +193,28 @@ extension RatingView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Rating").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
     }
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category { case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline); case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline) }
+        switch bookData.category { case .audio:
+            AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 #endif
@@ -143,22 +225,85 @@ extension RatingView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: CategoryListSidebar(headerTitle: "Books by Rating", sidebarTitle: "Ratings", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "star.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, ratingFilter: group.id, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
-                    toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Rating",
+                            sidebarTitle: "Ratings",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "star.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    ratingFilter: group.id,
+                                    defaultSort: "title",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
-            }.navigationDestination(for: RatingDetailNavigation.self) { nav in ratingDetailView(for: nav.rating, initialSelectedItem: nav.initialSelectedBook) }
+            }.navigationDestination(for: RatingDetailNavigation.self) { nav in
+                ratingDetailView(for: nav.rating, initialSelectedItem: nav.initialSelectedBook)
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -171,7 +316,14 @@ extension RatingView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -179,12 +331,38 @@ extension RatingView {
 #endif
 
 extension RatingView {
-    @ViewBuilder fileprivate func ratingDetailView(for rating: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func ratingDetailView(
+        for rating: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         let displayName = RatingDisplayHelper.label(for: rating)
         #if os(iOS)
-        MediaGridView(title: displayName, searchText: "", mediaKind: mediaKind, ratingFilter: rating, defaultSort: "title", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(displayName)
+        MediaGridView(
+            title: displayName,
+            searchText: "",
+            mediaKind: mediaKind,
+            ratingFilter: rating,
+            defaultSort: "title",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(displayName)
         #else
-        MediaGridView(title: displayName, searchText: "", mediaKind: mediaKind, ratingFilter: rating, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(displayName)
+        MediaGridView(
+            title: displayName,
+            searchText: "",
+            mediaKind: mediaKind,
+            ratingFilter: rating,
+            defaultSort: "title",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(displayName)
         #endif
     }
 }
@@ -193,6 +371,7 @@ enum RatingDisplayHelper {
     static func label(for rating: String) -> String {
         if rating == "Unrated" { return "Unrated" }
         guard let stars = Int(rating) else { return rating }
-        return String(repeating: "\u{2605}", count: stars) + String(repeating: "\u{2606}", count: 5 - stars)
+        return String(repeating: "\u{2605}", count: stars)
+            + String(repeating: "\u{2606}", count: 5 - stars)
     }
 }

@@ -179,7 +179,9 @@ struct MediaGridSortAndFilterBar: View {
         let translators = availableTranslators
         let publicationYears = availablePublicationYears
 
-        if !tags.isEmpty || !series.isEmpty || !authors.isEmpty || !narrators.isEmpty || !translators.isEmpty || !publicationYears.isEmpty {
+        if !tags.isEmpty || !series.isEmpty || !authors.isEmpty || !narrators.isEmpty
+            || !translators.isEmpty || !publicationYears.isEmpty
+        {
             Divider()
             Section("Other") {
                 if !tags.isEmpty {
@@ -276,7 +278,10 @@ struct MediaGridSortAndFilterBar: View {
                         Button {
                             selectedTranslator = nil
                         } label: {
-                            menuRowLabel(text: "All Translators", isSelected: selectedTranslator == nil)
+                            menuRowLabel(
+                                text: "All Translators",
+                                isSelected: selectedTranslator == nil
+                            )
                         }
 
                         ForEach(translators, id: \.self) { translatorName in
@@ -299,7 +304,10 @@ struct MediaGridSortAndFilterBar: View {
                         Button {
                             selectedPublicationYear = nil
                         } label: {
-                            menuRowLabel(text: "All Years", isSelected: selectedPublicationYear == nil)
+                            menuRowLabel(
+                                text: "All Years",
+                                isSelected: selectedPublicationYear == nil
+                            )
                         }
 
                         ForEach(publicationYears, id: \.self) { year in
@@ -423,8 +431,8 @@ struct MediaGridSortAndFilterBar: View {
         #else
         .sheet(isPresented: $showViewOptions) {
             viewOptionsPopoverContent
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         #endif
     }
@@ -474,7 +482,13 @@ struct MediaGridSortAndFilterBar: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                ForEach([LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid, LibraryLayoutStyle.table], id: \.self) { style in
+                ForEach(
+                    [
+                        LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid,
+                        LibraryLayoutStyle.table,
+                    ],
+                    id: \.self
+                ) { style in
                     Button {
                         layoutStyle = style
                     } label: {
@@ -587,12 +601,12 @@ struct MediaGridSortAndFilterBar: View {
         guard let binding = columnCustomization else { return false }
         let visibility = binding.wrappedValue[visibility: id]
         switch visibility {
-        case .visible:
-            return true
-        case .hidden:
-            return false
-        default:
-            return Self.defaultVisibleColumns.contains(id)
+            case .visible:
+                return true
+            case .hidden:
+                return false
+            default:
+                return Self.defaultVisibleColumns.contains(id)
         }
     }
 

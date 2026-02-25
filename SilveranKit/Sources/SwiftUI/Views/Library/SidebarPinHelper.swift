@@ -21,9 +21,10 @@ enum HomeSectionConfigHelper {
 
     static var config: [HomeSectionConfigItem] {
         guard let json = UserDefaults.standard.string(forKey: key),
-              let data = json.data(using: .utf8),
-              let items = try? JSONDecoder().decode([HomeSectionConfigItem].self, from: data),
-              !items.isEmpty else {
+            let data = json.data(using: .utf8),
+            let items = try? JSONDecoder().decode([HomeSectionConfigItem].self, from: data),
+            !items.isEmpty
+        else {
             return defaultConfig
         }
         return items
@@ -31,7 +32,8 @@ enum HomeSectionConfigHelper {
 
     static func save(_ items: [HomeSectionConfigItem]) {
         guard let data = try? JSONEncoder().encode(items),
-              let json = String(data: data, encoding: .utf8) else { return }
+            let json = String(data: data, encoding: .utf8)
+        else { return }
         UserDefaults.standard.set(json, forKey: key)
     }
 
@@ -41,7 +43,8 @@ enum HomeSectionConfigHelper {
         var current = config
         let existingIds = Set(current.map(\.id))
 
-        let staleIds = current
+        let staleIds =
+            current
             .filter { !builtInIds.contains($0.id) && !homePinIds.contains($0.id) }
             .map(\.id)
 
@@ -58,23 +61,23 @@ enum HomeSectionConfigHelper {
 
     static func displayName(for id: String) -> String {
         switch id {
-        case "currentlyReading": return "Currently Reading"
-        case "startReading": return "Start Reading"
-        case "recentlyAdded": return "Recently Added"
-        case "completed": return "Completed"
-        default:
-            return pinDisplayName(for: id) ?? id
+            case "currentlyReading": return "Currently Reading"
+            case "startReading": return "Start Reading"
+            case "recentlyAdded": return "Recently Added"
+            case "completed": return "Completed"
+            default:
+                return pinDisplayName(for: id) ?? id
         }
     }
 
     static func systemImage(for id: String) -> String {
         switch id {
-        case "currentlyReading": return "book"
-        case "startReading": return "bookmark"
-        case "recentlyAdded": return "clock"
-        case "completed": return "checkmark.circle"
-        default:
-            return pinSystemImage(for: id) ?? "questionmark"
+            case "currentlyReading": return "book"
+            case "startReading": return "bookmark"
+            case "recentlyAdded": return "clock"
+            case "completed": return "checkmark.circle"
+            default:
+                return pinSystemImage(for: id) ?? "questionmark"
         }
     }
 
@@ -107,10 +110,10 @@ enum HomeSectionConfigHelper {
         if id.hasPrefix("pin.status:") {
             let status = String(id.dropFirst("pin.status:".count))
             switch status.lowercased() {
-            case "reading": return "arrow.right.circle.fill"
-            case "to read": return "bookmark.fill"
-            case "read": return "checkmark.circle.fill"
-            default: return "questionmark.circle.fill"
+                case "reading": return "arrow.right.circle.fill"
+                case "to read": return "bookmark.fill"
+                case "read": return "checkmark.circle.fill"
+                default: return "questionmark.circle.fill"
             }
         }
         if id.hasPrefix("pin.smartShelf:") { return "sparkles.rectangle.stack" }
@@ -172,7 +175,9 @@ enum SidebarPinHelper {
         let newItem = SidebarConfigItem(id: id, visible: true, permanent: false)
 
         for i in groups.indices {
-            if let markerIndex = groups[i].items.firstIndex(where: { $0.id == SidebarConfigHelper.newPinLocationMarker }) {
+            if let markerIndex = groups[i].items.firstIndex(where: {
+                $0.id == SidebarConfigHelper.newPinLocationMarker
+            }) {
                 groups[i].items.insert(newItem, at: markerIndex)
                 SidebarConfigHelper.config = groups
                 return

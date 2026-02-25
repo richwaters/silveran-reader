@@ -140,14 +140,19 @@ struct MediaItemCardView: View {
     }
 
     @ViewBuilder
-    private func iOSContextMenuMediaOption(for category: LocalMediaCategory, label: String) -> some View {
+    private func iOSContextMenuMediaOption(for category: LocalMediaCategory, label: String)
+        -> some View
+    {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
-        let isDownloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category
+        )
         let isAvailable: Bool = {
             switch category {
-            case .ebook: return item.hasAvailableEbook
-            case .audio: return item.hasAvailableAudiobook
-            case .synced: return item.hasAvailableReadaloud
+                case .ebook: return item.hasAvailableEbook
+                case .audio: return item.hasAvailableAudiobook
+                case .synced: return item.hasAvailableReadaloud
             }
         }()
 
@@ -202,9 +207,11 @@ struct MediaItemCardView: View {
     private func makePlayerBookData(for category: LocalMediaCategory) -> PlayerBookData {
         let freshMetadata = mediaViewModel.library.bookMetaData.first { $0.id == item.id } ?? item
         let path = mediaViewModel.localMediaPath(for: item.id, category: category)
-        let variant: MediaViewModel.CoverVariant = freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
+        let variant: MediaViewModel.CoverVariant =
+            freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: freshMetadata, variant: variant)
-        let ebookCover = freshMetadata.hasAvailableAudiobook
+        let ebookCover =
+            freshMetadata.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: freshMetadata, variant: .standard)
             : nil
         return PlayerBookData(
@@ -279,12 +286,12 @@ struct MediaItemCardView: View {
     private func playerDestination(for category: LocalMediaCategory) -> some View {
         let bookData = makePlayerBookData(for: category)
         switch category {
-        case .audio:
-            AudiobookPlayerView(bookData: bookData)
-                .navigationBarTitleDisplayMode(.inline)
-        case .ebook, .synced:
-            EbookPlayerView(bookData: bookData)
-                .navigationBarTitleDisplayMode(.inline)
+            case .audio:
+                AudiobookPlayerView(bookData: bookData)
+                    .navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData)
+                    .navigationBarTitleDisplayMode(.inline)
         }
     }
     #endif
@@ -331,7 +338,10 @@ struct MediaItemCardView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .background(
+                                    .black.opacity(0.6),
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                )
                                 .padding(4)
                         }
                     }
@@ -417,7 +427,10 @@ struct MediaItemCardView: View {
 
         if isServerBook {
             Button {
-                openWindow(id: "ServerMediaManagement", value: ServerMediaManagementData(bookId: item.id))
+                openWindow(
+                    id: "ServerMediaManagement",
+                    value: ServerMediaManagementData(bookId: item.id)
+                )
             } label: {
                 Label("Manage Server Media...", systemImage: "server.rack")
             }
@@ -471,16 +484,16 @@ struct MediaItemCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-        case .preferEbook:
-            if item.hasAvailableEbook {
+            case .preferEbook:
+                if item.hasAvailableEbook {
+                    return .standard
+                }
+                return item.hasAvailableAudiobook ? .audioSquare : .standard
+            case .preferAudiobook:
+                if item.hasAvailableAudiobook || item.isAudiobookOnly {
+                    return .audioSquare
+                }
                 return .standard
-            }
-            return item.hasAvailableAudiobook ? .audioSquare : .standard
-        case .preferAudiobook:
-            if item.hasAvailableAudiobook || item.isAudiobookOnly {
-                return .audioSquare
-            }
-            return .standard
         }
     }
 }
@@ -579,22 +592,22 @@ struct AudioIndicatorBadge: View {
 
     private var badge: BadgeKind? {
         switch coverVariant {
-        case .standard:
-            if item.hasAvailableReadaloud { return .readaloud }
-            if item.hasAvailableAudiobook { return .headphones }
-        case .audioSquare:
-            if item.hasAvailableReadaloud { return .readaloud }
-            if item.hasAvailableEbook { return .book }
+            case .standard:
+                if item.hasAvailableReadaloud { return .readaloud }
+                if item.hasAvailableAudiobook { return .headphones }
+            case .audioSquare:
+                if item.hasAvailableReadaloud { return .readaloud }
+                if item.hasAvailableEbook { return .book }
         }
         return nil
     }
 
     private var helpText: String {
         switch badge {
-        case .readaloud: "Readaloud available"
-        case .headphones: "Audiobook available"
-        case .book: "Ebook available"
-        case nil: ""
+            case .readaloud: "Readaloud available"
+            case .headphones: "Audiobook available"
+            case .book: "Ebook available"
+            case nil: ""
         }
     }
 
@@ -604,21 +617,21 @@ struct AudioIndicatorBadge: View {
                 Circle()
                     .fill(Color.black.opacity(0.7))
                 switch badge {
-                case .readaloud:
-                    Image("readalong")
-                        .renderingMode(.template)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 12, height: 12)
-                        .foregroundStyle(.gray)
-                case .headphones:
-                    Image(systemName: "headphones")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.gray)
-                case .book:
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.gray)
+                    case .readaloud:
+                        Image("readalong")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 12, height: 12)
+                            .foregroundStyle(.gray)
+                    case .headphones:
+                        Image(systemName: "headphones")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.gray)
+                    case .book:
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.gray)
                 }
             }
             .frame(width: 18, height: 18)

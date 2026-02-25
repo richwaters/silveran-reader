@@ -1,7 +1,7 @@
 import Foundation
 
-public extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
+extension Comparable {
+    public func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }
@@ -16,19 +16,19 @@ public enum LibraryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
 
     public var label: String {
         switch self {
-        case .grid: "Grid"
-        case .compactGrid: "Compact Grid"
-        case .table: "Table"
-        case .fan: "Fan"
+            case .grid: "Grid"
+            case .compactGrid: "Compact Grid"
+            case .table: "Table"
+            case .fan: "Fan"
         }
     }
 
     public var iconName: String {
         switch self {
-        case .grid: "square.grid.2x2"
-        case .compactGrid: "square.grid.3x3"
-        case .table: "list.bullet"
-        case .fan: "rectangle.stack"
+            case .grid: "square.grid.2x2"
+            case .compactGrid: "square.grid.3x3"
+            case .table: "list.bullet"
+            case .fan: "rectangle.stack"
         }
     }
 }
@@ -51,15 +51,15 @@ public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {
 
     public var label: String {
         switch self {
-        case .preferEbook: "Prefer Ebook"
-        case .preferAudiobook: "Prefer Audiobook"
+            case .preferEbook: "Prefer Ebook"
+            case .preferAudiobook: "Prefer Audiobook"
         }
     }
 
     public var preferredContainerAspectRatio: CGFloat {
         switch self {
-        case .preferEbook: 0.67
-        case .preferAudiobook: 1.0
+            case .preferEbook: 0.67
+            case .preferAudiobook: 1.0
         }
     }
 }
@@ -73,17 +73,17 @@ public enum CategoryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
 
     public var label: String {
         switch self {
-        case .list: "List"
-        case .fan: "Fan"
-        case .grid: "Grid"
+            case .list: "List"
+            case .fan: "Fan"
+            case .grid: "Grid"
         }
     }
 
     public var iconName: String {
         switch self {
-        case .list: "list.bullet"
-        case .fan: "rectangle.stack"
-        case .grid: "square.grid.2x2"
+            case .list: "list.bullet"
+            case .fan: "rectangle.stack"
+            case .grid: "square.grid.2x2"
         }
     }
 }

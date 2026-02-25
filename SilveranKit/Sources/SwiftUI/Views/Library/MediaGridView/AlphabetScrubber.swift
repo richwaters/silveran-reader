@@ -38,7 +38,9 @@ struct AlphabetScrubber<Item, ID: Hashable>: View {
 
                         Text(String(letter))
                             .font(.system(size: 10, weight: isHighlighted ? .bold : .medium))
-                            .foregroundStyle(isAvailable ? (isHighlighted ? .primary : .secondary) : .quaternary)
+                            .foregroundStyle(
+                                isAvailable ? (isHighlighted ? .primary : .secondary) : .quaternary
+                            )
                             .frame(width: scrubberWidth, height: actualLetterHeight)
                     }
                 }
@@ -56,7 +58,8 @@ struct AlphabetScrubber<Item, ID: Hashable>: View {
                                             currentLetter = letter
                                             if availableLetters.contains(letter) {
                                                 scrollToLetter(letter)
-                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                                UIImpactFeedbackGenerator(style: .light)
+                                                    .impactOccurred()
                                             }
                                         }
                                     }

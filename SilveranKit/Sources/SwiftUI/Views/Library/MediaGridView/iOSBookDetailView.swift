@@ -96,8 +96,8 @@ struct iOSBookDetailView: View {
     private func loadCurrentChapter() async {
         let history = await ProgressSyncActor.shared.getSyncHistory(for: item.uuid)
         if let entry = history.last(where: {
-            !$0.locationDescription.isEmpty &&
-            !$0.locationDescription.lowercased().contains("unknown")
+            !$0.locationDescription.isEmpty
+                && !$0.locationDescription.lowercased().contains("unknown")
         }) {
             var chapter = entry.locationDescription
             if let commaRange = chapter.range(of: ", \\d+%$", options: .regularExpression) {
@@ -109,10 +109,10 @@ struct iOSBookDetailView: View {
 
     private func displayName(for statusName: String) -> String {
         switch statusName.lowercased() {
-        case "read": return "Completed"
-        case "reading": return "Currently Reading"
-        case "to read": return "To Read"
-        default: return statusName
+            case "read": return "Completed"
+            case "reading": return "Currently Reading"
+            case "to read": return "To Read"
+            default: return statusName
         }
     }
 
@@ -138,7 +138,9 @@ struct iOSBookDetailView: View {
         )
 
         if success {
-            if let newStatus = mediaViewModel.availableStatuses.first(where: { $0.name == statusName }) {
+            if let newStatus = mediaViewModel.availableStatuses.first(where: {
+                $0.name == statusName
+            }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
                     status: newStatus
@@ -235,7 +237,6 @@ struct iOSBookDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-
 
     private var titleTopSection: some View {
         VStack(alignment: .center, spacing: 8) {
@@ -418,9 +419,13 @@ struct iOSBookDetailView: View {
                                 ProgressView()
                                     .controlSize(.small)
                             }
-                            Text(displayName(for: selectedStatusName ?? currentItem.status?.name ?? "-"))
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                displayName(
+                                    for: selectedStatusName ?? currentItem.status?.name ?? "-"
+                                )
+                            )
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8, weight: .medium))
                                 .foregroundStyle(.tertiary)
@@ -531,7 +536,8 @@ private struct iOSMediaButton: View {
     }
 
     private var isFailed: Bool {
-        !isDownloading && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
+        !isDownloading
+            && mediaViewModel.isCategoryDownloadFailed(for: item, category: option.category)
     }
 
     private var downloadProgress: Double? {
@@ -546,9 +552,9 @@ private struct iOSMediaButton: View {
 
     private var buttonLabel: String {
         switch option.category {
-        case .ebook: return "Ebook"
-        case .audio: return "Audiobook"
-        case .synced: return "Readaloud"
+            case .ebook: return "Ebook"
+            case .audio: return "Audiobook"
+            case .synced: return "Readaloud"
         }
     }
 
@@ -681,7 +687,8 @@ private struct iOSMediaButton: View {
         let variant: MediaViewModel.CoverVariant =
             freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
         let cover = mediaViewModel.coverImage(for: freshMetadata, variant: variant)
-        let ebookCover = freshMetadata.hasAvailableAudiobook
+        let ebookCover =
+            freshMetadata.hasAvailableAudiobook
             ? mediaViewModel.coverImage(for: freshMetadata, variant: .standard)
             : nil
         return PlayerBookData(
@@ -788,14 +795,19 @@ private struct iOSCreateReadaloudButton: View {
             Button("Create") {
                 Task {
                     isStartingAlignment = true
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: isErrorOrStopped)
+                    _ = await StorytellerActor.shared.startAlignment(
+                        for: item.uuid,
+                        restart: isErrorOrStopped
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                     isStartingAlignment = false
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will create a synchronized readaloud on the server by aligning the audiobook with the ebook.")
+            Text(
+                "This will create a synchronized readaloud on the server by aligning the audiobook with the ebook."
+            )
         }
     }
 
@@ -960,7 +972,9 @@ private struct CompactStatusPicker: View {
         )
 
         if success {
-            if let newStatus = mediaViewModel.availableStatuses.first(where: { $0.name == statusName }) {
+            if let newStatus = mediaViewModel.availableStatuses.first(where: {
+                $0.name == statusName
+            }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
                     status: newStatus
@@ -1086,7 +1100,9 @@ private struct StatusPickerView: View {
         )
 
         if success {
-            if let newStatus = mediaViewModel.availableStatuses.first(where: { $0.name == statusName }) {
+            if let newStatus = mediaViewModel.availableStatuses.first(where: {
+                $0.name == statusName
+            }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
                     status: newStatus

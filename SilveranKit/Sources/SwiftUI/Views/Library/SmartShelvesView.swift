@@ -31,8 +31,10 @@ struct SmartShelvesView: View {
     @State private var navigationPath = NavigationPath()
     @State private var showCreator = false
     @State private var editingShelf: SmartShelf?
-    @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .fan.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("smartShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -69,7 +71,9 @@ struct SmartShelvesView: View {
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
         guard let shelfId = UUID(uuidString: group.id) else { return }
-        navigationPath.append(SmartShelfDetailNavigation(shelfId: shelfId, initialSelectedBook: book))
+        navigationPath.append(
+            SmartShelfDetailNavigation(shelfId: shelfId, initialSelectedBook: book)
+        )
     }
 
     private func shelfForGroup(_ group: CategoryGroup) -> SmartShelf? {
@@ -107,8 +111,8 @@ extension SmartShelvesView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Smart Shelves")
@@ -117,24 +121,38 @@ extension SmartShelvesView {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if hasConnectionError, let showOfflineSheet {
-                            Button { showOfflineSheet.wrappedValue = true } label: {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
                                 Image(systemName: connectionErrorIcon).foregroundStyle(.red)
                             }
                         }
-                        Button { showSettings = true } label: {
+                        Button {
+                            showSettings = true
+                        } label: {
                             Label("Settings", systemImage: "gearshape")
                         }
                     }
                 }
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
             .navigationDestination(for: SmartShelfDetailNavigation.self) { nav in
                 shelfDetailView(for: nav.shelfId, initialSelectedItem: nav.initialSelectedBook)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: .ebook)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
                 playerView(for: bookData)
@@ -149,9 +167,16 @@ extension SmartShelvesView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: {
-                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: false)
-                                .contentShape(Rectangle())
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "books.vertical.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            )
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .contextMenu { shelfContextMenu(for: group) }
@@ -166,9 +191,24 @@ extension SmartShelvesView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation,
+                header: { headerView },
+                contextMenuBuilder: shelfContextMenu
+            )
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation,
+                header: { headerView },
+                contextMenuBuilder: shelfContextMenu
+            )
         }
     }
 
@@ -186,8 +226,10 @@ extension SmartShelvesView {
     @ViewBuilder
     private func playerView(for bookData: PlayerBookData) -> some View {
         switch bookData.category {
-        case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
-        case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .audio:
+                AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -199,30 +241,58 @@ extension SmartShelvesView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list:
-                    CategoryListSidebar(
-                        headerTitle: "Smart Shelves",
-                        sidebarTitle: "Shelves",
-                        groups: categoryGroups,
-                        selectedGroupId: $selectedGroupId,
-                        listWidth: $listWidth,
-                        sortByCount: $sortByCount,
-                        rowContent: { group, isSelected, isHovered in
-                            CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered)
-                        },
-                        detailContent: { group in
-                            if let shelfId = UUID(uuidString: group.id), let shelf = mediaViewModel.smartShelves.first(where: { $0.id == shelfId }) {
-                                let books = mediaViewModel.booksForShelf(shelf)
-                                SmartShelfDetailView(shelf: shelf, books: books, searchText: searchText, initialSelectedItem: nil)
-                            } else {
-                                Text("Shelf not found").foregroundStyle(.secondary)
-                            }
-                        },
-                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) },
-                        contextMenuBuilder: shelfContextMenu
-                    )
-                case .fan, .grid:
-                    fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Smart Shelves",
+                            sidebarTitle: "Shelves",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "books.vertical.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                if let shelfId = UUID(uuidString: group.id),
+                                    let shelf = mediaViewModel.smartShelves.first(where: {
+                                        $0.id == shelfId
+                                    })
+                                {
+                                    let books = mediaViewModel.booksForShelf(shelf)
+                                    SmartShelfDetailView(
+                                        shelf: shelf,
+                                        books: books,
+                                        searchText: searchText,
+                                        initialSelectedItem: nil
+                                    )
+                                } else {
+                                    Text("Shelf not found").foregroundStyle(.secondary)
+                                }
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            },
+                            contextMenuBuilder: shelfContextMenu
+                        )
+                    case .fan, .grid:
+                        fanGridContent
                 }
             }
             .navigationDestination(for: SmartShelfDetailNavigation.self) { nav in
@@ -244,9 +314,24 @@ extension SmartShelvesView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation,
+                header: { headerView },
+                contextMenuBuilder: shelfContextMenu
+            )
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: .ebook, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation, header: { headerView }, contextMenuBuilder: shelfContextMenu)
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: .ebook,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation,
+                header: { headerView },
+                contextMenuBuilder: shelfContextMenu
+            )
         }
     }
 
@@ -276,8 +361,14 @@ extension SmartShelvesView {
 
             HStack(spacing: 12) {
                 CategoryViewOptionsMenu(
-                    layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
-                    coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }),
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
                     showBookCountBadge: $showBookCountBadge
                 )
 
@@ -305,11 +396,18 @@ extension SmartShelvesView {
     }
 
     @ViewBuilder
-    fileprivate func shelfDetailView(for shelfId: UUID, initialSelectedItem: BookMetadata? = nil) -> some View {
+    fileprivate func shelfDetailView(for shelfId: UUID, initialSelectedItem: BookMetadata? = nil)
+        -> some View
+    {
         if let shelf = mediaViewModel.smartShelves.first(where: { $0.id == shelfId }) {
             let books = mediaViewModel.booksForShelf(shelf)
-            SmartShelfDetailView(shelf: shelf, books: books, searchText: "", initialSelectedItem: initialSelectedItem)
-                .navigationTitle(shelf.name)
+            SmartShelfDetailView(
+                shelf: shelf,
+                books: books,
+                searchText: "",
+                initialSelectedItem: initialSelectedItem
+            )
+            .navigationTitle(shelf.name)
         } else {
             Text("Shelf not found").foregroundStyle(.secondary)
         }
@@ -323,7 +421,12 @@ struct SmartShelfDetailView: View {
     let initialSelectedItem: BookMetadata?
     @Environment(MediaViewModel.self) private var mediaViewModel
 
-    init(shelf: SmartShelf, books: [BookMetadata], searchText: String, initialSelectedItem: BookMetadata? = nil) {
+    init(
+        shelf: SmartShelf,
+        books: [BookMetadata],
+        searchText: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) {
         self.shelf = shelf
         self.books = books
         self.searchText = searchText

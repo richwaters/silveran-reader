@@ -53,7 +53,8 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
         }
         guard shouldEmit else { return }
 
-        let progress: Double = totalBytesExpectedToWrite > 0
+        let progress: Double =
+            totalBytesExpectedToWrite > 0
             ? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
             : 0
 
@@ -75,7 +76,8 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
         guard let id = removeTask(downloadTask) else { return }
 
         if let httpResponse = downloadTask.response as? HTTPURLResponse,
-           !(200...299).contains(httpResponse.statusCode) {
+            !(200...299).contains(httpResponse.statusCode)
+        {
             try? FileManager.default.removeItem(at: location)
             let statusCode = httpResponse.statusCode
             Task {

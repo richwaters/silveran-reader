@@ -13,7 +13,9 @@ struct TVChapterListView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(Array(viewModel.chapters.enumerated()), id: \.offset) { arrayIndex, chapter in
+                    ForEach(Array(viewModel.chapters.enumerated()), id: \.offset) {
+                        arrayIndex,
+                        chapter in
                         Button {
                             Task {
                                 await viewModel.jumpToChapter(chapter.index)

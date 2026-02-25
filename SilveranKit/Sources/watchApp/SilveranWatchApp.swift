@@ -51,23 +51,23 @@ struct SilveranWatchApp: App {
 
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         switch phase {
-        case .background:
-            debugLog("[WatchApp] App entering background")
-            Task {
-                await StorytellerActor.shared.setActive(false, source: .watch)
-            }
+            case .background:
+                debugLog("[WatchApp] App entering background")
+                Task {
+                    await StorytellerActor.shared.setActive(false, source: .watch)
+                }
 
-        case .active:
-            debugLog("[WatchApp] App becoming active")
-            Task {
-                await StorytellerActor.shared.setActive(true, source: .watch)
-            }
+            case .active:
+                debugLog("[WatchApp] App becoming active")
+                Task {
+                    await StorytellerActor.shared.setActive(true, source: .watch)
+                }
 
-        case .inactive:
-            break
+            case .inactive:
+                break
 
-        @unknown default:
-            break
+            @unknown default:
+                break
         }
     }
 

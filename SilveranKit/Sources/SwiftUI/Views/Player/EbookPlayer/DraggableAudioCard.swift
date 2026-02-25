@@ -248,7 +248,10 @@ struct DraggableAudioCard<FullContent: View>: View {
                     Button(action: onPlayPause) {
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                             .font(showMiniPlayerStats ? .title2 : .title)
-                            .frame(width: showMiniPlayerStats ? 48 : 54, height: showMiniPlayerStats ? 48 : 54)
+                            .frame(
+                                width: showMiniPlayerStats ? 48 : 54,
+                                height: showMiniPlayerStats ? 48 : 54
+                            )
                             .background(
                                 Circle()
                                     .fill(Color.primary.opacity(0.1))

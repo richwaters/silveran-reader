@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 #elseif os(iOS)
@@ -136,11 +137,14 @@ struct MediaGridView: View {
     @State private var showSourceBadge: Bool = false
     @State private var showSeriesPositionBadge: Bool
     @State private var showStickyControls: Bool = false
-    @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("coverSize.global") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     #if os(macOS)
-    @State private var columnCustomization: TableColumnCustomization<BookMetadata> = Self.loadColumnCustomization()
+    @State private var columnCustomization: TableColumnCustomization<BookMetadata> =
+        Self.loadColumnCustomization()
     @State private var tableSortOrder: [KeyPathComparator<BookMetadata>]
     @State private var tableSortedItems: [BookMetadata] = []
     @State private var lastSortKeyPath: AnyKeyPath?
@@ -149,7 +153,11 @@ struct MediaGridView: View {
 
     private static func loadColumnCustomization() -> TableColumnCustomization<BookMetadata> {
         guard let data = UserDefaults.standard.data(forKey: columnCustomizationKey),
-              let customization = try? JSONDecoder().decode(TableColumnCustomization<BookMetadata>.self, from: data) else {
+            let customization = try? JSONDecoder().decode(
+                TableColumnCustomization<BookMetadata>.self,
+                from: data
+            )
+        else {
             return TableColumnCustomization<BookMetadata>()
         }
         return customization
@@ -160,26 +168,55 @@ struct MediaGridView: View {
         UserDefaults.standard.set(data, forKey: Self.columnCustomizationKey)
     }
 
-    private static func tableComparator(for sortOption: SortOption) -> (comparator: KeyPathComparator<BookMetadata>, keyPath: AnyKeyPath) {
+    private static func tableComparator(for sortOption: SortOption) -> (
+        comparator: KeyPathComparator<BookMetadata>, keyPath: AnyKeyPath
+    ) {
         switch sortOption {
-        case .titleAZ:
-            return (KeyPathComparator(\BookMetadata.sortableTitle, order: .forward), \BookMetadata.sortableTitle)
-        case .titleZA:
-            return (KeyPathComparator(\BookMetadata.sortableTitle, order: .reverse), \BookMetadata.sortableTitle)
-        case .authorAZ:
-            return (KeyPathComparator(\BookMetadata.sortableAuthor, order: .forward), \BookMetadata.sortableAuthor)
-        case .authorZA:
-            return (KeyPathComparator(\BookMetadata.sortableAuthor, order: .reverse), \BookMetadata.sortableAuthor)
-        case .progressHighToLow:
-            return (KeyPathComparator(\BookMetadata.progress, order: .reverse), \BookMetadata.progress)
-        case .progressLowToHigh:
-            return (KeyPathComparator(\BookMetadata.progress, order: .forward), \BookMetadata.progress)
-        case .recentlyRead:
-            return (KeyPathComparator(\BookMetadata.sortableLastRead, order: .reverse), \BookMetadata.sortableLastRead)
-        case .recentlyAdded:
-            return (KeyPathComparator(\BookMetadata.sortableAdded, order: .reverse), \BookMetadata.sortableAdded)
-        case .seriesPosition:
-            return (KeyPathComparator(\BookMetadata.sortableSeries, order: .forward), \BookMetadata.sortableSeries)
+            case .titleAZ:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableTitle, order: .forward),
+                    \BookMetadata.sortableTitle
+                )
+            case .titleZA:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableTitle, order: .reverse),
+                    \BookMetadata.sortableTitle
+                )
+            case .authorAZ:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableAuthor, order: .forward),
+                    \BookMetadata.sortableAuthor
+                )
+            case .authorZA:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableAuthor, order: .reverse),
+                    \BookMetadata.sortableAuthor
+                )
+            case .progressHighToLow:
+                return (
+                    KeyPathComparator(\BookMetadata.progress, order: .reverse),
+                    \BookMetadata.progress
+                )
+            case .progressLowToHigh:
+                return (
+                    KeyPathComparator(\BookMetadata.progress, order: .forward),
+                    \BookMetadata.progress
+                )
+            case .recentlyRead:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableLastRead, order: .reverse),
+                    \BookMetadata.sortableLastRead
+                )
+            case .recentlyAdded:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableAdded, order: .reverse),
+                    \BookMetadata.sortableAdded
+                )
+            case .seriesPosition:
+                return (
+                    KeyPathComparator(\BookMetadata.sortableSeries, order: .forward),
+                    \BookMetadata.sortableSeries
+                )
         }
     }
     #endif
@@ -396,10 +433,17 @@ struct MediaGridView: View {
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
             let usesTableLayout = layoutStyle == .table
             let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-            let contentWidth = isAnimatingSidebar ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment)) : (geometry.size.width - sidebarAdjustment)
+            let contentWidth =
+                isAnimatingSidebar
+                ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment))
+                : (geometry.size.width - sidebarAdjustment)
 
             HStack(spacing: 0) {
-                mainContent(usesTableLayout: usesTableLayout, contentWidth: max(contentWidth, minimumTileWidth), height: geometry.size.height)
+                mainContent(
+                    usesTableLayout: usesTableLayout,
+                    contentWidth: max(contentWidth, minimumTileWidth),
+                    height: geometry.size.height
+                )
 
                 if shouldShowSidebar, let activeInfoItem {
                     HStack(spacing: 0) {
@@ -473,7 +517,9 @@ struct MediaGridView: View {
 
     #if os(macOS)
     @ViewBuilder
-    private func mainContent(usesTableLayout: Bool, contentWidth: CGFloat, height: CGFloat) -> some View {
+    private func mainContent(usesTableLayout: Bool, contentWidth: CGFloat, height: CGFloat)
+        -> some View
+    {
         if usesTableLayout {
             tableContent(for: contentWidth)
                 .frame(width: contentWidth, height: height)
@@ -604,39 +650,41 @@ struct MediaGridView: View {
         .onChange(of: columnCustomization) { _, _ in
             saveColumnCustomization()
         }
-        .modifier(FilterChangeModifier(
-            selectedFormatFilter: selectedFormatFilter,
-            selectedTag: selectedTag,
-            selectedSeries: selectedSeries,
-            selectedStatus: selectedStatus,
-            selectedLocation: selectedLocation,
-            selectedNarrator: selectedNarrator,
-            selectedAuthor: selectedAuthor,
-            selectedTranslator: selectedTranslator,
-            selectedPublicationYear: selectedPublicationYear,
-            selectedRating: selectedRating,
-            selectedSortOption: selectedSortOption,
-            mediaKind: mediaKind,
-            searchText: searchText,
-            initialNarrationFilterOption: initialNarrationFilterOption,
-            onFilterChanged: {
-                recomputeDisplayItems()
-                reconcileSelectionAfterFiltering()
-            },
-            onMediaKindChanged: {
-                recomputeAllCaches()
-                reconcileSelectionAfterFiltering()
-            },
-            onSearchChanged: {
-                recomputeDisplayItems()
-            },
-            onNarrationFilterChanged: {
-                selectedFormatFilter =
-                    MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
-                recomputeDisplayItems()
-                reconcileSelectionAfterFiltering()
-            }
-        ))
+        .modifier(
+            FilterChangeModifier(
+                selectedFormatFilter: selectedFormatFilter,
+                selectedTag: selectedTag,
+                selectedSeries: selectedSeries,
+                selectedStatus: selectedStatus,
+                selectedLocation: selectedLocation,
+                selectedNarrator: selectedNarrator,
+                selectedAuthor: selectedAuthor,
+                selectedTranslator: selectedTranslator,
+                selectedPublicationYear: selectedPublicationYear,
+                selectedRating: selectedRating,
+                selectedSortOption: selectedSortOption,
+                mediaKind: mediaKind,
+                searchText: searchText,
+                initialNarrationFilterOption: initialNarrationFilterOption,
+                onFilterChanged: {
+                    recomputeDisplayItems()
+                    reconcileSelectionAfterFiltering()
+                },
+                onMediaKindChanged: {
+                    recomputeAllCaches()
+                    reconcileSelectionAfterFiltering()
+                },
+                onSearchChanged: {
+                    recomputeDisplayItems()
+                },
+                onNarrationFilterChanged: {
+                    selectedFormatFilter =
+                        MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+                    recomputeDisplayItems()
+                    reconcileSelectionAfterFiltering()
+                }
+            )
+        )
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
@@ -749,7 +797,6 @@ struct MediaGridView: View {
         .padding(.top, 60)
     }
     #endif
-
 
     private var contentFilterBar: some View {
         MediaGridSortAndFilterBar(
@@ -880,7 +927,11 @@ struct MediaGridView: View {
     @ViewBuilder
     private func content(for containerWidth: CGFloat) -> some View {
         let layout = resolvedLayout(for: containerWidth)
-        let tileMetrics = MediaItemCardMetrics.make(for: layout.tileWidth, mediaKind: mediaKind, coverPreference: coverPreference)
+        let tileMetrics = MediaItemCardMetrics.make(
+            for: layout.tileWidth,
+            mediaKind: mediaKind,
+            coverPreference: coverPreference
+        )
         let columnCount = max(layout.columns.count, 1)
 
         VStack(alignment: .leading, spacing: verticalSpacing) {
@@ -918,87 +969,109 @@ struct MediaGridView: View {
                 .padding(.horizontal, gridHorizontalPadding)
             } else {
                 switch layoutStyle {
-                case .grid, .fan:
-                    #if os(iOS)
-                    let isPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
-                    let gridTileSize = isPhoneSmall ? 75.0 : coverSize
-                    let gridMaxSize = isPhoneSmall ? 85.0 : gridTileSize + 40
-                    #else
-                    let gridTileSize = coverSize
-                    let gridMaxSize = gridTileSize + 40
-                    #endif
-                    let gridColumns = [GridItem(.adaptive(minimum: gridTileSize, maximum: gridMaxSize), spacing: 0)]
-                    let gridMetrics = MediaItemCardMetrics.make(for: gridTileSize, mediaKind: mediaKind, coverPreference: coverPreference)
-                    #if os(iOS)
-                    let gridAlignment: HorizontalAlignment = .center
-                    #else
-                    let gridAlignment: HorizontalAlignment = .leading
-                    #endif
-                    LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
-                        ForEach(cachedDisplayItems) { item in
-                            card(for: item, metrics: gridMetrics)
-                        }
-                    }
-                    .scrollTargetLayout()
-                    .padding(.horizontal, gridHorizontalPadding)
-                case .compactGrid:
-                    #if os(iOS)
-                    let isCompactPhoneSmall = UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
-                    let compactTileSize = isCompactPhoneSmall ? 80.0 : coverSize
-                    let compactMaxSize = isCompactPhoneSmall ? 90.0 : compactTileSize + 20
-                    #else
-                    let compactTileSize = coverSize
-                    let compactMaxSize = compactTileSize + 20
-                    #endif
-                    let compactColumns = [GridItem(.adaptive(minimum: compactTileSize, maximum: compactMaxSize), spacing: 4)]
-                    #if os(iOS)
-                    let compactGridAlignment: HorizontalAlignment = .center
-                    #else
-                    let compactGridAlignment: HorizontalAlignment = .leading
-                    #endif
-                    LazyVGrid(columns: compactColumns, alignment: compactGridAlignment, spacing: 4) {
-                        ForEach(cachedDisplayItems) { item in
-                            MediaCompactCardView(
-                                item: item,
-                                coverPreference: coverPreference,
-                                tileSize: compactTileSize,
-                                showAudioIndicator: settingsViewModel.showAudioIndicator,
-                                sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
-                                seriesPositionBadge: seriesPositionBadge(for: item),
-                                isSelected: activeInfoItem?.id == item.id,
-                                onSelect: { selected in
-                                    selectItem(selected)
-                                },
-                                onInfo: { selected in
-                                    openSidebar(for: selected)
-                                }
+                    case .grid, .fan:
+                        #if os(iOS)
+                        let isPhoneSmall =
+                            UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
+                        let gridTileSize = isPhoneSmall ? 75.0 : coverSize
+                        let gridMaxSize = isPhoneSmall ? 85.0 : gridTileSize + 40
+                        #else
+                        let gridTileSize = coverSize
+                        let gridMaxSize = gridTileSize + 40
+                        #endif
+                        let gridColumns = [
+                            GridItem(
+                                .adaptive(minimum: gridTileSize, maximum: gridMaxSize),
+                                spacing: 0
                             )
+                        ]
+                        let gridMetrics = MediaItemCardMetrics.make(
+                            for: gridTileSize,
+                            mediaKind: mediaKind,
+                            coverPreference: coverPreference
+                        )
+                        #if os(iOS)
+                        let gridAlignment: HorizontalAlignment = .center
+                        #else
+                        let gridAlignment: HorizontalAlignment = .leading
+                        #endif
+                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
+                            ForEach(cachedDisplayItems) { item in
+                                card(for: item, metrics: gridMetrics)
+                            }
                         }
-                    }
-                    .scrollTargetLayout()
-                    .padding(.horizontal, gridHorizontalPadding)
-                case .table:
-                    LazyVStack(alignment: .leading, spacing: 1) {
-                        ForEach(cachedDisplayItems) { item in
-                            MediaTableRowView(
-                                item: item,
-                                mediaKind: mediaKind,
-                                coverPreference: coverPreference,
-                                showAudioIndicator: settingsViewModel.showAudioIndicator,
-                                sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
-                                seriesPositionBadge: seriesPositionBadge(for: item),
-                                isSelected: activeInfoItem?.id == item.id,
-                                onSelect: { selected in
-                                    selectItem(selected)
-                                },
-                                onInfo: { selected in
-                                    openSidebar(for: selected)
-                                }
+                        .scrollTargetLayout()
+                        .padding(.horizontal, gridHorizontalPadding)
+                    case .compactGrid:
+                        #if os(iOS)
+                        let isCompactPhoneSmall =
+                            UIDevice.current.userInterfaceIdiom == .phone && coverSize < 90
+                        let compactTileSize = isCompactPhoneSmall ? 80.0 : coverSize
+                        let compactMaxSize = isCompactPhoneSmall ? 90.0 : compactTileSize + 20
+                        #else
+                        let compactTileSize = coverSize
+                        let compactMaxSize = compactTileSize + 20
+                        #endif
+                        let compactColumns = [
+                            GridItem(
+                                .adaptive(minimum: compactTileSize, maximum: compactMaxSize),
+                                spacing: 4
                             )
+                        ]
+                        #if os(iOS)
+                        let compactGridAlignment: HorizontalAlignment = .center
+                        #else
+                        let compactGridAlignment: HorizontalAlignment = .leading
+                        #endif
+                        LazyVGrid(
+                            columns: compactColumns,
+                            alignment: compactGridAlignment,
+                            spacing: 4
+                        ) {
+                            ForEach(cachedDisplayItems) { item in
+                                MediaCompactCardView(
+                                    item: item,
+                                    coverPreference: coverPreference,
+                                    tileSize: compactTileSize,
+                                    showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                    sourceLabel: showSourceBadge
+                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                    seriesPositionBadge: seriesPositionBadge(for: item),
+                                    isSelected: activeInfoItem?.id == item.id,
+                                    onSelect: { selected in
+                                        selectItem(selected)
+                                    },
+                                    onInfo: { selected in
+                                        openSidebar(for: selected)
+                                    }
+                                )
+                            }
                         }
-                    }
-                    .scrollTargetLayout()
-                    .padding(.horizontal, gridHorizontalPadding)
+                        .scrollTargetLayout()
+                        .padding(.horizontal, gridHorizontalPadding)
+                    case .table:
+                        LazyVStack(alignment: .leading, spacing: 1) {
+                            ForEach(cachedDisplayItems) { item in
+                                MediaTableRowView(
+                                    item: item,
+                                    mediaKind: mediaKind,
+                                    coverPreference: coverPreference,
+                                    showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                    sourceLabel: showSourceBadge
+                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                    seriesPositionBadge: seriesPositionBadge(for: item),
+                                    isSelected: activeInfoItem?.id == item.id,
+                                    onSelect: { selected in
+                                        selectItem(selected)
+                                    },
+                                    onInfo: { selected in
+                                        openSidebar(for: selected)
+                                    }
+                                )
+                            }
+                        }
+                        .scrollTargetLayout()
+                        .padding(.horizontal, gridHorizontalPadding)
                 }
             }
         }
@@ -1017,39 +1090,41 @@ struct MediaGridView: View {
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
             recomputeAllCaches()
         }
-        .modifier(FilterChangeModifier(
-            selectedFormatFilter: selectedFormatFilter,
-            selectedTag: selectedTag,
-            selectedSeries: selectedSeries,
-            selectedStatus: selectedStatus,
-            selectedLocation: selectedLocation,
-            selectedNarrator: selectedNarrator,
-            selectedAuthor: selectedAuthor,
-            selectedTranslator: selectedTranslator,
-            selectedPublicationYear: selectedPublicationYear,
-            selectedRating: selectedRating,
-            selectedSortOption: selectedSortOption,
-            mediaKind: mediaKind,
-            searchText: searchText,
-            initialNarrationFilterOption: initialNarrationFilterOption,
-            onFilterChanged: {
-                recomputeDisplayItems()
-                reconcileSelectionAfterFiltering()
-            },
-            onMediaKindChanged: {
-                recomputeAllCaches()
-                reconcileSelectionAfterFiltering()
-            },
-            onSearchChanged: {
-                recomputeDisplayItems()
-            },
-            onNarrationFilterChanged: {
-                selectedFormatFilter =
-                    MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
-                recomputeDisplayItems()
-                reconcileSelectionAfterFiltering()
-            }
-        ))
+        .modifier(
+            FilterChangeModifier(
+                selectedFormatFilter: selectedFormatFilter,
+                selectedTag: selectedTag,
+                selectedSeries: selectedSeries,
+                selectedStatus: selectedStatus,
+                selectedLocation: selectedLocation,
+                selectedNarrator: selectedNarrator,
+                selectedAuthor: selectedAuthor,
+                selectedTranslator: selectedTranslator,
+                selectedPublicationYear: selectedPublicationYear,
+                selectedRating: selectedRating,
+                selectedSortOption: selectedSortOption,
+                mediaKind: mediaKind,
+                searchText: searchText,
+                initialNarrationFilterOption: initialNarrationFilterOption,
+                onFilterChanged: {
+                    recomputeDisplayItems()
+                    reconcileSelectionAfterFiltering()
+                },
+                onMediaKindChanged: {
+                    recomputeAllCaches()
+                    reconcileSelectionAfterFiltering()
+                },
+                onSearchChanged: {
+                    recomputeDisplayItems()
+                },
+                onNarrationFilterChanged: {
+                    selectedFormatFilter =
+                        MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
+                    recomputeDisplayItems()
+                    reconcileSelectionAfterFiltering()
+                }
+            )
+        )
     }
 
     static func mapNarrationToFormatFilter(_ narration: NarrationFilter) -> FormatFilterOption {
@@ -1113,7 +1188,9 @@ struct MediaGridView: View {
             matchingSeries = seriesList.first
         }
 
-        guard let series = matchingSeries, let formatted = series.formattedPosition else { return nil }
+        guard let series = matchingSeries, let formatted = series.formattedPosition else {
+            return nil
+        }
         return "#\(formatted)"
     }
 
@@ -1165,8 +1242,9 @@ struct MediaGridView: View {
 
     private func handleInitialSelectionIfNeeded() {
         guard !hasHandledInitialSelection,
-              let initialItem = initialSelectedItem,
-              cachedDisplayItems.contains(where: { $0.id == initialItem.id }) else {
+            let initialItem = initialSelectedItem,
+            cachedDisplayItems.contains(where: { $0.id == initialItem.id })
+        else {
             return
         }
         hasHandledInitialSelection = true
@@ -1183,11 +1261,14 @@ struct MediaGridView: View {
         let isLocalStandalone: Bool
     }
 
-    private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID: ItemLocationInfo] {
+    private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID:
+        ItemLocationInfo]
+    {
         var info: [BookMetadata.ID: ItemLocationInfo] = [:]
         for item in items {
             let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
-            let hasDownloadedContent = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+            let hasDownloadedContent =
+                mediaViewModel.isCategoryDownloaded(.ebook, for: item)
                 || mediaViewModel.isCategoryDownloaded(.audio, for: item)
                 || mediaViewModel.isCategoryDownloaded(.synced, for: item)
             let isDownloaded = hasDownloadedContent && !isLocal
@@ -1355,7 +1436,9 @@ struct MediaGridView: View {
         let authorFiltered = collectionFiltered.filter { matchesSelectedAuthor($0) }
         let narratorFiltered = authorFiltered.filter { matchesSelectedNarrator($0) }
         let translatorFiltered = narratorFiltered.filter { matchesSelectedTranslator($0) }
-        let publicationYearFiltered = translatorFiltered.filter { matchesSelectedPublicationYear($0) }
+        let publicationYearFiltered = translatorFiltered.filter {
+            matchesSelectedPublicationYear($0)
+        }
         let ratingFiltered = publicationYearFiltered.filter { matchesSelectedRating($0) }
         let statusFiltered = ratingFiltered.filter { matchesSelectedStatus($0) }
         let locationFiltered = statusFiltered.filter { matchesSelectedLocation($0) }
@@ -1366,8 +1449,12 @@ struct MediaGridView: View {
                 let result: ComparisonResult
                 if selectedSortOption == .seriesPosition, let filter = selectedSeries {
                     let normalizedFilter = filter.lowercased()
-                    let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
-                    let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
+                    let lhsPosition =
+                        lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?
+                        .position ?? .greatestFiniteMagnitude
+                    let rhsPosition =
+                        rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?
+                        .position ?? .greatestFiniteMagnitude
                     if lhsPosition == rhsPosition {
                         result = lhs.title.articleStrippedCompare(rhs.title)
                     } else {
@@ -1606,7 +1693,9 @@ struct MediaGridView: View {
         for item in catalog {
             if let narrators = item.narrators, !narrators.isEmpty {
                 for narrator in narrators {
-                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                        !name.isEmpty
+                    {
                         let key = name.lowercased()
                         if unique[key] == nil {
                             unique[key] = name
@@ -1715,17 +1804,17 @@ struct MediaGridView: View {
         }
 
         switch locationFilter {
-        case .all:
-            break
-        case .downloaded:
-            filtered = filtered.filter { locationInfo[$0.id]?.isDownloaded ?? false }
-        case .serverOnly:
-            filtered = filtered.filter {
-                let info = locationInfo[$0.id]
-                return !(info?.isDownloaded ?? false) && !(info?.isLocalStandalone ?? false)
-            }
-        case .localFiles:
-            filtered = filtered.filter { locationInfo[$0.id]?.isLocalStandalone ?? false }
+            case .all:
+                break
+            case .downloaded:
+                filtered = filtered.filter { locationInfo[$0.id]?.isDownloaded ?? false }
+            case .serverOnly:
+                filtered = filtered.filter {
+                    let info = locationInfo[$0.id]
+                    return !(info?.isDownloaded ?? false) && !(info?.isLocalStandalone ?? false)
+                }
+            case .localFiles:
+                filtered = filtered.filter { locationInfo[$0.id]?.isLocalStandalone ?? false }
         }
 
         if !searchText.isEmpty && searchText.count >= 2 {
@@ -1752,8 +1841,12 @@ struct MediaGridView: View {
             let result: ComparisonResult
             if sortOption == .seriesPosition, let filter = seriesFilter {
                 let normalizedFilter = filter.lowercased()
-                let lhsPosition = lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
-                let rhsPosition = rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position ?? .greatestFiniteMagnitude
+                let lhsPosition =
+                    lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
+                    ?? .greatestFiniteMagnitude
+                let rhsPosition =
+                    rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
+                    ?? .greatestFiniteMagnitude
                 if lhsPosition == rhsPosition {
                     result = lhs.title.articleStrippedCompare(rhs.title)
                 } else {
@@ -1769,7 +1862,9 @@ struct MediaGridView: View {
         }
     }
 
-    private static nonisolated func computeAvailableTagsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableTagsOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var unique: [String: String] = [:]
         for item in catalog {
             for rawTag in item.tagNames {
@@ -1784,7 +1879,9 @@ struct MediaGridView: View {
         return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private static nonisolated func computeAvailableSeriesOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableSeriesOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var unique: [String: String] = [:]
         for item in catalog {
             guard let seriesList = item.series else { continue }
@@ -1800,7 +1897,9 @@ struct MediaGridView: View {
         return unique.values.sorted { $0.articleStrippedCompare($1) == .orderedAscending }
     }
 
-    private static nonisolated func computeAvailableAuthorsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableAuthorsOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var unique: [String: String] = [:]
         for item in catalog {
             guard let authors = item.authors else { continue }
@@ -1817,13 +1916,17 @@ struct MediaGridView: View {
         return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private static nonisolated func computeAvailableNarratorsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableNarratorsOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var unique: [String: String] = [:]
         var hasUnknown = false
         for item in catalog {
             if let narrators = item.narrators, !narrators.isEmpty {
                 for narrator in narrators {
-                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                        !name.isEmpty
+                    {
                         let key = name.lowercased()
                         if unique[key] == nil {
                             unique[key] = name
@@ -1836,21 +1939,27 @@ struct MediaGridView: View {
                 hasUnknown = true
             }
         }
-        var result = unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        var result = unique.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
         if hasUnknown {
             result.append("Unknown Narrator")
         }
         return result
     }
 
-    private static nonisolated func computeAvailableTranslatorsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableTranslatorsOffThread(
+        from catalog: [BookMetadata]
+    ) -> [String] {
         var unique: [String: String] = [:]
         var hasUnknown = false
         for item in catalog {
             let translators = (item.creators ?? []).filter { $0.role == "trl" }
             if !translators.isEmpty {
                 for translator in translators {
-                    if let name = translator.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                    if let name = translator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                        !name.isEmpty
+                    {
                         let key = name.lowercased()
                         if unique[key] == nil {
                             unique[key] = name
@@ -1861,14 +1970,18 @@ struct MediaGridView: View {
                 }
             }
         }
-        var result = unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        var result = unique.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
         if hasUnknown {
             result.append("Unknown Translator")
         }
         return result
     }
 
-    private static nonisolated func computeAvailablePublicationYearsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailablePublicationYearsOffThread(
+        from catalog: [BookMetadata]
+    ) -> [String] {
         var years = Set<String>()
         var hasUnknown = false
         for item in catalog {
@@ -1885,7 +1998,9 @@ struct MediaGridView: View {
         return result
     }
 
-    private static nonisolated func computeAvailableRatingsOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableRatingsOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var ratings = Set<Int>()
         var hasUnrated = false
         for item in catalog {
@@ -1902,7 +2017,9 @@ struct MediaGridView: View {
         return result
     }
 
-    private static nonisolated func computeAvailableStatusesOffThread(from catalog: [BookMetadata]) -> [String] {
+    private static nonisolated func computeAvailableStatusesOffThread(from catalog: [BookMetadata])
+        -> [String]
+    {
         var unique: [String: String] = [:]
         for item in catalog {
             guard let statusName = item.status?.name else { continue }
@@ -1999,31 +2116,32 @@ struct MediaGridView: View {
 
         var sortField: SortField {
             switch self {
-            case .titleAZ, .titleZA: return .title
-            case .authorAZ, .authorZA: return .author
-            case .progressHighToLow, .progressLowToHigh: return .progress
-            case .recentlyRead: return .recentlyRead
-            case .recentlyAdded: return .recentlyAdded
-            case .seriesPosition: return .seriesPosition
+                case .titleAZ, .titleZA: return .title
+                case .authorAZ, .authorZA: return .author
+                case .progressHighToLow, .progressLowToHigh: return .progress
+                case .recentlyRead: return .recentlyRead
+                case .recentlyAdded: return .recentlyAdded
+                case .seriesPosition: return .seriesPosition
             }
         }
 
         var isAscending: Bool {
             switch self {
-            case .titleAZ, .authorAZ, .progressLowToHigh, .seriesPosition: return true
-            case .titleZA, .authorZA, .progressHighToLow, .recentlyRead, .recentlyAdded: return false
+                case .titleAZ, .authorAZ, .progressLowToHigh, .seriesPosition: return true
+                case .titleZA, .authorZA, .progressHighToLow, .recentlyRead, .recentlyAdded:
+                    return false
             }
         }
 
         var toggled: SortOption {
             switch self {
-            case .titleAZ: return .titleZA
-            case .titleZA: return .titleAZ
-            case .authorAZ: return .authorZA
-            case .authorZA: return .authorAZ
-            case .progressHighToLow: return .progressLowToHigh
-            case .progressLowToHigh: return .progressHighToLow
-            case .recentlyRead, .recentlyAdded, .seriesPosition: return self
+                case .titleAZ: return .titleZA
+                case .titleZA: return .titleAZ
+                case .authorAZ: return .authorZA
+                case .authorZA: return .authorAZ
+                case .progressHighToLow: return .progressLowToHigh
+                case .progressLowToHigh: return .progressHighToLow
+                case .recentlyRead, .recentlyAdded, .seriesPosition: return self
             }
         }
 
@@ -2033,12 +2151,12 @@ struct MediaGridView: View {
 
         static func defaultOption(for field: SortField) -> SortOption {
             switch field {
-            case .title: return .titleAZ
-            case .author: return .authorAZ
-            case .progress: return .progressHighToLow
-            case .recentlyRead: return .recentlyRead
-            case .recentlyAdded: return .recentlyAdded
-            case .seriesPosition: return .seriesPosition
+                case .title: return .titleAZ
+                case .author: return .authorAZ
+                case .progress: return .progressHighToLow
+                case .recentlyRead: return .recentlyRead
+                case .recentlyAdded: return .recentlyAdded
+                case .seriesPosition: return .seriesPosition
             }
         }
 
@@ -2047,19 +2165,19 @@ struct MediaGridView: View {
 
             var label: String {
                 switch self {
-                case .title: return "Title"
-                case .author: return "Author"
-                case .progress: return "Progress"
-                case .recentlyRead: return "Recently Read"
-                case .recentlyAdded: return "Recently Added"
-                case .seriesPosition: return "Series Position"
+                    case .title: return "Title"
+                    case .author: return "Author"
+                    case .progress: return "Progress"
+                    case .recentlyRead: return "Recently Read"
+                    case .recentlyAdded: return "Recently Added"
+                    case .seriesPosition: return "Series Position"
                 }
             }
 
             var isToggleable: Bool {
                 switch self {
-                case .title, .author, .progress: return true
-                case .recentlyRead, .recentlyAdded, .seriesPosition: return false
+                    case .title, .author, .progress: return true
+                    case .recentlyRead, .recentlyAdded, .seriesPosition: return false
                 }
             }
         }

@@ -15,8 +15,10 @@ struct SeriesView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -25,8 +27,12 @@ struct SeriesView: View {
     @State private var sortByCount = false
     #endif
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     static let noSeriesFilterKey = BookMetadata.noSeriesSentinel
 
@@ -36,7 +42,10 @@ struct SeriesView: View {
         if case .error = mediaViewModel.connectionStatus { return true }
         return false
     }
-    private var connectionErrorIcon: String { if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }; return "wifi.slash" }
+    private var connectionErrorIcon: String {
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
+        return "wifi.slash"
+    }
     #endif
 
     private var categoryGroups: [CategoryGroup] {
@@ -45,16 +54,28 @@ struct SeriesView: View {
         return filtered.map { group in
             let name = group.series?.name ?? "No Series"
             let id = group.series?.name ?? Self.noSeriesFilterKey
-            return CategoryGroup(id: id, name: name, books: group.books, pinId: group.series?.name != nil ? SidebarPinHelper.pinId(forSeries: name) : nil)
+            return CategoryGroup(
+                id: id,
+                name: name,
+                books: group.books,
+                pinId: group.series?.name != nil ? SidebarPinHelper.pinId(forSeries: name) : nil
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(series: BookSeries?, books: [BookMetadata])]) -> [(series: BookSeries?, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(series: BookSeries?, books: [BookMetadata])]) -> [(
+        series: BookSeries?, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let nameMatches = group.series?.name.lowercased().contains(searchLower) ?? false
-            let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) || $0.authors?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false }
+            let filteredBooks = group.books.filter {
+                $0.title.lowercased().contains(searchLower)
+                    || $0.authors?.contains(where: {
+                        $0.name?.lowercased().contains(searchLower) ?? false
+                    }) ?? false
+            }
             if nameMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
             return (series: group.series, books: filteredBooks)
@@ -70,7 +91,9 @@ struct SeriesView: View {
     }
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
-        navigationPath.append(SeriesDetailNavigation(seriesName: group.id, initialSelectedBook: book))
+        navigationPath.append(
+            SeriesDetailNavigation(seriesName: group.id, initialSelectedBook: book)
+        )
     }
 }
 
@@ -80,19 +103,49 @@ extension SeriesView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Series").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing: 12) {
-                if hasConnectionError, let showOfflineSheet { Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) } }
-                Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
-            }}}
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: SeriesDetailNavigation.self) { nav in seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: BookMetadata.self) { item in iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        if hasConnectionError, let showOfflineSheet {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
+            .navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
+            }
+            .navigationDestination(for: BookMetadata.self) { item in
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }.environment(\.mediaNavigationPath, $navigationPath)
     }
 
@@ -102,7 +155,16 @@ extension SeriesView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "books.vertical.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
                     }
                 }
@@ -113,9 +175,20 @@ extension SeriesView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -123,14 +196,28 @@ extension SeriesView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Series").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
     }
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category { case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline); case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline) }
+        switch bookData.category { case .audio:
+            AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 #endif
@@ -141,26 +228,95 @@ extension SeriesView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: CategoryListSidebar(headerTitle: "Books by Series", sidebarTitle: "Series", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "books.vertical.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in
-                        let isNoSeries = group.id == Self.noSeriesFilterKey
-                        let sortKey = isNoSeries ? "title" : "seriesPosition"
-                        return MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, seriesFilter: group.id, defaultSort: sortKey, tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, onSeriesSelected: { newSeriesName in navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)) }, initialNarrationFilterOption: .both, scrollPosition: nil)
-                    },
-                    toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Series",
+                            sidebarTitle: "Series",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "books.vertical.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                let isNoSeries = group.id == Self.noSeriesFilterKey
+                                let sortKey = isNoSeries ? "title" : "seriesPosition"
+                                return MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    seriesFilter: group.id,
+                                    defaultSort: sortKey,
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    onSeriesSelected: { newSeriesName in
+                                        navigationPath.append(
+                                            SeriesDetailNavigation(
+                                                seriesName: newSeriesName,
+                                                initialSelectedBook: nil
+                                            )
+                                        )
+                                    },
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
-            }.navigationDestination(for: SeriesDetailNavigation.self) { nav in seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook) }
+            }.navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -173,7 +329,14 @@ extension SeriesView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -181,14 +344,45 @@ extension SeriesView {
 #endif
 
 extension SeriesView {
-    @ViewBuilder fileprivate func seriesDetailView(for seriesName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func seriesDetailView(
+        for seriesName: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         let isNoSeries = seriesName == Self.noSeriesFilterKey
         let displayTitle = isNoSeries ? "No Series" : seriesName
         let sortKey = isNoSeries ? "title" : "seriesPosition"
         #if os(iOS)
-        MediaGridView(title: displayTitle, searchText: "", mediaKind: mediaKind, seriesFilter: seriesName, defaultSort: sortKey, preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(displayTitle)
+        MediaGridView(
+            title: displayTitle,
+            searchText: "",
+            mediaKind: mediaKind,
+            seriesFilter: seriesName,
+            defaultSort: sortKey,
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(displayTitle)
         #else
-        MediaGridView(title: displayTitle, searchText: "", mediaKind: mediaKind, seriesFilter: seriesName, defaultSort: sortKey, preferredTileWidth: 120, minimumTileWidth: 50, onSeriesSelected: { newSeriesName in navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)) }, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(displayTitle)
+        MediaGridView(
+            title: displayTitle,
+            searchText: "",
+            mediaKind: mediaKind,
+            seriesFilter: seriesName,
+            defaultSort: sortKey,
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            onSeriesSelected: { newSeriesName in
+                navigationPath.append(
+                    SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)
+                )
+            },
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(displayTitle)
         #endif
     }
 }

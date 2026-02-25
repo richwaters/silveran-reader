@@ -110,7 +110,9 @@ public struct AudiobookPlayerView: View {
                     }
                     await positionObserverRegistrationTask?.value
                     if let observerId = incomingPositionObserverId {
-                        await ProgressSyncActor.shared.removeIncomingPositionObserver(id: observerId)
+                        await ProgressSyncActor.shared.removeIncomingPositionObserver(
+                            id: observerId
+                        )
                     }
                     debugLog("[AudiobookPlayerView] onDisappear: calling AudiobookActor.cleanup()")
                     await AudiobookActor.shared.cleanup()
@@ -565,7 +567,8 @@ public struct AudiobookPlayerView: View {
             details.append("\(Int(prog * 100))%")
         }
         let locationStr = details.isEmpty ? "" : " (\(details.joined(separator: ", ")))"
-        return "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
+        return
+            "Another device has synced a more recent reading position\(locationStr). Would you like to go to that location?"
     }
 
     private func acceptServerPosition() {
@@ -587,7 +590,9 @@ public struct AudiobookPlayerView: View {
         let isAudioLocator = locator.type.contains("audio")
 
         if let totalProgression = locator.locations?.totalProgression {
-            debugLog("[AudiobookPlayerView] Navigating to server position: totalProgression=\(totalProgression) (isAudioLocator=\(isAudioLocator))")
+            debugLog(
+                "[AudiobookPlayerView] Navigating to server position: totalProgression=\(totalProgression) (isAudioLocator=\(isAudioLocator))"
+            )
             await AudiobookActor.shared.seekToTotalProgressFraction(totalProgression)
             lastSyncedProgress = totalProgression
         } else {

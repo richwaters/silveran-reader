@@ -141,7 +141,7 @@ public struct PlaybackRateButton: View {
                     .frame(width: 60)
                     .multilineTextAlignment(.center)
                     #if os(iOS)
-                    .keyboardType(.decimalPad)
+                .keyboardType(.decimalPad)
                     #endif
                     .focused($isTextFieldFocused)
                     .onSubmit {

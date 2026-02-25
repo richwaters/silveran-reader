@@ -15,8 +15,10 @@ struct CollectionsView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle.fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
+        .fan.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -25,8 +27,12 @@ struct CollectionsView: View {
     @State private var sortByCount = false
     #endif
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -34,7 +40,10 @@ struct CollectionsView: View {
         if case .error = mediaViewModel.connectionStatus { return true }
         return false
     }
-    private var connectionErrorIcon: String { if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }; return "wifi.slash" }
+    private var connectionErrorIcon: String {
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
+        return "wifi.slash"
+    }
     #endif
 
     private var categoryGroups: [CategoryGroup] {
@@ -43,16 +52,29 @@ struct CollectionsView: View {
         return filtered.map { group in
             let name = group.collection?.name ?? "Unknown Collection"
             let id = group.collection?.uuid ?? group.collection?.name ?? "unknown"
-            return CategoryGroup(id: id, name: name, books: group.books, pinId: group.collection?.name != nil ? SidebarPinHelper.pinId(forCollection: name) : nil)
+            return CategoryGroup(
+                id: id,
+                name: name,
+                books: group.books,
+                pinId: group.collection?.name != nil
+                    ? SidebarPinHelper.pinId(forCollection: name) : nil
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]) -> [(collection: BookCollectionSummary?, books: [BookMetadata])] {
+    private func filterGroups(
+        _ groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]
+    ) -> [(collection: BookCollectionSummary?, books: [BookMetadata])] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let nameMatches = group.collection?.name.lowercased().contains(searchLower) ?? false
-            let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) || $0.authors?.contains(where: { $0.name?.lowercased().contains(searchLower) ?? false }) ?? false }
+            let filteredBooks = group.books.filter {
+                $0.title.lowercased().contains(searchLower)
+                    || $0.authors?.contains(where: {
+                        $0.name?.lowercased().contains(searchLower) ?? false
+                    }) ?? false
+            }
             if nameMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
             return (collection: group.collection, books: filteredBooks)
@@ -68,7 +90,9 @@ struct CollectionsView: View {
     }
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
-        navigationPath.append(CollectionDetailNavigation(collectionIdentifier: group.id, initialSelectedBook: book))
+        navigationPath.append(
+            CollectionDetailNavigation(collectionIdentifier: group.id, initialSelectedBook: book)
+        )
     }
 }
 
@@ -78,20 +102,58 @@ extension CollectionsView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Collections").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing: 12) {
-                if hasConnectionError, let showOfflineSheet { Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) } }
-                Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
-            }}}
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: CollectionDetailNavigation.self) { nav in collectionDetailView(for: nav.collectionIdentifier, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: SeriesDetailNavigation.self) { nav in seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: BookMetadata.self) { item in iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        if hasConnectionError, let showOfflineSheet {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
+            .navigationDestination(for: CollectionDetailNavigation.self) { nav in
+                collectionDetailView(
+                    for: nav.collectionIdentifier,
+                    initialSelectedItem: nav.initialSelectedBook
+                ).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
+            }
+            .navigationDestination(for: BookMetadata.self) { item in
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }.environment(\.mediaNavigationPath, $navigationPath)
     }
 
@@ -101,7 +163,16 @@ extension CollectionsView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "rectangle.stack.fill", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "rectangle.stack.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
                     }
                 }
@@ -112,9 +183,20 @@ extension CollectionsView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -122,14 +204,28 @@ extension CollectionsView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Collection").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
     }
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category { case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline); case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline) }
+        switch bookData.category { case .audio:
+            AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 #endif
@@ -140,24 +236,92 @@ extension CollectionsView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: CategoryListSidebar(headerTitle: "Books by Collection", sidebarTitle: "Collections", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "rectangle.stack.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, collectionFilter: group.id, defaultSort: "titleAZ", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
-                    toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Collection",
+                            sidebarTitle: "Collections",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "rectangle.stack.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    collectionFilter: group.id,
+                                    defaultSort: "titleAZ",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
             }
-            .navigationDestination(for: CollectionDetailNavigation.self) { nav in collectionDetailView(for: nav.collectionIdentifier, initialSelectedItem: nav.initialSelectedBook) }
-            .navigationDestination(for: SeriesDetailNavigation.self) { nav in seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook) }
+            .navigationDestination(for: CollectionDetailNavigation.self) { nav in
+                collectionDetailView(
+                    for: nav.collectionIdentifier,
+                    initialSelectedItem: nav.initialSelectedBook
+                )
+            }
+            .navigationDestination(for: SeriesDetailNavigation.self) { nav in
+                seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -170,7 +334,14 @@ extension CollectionsView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -182,26 +353,85 @@ extension CollectionsView {
         let groups = mediaViewModel.booksByCollection(for: mediaKind)
         for group in groups {
             if let collection = group.collection {
-                if collection.uuid == identifier || collection.name == identifier { return collection.name }
+                if collection.uuid == identifier || collection.name == identifier {
+                    return collection.name
+                }
             }
         }
         return identifier
     }
 
-    @ViewBuilder fileprivate func collectionDetailView(for collectionIdentifier: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func collectionDetailView(
+        for collectionIdentifier: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         let collectionName = findCollectionName(for: collectionIdentifier)
         #if os(iOS)
-        MediaGridView(title: collectionName, searchText: "", mediaKind: mediaKind, collectionFilter: collectionIdentifier, defaultSort: "titleAZ", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(collectionName)
+        MediaGridView(
+            title: collectionName,
+            searchText: "",
+            mediaKind: mediaKind,
+            collectionFilter: collectionIdentifier,
+            defaultSort: "titleAZ",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(collectionName)
         #else
-        MediaGridView(title: collectionName, searchText: "", mediaKind: mediaKind, collectionFilter: collectionIdentifier, defaultSort: "titleAZ", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(collectionName)
+        MediaGridView(
+            title: collectionName,
+            searchText: "",
+            mediaKind: mediaKind,
+            collectionFilter: collectionIdentifier,
+            defaultSort: "titleAZ",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(collectionName)
         #endif
     }
 
-    @ViewBuilder fileprivate func seriesDetailView(for seriesName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func seriesDetailView(
+        for seriesName: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         #if os(iOS)
-        MediaGridView(title: seriesName, searchText: "", mediaKind: mediaKind, seriesFilter: seriesName, defaultSort: "seriesPosition", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(seriesName)
+        MediaGridView(
+            title: seriesName,
+            searchText: "",
+            mediaKind: mediaKind,
+            seriesFilter: seriesName,
+            defaultSort: "seriesPosition",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(seriesName)
         #else
-        MediaGridView(title: seriesName, searchText: "", mediaKind: mediaKind, seriesFilter: seriesName, defaultSort: "seriesPosition", preferredTileWidth: 120, minimumTileWidth: 50, onSeriesSelected: { newSeriesName in navigationPath.append(SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)) }, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(seriesName)
+        MediaGridView(
+            title: seriesName,
+            searchText: "",
+            mediaKind: mediaKind,
+            seriesFilter: seriesName,
+            defaultSort: "seriesPosition",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            onSeriesSelected: { newSeriesName in
+                navigationPath.append(
+                    SeriesDetailNavigation(seriesName: newSeriesName, initialSelectedBook: nil)
+                )
+            },
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(seriesName)
         #endif
     }
 }

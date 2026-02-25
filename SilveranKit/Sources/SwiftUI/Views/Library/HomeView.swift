@@ -48,7 +48,8 @@ struct HomeView: View {
     @State private var isAnimatingSidebar = false
     #endif
     @State private var navigationPath = NavigationPath()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
@@ -159,7 +160,10 @@ struct HomeView: View {
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && selectedItem != nil
             let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-            let contentWidth = isAnimatingSidebar ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment)) : (geometry.size.width - sidebarAdjustment)
+            let contentWidth =
+                isAnimatingSidebar
+                ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment))
+                : (geometry.size.width - sidebarAdjustment)
             #endif
 
             HStack(spacing: 0) {
@@ -399,7 +403,8 @@ struct HomeView: View {
             },
         ]
 
-        sections = config
+        sections =
+            config
             .filter { $0.visible }
             .compactMap { item in
                 if let builder = sectionBuilders[item.id] {
@@ -634,7 +639,8 @@ struct HomeView: View {
         } else if pinId.hasPrefix("pin.smartShelf:") {
             let uuidString = String(pinId.dropFirst("pin.smartShelf:".count))
             guard let uuid = UUID(uuidString: uuidString),
-                  let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) else {
+                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+            else {
                 return nil
             }
             title = shelf.name
@@ -876,7 +882,11 @@ private struct HomeSectionRow: View {
                 .foregroundStyle(Color.accentColor)
             }
 
-            let metrics = MediaItemCardMetrics.make(for: tileWidth, mediaKind: section.mediaKind, coverPreference: coverPreference)
+            let metrics = MediaItemCardMetrics.make(
+                for: tileWidth,
+                mediaKind: section.mediaKind,
+                coverPreference: coverPreference
+            )
 
             if section.items.isEmpty {
                 VStack {

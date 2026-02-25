@@ -33,7 +33,10 @@ struct MediaGridDownloadSection: View {
                 #if os(macOS)
                 if isServerBook {
                     Button("Manage Server Media...") {
-                        openWindow(id: "ServerMediaManagement", value: ServerMediaManagementData(bookId: item.id))
+                        openWindow(
+                            id: "ServerMediaManagement",
+                            value: ServerMediaManagementData(bookId: item.id)
+                        )
                     }
                     .font(.callout)
                     .buttonStyle(.plain)

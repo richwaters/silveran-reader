@@ -349,7 +349,9 @@ public final class CarPlayCoordinator {
 
         let playbackSpeed = await SettingsActor.shared.config.playback.defaultPlaybackSpeed
         await AudiobookActor.shared.setPlaybackRate(playbackSpeed)
-        debugLog("[CarPlayCoordinator] M4B audiobook loaded at \(playbackSpeed)x, starting playback")
+        debugLog(
+            "[CarPlayCoordinator] M4B audiobook loaded at \(playbackSpeed)x, starting playback"
+        )
         try await AudiobookActor.shared.play()
     }
 

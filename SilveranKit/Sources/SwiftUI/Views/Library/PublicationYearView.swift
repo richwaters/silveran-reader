@@ -15,8 +15,10 @@ struct PublicationYearView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -25,8 +27,12 @@ struct PublicationYearView: View {
     @State private var sortByCount = false
     #endif
 
-    private var layoutStyle: CategoryLayoutStyle { CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list }
-    private var coverPreference: CoverPreference { CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook }
+    private var layoutStyle: CategoryLayoutStyle {
+        CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
+    }
+    private var coverPreference: CoverPreference {
+        CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
 
     #if os(iOS)
     private var hasConnectionError: Bool {
@@ -34,18 +40,28 @@ struct PublicationYearView: View {
         if case .error = mediaViewModel.connectionStatus { return true }
         return false
     }
-    private var connectionErrorIcon: String { if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }; return "wifi.slash" }
+    private var connectionErrorIcon: String {
+        if case .error = mediaViewModel.connectionStatus { return "exclamationmark.triangle" }
+        return "wifi.slash"
+    }
     #endif
 
     private var categoryGroups: [CategoryGroup] {
         let groups = mediaViewModel.booksByPublicationYear(for: mediaKind)
         let filtered = filterGroups(groups)
         return filtered.map { group in
-            CategoryGroup(id: group.year, name: group.year, books: group.books, pinId: SidebarPinHelper.pinId(forYear: group.year))
+            CategoryGroup(
+                id: group.year,
+                name: group.year,
+                books: group.books,
+                pinId: SidebarPinHelper.pinId(forYear: group.year)
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(year: String, books: [BookMetadata])]) -> [(year: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(year: String, books: [BookMetadata])]) -> [(
+        year: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
@@ -81,19 +97,49 @@ extension PublicationYearView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Publication Years").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing: 12) {
-                if hasConnectionError, let showOfflineSheet { Button { showOfflineSheet.wrappedValue = true } label: { Image(systemName: connectionErrorIcon).foregroundStyle(.red) } }
-                Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
-            }}}
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
-            .navigationDestination(for: YearDetailNavigation.self) { nav in yearDetailView(for: nav.year, initialSelectedItem: nav.initialSelectedBook).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: BookMetadata.self) { item in iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false)) }
-            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        if hasConnectionError, let showOfflineSheet {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
+                                Image(systemName: connectionErrorIcon).foregroundStyle(.red)
+                            }
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
+            .navigationDestination(for: YearDetailNavigation.self) { nav in
+                yearDetailView(for: nav.year, initialSelectedItem: nav.initialSelectedBook)
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
+            }
+            .navigationDestination(for: BookMetadata.self) { item in
+                iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                )
+            }
+            .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
+            }
         }.environment(\.mediaNavigationPath, $navigationPath)
     }
 
@@ -103,7 +149,16 @@ extension PublicationYearView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: { CategoryRowContent(iconName: "calendar", name: group.name, bookCount: group.books.count, isSelected: false).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "calendar",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            ).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
                     }
                 }
@@ -114,9 +169,20 @@ extension PublicationYearView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -124,14 +190,28 @@ extension PublicationYearView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Year").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
     }
 
     @ViewBuilder private func playerView(for bookData: PlayerBookData) -> some View {
-        switch bookData.category { case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline); case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline) }
+        switch bookData.category { case .audio:
+            AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 #endif
@@ -142,22 +222,85 @@ extension PublicationYearView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: CategoryListSidebar(headerTitle: "Books by Year", sidebarTitle: "Years", groups: categoryGroups, selectedGroupId: $selectedGroupId, listWidth: $listWidth, sortByCount: $sortByCount,
-                    rowContent: { group, isSelected, isHovered in CategoryRowContent(iconName: "calendar", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered) },
-                    detailContent: { group in MediaGridView(title: group.name, searchText: searchText, mediaKind: mediaKind, publicationYearFilter: group.name, defaultSort: "title", tableContext: "category", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil) },
-                    toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) })
-                case .fan, .grid: fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Year",
+                            sidebarTitle: "Years",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "calendar",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    publicationYearFilter: group.name,
+                                    defaultSort: "title",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid: fanGridContent
                 }
-            }.navigationDestination(for: YearDetailNavigation.self) { nav in yearDetailView(for: nav.year, initialSelectedItem: nav.initialSelectedBook) }
+            }.navigationDestination(for: YearDetailNavigation.self) { nav in
+                yearDetailView(for: nav.year, initialSelectedItem: nav.initialSelectedBook)
+            }
         }
     }
 
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -170,7 +313,14 @@ extension PublicationYearView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -178,11 +328,37 @@ extension PublicationYearView {
 #endif
 
 extension PublicationYearView {
-    @ViewBuilder fileprivate func yearDetailView(for year: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    @ViewBuilder fileprivate func yearDetailView(
+        for year: String,
+        initialSelectedItem: BookMetadata? = nil
+    ) -> some View {
         #if os(iOS)
-        MediaGridView(title: year, searchText: "", mediaKind: mediaKind, publicationYearFilter: year, defaultSort: "title", preferredTileWidth: 110, minimumTileWidth: 90, columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)], initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(year)
+        MediaGridView(
+            title: year,
+            searchText: "",
+            mediaKind: mediaKind,
+            publicationYearFilter: year,
+            defaultSort: "title",
+            preferredTileWidth: 110,
+            minimumTileWidth: 90,
+            columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(year)
         #else
-        MediaGridView(title: year, searchText: "", mediaKind: mediaKind, publicationYearFilter: year, defaultSort: "title", preferredTileWidth: 120, minimumTileWidth: 50, initialNarrationFilterOption: .both, scrollPosition: nil, initialSelectedItem: initialSelectedItem).navigationTitle(year)
+        MediaGridView(
+            title: year,
+            searchText: "",
+            mediaKind: mediaKind,
+            publicationYearFilter: year,
+            defaultSort: "title",
+            preferredTileWidth: 120,
+            minimumTileWidth: 50,
+            initialNarrationFilterOption: .both,
+            scrollPosition: nil,
+            initialSelectedItem: initialSelectedItem
+        ).navigationTitle(year)
         #endif
     }
 }

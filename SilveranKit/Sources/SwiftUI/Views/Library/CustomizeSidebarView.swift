@@ -74,14 +74,20 @@ struct CustomizeSidebarView: View {
     private func groupHeader(group: SidebarConfigGroup, groupIndex: Int) -> some View {
         HStack {
             if editingGroupId == group.id {
-                TextField("Group Name", text: Binding(
-                    get: { groups[groupIndex].name },
-                    set: { groups[groupIndex].name = $0 }
-                ))
+                TextField(
+                    "Group Name",
+                    text: Binding(
+                        get: { groups[groupIndex].name },
+                        set: { groups[groupIndex].name = $0 }
+                    )
+                )
                 .textFieldStyle(.roundedBorder)
                 .font(.subheadline.weight(.semibold))
                 .focused($focusedGroupId, equals: group.id)
-                .onSubmit { editingGroupId = nil; focusedGroupId = nil }
+                .onSubmit {
+                    editingGroupId = nil
+                    focusedGroupId = nil
+                }
 
                 Button {
                     editingGroupId = nil
@@ -157,7 +163,9 @@ struct CustomizeSidebarView: View {
     }
 
     @ViewBuilder
-    private func permanentItemRow(item: SidebarConfigItem, groupIndex: Int, itemIndex: Int) -> some View {
+    private func permanentItemRow(item: SidebarConfigItem, groupIndex: Int, itemIndex: Int)
+        -> some View
+    {
         HStack(spacing: 8) {
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(.tertiary)
@@ -169,14 +177,20 @@ struct CustomizeSidebarView: View {
 
             if editingItemId == item.id {
                 let defaultName = resolved?.name ?? item.id
-                TextField(defaultName, text: Binding(
-                    get: { groups[groupIndex].items[itemIndex].alias ?? "" },
-                    set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
-                ))
+                TextField(
+                    defaultName,
+                    text: Binding(
+                        get: { groups[groupIndex].items[itemIndex].alias ?? "" },
+                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
+                    )
+                )
                 .textFieldStyle(.roundedBorder)
                 .font(.callout)
                 .focused($focusedItemId, equals: item.id)
-                .onSubmit { editingItemId = nil; focusedItemId = nil }
+                .onSubmit {
+                    editingItemId = nil
+                    focusedItemId = nil
+                }
 
                 Button {
                     editingItemId = nil
@@ -261,14 +275,20 @@ struct CustomizeSidebarView: View {
 
             if editingItemId == item.id {
                 let defaultName = resolveDefaultPinName(for: item.id)
-                TextField(defaultName, text: Binding(
-                    get: { groups[groupIndex].items[itemIndex].alias ?? "" },
-                    set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
-                ))
+                TextField(
+                    defaultName,
+                    text: Binding(
+                        get: { groups[groupIndex].items[itemIndex].alias ?? "" },
+                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
+                    )
+                )
                 .textFieldStyle(.roundedBorder)
                 .font(.callout)
                 .focused($focusedItemId, equals: item.id)
-                .onSubmit { editingItemId = nil; focusedItemId = nil }
+                .onSubmit {
+                    editingItemId = nil
+                    focusedItemId = nil
+                }
 
                 Button {
                     editingItemId = nil
@@ -392,15 +412,19 @@ struct CustomizeSidebarView: View {
                         Image(systemName: "line.3.horizontal")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
-                        Toggle(isOn: Binding(
-                            get: { item.visible },
-                            set: { newValue in
-                                if let idx = homeSectionConfig.firstIndex(where: { $0.id == item.id }) {
-                                    homeSectionConfig[idx].visible = newValue
-                                    HomeSectionConfigHelper.save(homeSectionConfig)
+                        Toggle(
+                            isOn: Binding(
+                                get: { item.visible },
+                                set: { newValue in
+                                    if let idx = homeSectionConfig.firstIndex(where: {
+                                        $0.id == item.id
+                                    }) {
+                                        homeSectionConfig[idx].visible = newValue
+                                        HomeSectionConfigHelper.save(homeSectionConfig)
+                                    }
                                 }
-                            }
-                        )) {
+                            )
+                        ) {
                             Label(
                                 homeSectionDisplayName(for: item.id),
                                 systemImage: HomeSectionConfigHelper.systemImage(for: item.id)
@@ -424,7 +448,8 @@ struct CustomizeSidebarView: View {
         if id.hasPrefix("pin.smartShelf:") {
             let uuidString = String(id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
+                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+            {
                 return shelf.name
             }
             return id
@@ -446,7 +471,8 @@ struct CustomizeSidebarView: View {
         if id.hasPrefix("pin.smartShelf:") {
             let uuidString = String(id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
+                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+            {
                 return shelf.name
             }
             return "Smart Shelf"
@@ -478,10 +504,10 @@ struct CustomizeSidebarView: View {
         if id.hasPrefix("pin.status:") {
             let status = String(id.dropFirst("pin.status:".count))
             switch status.lowercased() {
-            case "reading": return "arrow.right.circle.fill"
-            case "to read": return "bookmark.fill"
-            case "read": return "checkmark.circle.fill"
-            default: return "questionmark.circle.fill"
+                case "reading": return "arrow.right.circle.fill"
+                case "to read": return "bookmark.fill"
+                case "read": return "checkmark.circle.fill"
+                default: return "questionmark.circle.fill"
             }
         }
         if id.hasPrefix("pin.smartShelf:") { return "sparkles.rectangle.stack" }
@@ -494,12 +520,13 @@ struct CustomizeSidebarView: View {
                 let existingPins = groups.flatMap { $0.items.filter { $0.id.hasPrefix("pin.") } }
                 var defaults = SidebarConfigHelper.defaultConfig()
                 if !existingPins.isEmpty,
-                   let pinsGroupIndex = defaults.firstIndex(where: {
-                       $0.items.contains { $0.id == SidebarConfigHelper.newPinLocationMarker }
-                   }),
-                   let markerIndex = defaults[pinsGroupIndex].items.firstIndex(where: {
-                       $0.id == SidebarConfigHelper.newPinLocationMarker
-                   }) {
+                    let pinsGroupIndex = defaults.firstIndex(where: {
+                        $0.items.contains { $0.id == SidebarConfigHelper.newPinLocationMarker }
+                    }),
+                    let markerIndex = defaults[pinsGroupIndex].items.firstIndex(where: {
+                        $0.id == SidebarConfigHelper.newPinLocationMarker
+                    })
+                {
                     defaults[pinsGroupIndex].items.insert(contentsOf: existingPins, at: markerIndex)
                 }
                 groups = defaults

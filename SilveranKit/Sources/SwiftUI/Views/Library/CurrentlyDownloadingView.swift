@@ -11,7 +11,9 @@ struct CurrentlyDownloadingView: View {
                 ContentUnavailableView(
                     "No Active Downloads",
                     systemImage: "arrow.down.circle",
-                    description: Text("Downloads that are in progress, paused, or failed will appear here.")
+                    description: Text(
+                        "Downloads that are in progress, paused, or failed will appear here."
+                    )
                 )
             } else {
                 #if os(macOS)
@@ -29,7 +31,8 @@ struct CurrentlyDownloadingView: View {
             downloads = await DownloadManager.shared.incompleteDownloads
 
             observerId = await DownloadManager.shared.addObserver { records in
-                downloads = records
+                downloads =
+                    records
                     .filter { $0.isIncomplete }
                     .sorted { $0.createdAt < $1.createdAt }
             }
@@ -138,54 +141,54 @@ struct CurrentlyDownloadingView: View {
 
     fileprivate static func categoryLabel(for record: DownloadRecord) -> String {
         switch record.category {
-        case .ebook: "Ebook"
-        case .audio: "Audiobook"
-        case .synced: "Readaloud"
+            case .ebook: "Ebook"
+            case .audio: "Audiobook"
+            case .synced: "Readaloud"
         }
     }
 
     fileprivate static func stateLabel(for record: DownloadRecord) -> String {
         switch record.state {
-        case .queued: "Queued"
-        case .downloading(let progress):
-            "Downloading \(Int(progress * 100))%"
-        case .paused: "Paused"
-        case .failed(let error, _): "Failed: \(error)"
-        case .importing: "Importing..."
-        case .completed: "Completed"
+            case .queued: "Queued"
+            case .downloading(let progress):
+                "Downloading \(Int(progress * 100))%"
+            case .paused: "Paused"
+            case .failed(let error, _): "Failed: \(error)"
+            case .importing: "Importing..."
+            case .completed: "Completed"
         }
     }
 
     fileprivate static func stateLabelColor(for record: DownloadRecord) -> Color {
         switch record.state {
-        case .failed: .red
-        case .paused: .orange
-        case .completed: .green
-        default: .secondary
+            case .failed: .red
+            case .paused: .orange
+            case .completed: .green
+            default: .secondary
         }
     }
 
     fileprivate static func showProgressBar(for record: DownloadRecord) -> Bool {
         switch record.state {
-        case .downloading, .importing, .queued: true
-        case .paused(let hasResume): hasResume
-        case .failed(_, let hasResume): hasResume
-        case .completed: false
+            case .downloading, .importing, .queued: true
+            case .paused(let hasResume): hasResume
+            case .failed(_, let hasResume): hasResume
+            case .completed: false
         }
     }
 
     fileprivate static func progressTint(for record: DownloadRecord) -> Color {
         switch record.state {
-        case .paused: .orange
-        case .failed: .red
-        default: .accentColor
+            case .paused: .orange
+            case .failed: .red
+            default: .accentColor
         }
     }
 
     fileprivate static func canResume(_ record: DownloadRecord) -> Bool {
         switch record.state {
-        case .paused, .failed: true
-        default: false
+            case .paused, .failed: true
+            default: false
         }
     }
 

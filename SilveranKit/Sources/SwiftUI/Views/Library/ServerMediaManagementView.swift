@@ -57,22 +57,35 @@ public struct ServerMediaManagementView: View {
                     }
 
                     Section("Server Media") {
-                        serverMediaRow(item: item, format: .ebook, label: "Ebook", asset: item.ebook)
-                        serverMediaRow(item: item, format: .audiobook, label: "Audiobook", asset: item.audiobook)
+                        serverMediaRow(
+                            item: item,
+                            format: .ebook,
+                            label: "Ebook",
+                            asset: item.ebook
+                        )
+                        serverMediaRow(
+                            item: item,
+                            format: .audiobook,
+                            label: "Audiobook",
+                            asset: item.audiobook
+                        )
                         serverReadaloudRow(item: item)
                     }
 
                     Section {
-                        Toggle("Enable experimental server media modification", isOn: Binding(
-                            get: { experimentalModeEnabled },
-                            set: { newValue in
-                                if newValue {
-                                    showExperimentalWarning = true
-                                } else {
-                                    experimentalModeEnabled = false
+                        Toggle(
+                            "Enable experimental server media modification",
+                            isOn: Binding(
+                                get: { experimentalModeEnabled },
+                                set: { newValue in
+                                    if newValue {
+                                        showExperimentalWarning = true
+                                    } else {
+                                        experimentalModeEnabled = false
+                                    }
                                 }
-                            }
-                        ))
+                            )
+                        )
                         .toggleStyle(.checkbox)
                     }
                 }
@@ -106,7 +119,9 @@ public struct ServerMediaManagementView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently delete the book and all its media from the server and remove any local downloads. This cannot be undone.")
+            Text(
+                "This will permanently delete the book and all its media from the server and remove any local downloads. This cannot be undone."
+            )
         }
         .confirmationDialog(
             "Delete \(pendingDeleteAssetLabel) from Server?",
@@ -122,7 +137,9 @@ public struct ServerMediaManagementView: View {
                 pendingDeleteAssetFormat = nil
             }
         } message: {
-            Text("This will permanently delete the \(pendingDeleteAssetLabel.lowercased()) file from the server. This cannot be undone.")
+            Text(
+                "This will permanently delete the \(pendingDeleteAssetLabel.lowercased()) file from the server. This cannot be undone."
+            )
         }
         .confirmationDialog(
             "Enable Experimental Features?",
@@ -134,7 +151,9 @@ public struct ServerMediaManagementView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Server media modification is experimental and requires a server running the latest development branch. Please back up your server data before using these features.")
+            Text(
+                "Server media modification is experimental and requires a server running the latest development branch. Please back up your server data before using these features."
+            )
         }
     }
 
@@ -188,9 +207,14 @@ public struct ServerMediaManagementView: View {
     }
 
     @ViewBuilder
-    private func localMediaRow(item: BookMetadata, category: LocalMediaCategory, label: String) -> some View {
+    private func localMediaRow(item: BookMetadata, category: LocalMediaCategory, label: String)
+        -> some View
+    {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
-        let isDownloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category
+        )
         let progress = mediaViewModel.downloadProgressFraction(for: item, category: category)
         let serverHasMedia = serverHasMedia(for: category, item: item)
         let isHovered = hoveredDownloadCategory == category
@@ -288,20 +312,25 @@ public struct ServerMediaManagementView: View {
 
     private func serverHasMedia(for category: LocalMediaCategory, item: BookMetadata) -> Bool {
         switch category {
-        case .ebook:
-            return item.ebook != nil && item.ebook?.isMissing != true
-        case .audio:
-            return item.audiobook != nil && item.audiobook?.isMissing != true
-        case .synced:
-            if let readaloud = item.readaloud {
-                return !readaloud.isMissing && readaloud.status?.uppercased() == "ALIGNED"
-            }
-            return false
+            case .ebook:
+                return item.ebook != nil && item.ebook?.isMissing != true
+            case .audio:
+                return item.audiobook != nil && item.audiobook?.isMissing != true
+            case .synced:
+                if let readaloud = item.readaloud {
+                    return !readaloud.isMissing && readaloud.status?.uppercased() == "ALIGNED"
+                }
+                return false
         }
     }
 
     @ViewBuilder
-    private func serverMediaRow(item: BookMetadata, format: StorytellerBookFormat, label: String, asset: BookAsset?) -> some View {
+    private func serverMediaRow(
+        item: BookMetadata,
+        format: StorytellerBookFormat,
+        label: String,
+        asset: BookAsset?
+    ) -> some View {
         let isUploadingThis = isUploading && uploadingFormat == format
         let isDeletingThis = deletingAssetFormat == format
         let types: [UTType] = format == .ebook ? [.epub] : audioTypes
@@ -359,7 +388,10 @@ public struct ServerMediaManagementView: View {
                         .buttonStyle(.plain)
                         .foregroundStyle(experimentalModeEnabled ? Color.red : Color.secondary)
                         .disabled(isBusy || !experimentalModeEnabled)
-                        .help(experimentalModeEnabled ? "Delete" : "Enable experimental mode to delete")
+                        .help(
+                            experimentalModeEnabled
+                                ? "Delete" : "Enable experimental mode to delete"
+                        )
                     }
 
                     Button {
@@ -370,7 +402,11 @@ public struct ServerMediaManagementView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isBusy || !experimentalModeEnabled)
-                    .help(experimentalModeEnabled ? (asset != nil ? "Replace" : "Upload") : "Enable experimental mode to upload")
+                    .help(
+                        experimentalModeEnabled
+                            ? (asset != nil ? "Replace" : "Upload")
+                            : "Enable experimental mode to upload"
+                    )
                 }
             }
         }
@@ -384,8 +420,12 @@ public struct ServerMediaManagementView: View {
 
         LabeledContent("Readaloud") {
             HStack(spacing: 16) {
-                readaloudStatusView(item: item, isUploadingThis: isUploadingThis, isDeletingThis: isDeletingThis)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                readaloudStatusView(
+                    item: item,
+                    isUploadingThis: isUploadingThis,
+                    isDeletingThis: isDeletingThis
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer()
 
@@ -395,7 +435,11 @@ public struct ServerMediaManagementView: View {
     }
 
     @ViewBuilder
-    private func readaloudStatusView(item: BookMetadata, isUploadingThis: Bool, isDeletingThis: Bool) -> some View {
+    private func readaloudStatusView(
+        item: BookMetadata,
+        isUploadingThis: Bool,
+        isDeletingThis: Bool
+    ) -> some View {
         if isUploadingThis {
             HStack(spacing: 6) {
                 ProgressView()
@@ -420,49 +464,51 @@ public struct ServerMediaManagementView: View {
                 .foregroundStyle(.secondary)
             } else if let status = readaloud.status?.uppercased() {
                 switch status {
-                case "ALIGNED":
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Available")
-                    }
-                    .foregroundStyle(.secondary)
-                case "PROCESSING":
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .progressViewStyle(ThinCircularProgressViewStyle())
-                        if let stage = readaloud.currentStage, let progress = readaloud.stageProgress {
-                            Text("\(stage): \(Int(progress * 100))%")
-                                .lineLimit(1)
-                        } else {
-                            Text("Processing...")
+                    case "ALIGNED":
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Available")
                         }
-                    }
-                    .foregroundStyle(.secondary)
-                case "QUEUED":
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .foregroundStyle(.orange)
-                        if let pos = readaloud.queuePosition {
-                            Text("Queued (#\(pos))")
-                        } else {
-                            Text("Queued")
+                        .foregroundStyle(.secondary)
+                    case "PROCESSING":
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .progressViewStyle(ThinCircularProgressViewStyle())
+                            if let stage = readaloud.currentStage,
+                                let progress = readaloud.stageProgress
+                            {
+                                Text("\(stage): \(Int(progress * 100))%")
+                                    .lineLimit(1)
+                            } else {
+                                Text("Processing...")
+                            }
                         }
-                    }
-                    .foregroundStyle(.secondary)
-                case "ERROR", "STOPPED":
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                        Text(status.capitalized)
-                    }
-                    .foregroundStyle(.secondary)
-                default:
-                    HStack(spacing: 6) {
-                        Image(systemName: "questionmark.circle")
-                        Text(status)
-                    }
-                    .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondary)
+                    case "QUEUED":
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock")
+                                .foregroundStyle(.orange)
+                            if let pos = readaloud.queuePosition {
+                                Text("Queued (#\(pos))")
+                            } else {
+                                Text("Queued")
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                    case "ERROR", "STOPPED":
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(status.capitalized)
+                        }
+                        .foregroundStyle(.secondary)
+                    default:
+                        HStack(spacing: 6) {
+                            Image(systemName: "questionmark.circle")
+                            Text(status)
+                        }
+                        .foregroundStyle(.secondary)
                 }
             } else {
                 HStack(spacing: 6) {
@@ -639,7 +685,7 @@ public struct ServerMediaManagementView: View {
             UTType(filenameExtension: "m4a")!,
             .mp3,
             UTType(filenameExtension: "flac"),
-            .zip
+            .zip,
         ].compactMap { $0 }
     }
 
@@ -681,14 +727,14 @@ public struct ServerMediaManagementView: View {
 
     private var pendingDeleteAssetLabel: String {
         switch pendingDeleteAssetFormat {
-        case .ebook:
-            return "Ebook"
-        case .audiobook:
-            return "Audiobook"
-        case .readaloud:
-            return "Readaloud"
-        case .none:
-            return "Media"
+            case .ebook:
+                return "Ebook"
+            case .audiobook:
+                return "Audiobook"
+            case .readaloud:
+                return "Readaloud"
+            case .none:
+                return "Media"
         }
     }
 
@@ -697,7 +743,11 @@ public struct ServerMediaManagementView: View {
         showDeleteAssetConfirmation = true
     }
 
-    private func selectAndUploadFile(format: StorytellerBookFormat, types: [UTType], item: BookMetadata) {
+    private func selectAndUploadFile(
+        format: StorytellerBookFormat,
+        types: [UTType],
+        item: BookMetadata
+    ) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = types
         panel.allowsMultipleSelection = false
@@ -713,12 +763,12 @@ public struct ServerMediaManagementView: View {
 
     private func hasExistingAsset(format: StorytellerBookFormat, item: BookMetadata) -> Bool {
         switch format {
-        case .ebook:
-            return item.ebook != nil
-        case .audiobook:
-            return item.audiobook != nil
-        case .readaloud:
-            return item.readaloud != nil
+            case .ebook:
+                return item.ebook != nil
+            case .audiobook:
+                return item.audiobook != nil
+            case .readaloud:
+                return item.readaloud != nil
         }
     }
 
@@ -744,12 +794,12 @@ public struct ServerMediaManagementView: View {
                 replaceMetadata: false
             )
             switch result {
-            case .success:
-                break
-            case .notSupported:
-                errorMessage = "Server does not support this operation yet"
-            case .failed:
-                errorMessage = isReplace ? "Replace failed" : "Upload failed"
+                case .success:
+                    break
+                case .notSupported:
+                    errorMessage = "Server does not support this operation yet"
+                case .failed:
+                    errorMessage = isReplace ? "Replace failed" : "Upload failed"
             }
 
             await refreshBookMetadata()
@@ -791,14 +841,18 @@ public struct ServerMediaManagementView: View {
         deletingAssetFormat = format
         errorMessage = nil
 
-        let result = await StorytellerActor.shared.deleteBookAsset(item.uuid, type: format, deleteFromDisk: true)
+        let result = await StorytellerActor.shared.deleteBookAsset(
+            item.uuid,
+            type: format,
+            deleteFromDisk: true
+        )
         switch result {
-        case .success:
-            break
-        case .notSupported:
-            errorMessage = "Server does not support deleting media yet"
-        case .failed:
-            errorMessage = "Failed to delete \(format.rawValue)"
+            case .success:
+                break
+            case .notSupported:
+                errorMessage = "Server does not support deleting media yet"
+            case .failed:
+                errorMessage = "Failed to delete \(format.rawValue)"
         }
 
         await refreshBookMetadata()

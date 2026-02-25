@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 public struct MP3ToM4BConverterView: View {
@@ -101,7 +101,9 @@ public struct MP3ToM4BConverterView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(viewModel.files.enumerated()), id: \.element.id) { index, file in
+                        ForEach(Array(viewModel.files.enumerated()), id: \.element.id) {
+                            index,
+                            file in
                             fileRow(file, index: index)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 4)
@@ -110,11 +112,14 @@ public struct MP3ToM4BConverterView: View {
                                     draggingFileID = file.id
                                     return NSItemProvider(object: file.id.uuidString as NSString)
                                 }
-                                .onDrop(of: [.text], delegate: FileDropDelegate(
-                                    fileID: file.id,
-                                    viewModel: viewModel,
-                                    draggingFileID: $draggingFileID
-                                ))
+                                .onDrop(
+                                    of: [.text],
+                                    delegate: FileDropDelegate(
+                                        fileID: file.id,
+                                        viewModel: viewModel,
+                                        draggingFileID: $draggingFileID
+                                    )
+                                )
                             if index < viewModel.files.count - 1 {
                                 Divider()
                             }
@@ -260,10 +265,13 @@ public struct MP3ToM4BConverterView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Picker("", selection: Binding(
-                    get: { viewModel.bitrate / 1000 },
-                    set: { viewModel.bitrate = $0 * 1000 }
-                )) {
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { viewModel.bitrate / 1000 },
+                        set: { viewModel.bitrate = $0 * 1000 }
+                    )
+                ) {
                     ForEach(MP3ToM4BConverterViewModel.bitrateOptions, id: \.self) { kbps in
                         Text("\(kbps) kbps").tag(kbps)
                     }
@@ -315,7 +323,9 @@ public struct MP3ToM4BConverterView: View {
                 viewModel.startConversion()
             } label: {
                 Text("Convert")
-                    .foregroundStyle(isDisabled ? Color(nsColor: .disabledControlTextColor) : .white)
+                    .foregroundStyle(
+                        isDisabled ? Color(nsColor: .disabledControlTextColor) : .white
+                    )
             }
             .keyboardShortcut(.defaultAction)
             .disabled(isDisabled)
@@ -356,7 +366,10 @@ public struct MP3ToM4BConverterView: View {
                 Text("Complete!")
                     .font(.caption)
                 Button("Show in Finder") {
-                    NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+                    NSWorkspace.shared.selectFile(
+                        url.path,
+                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+                    )
                 }
                 .font(.caption)
             }
@@ -415,14 +428,18 @@ private struct FileDropDelegate: DropDelegate {
 
     func dropEntered(info: DropInfo) {
         guard let dragging = draggingFileID,
-              dragging != fileID,
-              let fromIndex = viewModel.files.firstIndex(where: { $0.id == dragging }),
-              let toIndex = viewModel.files.firstIndex(where: { $0.id == fileID }) else {
+            dragging != fileID,
+            let fromIndex = viewModel.files.firstIndex(where: { $0.id == dragging }),
+            let toIndex = viewModel.files.firstIndex(where: { $0.id == fileID })
+        else {
             return
         }
 
         withAnimation(.easeInOut(duration: 0.2)) {
-            viewModel.files.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+            viewModel.files.move(
+                fromOffsets: IndexSet(integer: fromIndex),
+                toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
+            )
         }
     }
 

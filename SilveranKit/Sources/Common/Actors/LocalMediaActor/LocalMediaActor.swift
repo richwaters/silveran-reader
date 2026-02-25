@@ -202,9 +202,13 @@ public actor LocalMediaActor: GlobalActor {
                 debugLog("[LocalMediaActor] updateBookProgress: updated standalone metadata")
                 do {
                     try await filesystem.saveLocalLibraryMetadata(localStandaloneMetadata)
-                    debugLog("[LocalMediaActor] updateBookProgress: saved standalone metadata to disk")
+                    debugLog(
+                        "[LocalMediaActor] updateBookProgress: saved standalone metadata to disk"
+                    )
                 } catch {
-                    debugLog("[LocalMediaActor] updateBookProgress: failed to save standalone metadata: \(error)")
+                    debugLog(
+                        "[LocalMediaActor] updateBookProgress: failed to save standalone metadata: \(error)"
+                    )
                 }
             }
         }
@@ -284,7 +288,9 @@ public actor LocalMediaActor: GlobalActor {
         var mergedPaths: [String: MediaPaths] = [:]
 
         for scanned in localScanResult.metadata {
-            let scannedFilepath = scanned.ebook?.filepath ?? scanned.audiobook?.filepath ?? scanned.readaloud?.filepath
+            let scannedFilepath =
+                scanned.ebook?.filepath ?? scanned.audiobook?.filepath
+                ?? scanned.readaloud?.filepath
 
             if let filepath = scannedFilepath, let saved = savedByFilename[filepath] {
                 // Found match - preserve UUID and position from saved metadata
@@ -304,13 +310,36 @@ public actor LocalMediaActor: GlobalActor {
                     tags: scanned.tags,
                     collections: scanned.collections,
                     ebook: scanned.ebook.map { asset in
-                        BookAsset(uuid: saved.uuid, filepath: asset.filepath, missing: asset.missing, createdAt: asset.createdAt, updatedAt: asset.updatedAt)
+                        BookAsset(
+                            uuid: saved.uuid,
+                            filepath: asset.filepath,
+                            missing: asset.missing,
+                            createdAt: asset.createdAt,
+                            updatedAt: asset.updatedAt
+                        )
                     },
                     audiobook: scanned.audiobook.map { asset in
-                        BookAsset(uuid: saved.uuid, filepath: asset.filepath, missing: asset.missing, createdAt: asset.createdAt, updatedAt: asset.updatedAt)
+                        BookAsset(
+                            uuid: saved.uuid,
+                            filepath: asset.filepath,
+                            missing: asset.missing,
+                            createdAt: asset.createdAt,
+                            updatedAt: asset.updatedAt
+                        )
                     },
                     readaloud: scanned.readaloud.map { asset in
-                        BookReadaloud(uuid: saved.uuid, filepath: asset.filepath, missing: asset.missing, status: asset.status, currentStage: asset.currentStage, stageProgress: asset.stageProgress, queuePosition: asset.queuePosition, restartPending: asset.restartPending, createdAt: asset.createdAt, updatedAt: asset.updatedAt)
+                        BookReadaloud(
+                            uuid: saved.uuid,
+                            filepath: asset.filepath,
+                            missing: asset.missing,
+                            status: asset.status,
+                            currentStage: asset.currentStage,
+                            stageProgress: asset.stageProgress,
+                            queuePosition: asset.queuePosition,
+                            restartPending: asset.restartPending,
+                            createdAt: asset.createdAt,
+                            updatedAt: asset.updatedAt
+                        )
                     },
                     status: saved.status,
                     position: saved.position,
@@ -323,14 +352,18 @@ public actor LocalMediaActor: GlobalActor {
                     mergedPaths[saved.uuid] = scannedPaths
                 }
 
-                debugLog("[LocalMediaActor] Matched local book '\(scanned.title)' to saved UUID \(saved.uuid)")
+                debugLog(
+                    "[LocalMediaActor] Matched local book '\(scanned.title)' to saved UUID \(saved.uuid)"
+                )
             } else {
                 // New book - use scanned metadata as-is
                 mergedMetadata.append(scanned)
                 if let scannedPaths = localScanResult.paths[scanned.uuid] {
                     mergedPaths[scanned.uuid] = scannedPaths
                 }
-                debugLog("[LocalMediaActor] New local book '\(scanned.title)' with UUID \(scanned.uuid)")
+                debugLog(
+                    "[LocalMediaActor] New local book '\(scanned.title)' with UUID \(scanned.uuid)"
+                )
             }
         }
 
@@ -553,7 +586,9 @@ public actor LocalMediaActor: GlobalActor {
             }
         }
 
-        debugLog("[LocalMediaActor] extractLocalCover failed: ebookPath=\(paths.ebookPath?.lastPathComponent ?? "nil"), syncedPath=\(paths.syncedPath?.lastPathComponent ?? "nil"), audioPath=\(paths.audioPath?.lastPathComponent ?? "nil")")
+        debugLog(
+            "[LocalMediaActor] extractLocalCover failed: ebookPath=\(paths.ebookPath?.lastPathComponent ?? "nil"), syncedPath=\(paths.syncedPath?.lastPathComponent ?? "nil"), audioPath=\(paths.audioPath?.lastPathComponent ?? "nil")"
+        )
         return nil
     }
 

@@ -487,10 +487,10 @@ public struct SyncHistoryEntry: Codable, Sendable, Hashable {
 
     public enum SyncHistoryResult: String, Codable, Sendable, Hashable {
         // Local update lifecycle (mutable - tracks progress through sync)
-        case queued                  // Added to pending queue
-        case sent                    // Server accepted our sync request
-        case completed               // Position dequeued (server confirmed or has newer)
-        case rejectedAsOlder         // Local position older than server/queue
+        case queued  // Added to pending queue
+        case sent  // Server accepted our sync request
+        case completed  // Position dequeued (server confirmed or has newer)
+        case rejectedAsOlder  // Local position older than server/queue
 
         // Server update statuses (immutable once recorded)
         case serverIncomingAccepted  // Server position accepted (newer than local)
@@ -663,7 +663,8 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
         guard hasAvailableEbook && hasAvailableAudiobook else { return false }
         guard let readaloud else { return true }
         let status = readaloud.status?.uppercased() ?? ""
-        return status == "PROCESSING" || status == "QUEUED" || status == "ERROR" || status == "STOPPED"
+        return status == "PROCESSING" || status == "QUEUED" || status == "ERROR"
+            || status == "STOPPED"
     }
 
     public var progress: Double {

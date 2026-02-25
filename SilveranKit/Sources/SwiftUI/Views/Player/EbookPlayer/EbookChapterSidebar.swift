@@ -11,7 +11,9 @@ struct EbookChapterSidebar: View {
             Section("Chapters") {
                 ForEach(chapters, id: \.id) { chapter in
                     Button {
-                        debugLog("[TOC-DEBUG] Sidebar button tapped: id=\(chapter.id) label=\"\(chapter.label)\"")
+                        debugLog(
+                            "[TOC-DEBUG] Sidebar button tapped: id=\(chapter.id) label=\"\(chapter.label)\""
+                        )
                         onChapterSelected(chapter)
                     } label: {
                         Text(chapter.label)

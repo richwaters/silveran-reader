@@ -238,7 +238,8 @@ struct WatchIncompleteDownloadsView: View {
         .task {
             downloads = await DownloadManager.shared.incompleteDownloads
             let _ = await DownloadManager.shared.addObserver { records in
-                downloads = records
+                downloads =
+                    records
                     .filter { $0.isIncomplete }
                     .sorted { $0.createdAt < $1.createdAt }
             }
@@ -247,28 +248,28 @@ struct WatchIncompleteDownloadsView: View {
 
     private func watchStateLabel(for record: DownloadRecord) -> String {
         switch record.state {
-        case .queued: "Queued"
-        case .downloading(let p): String(format: "%.1f%%", p * 100)
-        case .paused: "Paused"
-        case .failed(let e, _): "Failed: \(e)"
-        case .importing: "Importing..."
-        case .completed: "Done"
+            case .queued: "Queued"
+            case .downloading(let p): String(format: "%.1f%%", p * 100)
+            case .paused: "Paused"
+            case .failed(let e, _): "Failed: \(e)"
+            case .importing: "Importing..."
+            case .completed: "Done"
         }
     }
 
     private func watchStateLabelColor(for record: DownloadRecord) -> Color {
         switch record.state {
-        case .failed: .red
-        case .paused: .orange
-        default: .secondary
+            case .failed: .red
+            case .paused: .orange
+            default: .secondary
         }
     }
 
     private func watchProgressTint(for record: DownloadRecord) -> Color {
         switch record.state {
-        case .failed: .red
-        case .paused: .orange
-        default: .accentColor
+            case .failed: .red
+            case .paused: .orange
+            default: .accentColor
         }
     }
 }

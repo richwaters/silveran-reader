@@ -188,7 +188,7 @@ class MediaOverlayManager {
         }
 
         if bookStructure.count > sectionsToShow {
-        debugLog("[MOM]   ... and \(bookStructure.count - sectionsToShow) more sections")
+            debugLog("[MOM]   ... and \(bookStructure.count - sectionsToShow) more sections")
         }
 
         Task {

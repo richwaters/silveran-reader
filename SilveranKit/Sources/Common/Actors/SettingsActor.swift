@@ -108,41 +108,78 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public init(from decoder: Decoder) throws {
             let container = try? decoder.container(keyedBy: CodingKeys.self)
             fontSize = (try? container?.decode(Double.self, forKey: .fontSize)) ?? kDefaultFontSize
-            fontFamily = (try? container?.decode(String.self, forKey: .fontFamily)) ?? kDefaultFontFamily
-            lineSpacing = (try? container?.decode(Double.self, forKey: .lineSpacing)) ?? kDefaultLineSpacing
+            fontFamily =
+                (try? container?.decode(String.self, forKey: .fontFamily)) ?? kDefaultFontFamily
+            lineSpacing =
+                (try? container?.decode(Double.self, forKey: .lineSpacing)) ?? kDefaultLineSpacing
             #if os(iOS)
-            marginLeftRight = (try? container?.decode(Double.self, forKey: .marginLeftRight)) ?? kDefaultMarginLeftRightIOS
+            marginLeftRight =
+                (try? container?.decode(Double.self, forKey: .marginLeftRight))
+                ?? kDefaultMarginLeftRightIOS
             #else
-            marginLeftRight = (try? container?.decode(Double.self, forKey: .marginLeftRight)) ?? kDefaultMarginLeftRightMac
+            marginLeftRight =
+                (try? container?.decode(Double.self, forKey: .marginLeftRight))
+                ?? kDefaultMarginLeftRightMac
             #endif
-            marginTopBottom = (try? container?.decode(Double.self, forKey: .marginTopBottom)) ?? kDefaultMarginTopBottom
-            wordSpacing = (try? container?.decode(Double.self, forKey: .wordSpacing)) ?? kDefaultWordSpacing
-            letterSpacing = (try? container?.decode(Double.self, forKey: .letterSpacing)) ?? kDefaultLetterSpacing
+            marginTopBottom =
+                (try? container?.decode(Double.self, forKey: .marginTopBottom))
+                ?? kDefaultMarginTopBottom
+            wordSpacing =
+                (try? container?.decode(Double.self, forKey: .wordSpacing)) ?? kDefaultWordSpacing
+            letterSpacing =
+                (try? container?.decode(Double.self, forKey: .letterSpacing))
+                ?? kDefaultLetterSpacing
             highlightColor = try? container?.decode(String.self, forKey: .highlightColor)
-            highlightThickness = (try? container?.decode(Double.self, forKey: .highlightThickness)) ?? kDefaultHighlightThickness
+            highlightThickness =
+                (try? container?.decode(Double.self, forKey: .highlightThickness))
+                ?? kDefaultHighlightThickness
             backgroundColor = try? container?.decode(String.self, forKey: .backgroundColor)
             foregroundColor = try? container?.decode(String.self, forKey: .foregroundColor)
             customCSS = try? container?.decode(String.self, forKey: .customCSS)
-            enableMarginClickNavigation = (try? container?.decode(Bool.self, forKey: .enableMarginClickNavigation)) ?? kDefaultEnableMarginClickNavigation
-            singleColumnMode = (try? container?.decode(Bool.self, forKey: .singleColumnMode)) ?? kDefaultSingleColumnMode
-            userHighlightColor1 = (try? container?.decode(String.self, forKey: .userHighlightColor1)) ?? kDefaultUserHighlightColor1
-            userHighlightColor2 = (try? container?.decode(String.self, forKey: .userHighlightColor2)) ?? kDefaultUserHighlightColor2
-            userHighlightColor3 = (try? container?.decode(String.self, forKey: .userHighlightColor3)) ?? kDefaultUserHighlightColor3
-            userHighlightColor4 = (try? container?.decode(String.self, forKey: .userHighlightColor4)) ?? kDefaultUserHighlightColor4
-            userHighlightColor5 = (try? container?.decode(String.self, forKey: .userHighlightColor5)) ?? kDefaultUserHighlightColor5
-            userHighlightColor6 = (try? container?.decode(String.self, forKey: .userHighlightColor6)) ?? kDefaultUserHighlightColor6
-            userHighlightMode = (try? container?.decode(String.self, forKey: .userHighlightMode)) ?? kDefaultUserHighlightMode
+            enableMarginClickNavigation =
+                (try? container?.decode(Bool.self, forKey: .enableMarginClickNavigation))
+                ?? kDefaultEnableMarginClickNavigation
+            singleColumnMode =
+                (try? container?.decode(Bool.self, forKey: .singleColumnMode))
+                ?? kDefaultSingleColumnMode
+            userHighlightColor1 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor1))
+                ?? kDefaultUserHighlightColor1
+            userHighlightColor2 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor2))
+                ?? kDefaultUserHighlightColor2
+            userHighlightColor3 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor3))
+                ?? kDefaultUserHighlightColor3
+            userHighlightColor4 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor4))
+                ?? kDefaultUserHighlightColor4
+            userHighlightColor5 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor5))
+                ?? kDefaultUserHighlightColor5
+            userHighlightColor6 =
+                (try? container?.decode(String.self, forKey: .userHighlightColor6))
+                ?? kDefaultUserHighlightColor6
+            userHighlightMode =
+                (try? container?.decode(String.self, forKey: .userHighlightMode))
+                ?? kDefaultUserHighlightMode
 
             // Migrate from old readaloudHighlightUnderline boolean to new mode value
             let legacyContainer = try? decoder.container(keyedBy: LegacyCodingKeys.self)
-            let legacyUnderline = (try? legacyContainer?.decode(Bool.self, forKey: .readaloudHighlightUnderline)) ?? false
-            let storedMode = (try? container?.decode(String.self, forKey: .readaloudHighlightMode)) ?? kDefaultReadaloudHighlightMode
+            let legacyUnderline =
+                (try? legacyContainer?.decode(Bool.self, forKey: .readaloudHighlightUnderline))
+                ?? false
+            let storedMode =
+                (try? container?.decode(String.self, forKey: .readaloudHighlightMode))
+                ?? kDefaultReadaloudHighlightMode
             if legacyUnderline && storedMode == "background" {
                 readaloudHighlightMode = "underline"
             } else {
                 readaloudHighlightMode = storedMode
             }
-            tvSubtitleFontSize = (try? container?.decode(Double.self, forKey: .tvSubtitleFontSize)) ?? kDefaultTVSubtitleFontSize
+            tvSubtitleFontSize =
+                (try? container?.decode(Double.self, forKey: .tvSubtitleFontSize))
+                ?? kDefaultTVSubtitleFontSize
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -227,22 +264,46 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let container = try? decoder.container(keyedBy: CodingKeys.self)
-            enabled = (try? container?.decode(Bool.self, forKey: .enabled)) ?? kDefaultReadingBarEnabled
+            enabled =
+                (try? container?.decode(Bool.self, forKey: .enabled)) ?? kDefaultReadingBarEnabled
             #if os(iOS)
-            showPlayerControls = (try? container?.decode(Bool.self, forKey: .showPlayerControls)) ?? kDefaultShowPlayerControlsIOS
+            showPlayerControls =
+                (try? container?.decode(Bool.self, forKey: .showPlayerControls))
+                ?? kDefaultShowPlayerControlsIOS
             #else
-            showPlayerControls = (try? container?.decode(Bool.self, forKey: .showPlayerControls)) ?? kDefaultShowPlayerControlsMac
+            showPlayerControls =
+                (try? container?.decode(Bool.self, forKey: .showPlayerControls))
+                ?? kDefaultShowPlayerControlsMac
             #endif
-            showProgressBar = (try? container?.decode(Bool.self, forKey: .showProgressBar)) ?? kDefaultShowProgressBar
-            showProgress = (try? container?.decode(Bool.self, forKey: .showProgress)) ?? kDefaultShowProgress
-            showTimeRemainingInBook = (try? container?.decode(Bool.self, forKey: .showTimeRemainingInBook)) ?? kDefaultShowTimeRemainingInBook
-            showTimeRemainingInChapter = (try? container?.decode(Bool.self, forKey: .showTimeRemainingInChapter)) ?? kDefaultShowTimeRemainingInChapter
-            showPageNumber = (try? container?.decode(Bool.self, forKey: .showPageNumber)) ?? kDefaultShowPageNumber
-            overlayTransparency = (try? container?.decode(Double.self, forKey: .overlayTransparency)) ?? kDefaultOverlayTransparency
-            alwaysShowMiniPlayer = (try? container?.decode(Bool.self, forKey: .alwaysShowMiniPlayer)) ?? kDefaultAlwaysShowMiniPlayer
-            showOverlaySkipBackward = (try? container?.decode(Bool.self, forKey: .showOverlaySkipBackward)) ?? kDefaultShowOverlaySkipBackward
-            showOverlaySkipForward = (try? container?.decode(Bool.self, forKey: .showOverlaySkipForward)) ?? kDefaultShowOverlaySkipForward
-            showMiniPlayerStats = (try? container?.decode(Bool.self, forKey: .showMiniPlayerStats)) ?? kDefaultShowMiniPlayerStats
+            showProgressBar =
+                (try? container?.decode(Bool.self, forKey: .showProgressBar))
+                ?? kDefaultShowProgressBar
+            showProgress =
+                (try? container?.decode(Bool.self, forKey: .showProgress)) ?? kDefaultShowProgress
+            showTimeRemainingInBook =
+                (try? container?.decode(Bool.self, forKey: .showTimeRemainingInBook))
+                ?? kDefaultShowTimeRemainingInBook
+            showTimeRemainingInChapter =
+                (try? container?.decode(Bool.self, forKey: .showTimeRemainingInChapter))
+                ?? kDefaultShowTimeRemainingInChapter
+            showPageNumber =
+                (try? container?.decode(Bool.self, forKey: .showPageNumber))
+                ?? kDefaultShowPageNumber
+            overlayTransparency =
+                (try? container?.decode(Double.self, forKey: .overlayTransparency))
+                ?? kDefaultOverlayTransparency
+            alwaysShowMiniPlayer =
+                (try? container?.decode(Bool.self, forKey: .alwaysShowMiniPlayer))
+                ?? kDefaultAlwaysShowMiniPlayer
+            showOverlaySkipBackward =
+                (try? container?.decode(Bool.self, forKey: .showOverlaySkipBackward))
+                ?? kDefaultShowOverlaySkipBackward
+            showOverlaySkipForward =
+                (try? container?.decode(Bool.self, forKey: .showOverlaySkipForward))
+                ?? kDefaultShowOverlaySkipForward
+            showMiniPlayerStats =
+                (try? container?.decode(Bool.self, forKey: .showMiniPlayerStats))
+                ?? kDefaultShowMiniPlayerStats
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -273,13 +334,17 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let container = try? decoder.container(keyedBy: CodingKeys.self)
-            progressSyncIntervalSeconds = (try? container?.decode(Double.self, forKey: .progressSyncIntervalSeconds))
+            progressSyncIntervalSeconds =
+                (try? container?.decode(Double.self, forKey: .progressSyncIntervalSeconds))
                 ?? kDefaultProgressSyncIntervalSeconds
-            metadataRefreshIntervalSeconds = (try? container?.decode(Double.self, forKey: .metadataRefreshIntervalSeconds))
+            metadataRefreshIntervalSeconds =
+                (try? container?.decode(Double.self, forKey: .metadataRefreshIntervalSeconds))
                 ?? kDefaultMetadataRefreshIntervalSeconds
-            isManuallyOffline = (try? container?.decode(Bool.self, forKey: .isManuallyOffline))
+            isManuallyOffline =
+                (try? container?.decode(Bool.self, forKey: .isManuallyOffline))
                 ?? kDefaultIsManuallyOffline
-            autoSyncToNewerServerPosition = (try? container?.decode(Bool.self, forKey: .autoSyncToNewerServerPosition))
+            autoSyncToNewerServerPosition =
+                (try? container?.decode(Bool.self, forKey: .autoSyncToNewerServerPosition))
                 ?? kDefaultAutoSyncToNewerServerPosition
         }
 
@@ -320,15 +385,24 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let container = try? decoder.container(keyedBy: CodingKeys.self)
-            showAudioIndicator = (try? container?.decode(Bool.self, forKey: .showAudioIndicator)) ?? kDefaultShowAudioIndicator
-            tabBarSlot1 = (try? container?.decode(String.self, forKey: .tabBarSlot1)) ?? kDefaultTabBarSlot1
-            tabBarSlot2 = (try? container?.decode(String.self, forKey: .tabBarSlot2)) ?? kDefaultTabBarSlot2
-            tapToPlayPreferredPlayer = (try? container?.decode(Bool.self, forKey: .tapToPlayPreferredPlayer)) ?? kDefaultTapToPlayPreferredPlayer
-            preferAudioOverEbook = (try? container?.decode(Bool.self, forKey: .preferAudioOverEbook)) ?? kDefaultPreferAudioOverEbook
+            showAudioIndicator =
+                (try? container?.decode(Bool.self, forKey: .showAudioIndicator))
+                ?? kDefaultShowAudioIndicator
+            tabBarSlot1 =
+                (try? container?.decode(String.self, forKey: .tabBarSlot1)) ?? kDefaultTabBarSlot1
+            tabBarSlot2 =
+                (try? container?.decode(String.self, forKey: .tabBarSlot2)) ?? kDefaultTabBarSlot2
+            tapToPlayPreferredPlayer =
+                (try? container?.decode(Bool.self, forKey: .tapToPlayPreferredPlayer))
+                ?? kDefaultTapToPlayPreferredPlayer
+            preferAudioOverEbook =
+                (try? container?.decode(Bool.self, forKey: .preferAudioOverEbook))
+                ?? kDefaultPreferAudioOverEbook
         }
 
         private enum CodingKeys: String, CodingKey {
-            case showAudioIndicator, tabBarSlot1, tabBarSlot2, tapToPlayPreferredPlayer, preferAudioOverEbook
+            case showAudioIndicator, tabBarSlot1, tabBarSlot2, tapToPlayPreferredPlayer,
+                preferAudioOverEbook
         }
     }
 }

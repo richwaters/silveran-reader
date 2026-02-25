@@ -181,7 +181,11 @@ struct SilveranReaderApp: App {
     }
 
     private var serverMediaManagementScene: some Scene {
-        WindowGroup("Server Media Management", id: "ServerMediaManagement", for: ServerMediaManagementData.self) { data in
+        WindowGroup(
+            "Server Media Management",
+            id: "ServerMediaManagement",
+            for: ServerMediaManagementData.self
+        ) { data in
             if let bookId = data.wrappedValue?.bookId {
                 ServerMediaManagementView(bookId: bookId)
                     .environment(mediaViewModel)

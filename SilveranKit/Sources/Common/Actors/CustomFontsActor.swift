@@ -1,4 +1,5 @@
 import Foundation
+
 #if canImport(CoreGraphics)
 import CoreGraphics
 #endif
@@ -31,15 +32,15 @@ public struct CustomFontVariant: Sendable, Equatable, Identifiable {
 
     private static func weightName(_ weight: Int) -> String {
         switch weight {
-        case ..<150: return "Thin"
-        case 150..<250: return "Extra Light"
-        case 250..<350: return "Light"
-        case 350..<450: return "Regular"
-        case 450..<550: return "Medium"
-        case 550..<650: return "Semi Bold"
-        case 650..<750: return "Bold"
-        case 750..<850: return "Extra Bold"
-        default: return "Black"
+            case ..<150: return "Thin"
+            case 150..<250: return "Extra Light"
+            case 250..<350: return "Light"
+            case 350..<450: return "Regular"
+            case 450..<550: return "Medium"
+            case 550..<650: return "Semi Bold"
+            case 650..<750: return "Bold"
+            case 750..<850: return "Extra Bold"
+            default: return "Black"
         }
     }
 }
@@ -186,11 +187,13 @@ public actor CustomFontsActor {
     private func scanForFontFamilies() -> [CustomFontFamily] {
         let fontExtensions = ["ttf", "otf", "woff", "woff2"]
 
-        guard let contents = try? fileManager.contentsOfDirectory(
-            at: fontsDirectory,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            let contents = try? fileManager.contentsOfDirectory(
+                at: fontsDirectory,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return []
         }
 
@@ -237,7 +240,8 @@ public actor CustomFontsActor {
     private func fontMetadataFromFile(_ url: URL) -> FontMetadata {
         #if canImport(CoreText)
         guard let fontDataProvider = CGDataProvider(url: url as CFURL),
-              let cgFont = CGFont(fontDataProvider) else {
+            let cgFont = CGFont(fontDataProvider)
+        else {
             return FontMetadata(familyName: nil, weight: 400, isItalic: false)
         }
 
@@ -262,15 +266,15 @@ public actor CustomFontsActor {
         // CoreText weight trait ranges from -1.0 to 1.0
         // Map to CSS weights 100-900
         switch trait {
-        case ..<(-0.7): return 100
-        case -0.7..<(-0.4): return 200
-        case -0.4..<(-0.2): return 300
-        case -0.2..<0.1: return 400
-        case 0.1..<0.25: return 500
-        case 0.25..<0.4: return 600
-        case 0.4..<0.6: return 700
-        case 0.6..<0.8: return 800
-        default: return 900
+            case ..<(-0.7): return 100
+            case -0.7..<(-0.4): return 200
+            case -0.4..<(-0.2): return 300
+            case -0.2..<0.1: return 400
+            case 0.1..<0.25: return 500
+            case 0.25..<0.4: return 600
+            case 0.4..<0.6: return 700
+            case 0.6..<0.8: return 800
+            default: return 900
         }
     }
 
@@ -288,14 +292,15 @@ public actor CustomFontsActor {
                 let fontStyle = variant.isItalic ? "italic" : "normal"
 
                 css += """
-                @font-face {
-                    font-family: '\(family.name)';
-                    src: url('data:\(mimeType);base64,\(base64)') format('\(formatForExtension(variant.fileURL.pathExtension))');
-                    font-weight: \(variant.weight);
-                    font-style: \(fontStyle);
-                }
+                    @font-face {
+                        font-family: '\(family.name)';
+                        src: url('data:\(mimeType);base64,\(base64)') \
+                    format('\(formatForExtension(variant.fileURL.pathExtension))');
+                        font-weight: \(variant.weight);
+                        font-style: \(fontStyle);
+                    }
 
-                """
+                    """
             }
         }
 
@@ -304,21 +309,21 @@ public actor CustomFontsActor {
 
     private func mimeTypeForFont(_ ext: String) -> String {
         switch ext.lowercased() {
-        case "ttf": return "font/ttf"
-        case "otf": return "font/otf"
-        case "woff": return "font/woff"
-        case "woff2": return "font/woff2"
-        default: return "font/ttf"
+            case "ttf": return "font/ttf"
+            case "otf": return "font/otf"
+            case "woff": return "font/woff"
+            case "woff2": return "font/woff2"
+            default: return "font/ttf"
         }
     }
 
     private func formatForExtension(_ ext: String) -> String {
         switch ext.lowercased() {
-        case "ttf": return "truetype"
-        case "otf": return "opentype"
-        case "woff": return "woff"
-        case "woff2": return "woff2"
-        default: return "truetype"
+            case "ttf": return "truetype"
+            case "otf": return "opentype"
+            case "woff": return "woff"
+            case "woff2": return "woff2"
+            default: return "truetype"
         }
     }
 
@@ -332,7 +337,8 @@ public actor CustomFontsActor {
         ) {
             appSupport = resolved
         } else {
-            let fallback = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+            let fallback =
+                fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
                 ?? fileManager.temporaryDirectory
             appSupport = fallback
         }
@@ -348,7 +354,9 @@ public actor CustomFontsActor {
         return base.appendingPathComponent("CustomFonts", isDirectory: true)
     }
 
-    private static func ensureFontsDirectory(_ directory: URL, using fileManager: FileManager) throws {
+    private static func ensureFontsDirectory(_ directory: URL, using fileManager: FileManager)
+        throws
+    {
         if !fileManager.fileExists(atPath: directory.path) {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         }

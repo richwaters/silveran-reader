@@ -102,7 +102,9 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
         }
 
         guard let bridge = commsBridge else {
-            debugLog("[EbookPlayerWebView] CommsBridge not initialized for message: \(message.name)")
+            debugLog(
+                "[EbookPlayerWebView] CommsBridge not initialized for message: \(message.name)"
+            )
             return
         }
 
@@ -466,9 +468,10 @@ private struct WebViewRepresentable2: PlatformViewRepresentable {
 
             Task { @MainActor in
                 do {
-                    let ready = try await wkWebView.evaluateJavaScript(
-                        "window.bookLoader !== undefined"
-                    ) as? Bool ?? false
+                    let ready =
+                        try await wkWebView.evaluateJavaScript(
+                            "window.bookLoader !== undefined"
+                        ) as? Bool ?? false
                     if ready {
                         debugLog("[EbookPlayerWebView] JS already ready on bridge setup")
                         self.onReaderReady()

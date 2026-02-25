@@ -84,7 +84,9 @@ struct BookStatusSection: View {
         )
 
         if success {
-            if let newStatus = mediaViewModel.availableStatuses.first(where: { $0.name == statusName }) {
+            if let newStatus = mediaViewModel.availableStatuses.first(where: {
+                $0.name == statusName
+            }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
                     status: newStatus

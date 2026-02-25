@@ -15,8 +15,10 @@ struct TagView: View {
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
-    @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
+    @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
+        .rawValue
+    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+        .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -61,13 +63,16 @@ struct TagView: View {
         }
     }
 
-    private func filterGroups(_ groups: [(tag: String, books: [BookMetadata])]) -> [(tag: String, books: [BookMetadata])] {
+    private func filterGroups(_ groups: [(tag: String, books: [BookMetadata])]) -> [(
+        tag: String, books: [BookMetadata]
+    )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
             let tagMatches = group.tag.lowercased().contains(searchLower)
             let filteredBooks = group.books.filter { book in
-                book.title.lowercased().contains(searchLower) || book.tagNames.contains(where: { $0.lowercased().contains(searchLower) })
+                book.title.lowercased().contains(searchLower)
+                    || book.tagNames.contains(where: { $0.lowercased().contains(searchLower) })
             }
             if tagMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
@@ -101,8 +106,8 @@ extension TagView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list: listContent
-                case .fan, .grid: fanGridContent
+                    case .list: listContent
+                    case .fan, .grid: fanGridContent
                 }
             }
             .navigationTitle("Tags")
@@ -111,24 +116,38 @@ extension TagView {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if hasConnectionError, let showOfflineSheet {
-                            Button { showOfflineSheet.wrappedValue = true } label: {
+                            Button {
+                                showOfflineSheet.wrappedValue = true
+                            } label: {
                                 Image(systemName: connectionErrorIcon).foregroundStyle(.red)
                             }
                         }
-                        Button { showSettings = true } label: {
+                        Button {
+                            showSettings = true
+                        } label: {
                             Label("Settings", systemImage: "gearshape")
                         }
                     }
                 }
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search"
+            )
             .navigationDestination(for: TagDetailNavigation.self) { nav in
                 tagDetailView(for: nav.tagName, initialSelectedItem: nav.initialSelectedBook)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind)
-                    .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: showOfflineSheet ?? .constant(false))
+                    .iOSLibraryToolbar(
+                        showSettings: $showSettings,
+                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
                 playerView(for: bookData)
@@ -143,9 +162,16 @@ extension TagView {
                 headerView.padding(.horizontal).padding(.bottom, 16)
                 LazyVStack(spacing: 0) {
                     ForEach(categoryGroups) { group in
-                        Button { handleNavigation(group, nil) } label: {
-                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: false)
-                                .contentShape(Rectangle())
+                        Button {
+                            handleNavigation(group, nil)
+                        } label: {
+                            CategoryRowContent(
+                                iconName: "tag.fill",
+                                name: group.name,
+                                bookCount: group.books.count,
+                                isSelected: false
+                            )
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -159,9 +185,20 @@ extension TagView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) { headerView }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) { headerView }
         }
     }
 
@@ -169,7 +206,17 @@ extension TagView {
         VStack(alignment: .leading, spacing: 8) {
             Text("Books by Tag").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
-                CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+                CategoryViewOptionsMenu(
+                    layoutStyle: Binding(
+                        get: { layoutStyle },
+                        set: { layoutStyleRaw = $0.rawValue }
+                    ),
+                    coverPreference: Binding(
+                        get: { coverPreference },
+                        set: { coverPrefRaw = $0.rawValue }
+                    ),
+                    showBookCountBadge: $showBookCountBadge
+                )
                 Spacer()
             }.font(.callout)
         }
@@ -178,8 +225,10 @@ extension TagView {
     @ViewBuilder
     private func playerView(for bookData: PlayerBookData) -> some View {
         switch bookData.category {
-        case .audio: AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
-        case .ebook, .synced: EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .audio:
+                AudiobookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData).navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -193,35 +242,54 @@ extension TagView {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch layoutStyle {
-                case .list:
-                    CategoryListSidebar(
-                        headerTitle: "Books by Tag",
-                        sidebarTitle: "Tags",
-                        groups: categoryGroups,
-                        selectedGroupId: $selectedGroupId,
-                        listWidth: $listWidth,
-                        sortByCount: $sortByCount,
-                        rowContent: { group, isSelected, isHovered in
-                            CategoryRowContent(iconName: "tag.fill", name: group.name, bookCount: group.books.count, isSelected: isSelected, pinId: group.pinId, isHovered: isHovered)
-                        },
-                        detailContent: { group in
-                            MediaGridView(
-                                title: group.name,
-                                searchText: searchText,
-                                mediaKind: mediaKind,
-                                tagFilter: group.name,
-                                defaultSort: "title",
-                                tableContext: "category",
-                                preferredTileWidth: 120,
-                                minimumTileWidth: 50,
-                                initialNarrationFilterOption: .both,
-                                scrollPosition: nil
-                            )
-                        },
-                        toolbarContent: { CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge) }
-                    )
-                case .fan, .grid:
-                    fanGridContent
+                    case .list:
+                        CategoryListSidebar(
+                            headerTitle: "Books by Tag",
+                            sidebarTitle: "Tags",
+                            groups: categoryGroups,
+                            selectedGroupId: $selectedGroupId,
+                            listWidth: $listWidth,
+                            sortByCount: $sortByCount,
+                            rowContent: { group, isSelected, isHovered in
+                                CategoryRowContent(
+                                    iconName: "tag.fill",
+                                    name: group.name,
+                                    bookCount: group.books.count,
+                                    isSelected: isSelected,
+                                    pinId: group.pinId,
+                                    isHovered: isHovered
+                                )
+                            },
+                            detailContent: { group in
+                                MediaGridView(
+                                    title: group.name,
+                                    searchText: searchText,
+                                    mediaKind: mediaKind,
+                                    tagFilter: group.name,
+                                    defaultSort: "title",
+                                    tableContext: "category",
+                                    preferredTileWidth: 120,
+                                    minimumTileWidth: 50,
+                                    initialNarrationFilterOption: .both,
+                                    scrollPosition: nil
+                                )
+                            },
+                            toolbarContent: {
+                                CategoryViewOptionsMenu(
+                                    layoutStyle: Binding(
+                                        get: { layoutStyle },
+                                        set: { layoutStyleRaw = $0.rawValue }
+                                    ),
+                                    coverPreference: Binding(
+                                        get: { coverPreference },
+                                        set: { coverPrefRaw = $0.rawValue }
+                                    ),
+                                    showBookCountBadge: $showBookCountBadge
+                                )
+                            }
+                        )
+                    case .fan, .grid:
+                        fanGridContent
                 }
             }
             .navigationDestination(for: TagDetailNavigation.self) { nav in
@@ -233,9 +301,28 @@ extension TagView {
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
-            CategoryFanLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryFanLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         } else {
-            CategoryGridLayout(groups: categoryGroups, mediaKind: mediaKind, coverPreference: coverPreference, showBookCountBadge: showBookCountBadge, onNavigate: handleNavigation) { headerView } stickyHeader: { stickyHeaderView }
+            CategoryGridLayout(
+                groups: categoryGroups,
+                mediaKind: mediaKind,
+                coverPreference: coverPreference,
+                showBookCountBadge: showBookCountBadge,
+                onNavigate: handleNavigation
+            ) {
+                headerView
+            } stickyHeader: {
+                stickyHeaderView
+            }
         }
     }
 
@@ -248,7 +335,14 @@ extension TagView {
 
     private var stickyHeaderView: some View {
         HStack {
-            CategoryViewOptionsMenu(layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }), coverPreference: Binding(get: { coverPreference }, set: { coverPrefRaw = $0.rawValue }), showBookCountBadge: $showBookCountBadge)
+            CategoryViewOptionsMenu(
+                layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
+                coverPreference: Binding(
+                    get: { coverPreference },
+                    set: { coverPrefRaw = $0.rawValue }
+                ),
+                showBookCountBadge: $showBookCountBadge
+            )
             Spacer()
         }.font(.callout)
     }
@@ -259,7 +353,9 @@ extension TagView {
 
 extension TagView {
     @ViewBuilder
-    fileprivate func tagDetailView(for tagName: String, initialSelectedItem: BookMetadata? = nil) -> some View {
+    fileprivate func tagDetailView(for tagName: String, initialSelectedItem: BookMetadata? = nil)
+        -> some View
+    {
         #if os(iOS)
         MediaGridView(
             title: tagName,
