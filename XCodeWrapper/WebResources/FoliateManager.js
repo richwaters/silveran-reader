@@ -915,7 +915,7 @@ class FoliateManager {
   highlightFragment(sectionIndex, textId, seekToLocation = false) {
     debugLog("FoliateManager", `highlightFragment(sectionIndex: ${sectionIndex}, textId: ${textId}, seekToLocation: ${seekToLocation})`);
 
-    this.clearHighlight();
+    const prevHighlightEl = this.#highlightedElement?.deref?.();
 
     if (!this.#view?.book) {
       console.warn("[FM2] highlightFragment() called but book not loaded");
@@ -970,6 +970,9 @@ class FoliateManager {
 
     const activeClass = this.#view?.book?.media?.activeClass || "epub-media-overlay-active";
     el.classList.add(activeClass);
+    if (prevHighlightEl && prevHighlightEl !== el) {
+      prevHighlightEl.classList.remove(activeClass);
+    }
     this.#highlightedElement = new WeakRef(el);
     this.#highlightedSectionIndex = sectionIndex;
     this.#renderReadaloudHighlight(sectionIndex, el, doc);

@@ -63,6 +63,11 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     }
 }
 
+public enum ExpansionMode: String, CaseIterable, Sendable {
+    case scope
+    case units
+}
+
 public enum ReadaloudGeneratorState: Equatable {
     case idle
     case processing
@@ -119,7 +124,11 @@ public final class ReadaloudGeneratorViewModel {
     public var outputURL: URL?
     public var selectedModelSize: WhisperModelSize = .tiny
     public var customModelPath: URL?
-    public var selectedGranularity: Granularity = .sentence
+    public var selectedGranularity: Granularity = .group
+    public var expandingHighlight: Bool = true
+    public var expansionMode: ExpansionMode = .scope
+    public var expansionScope: Granularity = .sentence
+    public var expansionUnitCount: Int = 10
 
     public private(set) var state: ReadaloudGeneratorState = .idle
     public private(set) var currentStage: ProgressStage = .epub
@@ -168,6 +177,7 @@ public final class ReadaloudGeneratorViewModel {
         do {
             let logger = ReadaloudLogger(minLevel: .error)
             let chapterEntries = try EpubParser.chapterEntries(from: epubURL, logger: logger)
+                .filter { $0.role != .unlisted }
             let chapters = chapterEntries.map { (name: $0.navLabel, id: $0.manifestId, role: $0.role) }
 
             await MainActor.run {
@@ -224,6 +234,11 @@ public final class ReadaloudGeneratorViewModel {
         let builtInModelPath = await self.modelPath(for: selectedSize)
         let modelPath: String? = customPath?.path ?? builtInModelPath
         let granularity = await self.selectedGranularity
+        let expanding = await self.expandingHighlight
+        let expMode = await self.expansionMode
+        let expScope = await self.expansionScope
+        let expUnits = await self.expansionUnitCount
+        let granularityExpansion: GranularityExpansion? = expanding ? (expMode == .scope ? .scope(expScope) : .units(expUnits)) : nil
         let chapters = await self.availableChapters
         let startIdx = await self.startChapterIndex
         let endIdx = await self.endChapterIndex
@@ -271,6 +286,7 @@ public final class ReadaloudGeneratorViewModel {
                 startChapter: startChapter,
                 endChapter: endChapter,
                 granularity: granularity,
+                granularityExpansion: granularityExpansion,
                 extraContributors: ["SilveranReader 1.0"]
             )
             let session = AlignmentSession(

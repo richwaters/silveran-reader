@@ -143,6 +143,16 @@ public struct ReadaloudGeneratorView: View {
         }
     }
 
+    private var granularityDescription: String {
+        switch viewModel.selectedGranularity {
+            case .word: return "Highlights one word at a time."
+            case .group: return "Highlights small clusters of words based on natural speech timing."
+            case .segment: return "Highlights groups based on whisper transcription segments."
+            case .phrase: return "Highlights clauses split at punctuation boundaries."
+            case .sentence: return "Highlights one full sentence at a time."
+        }
+    }
+
     private var optionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Options")
@@ -151,18 +161,74 @@ public struct ReadaloudGeneratorView: View {
             HStack {
                 Text("Granularity:")
                 Picker("", selection: $viewModel.selectedGranularity) {
-                    Text("Sentence").tag(Granularity.sentence)
-                    Text("Phrase").tag(Granularity.phrase)
                     Text("Word").tag(Granularity.word)
+                    Text("Group (recommended)").tag(Granularity.group)
+                    Text("Phrase").tag(Granularity.phrase)
+                    Text("Sentence").tag(Granularity.sentence)
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 200)
             }
 
-            Text("Sentence level is recommended for most books.")
+            Text(granularityDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if viewModel.selectedGranularity != .sentence {
+                Toggle("Expanding highlight", isOn: $viewModel.expandingHighlight)
+
+                Text("Accumulates highlights within a boundary instead of moving one at a time.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if viewModel.expandingHighlight {
+                    HStack {
+                        Text("Expansion limit:")
+                        Picker("", selection: $viewModel.expansionMode) {
+                            Text("Until boundary").tag(ExpansionMode.scope)
+                            Text("Fixed count").tag(ExpansionMode.units)
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                    }
+
+                    if viewModel.expansionMode == .scope {
+                        HStack {
+                            Text("Expand to:")
+                            Picker("", selection: $viewModel.expansionScope) {
+                                if viewModel.selectedGranularity == .word || viewModel.selectedGranularity == .group {
+                                    Text("Phrase").tag(Granularity.phrase)
+                                }
+                                Text("Sentence").tag(Granularity.sentence)
+                            }
+                            .labelsHidden()
+                            .frame(width: 150)
+                        }
+
+                        Text(expansionScopeDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        HStack {
+                            Text("Max units:")
+                            TextField("", value: $viewModel.expansionUnitCount, format: .number)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+                        }
+
+                        Text("Keeps up to \(viewModel.expansionUnitCount) \(viewModel.selectedGranularity.rawValue)s highlighted at once.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
+    }
+
+    private var expansionScopeDescription: String {
+        let unit = viewModel.selectedGranularity.rawValue
+        let boundary = viewModel.expansionScope.rawValue
+        return "Highlights accumulate by \(unit) until the end of the \(boundary), then reset."
     }
 
     private var chapterRangeSection: some View {
