@@ -122,12 +122,12 @@ public final class ReadaloudGeneratorViewModel {
     public var selectedGranularity: Granularity = .sentence
 
     public private(set) var state: ReadaloudGeneratorState = .idle
-    public private(set) var currentStage: ProcessingStage = .epub
+    public private(set) var currentStage: ProgressStage = .epub
     public private(set) var currentMessage: String = ""
     public private(set) var overallProgress: Double = 0.0
     public private(set) var logMessages: [(Date, LogLevel, String)] = []
 
-    public private(set) var availableChapters: [(name: String, id: String)] = []
+    public private(set) var availableChapters: [(name: String, id: String, role: EpubChapterRole?)] = []
     public var startChapterIndex: Int? = nil
     public var endChapterIndex: Int? = nil
 
@@ -166,47 +166,14 @@ public final class ReadaloudGeneratorViewModel {
         defer { if access { epubURL.stopAccessingSecurityScopedResource() } }
 
         do {
-            let parseResult = try SMILParser.parseEPUB(at: epubURL)
-            let sections = parseResult.sections
-
-            // Also get StoryAlign's manifest IDs for filtering
             let logger = ReadaloudLogger(minLevel: .error)
-            let sessionConfig = try SessionConfig(
-                sessionDir: nil,
-                modelFile: "/unused",
-                runStage: .all,
-                logger: logger,
-                audioLoaderType: .avfoundation,
-                throttle: false,
-                progressUpdater: nil,
-                toolName: "SilveranReader",
-                version: "1.0",
-                whisperBeamSize: nil,
-                whisperDtw: false,
-                reportType: .none,
-                startChapter: nil,
-                endChapter: nil,
-                granularity: .sentence
-            )
-            defer { sessionConfig.cleanup() }
-
-            let epub = try await EpubParser(sessionConfig: sessionConfig).parse(url: epubURL)
-            let storyAlignItems = epub.manifest
-                .sorted { $0.spineItemIndex < $1.spineItemIndex }
-                .filter { $0.spineItemIndex >= 0 }
-
-            // Combine: SMILParser labels for display, StoryAlign nameOrId for filtering
-            let chapters = sections.enumerated().map { (index, section) in
-                let displayName = section.label ?? "[Section \(index + 1)] (Unknown)"
-                let filterId =
-                    index < storyAlignItems.count ? storyAlignItems[index].nameOrId : displayName
-                return (name: displayName, id: filterId)
-            }
+            let chapterEntries = try EpubParser.chapterEntries(from: epubURL, logger: logger)
+            let chapters = chapterEntries.map { (name: $0.navLabel, id: $0.manifestId, role: $0.role) }
 
             await MainActor.run {
                 self.availableChapters = chapters
-                self.startChapterIndex = nil
-                self.endChapterIndex = nil
+                self.startChapterIndex = chapters.firstIndex(where: { $0.role == .bodymatter })
+                self.endChapterIndex = chapters.firstIndex(where: { $0.role == .backmatter })
             }
         } catch {
             debugLog("[ReadaloudGenerator] Failed to parse chapters: \(error)")
@@ -284,7 +251,7 @@ public final class ReadaloudGeneratorViewModel {
         }
 
         let logger = ReadaloudLogger(minLevel: .info)
-        let progressUpdater = ReadaloudProgressUpdater { [weak self] stage, message, progress in
+        let progressListener = ReadaloudProgressListener { [weak self] stage, message, progress in
             Task { @MainActor in
                 self?.currentStage = stage
                 self?.currentMessage = message
@@ -293,83 +260,33 @@ public final class ReadaloudGeneratorViewModel {
         }
 
         do {
-            let sessionConfig = try SessionConfig(
-                sessionDir: nil,
+            let alignmentRequest = try AlignmentRequest(epubURL: epubURL, audioBookURLs: [audioURL])
+            let alignmentConfig = AlignmentConfig(
                 modelFile: modelPath,
-                runStage: .all,
-                logger: logger,
                 audioLoaderType: .avfoundation,
                 throttle: false,
-                progressUpdater: progressUpdater,
-                toolName: "SilveranReader",
-                version: "1.0",
                 whisperBeamSize: nil,
                 whisperDtw: false,
                 reportType: .none,
                 startChapter: startChapter,
                 endChapter: endChapter,
-                granularity: granularity
+                granularity: granularity,
+                extraContributors: ["SilveranReader 1.0"]
             )
-
-            defer { sessionConfig.cleanup() }
-
-            logger.log(.info, "Parsing ebook...")
-            let epub = try await EpubParser(sessionConfig: sessionConfig).parse(url: epubURL)
-
-            if Task.isCancelled {
-                await MainActor.run { self.state = .idle }
-                return
-            }
-
-            logger.log(.info, "Processing audio...")
-            let audioBook = try await M4BParser(sessionConfig: sessionConfig).parse(
-                url: audioURL,
-                extractingInto: epub.opfURL.deletingLastPathComponent()
+            let session = AlignmentSession(
+                request: alignmentRequest,
+                config: alignmentConfig,
+                logger: logger
             )
+            defer { session.cleanup() }
+            _ = session.addProgressListener(progressListener)
 
-            if Task.isCancelled {
-                await MainActor.run { self.state = .idle }
-                return
+            let result = try await StoryAligner().alignStory(session: session)
+            let fileMgr = FileManager.default
+            if fileMgr.fileExists(atPath: outputURL.path()) {
+                try fileMgr.removeItem(at: outputURL)
             }
-
-            logger.log(.info, "Transcribing audio...")
-            let transcriber = TranscriberFactory.transcriber(forSessionConfig: sessionConfig)
-            let transcriptions = try await transcriber.transcribe(audioBook: audioBook, for: epub)
-
-            if Task.isCancelled {
-                await MainActor.run { self.state = .idle }
-                return
-            }
-
-            logger.log(.info, "Aligning text to audio...")
-            let alignedChapters = try await Aligner(sessionConfig: sessionConfig).align(
-                ebook: epub,
-                AudioBook: audioBook,
-                rawTranscriptions: transcriptions
-            )
-
-            if Task.isCancelled {
-                await MainActor.run { self.state = .idle }
-                return
-            }
-
-            logger.log(.info, "Generating SMIL...")
-            try await XMLUpdater(sessionConfig: sessionConfig).updateXml(
-                forEbook: epub,
-                audioBook: audioBook,
-                alignedChapters: alignedChapters
-            )
-
-            if Task.isCancelled {
-                await MainActor.run { self.state = .idle }
-                return
-            }
-
-            logger.log(.info, "Exporting EPUB...")
-            if FileManager.default.fileExists(atPath: outputURL.path) {
-                try FileManager.default.removeItem(at: outputURL)
-            }
-            try EpubExporter(sessionConfig: sessionConfig).export(eBook: epub, to: outputURL)
+            try fileMgr.moveItem(at: result.alignedEpubURL, to: outputURL)
 
             let messages = logger.messages
             await MainActor.run {
@@ -377,6 +294,9 @@ public final class ReadaloudGeneratorViewModel {
                 self.state = .completed(outputURL)
             }
 
+        } catch is CancellationError {
+            await MainActor.run { self.state = .idle }
+            return
         } catch {
             let messages = logger.messages
             let errorMessage = String(describing: error)

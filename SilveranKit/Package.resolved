@@ -1,5 +1,5 @@
 {
-  "originHash" : "797c7a185244d66553fa35d946dfb5cac24c1e696a5145c9b031e2c2cecee6c1",
+  "originHash" : "74e995538b18757d105aa926cea0f02b4f38ac8daa23da200b5cd0f67fd36702",
   "pins" : [
     {
       "identity" : "jpeg",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kyonifer/StoryAlign.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "55aa69cbbc718bc401db52720b434d2ce4333cdd"
+        "branch" : "v1.2",
+        "revision" : "9f02a7d91326e780cf63426d37ca3972f9ff27fa"
       }
     },
     {
