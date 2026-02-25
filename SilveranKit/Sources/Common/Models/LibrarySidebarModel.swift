@@ -6,23 +6,22 @@ public class LibrarySidebarModel {
     public static func defaultSections() -> [SidebarSectionDescription] {
         [
             SidebarSectionDescription(
-                id: "section.library",
-                name: "Library",
+                id: "section.home",
+                name: "Home",
                 items: [
                     SidebarItemDescription(
-                        name: "Home",
+                        name: "Dashboard",
                         systemImage: "house",
-                        badge: 112,
+                        badge: 0,
                         content: .home
                     ),
                     SidebarItemDescription(
-                        name: "Books",
+                        name: "All Books",
                         systemImage: "book",
                         badge: 112,
-                        children: booksSubItems(parent: "Books"),
                         content: .mediaGrid(
                             MediaGridConfiguration(
-                                title: "Books",
+                                title: "All Books",
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50
@@ -30,6 +29,11 @@ public class LibrarySidebarModel {
                         )
                     ),
                 ]
+            ),
+            SidebarSectionDescription(
+                id: "section.library",
+                name: "Library",
+                items: booksSubItems(parent: "Books")
             ),
             SidebarSectionDescription(
                 id: "section.collections",

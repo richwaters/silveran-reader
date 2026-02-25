@@ -7,7 +7,7 @@ public struct LibraryView: View {
     @State private var searchText: String = ""
     @State private var isSearchFocused: Bool = false
     @State private var selectedItem: SidebarItemDescription? = SidebarItemDescription(
-        name: "Home",
+        name: "Dashboard",
         systemImage: "house",
         badge: 0,
         content: .home

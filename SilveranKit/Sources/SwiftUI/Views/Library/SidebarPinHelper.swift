@@ -118,6 +118,7 @@ enum HomeSectionConfigHelper {
     }
 }
 
+// Legacy types kept for migration only
 struct PinItem: Codable, Identifiable, Equatable {
     var id: String
     var alias: String?
@@ -145,40 +146,12 @@ struct PinGroup: Codable, Identifiable, Equatable {
 }
 
 enum SidebarPinHelper {
-    private static let legacyKey = "sidebar.pinnedItems"
-    private static let groupsKey = "sidebar.pinGroups"
-
-    static var pinGroups: [PinGroup] {
-        get {
-            if let json = UserDefaults.standard.string(forKey: groupsKey),
-               let data = json.data(using: .utf8),
-               let groups = try? JSONDecoder().decode([PinGroup].self, from: data) {
-                return groups
-            }
-            return migrateLegacyPins()
-        }
-        set {
-            guard let data = try? JSONEncoder().encode(newValue),
-                  let json = String(data: data, encoding: .utf8) else { return }
-            UserDefaults.standard.set(json, forKey: groupsKey)
-        }
-    }
-
-    private static func migrateLegacyPins() -> [PinGroup] {
-        guard let json = UserDefaults.standard.string(forKey: legacyKey),
-              let data = json.data(using: .utf8),
-              let ids = try? JSONDecoder().decode([String].self, from: data),
-              !ids.isEmpty else {
-            return []
-        }
-        let items = ids.map { PinItem(id: $0) }
-        let group = PinGroup(name: "Pins", items: items)
-        pinGroups = [group]
-        return [group]
-    }
-
     static var pinnedItemIds: [String] {
-        pinGroups.flatMap { $0.items.map(\.id) }
+        SidebarConfigHelper.config.flatMap { group in
+            group.items
+                .filter { $0.id.hasPrefix("pin.") }
+                .map(\.id)
+        }
     }
 
     static func isPinned(_ id: String) -> Bool {
@@ -186,32 +159,33 @@ enum SidebarPinHelper {
     }
 
     static func togglePin(_ id: String) {
-        var groups = pinGroups
+        var groups = SidebarConfigHelper.config
 
         for i in groups.indices {
             if let itemIndex = groups[i].items.firstIndex(where: { $0.id == id }) {
                 groups[i].items.remove(at: itemIndex)
-                if groups.allSatisfy({ $0.items.isEmpty }) {
-                    groups = []
-                }
-                pinGroups = groups
+                SidebarConfigHelper.config = groups
                 return
             }
         }
 
-        if groups.isEmpty {
-            groups = [PinGroup(name: "Pins", items: [PinItem(id: id)])]
-        } else {
-            groups[0].items.append(PinItem(id: id))
-        }
-        pinGroups = groups
-    }
+        let newItem = SidebarConfigItem(id: id, visible: true, permanent: false)
 
-    static func displayName(for item: PinItem) -> String? {
-        if let alias = item.alias, !alias.isEmpty {
-            return alias
+        for i in groups.indices {
+            if let markerIndex = groups[i].items.firstIndex(where: { $0.id == SidebarConfigHelper.newPinLocationMarker }) {
+                groups[i].items.insert(newItem, at: markerIndex)
+                SidebarConfigHelper.config = groups
+                return
+            }
         }
-        return nil
+
+        // Fallback: no marker found, append to first group that looks like pins
+        if let pinsIndex = groups.firstIndex(where: { $0.name == "Pins" }) {
+            groups[pinsIndex].items.insert(newItem, at: 0)
+        } else if !groups.isEmpty {
+            groups[0].items.append(newItem)
+        }
+        SidebarConfigHelper.config = groups
     }
 
     static func pinId(forSeries name: String) -> String { "pin.series:\(name)" }
@@ -224,33 +198,4 @@ enum SidebarPinHelper {
     static func pinId(forRating rating: String) -> String { "pin.rating:\(rating)" }
     static func pinId(forStatus status: String) -> String { "pin.status:\(status)" }
     static func pinId(forSmartShelf id: UUID) -> String { "pin.smartShelf:\(id.uuidString)" }
-}
-
-enum SidebarHideHelper {
-    private static let key = "sidebar.hiddenItems"
-
-    static var hiddenItemIds: [String] {
-        guard let json = UserDefaults.standard.string(forKey: key),
-              let data = json.data(using: .utf8),
-              let ids = try? JSONDecoder().decode([String].self, from: data) else {
-            return []
-        }
-        return ids
-    }
-
-    static func isHidden(_ id: String) -> Bool {
-        hiddenItemIds.contains(id)
-    }
-
-    static func toggleHidden(_ id: String) {
-        var ids = hiddenItemIds
-        if let index = ids.firstIndex(of: id) {
-            ids.remove(at: index)
-        } else {
-            ids.append(id)
-        }
-        guard let data = try? JSONEncoder().encode(ids),
-              let json = String(data: data, encoding: .utf8) else { return }
-        UserDefaults.standard.set(json, forKey: key)
-    }
 }

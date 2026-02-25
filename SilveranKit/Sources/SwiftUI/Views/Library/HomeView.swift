@@ -50,7 +50,7 @@ struct HomeView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
-    @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
+    @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -352,9 +352,9 @@ struct HomeView: View {
                 loadSections(source: "onChange(homeSectionConfig)")
             }
         }
-        .onChange(of: pinnedItemsJSON) {
+        .onChange(of: sidebarConfigJSON) {
             if mediaViewModel.isReady {
-                loadSections(source: "onChange(pinnedItems)")
+                loadSections(source: "onChange(sidebarConfig)")
             }
         }
     }

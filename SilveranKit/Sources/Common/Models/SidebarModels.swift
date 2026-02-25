@@ -193,17 +193,11 @@ public enum LibrarySidebarDefaults {
                 name: "Home",
                 items: [
                     SidebarItemDescription(
-                        name: "Home",
+                        name: "Dashboard",
                         systemImage: "house",
                         badge: 0,
                         content: .home
                     ),
-                ]
-            ),
-            SidebarSectionDescription(
-                id: "section.library",
-                name: "Library",
-                items: [
                     SidebarItemDescription(
                         name: "All Books",
                         systemImage: "book",
@@ -217,6 +211,12 @@ public enum LibrarySidebarDefaults {
                             )
                         )
                     ),
+                ]
+            ),
+            SidebarSectionDescription(
+                id: "section.library",
+                name: "Library",
+                items: [
                     SidebarItemDescription(
                         name: "By Series",
                         systemImage: "books.vertical",

@@ -9,59 +9,38 @@ struct SidebarView: View {
     @State private var selectedId: String?
     @State private var isRefreshing: Bool = false
     @State private var hoveredItemId: String?
-    @State private var hoveredSectionId: String?
-    @State private var visibilityPopoverSectionId: String?
-    @State private var homePopoverVisible: Bool = false
-    @State private var homeSectionConfig: [HomeSectionConfigItem] = HomeSectionConfigHelper.config
     #if os(macOS)
     @State private var editingShelf: SmartShelf?
-    @State private var showPinConfiguration: Bool = false
+    @State private var showCustomizeSidebar: Bool = false
     #endif
-    @AppStorage("sidebar.pinGroups") private var pinGroupsJSON: String = "[]"
 
-    @AppStorage("sidebar.library.expanded") private var libraryExpanded: Bool = true
-    @AppStorage("sidebar.readingStatus.expanded") private var readingStatusExpanded: Bool = false
-    @AppStorage("sidebar.collections.expanded") private var collectionsExpanded: Bool = false
-    @AppStorage("sidebar.mediaSources.expanded") private var mediaSourcesExpanded: Bool = true
-    @State private var emptyPinsExpanded: Bool = false
-    @AppStorage("sidebar.pinnedItems") private var pinnedItemsJSON: String = "[]"
-    @AppStorage("sidebar.hiddenItems") private var hiddenItemsJSON: String = "[]"
+    @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
 
-    private var hiddenItemIds: [String] {
-        guard let data = hiddenItemsJSON.data(using: .utf8),
-              let ids = try? JSONDecoder().decode([String].self, from: data) else {
-            return []
-        }
-        return ids
+    private var sidebarConfig: [SidebarConfigGroup] {
+        let _ = sidebarConfigJSON
+        return SidebarConfigHelper.config
     }
 
-    private var pinnedItemIds: [String] {
-        guard let data = pinnedItemsJSON.data(using: .utf8),
-              let ids = try? JSONDecoder().decode([String].self, from: data) else {
-            return []
-        }
-        return ids
-    }
-
-    private var pinGroups: [PinGroup] {
-        let _ = pinGroupsJSON
-        return SidebarPinHelper.pinGroups
-    }
+    private let defaultLookup = SidebarConfigHelper.defaultItemLookup
 
     private var storytellerConfigured: Bool {
         mediaViewModel.connectionStatus != .disconnected
     }
 
-    private var pinnedItems: [SidebarItemDescription] {
-        pinnedItemIds
-            .filter { $0.hasPrefix("pin.") }
-            .compactMap { resolvePin(id: $0) }
-    }
-
-    private func resolvePinItem(_ item: PinItem) -> SidebarItemDescription? {
+    private func resolveConfigItem(_ item: SidebarConfigItem) -> SidebarItemDescription? {
         guard item.visible else { return nil }
-        guard var description = resolvePin(id: item.id) else { return nil }
+        if item.id == SidebarConfigHelper.newPinLocationMarker { return nil }
+
+        if item.id.hasPrefix("pin.") {
+            guard var description = resolvePin(id: item.id) else { return nil }
+            if let alias = item.alias, !alias.isEmpty {
+                description.name = alias
+            }
+            return description
+        }
+
+        guard var description = defaultLookup[item.id] else { return nil }
         if let alias = item.alias, !alias.isEmpty {
             description.name = alias
         }
@@ -247,13 +226,11 @@ struct SidebarView: View {
 
     var body: some View {
         let _ = mediaViewModel.smartShelves
+        let config = sidebarConfig
         List(selection: $selectedId) {
-            homeRow
-            pinsSection
-            librarySection
-            readingStatusSection
-            collectionsSection
-            mediaSourcesSection
+            ForEach(config) { group in
+                sidebarSection(for: group, config: config)
+            }
         }
         .onChange(of: selectedId) { oldID, newID in
             if let id = newID, let found = findItem(by: id) {
@@ -275,12 +252,10 @@ struct SidebarView: View {
         }
         .onAppear {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
-            homeSectionConfig = HomeSectionConfigHelper.config
             homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
-        .onChange(of: pinGroupsJSON) {
+        .onChange(of: sidebarConfigJSON) {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
-            homeSectionConfig = HomeSectionConfigHelper.config
             homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
         .searchable(
@@ -291,66 +266,37 @@ struct SidebarView: View {
         )
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
         #if os(macOS)
+        .toolbar {
+            ToolbarItem {
+                Menu {
+                    Button("Customize Sidebar...") {
+                        showCustomizeSidebar = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
         .sheet(item: $editingShelf) { shelf in
             SmartShelfCreatorView(existingShelf: shelf) { updatedShelf in
                 Task { await mediaViewModel.saveSmartShelf(updatedShelf) }
             }
         }
-        .sheet(isPresented: $showPinConfiguration) {
-            PinConfigurationView()
+        .sheet(isPresented: $showCustomizeSidebar) {
+            CustomizeSidebarView()
         }
         #endif
     }
 
-    // MARK: - Home Section (always open)
+    // MARK: - Data-driven section rendering
 
     @ViewBuilder
-    private var homeRow: some View {
-        if let homeSection = sections.first(where: { $0.id == "section.home" }) {
-            ForEach(homeSection.items) { item in
-                sidebarRow(for: item)
-            }
-        }
-    }
+    private func sidebarSection(for group: SidebarConfigGroup, config: [SidebarConfigGroup]) -> some View {
+        let resolvedItems = group.items.compactMap { resolveConfigItem($0) }
+        let isPinGroup = group.items.contains { $0.id == SidebarConfigHelper.newPinLocationMarker }
 
-    @ViewBuilder
-    private var pinsSection: some View {
-        let groups = pinGroups
-        let hasVisiblePins = groups.contains { group in
-            group.items.contains { resolvePinItem($0) != nil }
-        }
-
-        if hasVisiblePins {
-            ForEach(groups) { group in
-                let items = group.items.compactMap { resolvePinItem($0) }
-                if !items.isEmpty {
-                    Section(isExpanded: pinGroupExpandedBinding(for: group.id)) {
-                        ForEach(items) { item in
-                            sidebarRow(for: item, isPinned: true)
-                        }
-                    } header: {
-                        HStack {
-                            Text(group.name)
-                                .font(.headline)
-                            #if os(macOS)
-                            pinConfigButton(for: group)
-                            #endif
-                            Spacer()
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { togglePinGroupExpanded(group.id) }
-                        .padding(.bottom, 3)
-                        .padding(.trailing, 16)
-                        #if os(macOS)
-                        .onHover { hovering in
-                            hoveredSectionId = hovering ? group.id.uuidString : nil
-                        }
-                        #endif
-                    }
-                }
-            }
-        } else {
-            Section(isExpanded: $emptyPinsExpanded) {
+        if isPinGroup && resolvedItems.isEmpty {
+            Section(isExpanded: expandedBinding(for: group.id, config: config)) {
                 Text("Right-click any series or category to pin it here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -358,176 +304,46 @@ struct SidebarView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 8)
             } header: {
-                HStack {
-                    Text("Pins")
-                        .font(.headline)
-                    Spacer()
+                sectionHeader(for: group, config: config)
+            }
+        } else if !resolvedItems.isEmpty {
+            Section(isExpanded: expandedBinding(for: group.id, config: config)) {
+                ForEach(resolvedItems) { item in
+                    sidebarRow(for: item, isPinned: item.id.hasPrefix("pin."))
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { emptyPinsExpanded.toggle() }
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
+            } header: {
+                sectionHeader(for: group, config: config)
             }
         }
     }
 
-    private func pinGroupExpandedBinding(for groupId: UUID) -> Binding<Bool> {
+    @ViewBuilder
+    private func sectionHeader(for group: SidebarConfigGroup, config: [SidebarConfigGroup]) -> some View {
+        HStack {
+            Text(group.name)
+                .font(.headline)
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { toggleExpanded(group.id) }
+        .padding(.bottom, 3)
+        .padding(.trailing, 16)
+    }
+
+    private func expandedBinding(for groupId: UUID, config: [SidebarConfigGroup]) -> Binding<Bool> {
         Binding(
-            get: { SidebarPinHelper.pinGroups.first(where: { $0.id == groupId })?.expanded ?? true },
+            get: {
+                sidebarConfig.first(where: { $0.id == groupId })?.expanded ?? true
+            },
             set: { _ in }
         )
     }
 
-    private func togglePinGroupExpanded(_ groupId: UUID) {
-        var groups = SidebarPinHelper.pinGroups
-        if let index = groups.firstIndex(where: { $0.id == groupId }) {
-            groups[index].expanded.toggle()
-            SidebarPinHelper.pinGroups = groups
-        }
-    }
-
-    #if os(macOS)
-    private func pinConfigButton(for group: PinGroup) -> some View {
-        let showButton = hoveredSectionId == group.id.uuidString || showPinConfiguration
-        return Button {
-            showPinConfiguration = true
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11))
-                .foregroundColor(Color(white: 0.5))
-                .frame(width: 12, height: 20)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .opacity(showButton ? 1 : 0)
-    }
-    #endif
-
-    // MARK: - Library Section
-
-    @ViewBuilder
-    private var librarySection: some View {
-        if let section = sections.first(where: { $0.id == "section.library" }) {
-            let hidden = hiddenItemIds
-            Section(isExpanded: nonAnimating($libraryExpanded)) {
-                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
-                    sidebarRow(for: item)
-                }
-            } header: {
-                HStack {
-                    Text(section.name)
-                        .font(.headline)
-                    #if os(macOS)
-                    visibilityMenuButton(for: section)
-                    #endif
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { libraryExpanded.toggle() }
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
-                #if os(macOS)
-                .onHover { hovering in
-                    hoveredSectionId = hovering ? section.id : nil
-                }
-                #endif
-            }
-        }
-    }
-
-    // MARK: - Reading Status Section
-
-    @ViewBuilder
-    private var readingStatusSection: some View {
-        if let section = sections.first(where: { $0.id == "section.readingStatus" }) {
-            let hidden = hiddenItemIds
-            Section(isExpanded: nonAnimating($readingStatusExpanded)) {
-                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
-                    sidebarRow(for: item)
-                }
-            } header: {
-                HStack {
-                    Text(section.name)
-                        .font(.headline)
-                    #if os(macOS)
-                    visibilityMenuButton(for: section)
-                    #endif
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { readingStatusExpanded.toggle() }
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
-                #if os(macOS)
-                .onHover { hovering in
-                    hoveredSectionId = hovering ? section.id : nil
-                }
-                #endif
-            }
-        }
-    }
-
-    // MARK: - Collections Section
-
-    @ViewBuilder
-    private var collectionsSection: some View {
-        if let section = sections.first(where: { $0.id == "section.collections" }) {
-            let hidden = hiddenItemIds
-            Section(isExpanded: nonAnimating($collectionsExpanded)) {
-                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
-                    sidebarRow(for: item)
-                }
-            } header: {
-                HStack {
-                    Text(section.name)
-                        .font(.headline)
-                    #if os(macOS)
-                    visibilityMenuButton(for: section)
-                    #endif
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { collectionsExpanded.toggle() }
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
-                #if os(macOS)
-                .onHover { hovering in
-                    hoveredSectionId = hovering ? section.id : nil
-                }
-                #endif
-            }
-        }
-    }
-
-    // MARK: - Media Sources Section
-
-    @ViewBuilder
-    private var mediaSourcesSection: some View {
-        if let section = sections.first(where: { $0.id == "section.mediaSources" }) {
-            let hidden = hiddenItemIds
-            Section(isExpanded: nonAnimating($mediaSourcesExpanded)) {
-                ForEach(section.items.filter { !hidden.contains($0.id) }) { item in
-                    sidebarRow(for: item)
-                }
-            } header: {
-                HStack {
-                    Text(section.name)
-                        .font(.headline)
-                    #if os(macOS)
-                    visibilityMenuButton(for: section)
-                    #endif
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { mediaSourcesExpanded.toggle() }
-                .padding(.bottom, 3)
-                .padding(.trailing, 16)
-                #if os(macOS)
-                .onHover { hovering in
-                    hoveredSectionId = hovering ? section.id : nil
-                }
-                #endif
-            }
+    private func toggleExpanded(_ groupId: UUID) {
+        var config = SidebarConfigHelper.config
+        if let index = config.firstIndex(where: { $0.id == groupId }) {
+            config[index].expanded.toggle()
+            SidebarConfigHelper.config = config
         }
     }
 
@@ -538,11 +354,7 @@ struct SidebarView: View {
         HStack {
             Label(item.name, systemImage: item.systemImage)
                 .tag(item.id)
-            #if os(macOS)
-            if item.content == .home {
-                homeVisibilityButton(for: item)
-            }
-            #endif
+
             Spacer()
 
             #if os(macOS)
@@ -634,120 +446,6 @@ struct SidebarView: View {
             .opacity(hoveredItemId == item.id ? 1 : 0)
         }
     }
-    @ViewBuilder
-    private func homeVisibilityButton(for item: SidebarItemDescription) -> some View {
-        let showButton = hoveredItemId == item.id || homePopoverVisible
-        Button {
-            homePopoverVisible.toggle()
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11))
-                .foregroundColor(Color(white: 0.5))
-                .frame(width: 12, height: 20)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .opacity(showButton ? 1 : 0)
-        .popover(isPresented: $homePopoverVisible, arrowEdge: .trailing) {
-            homeSectionsPopoverContent
-        }
-    }
-
-    @ViewBuilder
-    private var homeSectionsPopoverContent: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Home Sections")
-                .font(.headline)
-                .padding(.bottom, 4)
-
-            List {
-                ForEach(homeSectionConfig) { item in
-                    HStack(spacing: 8) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        Toggle(isOn: Binding(
-                            get: { item.visible },
-                            set: { newValue in
-                                if let idx = homeSectionConfig.firstIndex(where: { $0.id == item.id }) {
-                                    homeSectionConfig[idx].visible = newValue
-                                    HomeSectionConfigHelper.save(homeSectionConfig)
-                                    homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
-                                }
-                            }
-                        )) {
-                            Label(
-                                homeSectionDisplayName(for: item.id),
-                                systemImage: HomeSectionConfigHelper.systemImage(for: item.id)
-                            )
-                        }
-                    }
-                }
-                .onMove { from, to in
-                    homeSectionConfig.move(fromOffsets: from, toOffset: to)
-                    HomeSectionConfigHelper.save(homeSectionConfig)
-                    homeSectionConfigJSON = UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
-                }
-            }
-            .listStyle(.plain)
-            .frame(height: CGFloat(homeSectionConfig.count) * 34)
-        }
-        .padding(12)
-        .frame(minWidth: 260)
-    }
-    #endif
-
-    // MARK: - Section Visibility
-
-    #if os(macOS)
-    @ViewBuilder
-    private func visibilityMenuButton(for section: SidebarSectionDescription) -> some View {
-        let showButton = hoveredSectionId == section.id || visibilityPopoverSectionId == section.id
-        Button {
-            visibilityPopoverSectionId = visibilityPopoverSectionId == section.id ? nil : section.id
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11))
-                .foregroundColor(Color(white: 0.5))
-                .frame(width: 12, height: 20)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .opacity(showButton ? 1 : 0)
-        .popover(
-            isPresented: Binding(
-                get: { visibilityPopoverSectionId == section.id },
-                set: { if !$0 { visibilityPopoverSectionId = nil } }
-            ),
-            arrowEdge: .trailing
-        ) {
-            visibilityPopoverContent(for: section)
-        }
-    }
-
-    @ViewBuilder
-    private func visibilityPopoverContent(for section: SidebarSectionDescription) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Show Items")
-                .font(.headline)
-                .padding(.bottom, 4)
-
-            ForEach(section.items) { item in
-                let hidden = hiddenItemIds.contains(item.id)
-                Toggle(isOn: Binding(
-                    get: { !hidden },
-                    set: { _ in
-                        SidebarHideHelper.toggleHidden(item.id)
-                        hiddenItemsJSON = UserDefaults.standard.string(forKey: "sidebar.hiddenItems") ?? "[]"
-                    }
-                )) {
-                    Label(item.name, systemImage: item.systemImage)
-                }
-            }
-        }
-        .padding(12)
-        .frame(minWidth: 200)
-    }
     #endif
 
     // MARK: - Helpers
@@ -765,24 +463,19 @@ struct SidebarView: View {
         )
     }
 
-    private func homeSectionDisplayName(for id: String) -> String {
-        if id.hasPrefix("pin.smartShelf:") {
-            let uuidString = String(id.dropFirst("pin.smartShelf:".count))
-            if let uuid = UUID(uuidString: uuidString),
-               let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid }) {
-                return shelf.name
-            }
-            return id
-        }
-        return HomeSectionConfigHelper.displayName(for: id)
-    }
-
     private func findItem(by id: String) -> SidebarItemDescription? {
         for section in sections {
             for item in section.items {
                 if item.id == id { return item }
                 for child in item.children ?? [] {
                     if child.id == id { return child }
+                }
+            }
+        }
+        for group in sidebarConfig {
+            for configItem in group.items {
+                if configItem.id == id, let resolved = resolveConfigItem(configItem) {
+                    return resolved
                 }
             }
         }
