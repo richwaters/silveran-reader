@@ -59,8 +59,8 @@ struct CategoryListSidebar<
                 .font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 toolbarContent()
-                Spacer()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .font(.callout)
         }
         .padding(.horizontal, 24)

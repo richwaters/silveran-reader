@@ -288,6 +288,13 @@ extension SmartShelvesView {
                                     ),
                                     showBookCountBadge: $showBookCountBadge
                                 )
+                                Spacer()
+                                Button {
+                                    showCreator = true
+                                } label: {
+                                    Label("Create New Shelf", systemImage: "plus.circle")
+                                }
+                                .buttonStyle(.borderless)
                             },
                             contextMenuBuilder: shelfContextMenu
                         )
