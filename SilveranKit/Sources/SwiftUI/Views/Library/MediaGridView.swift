@@ -120,7 +120,7 @@ struct MediaGridView: View {
     @State private var activeInfoItem: BookMetadata? = nil
     @State private var isSidebarVisible: Bool = false
     @State private var lastKnownColumnCount: Int = 1
-    @State private var selectedSortOption: SortOption
+    @AppStorage private var selectedSortOptionRaw: String
     @State private var selectedFormatFilter: FormatFilterOption
     @State private var selectedTag: String? = nil
     @State private var selectedSeries: String? = nil
@@ -233,6 +233,18 @@ struct MediaGridView: View {
     private var coverSize: CGFloat {
         get { CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max) }
         set { coverSizeValue = Double(newValue) }
+    }
+
+    private var selectedSortOption: SortOption {
+        get { SortOption(rawValue: selectedSortOptionRaw) ?? .titleAZ }
+        set { selectedSortOptionRaw = newValue.rawValue }
+    }
+
+    private var selectedSortOptionBinding: Binding<SortOption> {
+        Binding(
+            get: { selectedSortOption },
+            set: { selectedSortOptionRaw = $0.rawValue }
+        )
     }
 
     @State private var cachedDisplayItems: [BookMetadata] = []
@@ -348,15 +360,17 @@ struct MediaGridView: View {
         _selectedStatus = State(initialValue: statusFilter)
         _selectedLocation = State(initialValue: initialLocationFilter)
 
-        let sortOption: SortOption
-        if let defaultSort, let option = SortOption(rawValue: defaultSort) {
-            sortOption = option
+        let defaultSortRaw: String
+        if let defaultSort, SortOption(rawValue: defaultSort) != nil {
+            defaultSortRaw = defaultSort
         } else {
-            sortOption = .titleAZ
+            defaultSortRaw = SortOption.titleAZ.rawValue
         }
-        _selectedSortOption = State(initialValue: sortOption)
+        _selectedSortOptionRaw = AppStorage(
+            wrappedValue: defaultSortRaw, "sortOption.\(viewOptionsKey)")
+        let resolvedSort = SortOption(rawValue: _selectedSortOptionRaw.wrappedValue) ?? .titleAZ
         #if os(macOS)
-        let tableSort = Self.tableComparator(for: sortOption)
+        let tableSort = Self.tableComparator(for: resolvedSort)
         _tableSortOrder = State(initialValue: [tableSort.comparator])
         _lastSortKeyPath = State(initialValue: tableSort.keyPath)
         #endif
@@ -740,7 +754,7 @@ struct MediaGridView: View {
             }
 
             MediaGridSortAndFilterBar(
-                selectedSortOption: $selectedSortOption,
+                selectedSortOption: selectedSortOptionBinding,
                 selectedFormatFilter: $selectedFormatFilter,
                 selectedTag: $selectedTag,
                 selectedSeries: $selectedSeries,
@@ -803,7 +817,7 @@ struct MediaGridView: View {
 
     private var contentFilterBar: some View {
         MediaGridSortAndFilterBar(
-            selectedSortOption: $selectedSortOption,
+            selectedSortOption: selectedSortOptionBinding,
             selectedFormatFilter: $selectedFormatFilter,
             selectedTag: $selectedTag,
             selectedSeries: $selectedSeries,
