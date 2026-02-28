@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @MainActor
 @Observable
@@ -67,6 +68,10 @@ public final class SettingsViewModel {
     public var userHighlightColor6: String = kDefaultUserHighlightColor6
     public var userHighlightMode: String = kDefaultUserHighlightMode
     public var readaloudHighlightMode: String = kDefaultReadaloudHighlightMode
+
+    public var selectedLightThemeId: String = "builtin-light-background"
+    public var selectedDarkThemeId: String = "builtin-dark-background"
+    public var customThemes: [ReaderTheme] = []
 
     public var isLoaded: Bool = false
 
@@ -175,6 +180,10 @@ public final class SettingsViewModel {
         userHighlightMode = config.reading.userHighlightMode
         readaloudHighlightMode = config.reading.readaloudHighlightMode
 
+        selectedLightThemeId = config.themes.selectedLightThemeId
+        selectedDarkThemeId = config.themes.selectedDarkThemeId
+        customThemes = config.themes.customThemes
+
         isLoaded = true
     }
 
@@ -188,6 +197,101 @@ public final class SettingsViewModel {
             }
         }
         observerID = id
+    }
+
+    public var allThemes: [ReaderTheme] {
+        ReaderTheme.allBuiltIn + customThemes
+    }
+
+    public func resolveTheme(id: String) -> ReaderTheme? {
+        ReaderTheme.resolve(id: id, customThemes: customThemes)
+    }
+
+    public func activeThemeId(for colorScheme: ColorScheme) -> String {
+        colorScheme == .dark ? selectedDarkThemeId : selectedLightThemeId
+    }
+
+    public func applyActiveTheme(for colorScheme: ColorScheme) {
+        let themeId = activeThemeId(for: colorScheme)
+        guard let theme = resolveTheme(id: themeId) else {
+            debugLog("[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in")
+            let fallback = colorScheme == .dark
+                ? ReaderTheme.builtInDarkBackground
+                : ReaderTheme.builtInLightBackground
+            applyThemeValues(fallback)
+            return
+        }
+        applyThemeValues(theme)
+    }
+
+    public func applyThemeValues(_ theme: ReaderTheme) {
+        backgroundColor = theme.backgroundColor
+        foregroundColor = theme.foregroundColor
+        highlightColor = theme.highlightColor
+        highlightThickness = theme.highlightThickness
+        readaloudHighlightMode = theme.readaloudHighlightMode
+        userHighlightColor1 = theme.userHighlightColor1
+        userHighlightColor2 = theme.userHighlightColor2
+        userHighlightColor3 = theme.userHighlightColor3
+        userHighlightColor4 = theme.userHighlightColor4
+        userHighlightColor5 = theme.userHighlightColor5
+        userHighlightColor6 = theme.userHighlightColor6
+        userHighlightMode = theme.userHighlightMode
+        customCSS = theme.customCSS
+        save()
+    }
+
+    public func selectTheme(id: String, for colorScheme: ColorScheme) {
+        if colorScheme == .dark {
+            selectedDarkThemeId = id
+        } else {
+            selectedLightThemeId = id
+        }
+        applyActiveTheme(for: colorScheme)
+    }
+
+    public func addCustomTheme(_ theme: ReaderTheme) {
+        customThemes.append(theme)
+        save()
+    }
+
+    public func updateCustomTheme(_ theme: ReaderTheme) {
+        guard let index = customThemes.firstIndex(where: { $0.id == theme.id }) else { return }
+        customThemes[index] = theme
+        save()
+    }
+
+    public func deleteCustomTheme(id: String) {
+        customThemes.removeAll { $0.id == id }
+        if selectedLightThemeId == id {
+            selectedLightThemeId = "builtin-light-background"
+        }
+        if selectedDarkThemeId == id {
+            selectedDarkThemeId = "builtin-dark-background"
+        }
+        save()
+    }
+
+    public func duplicateTheme(_ source: ReaderTheme, name: String) -> ReaderTheme {
+        let newTheme = ReaderTheme(
+            name: name,
+            isBuiltIn: false,
+            backgroundColor: source.backgroundColor,
+            foregroundColor: source.foregroundColor,
+            highlightColor: source.highlightColor,
+            highlightThickness: source.highlightThickness,
+            readaloudHighlightMode: source.readaloudHighlightMode,
+            userHighlightColor1: source.userHighlightColor1,
+            userHighlightColor2: source.userHighlightColor2,
+            userHighlightColor3: source.userHighlightColor3,
+            userHighlightColor4: source.userHighlightColor4,
+            userHighlightColor5: source.userHighlightColor5,
+            userHighlightColor6: source.userHighlightColor6,
+            userHighlightMode: source.userHighlightMode,
+            customCSS: source.customCSS
+        )
+        addCustomTheme(newTheme)
+        return newTheme
     }
 
     public func save() {
@@ -241,7 +345,10 @@ public final class SettingsViewModel {
             userHighlightMode: userHighlightMode,
             readaloudHighlightMode: readaloudHighlightMode,
             tabBarSlot1: tabBarSlot1Value,
-            tabBarSlot2: tabBarSlot2Value
+            tabBarSlot2: tabBarSlot2Value,
+            selectedLightThemeId: selectedLightThemeId,
+            selectedDarkThemeId: selectedDarkThemeId,
+            customThemes: customThemes
         )
     }
 

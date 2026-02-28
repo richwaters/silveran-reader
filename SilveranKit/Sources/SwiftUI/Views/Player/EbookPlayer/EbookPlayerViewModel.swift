@@ -357,6 +357,7 @@ class EbookPlayerViewModel {
     }
 
     func handleColorSchemeChange(_ colorScheme: ColorScheme) {
+        settingsVM.applyActiveTheme(for: colorScheme)
         styleManager?.handleColorSchemeChange(colorScheme)
     }
 
@@ -782,6 +783,7 @@ class EbookPlayerViewModel {
                     }
                 }
 
+                self.settingsVM.applyActiveTheme(for: initialColorScheme)
                 self.styleManager?.sendInitialStyles(colorScheme: initialColorScheme)
 
                 await self.loadHighlights()

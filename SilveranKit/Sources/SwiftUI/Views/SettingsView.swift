@@ -192,7 +192,10 @@ public struct SettingsView: View {
                     userHighlightMode: newValue.reading.userHighlightMode,
                     readaloudHighlightMode: newValue.reading.readaloudHighlightMode,
                     tabBarSlot1: newValue.library.tabBarSlot1,
-                    tabBarSlot2: newValue.library.tabBarSlot2
+                    tabBarSlot2: newValue.library.tabBarSlot2,
+                    selectedLightThemeId: newValue.themes.selectedLightThemeId,
+                    selectedDarkThemeId: newValue.themes.selectedDarkThemeId,
+                    customThemes: newValue.themes.customThemes
                 )
             } catch {
                 await MainActor.run {
@@ -218,7 +221,7 @@ extension SettingsView {
                     }
                     .tag(SettingsTab.general)
 
-                MacReaderSettingsView(reading: $config.reading, playback: $config.playback)
+                MacReaderSettingsView(reading: $config.reading, playback: $config.playback, themes: $config.themes)
                     .tabItem {
                         Label("Reader Settings", systemImage: "textformat")
                     }
@@ -560,9 +563,12 @@ private struct MacGeneralSettingsView: View {
 private struct MacReaderSettingsView: View {
     @Binding var reading: SilveranGlobalConfig.Reading
     @Binding var playback: SilveranGlobalConfig.Playback
+    @Binding var themes: SilveranGlobalConfig.Themes
     private let labelWidth: CGFloat = 150
     @State private var customFamilies: [CustomFontFamily] = []
     @State private var showFontManager = false
+    @State private var showManageThemes = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private func isCustomFont(_ fontFamily: String) -> Bool {
         !["System Default", "serif", "sans-serif", "monospace"].contains(fontFamily)
@@ -693,201 +699,58 @@ private struct MacReaderSettingsView: View {
             Divider()
                 .padding(.vertical, 8)
 
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Navigation")
-                    .font(.headline)
-
-                Toggle(
-                    "Enable margin click to turn pages",
-                    isOn: $reading.enableMarginClickNavigation
-                )
-                .help("Click on the left or right margins of the page to navigate between pages")
-            }
-
-            Divider()
-                .padding(.vertical, 8)
-
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Highlights & Colors")
-                    .font(.headline)
-
-                HStack(alignment: .top, spacing: 48) {
-                    Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 18) {
-                        GridRow {
-                            label("Readaloud Highlight Style")
-                            Picker("", selection: $reading.readaloudHighlightMode) {
-                                Text("Background").tag("background")
-                                Text("Text").tag("text")
-                                Text("Underline").tag("underline")
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 260)
-                            .labelsHidden()
-                        }
-
-                        GridRow {
-                            label("Readaloud Highlight")
-                            AppearanceColorControl(
-                                hex: $reading.highlightColor,
-                                isRequired: false,
-                                defaultLightColor: "#CCCCCC",
-                                defaultDarkColor: "#333333"
-                            )
-                        }
-
-                        GridRow {
-                            label("Background Color")
-                            AppearanceColorControl(
-                                hex: $reading.backgroundColor,
-                                isRequired: false,
-                                defaultLightColor: kDefaultBackgroundColorLight,
-                                defaultDarkColor: kDefaultBackgroundColorDark
-                            )
-                        }
-
-                        GridRow {
-                            label("Foreground Color")
-                            AppearanceColorControl(
-                                hex: $reading.foregroundColor,
-                                isRequired: false,
-                                defaultLightColor: kDefaultForegroundColorLight,
-                                defaultDarkColor: kDefaultForegroundColorDark
-                            )
-                        }
-
-                        if reading.readaloudHighlightMode == "background" {
-                            GridRow {
-                                label("Highlight Height")
-                                HStack(spacing: 8) {
-                                    Slider(value: $reading.highlightThickness, in: 0.6...4.0)
-                                        .frame(width: 120)
-                                    Text(String(format: "%.1fx", reading.highlightThickness))
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 35, alignment: .trailing)
-                                }
-                            }
-                        }
-
-                        GridRow {
-                            Text("")
-                                .frame(width: labelWidth)
-                            Menu {
-                                Button("Light Theme (Background Highlight)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorLight
-                                    reading.foregroundColor = kDefaultForegroundColorLight
-                                    reading.highlightColor = "#CCCCCC"
-                                    reading.readaloudHighlightMode = "background"
-                                }
-                                Button("Dark Theme (Background Highlight)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorDark
-                                    reading.foregroundColor = kDefaultForegroundColorDark
-                                    reading.highlightColor = "#333333"
-                                    reading.readaloudHighlightMode = "background"
-                                }
-                                Divider()
-                                Button("Light Theme (Text Highlight)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorLight
-                                    reading.foregroundColor = kDefaultForegroundColorLight
-                                    reading.highlightColor = "#254DF4"
-                                    reading.readaloudHighlightMode = "text"
-                                }
-                                Button("Dark Theme (Text Highlight)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorDark
-                                    reading.foregroundColor = kDefaultForegroundColorDark
-                                    reading.highlightColor = "#65A8EE"
-                                    reading.readaloudHighlightMode = "text"
-                                }
-                                Divider()
-                                Button("Light Theme (Underline)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorLight
-                                    reading.foregroundColor = kDefaultForegroundColorLight
-                                    reading.highlightColor = "#254DF4"
-                                    reading.readaloudHighlightMode = "underline"
-                                }
-                                Button("Dark Theme (Underline)") {
-                                    reading.backgroundColor = kDefaultBackgroundColorDark
-                                    reading.foregroundColor = kDefaultForegroundColorDark
-                                    reading.highlightColor = "#65A8EE"
-                                    reading.readaloudHighlightMode = "underline"
-                                }
-                            } label: {
-                                Label("Reset Colors to Theme...", systemImage: "paintpalette")
-                            }
-                            .menuStyle(.borderlessButton)
-                            .fixedSize()
-                        }
-                    }
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Themes")
+                        .font(.headline)
 
                     Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 18) {
                         GridRow {
-                            label("Highlight Style")
-                            Picker("", selection: $reading.userHighlightMode) {
-                                Text("Background").tag("background")
-                                Text("Text").tag("text")
-                                Text("Underline").tag("underline")
+                            label("Light Mode Theme")
+                            themePickerView(
+                                selection: $themes.selectedLightThemeId,
+                                customThemes: themes.customThemes
+                            )
+                            .onChange(of: themes.selectedLightThemeId) { _, _ in
+                                applyActiveThemeToReading()
                             }
-                            .pickerStyle(.segmented)
-                            .frame(width: 260)
-                            .labelsHidden()
                         }
+
                         GridRow {
-                            label("Highlight #1 (Yellow)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor1,
-                                defaultHex: kDefaultUserHighlightColor1
+                            label("Dark Mode Theme")
+                            themePickerView(
+                                selection: $themes.selectedDarkThemeId,
+                                customThemes: themes.customThemes
                             )
-                        }
-                        GridRow {
-                            label("Highlight #2 (Blue)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor2,
-                                defaultHex: kDefaultUserHighlightColor2
-                            )
-                        }
-                        GridRow {
-                            label("Highlight #3 (Green)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor3,
-                                defaultHex: kDefaultUserHighlightColor3
-                            )
-                        }
-                        GridRow {
-                            label("Highlight #4 (Pink)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor4,
-                                defaultHex: kDefaultUserHighlightColor4
-                            )
-                        }
-                        GridRow {
-                            label("Highlight #5 (Orange)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor5,
-                                defaultHex: kDefaultUserHighlightColor5
-                            )
-                        }
-                        GridRow {
-                            label("Highlight #6 (Purple)")
-                            UserHighlightColorControl(
-                                hex: $reading.userHighlightColor6,
-                                defaultHex: kDefaultUserHighlightColor6
-                            )
+                            .onChange(of: themes.selectedDarkThemeId) { _, _ in
+                                applyActiveThemeToReading()
+                            }
                         }
                     }
+
+                    Button {
+                        showManageThemes = true
+                    } label: {
+                        Label("Manage Themes...", systemImage: "paintpalette")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .sheet(isPresented: $showManageThemes) {
+                    macManageThemesSheet
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Custom CSS")
-                        .foregroundStyle(.secondary)
-                    TextEditor(
-                        text: Binding(
-                            get: { reading.customCSS ?? "" },
-                            set: { reading.customCSS = $0.isEmpty ? nil : $0 }
-                        )
+                Divider()
+                    .padding(.horizontal, 24)
+
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Navigation")
+                        .font(.headline)
+
+                    Toggle(
+                        "Enable margin click to turn pages",
+                        isOn: $reading.enableMarginClickNavigation
                     )
-                    .font(.system(.body, design: .monospaced))
-                    .frame(height: 100)
-                    .border(Color.secondary.opacity(0.3), width: 1)
+                    .help("Click on the left or right margins of the page to navigate between pages")
                 }
             }
         }
@@ -900,6 +763,52 @@ private struct MacReaderSettingsView: View {
         Text(text)
             .frame(width: labelWidth, alignment: .trailing)
             .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func themePickerView(
+        selection: Binding<String>,
+        customThemes: [ReaderTheme]
+    ) -> some View {
+        Picker("", selection: selection) {
+            ForEach(ReaderTheme.allBuiltIn) { theme in
+                Text(theme.name).tag(theme.id)
+            }
+            if !customThemes.isEmpty {
+                Divider()
+                ForEach(customThemes) { theme in
+                    Text(theme.name).tag(theme.id)
+                }
+            }
+        }
+        .labelsHidden()
+        .frame(width: 260)
+    }
+
+    private func applyActiveThemeToReading() {
+        let activeId = colorScheme == .dark
+            ? themes.selectedDarkThemeId
+            : themes.selectedLightThemeId
+        guard let theme = ReaderTheme.resolve(id: activeId, customThemes: themes.customThemes) else {
+            return
+        }
+        reading.backgroundColor = theme.backgroundColor
+        reading.foregroundColor = theme.foregroundColor
+        reading.highlightColor = theme.highlightColor
+        reading.highlightThickness = theme.highlightThickness
+        reading.readaloudHighlightMode = theme.readaloudHighlightMode
+        reading.userHighlightColor1 = theme.userHighlightColor1
+        reading.userHighlightColor2 = theme.userHighlightColor2
+        reading.userHighlightColor3 = theme.userHighlightColor3
+        reading.userHighlightColor4 = theme.userHighlightColor4
+        reading.userHighlightColor5 = theme.userHighlightColor5
+        reading.userHighlightColor6 = theme.userHighlightColor6
+        reading.userHighlightMode = theme.userHighlightMode
+        reading.customCSS = theme.customCSS
+    }
+
+    private var macManageThemesSheet: some View {
+        MacManageThemesView(themes: $themes, reading: $reading)
     }
 
     private func loadCustomFonts() async {
@@ -922,6 +831,336 @@ private struct MacReaderSettingsView: View {
                 await loadCustomFonts()
             }
         }
+    }
+}
+
+private struct MacManageThemesView: View {
+    @Binding var themes: SilveranGlobalConfig.Themes
+    @Binding var reading: SilveranGlobalConfig.Reading
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var editingTheme: ReaderTheme? = nil
+    @State private var renamingThemeId: String? = nil
+    @State private var renameText: String = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            List {
+                Section("Built-in Themes") {
+                    ForEach(ReaderTheme.allBuiltIn) { theme in
+                        themeRow(theme)
+                    }
+                }
+                if !themes.customThemes.isEmpty {
+                    Section("Custom Themes") {
+                        ForEach(themes.customThemes) { theme in
+                            themeRow(theme)
+                        }
+                    }
+                }
+            }
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .frame(minWidth: 500, minHeight: 500)
+
+            Divider()
+            HStack {
+                newThemeMenu
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(12)
+        }
+        .sheet(item: $editingTheme) { theme in
+            MacThemeEditorSheet(theme: theme, themes: $themes, reading: $reading)
+        }
+    }
+
+    private var newThemeMenu: some View {
+        let allThemes = ReaderTheme.allBuiltIn + themes.customThemes
+        return Menu {
+            ForEach(allThemes) { theme in
+                Button("From \"\(theme.name)\"") {
+                    let newTheme = duplicateTheme(theme, name: "\(theme.name) Copy")
+                    editingTheme = newTheme
+                }
+            }
+        } label: {
+            Label("New Theme", systemImage: "plus")
+        }
+    }
+
+    @ViewBuilder
+    private func themeRow(_ theme: ReaderTheme) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(hex: theme.backgroundColor) ?? .white)
+                    .frame(width: 32, height: 32)
+                Text("Aa")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(hex: theme.foregroundColor) ?? .black)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                if renamingThemeId == theme.id {
+                    TextField("Theme Name", text: $renameText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { commitRename(theme) }
+                } else {
+                    Text(theme.name).fontWeight(.medium)
+                }
+                Text(theme.readaloudHighlightMode.capitalized + " highlight")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if themes.selectedLightThemeId == theme.id {
+                Image(systemName: "sun.max.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+            if themes.selectedDarkThemeId == theme.id {
+                Image(systemName: "moon.fill")
+                    .font(.caption).foregroundStyle(.indigo)
+            }
+
+            Menu {
+                Button { themes.selectedLightThemeId = theme.id } label: {
+                    Label("Use for Light Mode", systemImage: "sun.max")
+                }
+                Button { themes.selectedDarkThemeId = theme.id } label: {
+                    Label("Use for Dark Mode", systemImage: "moon")
+                }
+                Divider()
+                Button {
+                    let dup = duplicateTheme(theme, name: "\(theme.name) Copy")
+                    editingTheme = dup
+                } label: {
+                    Label("Duplicate", systemImage: "doc.on.doc")
+                }
+                if !theme.isBuiltIn {
+                    Button {
+                        renamingThemeId = theme.id
+                        renameText = theme.name
+                    } label: {
+                        Label("Rename", systemImage: "pencil")
+                    }
+                    Button { editingTheme = theme } label: {
+                        Label("Edit", systemImage: "slider.horizontal.3")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        deleteTheme(id: theme.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func duplicateTheme(_ source: ReaderTheme, name: String) -> ReaderTheme {
+        let newTheme = ReaderTheme(
+            name: name,
+            isBuiltIn: false,
+            backgroundColor: source.backgroundColor,
+            foregroundColor: source.foregroundColor,
+            highlightColor: source.highlightColor,
+            highlightThickness: source.highlightThickness,
+            readaloudHighlightMode: source.readaloudHighlightMode,
+            userHighlightColor1: source.userHighlightColor1,
+            userHighlightColor2: source.userHighlightColor2,
+            userHighlightColor3: source.userHighlightColor3,
+            userHighlightColor4: source.userHighlightColor4,
+            userHighlightColor5: source.userHighlightColor5,
+            userHighlightColor6: source.userHighlightColor6,
+            userHighlightMode: source.userHighlightMode,
+            customCSS: source.customCSS
+        )
+        themes.customThemes.append(newTheme)
+        return newTheme
+    }
+
+    private func deleteTheme(id: String) {
+        themes.customThemes.removeAll { $0.id == id }
+        if themes.selectedLightThemeId == id {
+            themes.selectedLightThemeId = "builtin-light-background"
+        }
+        if themes.selectedDarkThemeId == id {
+            themes.selectedDarkThemeId = "builtin-dark-background"
+        }
+    }
+
+    private func commitRename(_ theme: ReaderTheme) {
+        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !theme.isBuiltIn else {
+            renamingThemeId = nil
+            return
+        }
+        if let idx = themes.customThemes.firstIndex(where: { $0.id == theme.id }) {
+            themes.customThemes[idx].name = trimmed
+        }
+        renamingThemeId = nil
+    }
+}
+
+private struct MacThemeEditorSheet: View {
+    let theme: ReaderTheme
+    @Binding var themes: SilveranGlobalConfig.Themes
+    @Binding var reading: SilveranGlobalConfig.Reading
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: ReaderTheme
+
+    init(theme: ReaderTheme, themes: Binding<SilveranGlobalConfig.Themes>, reading: Binding<SilveranGlobalConfig.Reading>) {
+        self.theme = theme
+        self._themes = themes
+        self._reading = reading
+        self._draft = State(initialValue: theme)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Theme Name").font(.headline)
+                        TextField("Theme Name", text: $draft.name)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 300)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Reader Colors").font(.headline)
+                        macColorRow(label: "Background", hex: $draft.backgroundColor)
+                        macColorRow(label: "Text", hex: $draft.foregroundColor)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Readaloud Highlight").font(.headline)
+                        Picker("Style", selection: $draft.readaloudHighlightMode) {
+                            Text("Background").tag("background")
+                            Text("Text").tag("text")
+                            Text("Underline").tag("underline")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 300)
+                        .labelsHidden()
+
+                        macColorRow(label: "Highlight Color", hex: $draft.highlightColor)
+
+                        if draft.readaloudHighlightMode == "background" {
+                            HStack(spacing: 8) {
+                                Text("Highlight Height")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Slider(value: $draft.highlightThickness, in: 0.6...4.0)
+                                    .frame(width: 120)
+                                Text(String(format: "%.1fx", draft.highlightThickness))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("User Highlight Colors").font(.headline)
+                        Picker("Style", selection: $draft.userHighlightMode) {
+                            Text("Background").tag("background")
+                            Text("Text").tag("text")
+                            Text("Underline").tag("underline")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 300)
+                        .labelsHidden()
+
+                        macColorRow(label: "#1 (Yellow)", hex: $draft.userHighlightColor1)
+                        macColorRow(label: "#2 (Blue)", hex: $draft.userHighlightColor2)
+                        macColorRow(label: "#3 (Green)", hex: $draft.userHighlightColor3)
+                        macColorRow(label: "#4 (Pink)", hex: $draft.userHighlightColor4)
+                        macColorRow(label: "#5 (Orange)", hex: $draft.userHighlightColor5)
+                        macColorRow(label: "#6 (Purple)", hex: $draft.userHighlightColor6)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Custom CSS").font(.headline)
+                        TextEditor(
+                            text: Binding(
+                                get: { draft.customCSS ?? "" },
+                                set: { draft.customCSS = $0.isEmpty ? nil : $0 }
+                            )
+                        )
+                        .font(.system(.body, design: .monospaced))
+                        .frame(height: 100)
+                        .border(Color.secondary.opacity(0.3), width: 1)
+                    }
+                }
+                .padding()
+            }
+            .frame(minWidth: 550, minHeight: 500)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Save") { saveTheme() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private func macColorRow(label: String, hex: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 120, alignment: .trailing)
+
+            ColorPicker("", selection: Binding(
+                get: { Color(hex: hex.wrappedValue) ?? .gray },
+                set: { newColor in
+                    if let newHex = newColor.hexString() {
+                        hex.wrappedValue = newHex
+                    }
+                }
+            ), supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: 48, height: 28)
+
+            TextField("#RRGGBB", text: hex)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .frame(maxWidth: 100)
+        }
+    }
+
+    private func saveTheme() {
+        if let idx = themes.customThemes.firstIndex(where: { $0.id == draft.id }) {
+            themes.customThemes[idx] = draft
+        }
+        dismiss()
     }
 }
 

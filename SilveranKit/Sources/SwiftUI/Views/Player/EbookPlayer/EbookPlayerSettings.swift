@@ -14,6 +14,7 @@ struct EbookPlayerSettings: View {
     #if os(iOS)
     @State private var customFamilies: [CustomFontFamily] = []
     @State private var showFontManager = false
+    @State private var showManageThemes = false
     #endif
 
     private var defaultHighlightColor: String {
@@ -249,58 +250,56 @@ struct EbookPlayerSettings: View {
 
             Divider()
 
-            Text("Highlights & Colors")
+            Text("Themes")
                 .font(.headline)
                 .foregroundStyle(.primary)
 
-            Menu {
-                Button("Light Theme (Background Highlight)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorLight
-                    settingsVM.foregroundColor = kDefaultForegroundColorLight
-                    settingsVM.highlightColor = "#CCCCCC"
-                    settingsVM.readaloudHighlightMode = "background"
-                    settingsVM.save()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Light Mode Theme")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Light Mode Theme", selection: $settingsVM.selectedLightThemeId) {
+                    ForEach(settingsVM.allThemes) { theme in
+                        Text(theme.name).tag(theme.id)
+                    }
                 }
-                Button("Dark Theme (Background Highlight)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorDark
-                    settingsVM.foregroundColor = kDefaultForegroundColorDark
-                    settingsVM.highlightColor = "#333333"
-                    settingsVM.readaloudHighlightMode = "background"
-                    settingsVM.save()
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .onChange(of: settingsVM.selectedLightThemeId) { _, _ in
+                    settingsVM.applyActiveTheme(for: colorScheme)
                 }
-                Divider()
-                Button("Light Theme (Text Highlight)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorLight
-                    settingsVM.foregroundColor = kDefaultForegroundColorLight
-                    settingsVM.highlightColor = "#254DF4"
-                    settingsVM.readaloudHighlightMode = "text"
-                    settingsVM.save()
-                }
-                Button("Dark Theme (Text Highlight)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorDark
-                    settingsVM.foregroundColor = kDefaultForegroundColorDark
-                    settingsVM.highlightColor = "#65A8EE"
-                    settingsVM.readaloudHighlightMode = "text"
-                    settingsVM.save()
-                }
-                Divider()
-                Button("Light Theme (Underline)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorLight
-                    settingsVM.foregroundColor = kDefaultForegroundColorLight
-                    settingsVM.highlightColor = "#254DF4"
-                    settingsVM.readaloudHighlightMode = "underline"
-                    settingsVM.save()
-                }
-                Button("Dark Theme (Underline)") {
-                    settingsVM.backgroundColor = kDefaultBackgroundColorDark
-                    settingsVM.foregroundColor = kDefaultForegroundColorDark
-                    settingsVM.highlightColor = "#65A8EE"
-                    settingsVM.readaloudHighlightMode = "underline"
-                    settingsVM.save()
-                }
-            } label: {
-                Label("Reset Colors to Theme...", systemImage: "paintpalette")
             }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dark Mode Theme")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Dark Mode Theme", selection: $settingsVM.selectedDarkThemeId) {
+                    ForEach(settingsVM.allThemes) { theme in
+                        Text(theme.name).tag(theme.id)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .onChange(of: settingsVM.selectedDarkThemeId) { _, _ in
+                    settingsVM.applyActiveTheme(for: colorScheme)
+                }
+            }
+
+            Button {
+                showManageThemes = true
+            } label: {
+                Label("Manage Themes...", systemImage: "paintpalette")
+            }
+            .sheet(isPresented: $showManageThemes) {
+                ManageThemesView(settingsVM: settingsVM)
+            }
+
+            Divider()
+
+            Text("Highlights & Colors")
+                .font(.headline)
+                .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Readaloud Style")

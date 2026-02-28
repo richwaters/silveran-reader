@@ -11,19 +11,36 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
     public var readingBar: ReadingBar
     public var sync: Sync
     public var library: Library
+    public var themes: Themes
 
     public init(
         reading: Reading = Reading(),
         playback: Playback = Playback(),
         readingBar: ReadingBar = ReadingBar(),
         sync: Sync = Sync(),
-        library: Library = Library()
+        library: Library = Library(),
+        themes: Themes = Themes()
     ) {
         self.reading = reading
         self.playback = playback
         self.readingBar = readingBar
         self.sync = sync
         self.library = library
+        self.themes = themes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: TopLevelCodingKeys.self)
+        reading = (try? container.decode(Reading.self, forKey: .reading)) ?? Reading()
+        playback = (try? container.decode(Playback.self, forKey: .playback)) ?? Playback()
+        readingBar = (try? container.decode(ReadingBar.self, forKey: .readingBar)) ?? ReadingBar()
+        sync = (try? container.decode(Sync.self, forKey: .sync)) ?? Sync()
+        library = (try? container.decode(Library.self, forKey: .library)) ?? Library()
+        themes = (try? container.decode(Themes.self, forKey: .themes)) ?? Themes()
+    }
+
+    private enum TopLevelCodingKeys: String, CodingKey {
+        case reading, playback, readingBar, sync, library, themes
     }
 
     public struct Reading: Codable, Equatable, Sendable {
@@ -362,6 +379,39 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Themes: Codable, Equatable, Sendable {
+        public var selectedLightThemeId: String
+        public var selectedDarkThemeId: String
+        public var customThemes: [ReaderTheme]
+
+        public init(
+            selectedLightThemeId: String = "builtin-light-background",
+            selectedDarkThemeId: String = "builtin-dark-background",
+            customThemes: [ReaderTheme] = []
+        ) {
+            self.selectedLightThemeId = selectedLightThemeId
+            self.selectedDarkThemeId = selectedDarkThemeId
+            self.customThemes = customThemes
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try? decoder.container(keyedBy: CodingKeys.self)
+            selectedLightThemeId =
+                (try? container?.decode(String.self, forKey: .selectedLightThemeId))
+                ?? "builtin-light-background"
+            selectedDarkThemeId =
+                (try? container?.decode(String.self, forKey: .selectedDarkThemeId))
+                ?? "builtin-dark-background"
+            customThemes =
+                (try? container?.decode([ReaderTheme].self, forKey: .customThemes))
+                ?? []
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case selectedLightThemeId, selectedDarkThemeId, customThemes
+        }
+    }
+
     public struct Library: Codable, Equatable, Sendable {
         public var showAudioIndicator: Bool
         public var tabBarSlot1: String
@@ -428,10 +478,56 @@ public actor SettingsActor {
             #if os(iOS)
             config.readingBar.showPlayerControls = true
             #endif
+            Self.migrateToThemesIfNeeded(&config)
         } catch {
             config = SilveranGlobalConfig()
             try? Self.save(config: config, to: resolvedURL, fileManager: fileManager)
         }
+    }
+
+    private static func migrateToThemesIfNeeded(_ config: inout SilveranGlobalConfig) {
+        guard config.themes.customThemes.isEmpty else { return }
+
+        let reading = config.reading
+        let defaults = SilveranGlobalConfig.Reading()
+        let hasCustomColors =
+            reading.backgroundColor != defaults.backgroundColor
+            || reading.foregroundColor != defaults.foregroundColor
+            || reading.highlightColor != defaults.highlightColor
+            || reading.highlightThickness != defaults.highlightThickness
+            || reading.readaloudHighlightMode != defaults.readaloudHighlightMode
+            || reading.userHighlightColor1 != defaults.userHighlightColor1
+            || reading.userHighlightColor2 != defaults.userHighlightColor2
+            || reading.userHighlightColor3 != defaults.userHighlightColor3
+            || reading.userHighlightColor4 != defaults.userHighlightColor4
+            || reading.userHighlightColor5 != defaults.userHighlightColor5
+            || reading.userHighlightColor6 != defaults.userHighlightColor6
+            || reading.userHighlightMode != defaults.userHighlightMode
+            || reading.customCSS != defaults.customCSS
+
+        guard hasCustomColors else { return }
+
+        let customTheme = ReaderTheme(
+            name: "My Custom Theme",
+            isBuiltIn: false,
+            backgroundColor: reading.backgroundColor ?? kDefaultBackgroundColorLight,
+            foregroundColor: reading.foregroundColor ?? kDefaultForegroundColorLight,
+            highlightColor: reading.highlightColor ?? "#CCCCCC",
+            highlightThickness: reading.highlightThickness,
+            readaloudHighlightMode: reading.readaloudHighlightMode,
+            userHighlightColor1: reading.userHighlightColor1,
+            userHighlightColor2: reading.userHighlightColor2,
+            userHighlightColor3: reading.userHighlightColor3,
+            userHighlightColor4: reading.userHighlightColor4,
+            userHighlightColor5: reading.userHighlightColor5,
+            userHighlightColor6: reading.userHighlightColor6,
+            userHighlightMode: reading.userHighlightMode,
+            customCSS: reading.customCSS
+        )
+        config.themes.customThemes = [customTheme]
+        config.themes.selectedLightThemeId = customTheme.id
+        config.themes.selectedDarkThemeId = customTheme.id
+        debugLog("[SettingsActor] Migrated existing color settings to custom theme '\(customTheme.name)'")
     }
 
     @discardableResult
@@ -493,7 +589,10 @@ public actor SettingsActor {
         readaloudHighlightMode: String? = nil,
         tabBarSlot1: String? = nil,
         tabBarSlot2: String? = nil,
-        tvSubtitleFontSize: Double? = nil
+        tvSubtitleFontSize: Double? = nil,
+        selectedLightThemeId: String? = nil,
+        selectedDarkThemeId: String? = nil,
+        customThemes: [ReaderTheme]? = nil
     ) throws {
         var updated = config
 
@@ -600,6 +699,15 @@ public actor SettingsActor {
         }
         if let tvSubtitleFontSize {
             updated.reading.tvSubtitleFontSize = tvSubtitleFontSize
+        }
+        if let selectedLightThemeId {
+            updated.themes.selectedLightThemeId = selectedLightThemeId
+        }
+        if let selectedDarkThemeId {
+            updated.themes.selectedDarkThemeId = selectedDarkThemeId
+        }
+        if let customThemes {
+            updated.themes.customThemes = customThemes
         }
 
         #if os(iOS)
