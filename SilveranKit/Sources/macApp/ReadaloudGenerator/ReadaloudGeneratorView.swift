@@ -48,6 +48,13 @@ public struct ReadaloudGeneratorView: View {
             }
             Divider()
             footerView
+            Link(
+                "Powered by StoryAlign",
+                destination: URL(string: "https://codeberg.org/richwaters/StoryAlign")!
+            )
+            .font(.caption)
+            .foregroundStyle(.blue)
+            .padding(.bottom, 12)
         }
         .frame(width: 500, height: 750)
     }
