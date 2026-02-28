@@ -171,21 +171,28 @@ private struct CategoryListRow<RowContent: View, ContextMenu: View>: View {
         .onHover { hovering in
             isHovered = hovering
         }
-        .modifier(OptionalContextMenuModifier(content: contextMenu))
-    }
-}
-
-private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
-    let content: MenuContent?
-
-    func body(content: Content) -> some View {
-        if let menuContent = self.content {
-            content.contextMenu { menuContent }
-        } else {
-            content
+        .contextMenu {
+            if let pinId = group.pinId {
+                Button {
+                    SidebarPinHelper.togglePin(pinId)
+                } label: {
+                    if SidebarPinHelper.isPinned(pinId) {
+                        Label("Remove Pin", systemImage: "pin.slash")
+                    } else {
+                        Label("Pin", systemImage: "pin")
+                    }
+                }
+            }
+            if let menuContent = contextMenu {
+                if group.pinId != nil {
+                    Divider()
+                }
+                menuContent
+            }
         }
     }
 }
+
 #endif
 
 struct CategoryRowContent: View {
@@ -242,19 +249,6 @@ struct CategoryRowContent: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         )
-        .contextMenu {
-            if let pinId = pinId {
-                Button {
-                    SidebarPinHelper.togglePin(pinId)
-                } label: {
-                    if SidebarPinHelper.isPinned(pinId) {
-                        Label("Remove Pin", systemImage: "pin.slash")
-                    } else {
-                        Label("Pin", systemImage: "pin")
-                    }
-                }
-            }
-        }
         .onAppear { isPinned = pinId.map { SidebarPinHelper.isPinned($0) } ?? false }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
             _ in

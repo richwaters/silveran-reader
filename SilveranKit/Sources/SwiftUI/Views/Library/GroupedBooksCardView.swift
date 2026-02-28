@@ -73,19 +73,6 @@ struct GroupedBooksCardView: View {
                 isHovered = hovering
             }
         }
-        .contextMenu {
-            if let pinId = pinId {
-                Button {
-                    SidebarPinHelper.togglePin(pinId)
-                } label: {
-                    if SidebarPinHelper.isPinned(pinId) {
-                        Label("Remove Pin", systemImage: "pin.slash")
-                    } else {
-                        Label("Pin", systemImage: "pin")
-                    }
-                }
-            }
-        }
         #endif
     }
 

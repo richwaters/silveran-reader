@@ -77,7 +77,25 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                                 onNavigate(group, nil)
                             }
                         )
-                        .modifier(OptionalContextMenuModifier(content: contextMenuBuilder?(group)))
+                        .contextMenu {
+                            if let pinId = group.pinId {
+                                Button {
+                                    SidebarPinHelper.togglePin(pinId)
+                                } label: {
+                                    if SidebarPinHelper.isPinned(pinId) {
+                                        Label("Remove Pin", systemImage: "pin.slash")
+                                    } else {
+                                        Label("Pin", systemImage: "pin")
+                                    }
+                                }
+                            }
+                            if let menuContent = contextMenuBuilder?(group) {
+                                if group.pinId != nil {
+                                    Divider()
+                                }
+                                menuContent
+                            }
+                        }
                         .id(group.id)
                     }
                 }
@@ -226,17 +244,5 @@ extension CategoryGridLayout where StickyHeader == EmptyView, ContextMenu == Emp
         self.header = header
         self.stickyHeader = { EmptyView() }
         self.contextMenuBuilder = nil
-    }
-}
-
-private struct OptionalContextMenuModifier<MenuContent: View>: ViewModifier {
-    let content: MenuContent?
-
-    func body(content: Content) -> some View {
-        if let menuContent = self.content {
-            content.contextMenu { menuContent }
-        } else {
-            content
-        }
     }
 }
