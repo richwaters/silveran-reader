@@ -104,38 +104,50 @@ struct ManageThemesView: View {
     @ViewBuilder
     private func themeRow(_ theme: ReaderTheme) -> some View {
         HStack(spacing: 12) {
-            themePreviewSwatch(theme)
-
-            VStack(alignment: .leading, spacing: 2) {
-                if renamingThemeId == theme.id {
-                    TextField("Theme Name", text: $renameText)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit {
-                            commitRename(theme)
-                        }
+            Button {
+                if theme.isBuiltIn {
+                    editingTheme = settingsVM.duplicateTheme(theme)
                 } else {
-                    Text(theme.name)
-                        .fontWeight(.medium)
+                    editingTheme = theme
                 }
-                HStack(spacing: 4) {
-                    Text(theme.readaloudHighlightMode.capitalized + " highlight")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if !theme.isBuiltIn {
-                        Text(appearanceLabel(theme.appearance))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.15))
-                            .cornerRadius(3)
+            } label: {
+                HStack(spacing: 12) {
+                    themePreviewSwatch(theme)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        if renamingThemeId == theme.id {
+                            TextField("Theme Name", text: $renameText)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit {
+                                    commitRename(theme)
+                                }
+                        } else {
+                            Text(theme.name)
+                                .fontWeight(.medium)
+                        }
+                        HStack(spacing: 4) {
+                            Text(theme.readaloudHighlightMode.capitalized + " highlight")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if !theme.isBuiltIn {
+                                Text(appearanceLabel(theme.appearance))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.secondary.opacity(0.15))
+                                    .cornerRadius(3)
+                            }
+                        }
                     }
+
+                    Spacer()
+
+                    statusBadges(for: theme)
                 }
+                .contentShape(Rectangle())
             }
-
-            Spacer()
-
-            statusBadges(for: theme)
+            .buttonStyle(.plain)
 
             themeContextMenu(theme)
         }
@@ -203,11 +215,6 @@ struct ManageThemesView: View {
                     renameText = theme.name
                 } label: {
                     Label("Rename", systemImage: "pencil")
-                }
-                Button {
-                    editingTheme = theme
-                } label: {
-                    Label("Edit", systemImage: "slider.horizontal.3")
                 }
                 Divider()
                 Button(role: .destructive) {

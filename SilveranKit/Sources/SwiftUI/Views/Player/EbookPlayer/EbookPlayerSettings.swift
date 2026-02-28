@@ -17,10 +17,6 @@ struct EbookPlayerSettings: View {
     @State private var showManageThemes = false
     #endif
 
-    private var defaultHighlightColor: String {
-        colorScheme == .dark ? "#333333" : "#CCCCCC"
-    }
-
     var body: some View {
         #if os(macOS)
         macOSBody
@@ -294,108 +290,6 @@ struct EbookPlayerSettings: View {
             .sheet(isPresented: $showManageThemes) {
                 ManageThemesView(settingsVM: settingsVM)
             }
-
-            Divider()
-
-            Text("Highlights & Colors")
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Readaloud Style")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Picker("Readaloud Style", selection: $settingsVM.readaloudHighlightMode) {
-                    Text("Background").tag("background")
-                    Text("Text").tag("text")
-                    Text("Underline").tag("underline")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .onChange(of: settingsVM.readaloudHighlightMode) { _, _ in
-                    settingsVM.save()
-                }
-            }
-
-            iOSColorControl(
-                label: "Readaloud Highlight",
-                hex: $settingsVM.highlightColor,
-                defaultHex: defaultHighlightColor
-            )
-
-            iOSColorControl(
-                label: "Background Color",
-                hex: $settingsVM.backgroundColor,
-                defaultHex: nil
-            )
-
-            iOSColorControl(
-                label: "Text Color",
-                hex: $settingsVM.foregroundColor,
-                defaultHex: nil
-            )
-
-            if settingsVM.readaloudHighlightMode == "background" {
-                labeledSlider(
-                    label: "Highlight Height",
-                    value: $settingsVM.highlightThickness,
-                    range: 0.6...4.0,
-                    step: 0.05,
-                    formatter: { String(format: "%.2fx", $0) }
-                )
-            }
-
-            Divider()
-
-            Text("Highlight Colors")
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-            Picker("Highlight Style", selection: $settingsVM.userHighlightMode) {
-                Text("Background").tag("background")
-                Text("Text").tag("text")
-                Text("Underline").tag("underline")
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: settingsVM.userHighlightMode) { _, _ in
-                settingsVM.save()
-            }
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel1,
-                hex: $settingsVM.userHighlightColor1,
-                defaultHex: kDefaultUserHighlightColor1
-            )
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel2,
-                hex: $settingsVM.userHighlightColor2,
-                defaultHex: kDefaultUserHighlightColor2
-            )
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel3,
-                hex: $settingsVM.userHighlightColor3,
-                defaultHex: kDefaultUserHighlightColor3
-            )
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel4,
-                hex: $settingsVM.userHighlightColor4,
-                defaultHex: kDefaultUserHighlightColor4
-            )
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel5,
-                hex: $settingsVM.userHighlightColor5,
-                defaultHex: kDefaultUserHighlightColor5
-            )
-
-            iOSUserHighlightColorControl(
-                label: settingsVM.userHighlightLabel6,
-                hex: $settingsVM.userHighlightColor6,
-                defaultHex: kDefaultUserHighlightColor6
-            )
         }
         .onAppear {
             fontSizeInput = String(Int(settingsVM.fontSize))
@@ -410,39 +304,6 @@ struct EbookPlayerSettings: View {
         customFamilies = await CustomFontsActor.shared.availableFamilies
     }
 
-    @ViewBuilder
-    private func iOSColorControl(label: String, hex: Binding<String?>, defaultHex: String?)
-        -> some View
-    {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            IOSAppearanceColorControl(
-                hex: hex,
-                defaultHex: defaultHex,
-                onSave: { settingsVM.save() }
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func iOSUserHighlightColorControl(
-        label: String,
-        hex: Binding<String>,
-        defaultHex: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            IOSUserHighlightColorControl(
-                hex: hex,
-                defaultHex: defaultHex,
-                onSave: { settingsVM.save() }
-            )
-        }
-    }
     #endif
 
     @ViewBuilder
@@ -476,24 +337,6 @@ struct EbookPlayerSettings: View {
         settingsVM.marginTopBottom = kDefaultMarginTopBottom
         settingsVM.wordSpacing = kDefaultWordSpacing
         settingsVM.letterSpacing = kDefaultLetterSpacing
-        settingsVM.highlightColor = nil
-        settingsVM.highlightThickness = kDefaultHighlightThickness
-        settingsVM.userHighlightMode = kDefaultUserHighlightMode
-        settingsVM.readaloudHighlightMode = kDefaultReadaloudHighlightMode
-        settingsVM.userHighlightColor1 = kDefaultUserHighlightColor1
-        settingsVM.userHighlightColor2 = kDefaultUserHighlightColor2
-        settingsVM.userHighlightColor3 = kDefaultUserHighlightColor3
-        settingsVM.userHighlightColor4 = kDefaultUserHighlightColor4
-        settingsVM.userHighlightColor5 = kDefaultUserHighlightColor5
-        settingsVM.userHighlightColor6 = kDefaultUserHighlightColor6
-        settingsVM.userHighlightLabel1 = kDefaultUserHighlightLabel1
-        settingsVM.userHighlightLabel2 = kDefaultUserHighlightLabel2
-        settingsVM.userHighlightLabel3 = kDefaultUserHighlightLabel3
-        settingsVM.userHighlightLabel4 = kDefaultUserHighlightLabel4
-        settingsVM.userHighlightLabel5 = kDefaultUserHighlightLabel5
-        settingsVM.userHighlightLabel6 = kDefaultUserHighlightLabel6
-        settingsVM.backgroundColor = nil
-        settingsVM.foregroundColor = nil
         settingsVM.enableMarginClickNavigation = kDefaultEnableMarginClickNavigation
         settingsVM.enableReadingBar = kDefaultReadingBarEnabled
         settingsVM.showProgressBar = kDefaultShowProgressBar
@@ -662,140 +505,4 @@ private struct IOSFontManagerView: View {
     }
 }
 
-private struct IOSUserHighlightColorControl: View {
-    @Binding var hex: String
-    let defaultHex: String
-    let onSave: () -> Void
-    @State private var localColor: Color = .yellow
-    @State private var hexInput: String = ""
-    @State private var isInitialized = false
-
-    private var isDefault: Bool {
-        hex.uppercased() == defaultHex.uppercased()
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                hex = defaultHex
-                localColor = Color(hex: defaultHex) ?? .yellow
-                hexInput = defaultHex
-                onSave()
-            } label: {
-                Text("Default")
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(isDefault ? Color.accentColor : Color.secondary.opacity(0.2))
-                    .foregroundStyle(isDefault ? .white : .primary)
-                    .cornerRadius(4)
-            }
-            .buttonStyle(.plain)
-
-            ColorPicker("", selection: $localColor, supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 44, height: 32)
-                .onAppear {
-                    localColor = Color(hex: hex) ?? .yellow
-                    hexInput = hex
-                    DispatchQueue.main.async { isInitialized = true }
-                }
-                .onChange(of: localColor) { _, newColor in
-                    guard isInitialized else { return }
-                    if let newHex = newColor.hexString() {
-                        hex = newHex
-                        hexInput = newHex
-                        onSave()
-                    }
-                }
-
-            TextField("#RRGGBB", text: $hexInput)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.body, design: .monospaced))
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled(true)
-                .frame(maxWidth: 100)
-                .onSubmit {
-                    if let color = Color(hex: hexInput) {
-                        hex = hexInput.uppercased()
-                        localColor = color
-                        onSave()
-                    } else {
-                        hexInput = hex
-                    }
-                }
-        }
-    }
-}
-
-private struct IOSAppearanceColorControl: View {
-    @Binding var hex: String?
-    let defaultHex: String?
-    let onSave: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var localColor: Color = .gray
-    @State private var hexInput: String = ""
-    @State private var isInitialized = false
-
-    private var effectiveDefaultHex: String {
-        defaultHex ?? (colorScheme == .dark ? "#333333" : "#888888")
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                hex = nil
-                localColor = Color(hex: effectiveDefaultHex) ?? .gray
-                hexInput = ""
-                onSave()
-            } label: {
-                Text("Default")
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(hex == nil ? Color.accentColor : Color.secondary.opacity(0.2))
-                    .foregroundStyle(hex == nil ? .white : .primary)
-                    .cornerRadius(4)
-            }
-            .buttonStyle(.plain)
-
-            ColorPicker("", selection: $localColor, supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 44, height: 32)
-                .onAppear {
-                    localColor = Color(hex: hex ?? effectiveDefaultHex) ?? .gray
-                    hexInput = hex ?? ""
-                    DispatchQueue.main.async { isInitialized = true }
-                }
-                .onChange(of: localColor) { _, newColor in
-                    guard isInitialized else { return }
-                    if let newHex = newColor.hexString() {
-                        hex = newHex
-                        hexInput = newHex
-                        onSave()
-                    }
-                }
-
-            TextField("#RRGGBB", text: $hexInput)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.body, design: .monospaced))
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled(true)
-                .frame(maxWidth: 100)
-                .onSubmit {
-                    if hexInput.isEmpty {
-                        hex = nil
-                        localColor = Color(hex: effectiveDefaultHex) ?? .gray
-                        onSave()
-                    } else if let color = Color(hex: hexInput) {
-                        hex = hexInput.uppercased()
-                        localColor = color
-                        onSave()
-                    } else {
-                        hexInput = hex ?? ""
-                    }
-                }
-        }
-    }
-}
 #endif
