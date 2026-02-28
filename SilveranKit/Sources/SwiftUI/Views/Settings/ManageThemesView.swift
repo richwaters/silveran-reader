@@ -50,7 +50,7 @@ struct ManageThemesView: View {
         Menu {
             ForEach(settingsVM.allThemes) { theme in
                 Button("From \"\(theme.name)\"") {
-                    let newTheme = settingsVM.duplicateTheme(theme, name: "\(theme.name) Copy")
+                    let newTheme = settingsVM.duplicateTheme(theme)
                     editingTheme = newTheme
                 }
             }
@@ -117,9 +117,20 @@ struct ManageThemesView: View {
                     Text(theme.name)
                         .fontWeight(.medium)
                 }
-                Text(theme.readaloudHighlightMode.capitalized + " highlight")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(theme.readaloudHighlightMode.capitalized + " highlight")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !theme.isBuiltIn {
+                        Text(appearanceLabel(theme.appearance))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(3)
+                    }
+                }
             }
 
             Spacer()
@@ -165,19 +176,23 @@ struct ManageThemesView: View {
     @ViewBuilder
     private func themeContextMenu(_ theme: ReaderTheme) -> some View {
         Menu {
-            Button {
-                settingsVM.selectTheme(id: theme.id, for: .light)
-            } label: {
-                Label("Use for Light Mode", systemImage: "sun.max")
+            if theme.availableFor(colorScheme: "light") {
+                Button {
+                    settingsVM.selectTheme(id: theme.id, for: .light)
+                } label: {
+                    Label("Use for Light Mode", systemImage: "sun.max")
+                }
             }
-            Button {
-                settingsVM.selectTheme(id: theme.id, for: .dark)
-            } label: {
-                Label("Use for Dark Mode", systemImage: "moon")
+            if theme.availableFor(colorScheme: "dark") {
+                Button {
+                    settingsVM.selectTheme(id: theme.id, for: .dark)
+                } label: {
+                    Label("Use for Dark Mode", systemImage: "moon")
+                }
             }
             Divider()
             Button {
-                let newTheme = settingsVM.duplicateTheme(theme, name: "\(theme.name) Copy")
+                let newTheme = settingsVM.duplicateTheme(theme)
                 editingTheme = newTheme
             } label: {
                 Label("Duplicate", systemImage: "doc.on.doc")
@@ -207,6 +222,14 @@ struct ManageThemesView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+
+    private func appearanceLabel(_ appearance: ThemeAppearance) -> String {
+        switch appearance {
+        case .light: return "Light only"
+        case .dark: return "Dark only"
+        case .any: return "Both"
+        }
     }
 
     private func commitRename(_ theme: ReaderTheme) {

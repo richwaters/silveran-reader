@@ -69,8 +69,8 @@ public final class SettingsViewModel {
     public var userHighlightMode: String = kDefaultUserHighlightMode
     public var readaloudHighlightMode: String = kDefaultReadaloudHighlightMode
 
-    public var selectedLightThemeId: String = "builtin-light-background"
-    public var selectedDarkThemeId: String = "builtin-dark-background"
+    public var selectedLightThemeId: String = "builtin-light"
+    public var selectedDarkThemeId: String = "builtin-dark"
     public var customThemes: [ReaderTheme] = []
 
     public var isLoaded: Bool = false
@@ -180,8 +180,8 @@ public final class SettingsViewModel {
         userHighlightMode = config.reading.userHighlightMode
         readaloudHighlightMode = config.reading.readaloudHighlightMode
 
-        selectedLightThemeId = config.themes.selectedLightThemeId
-        selectedDarkThemeId = config.themes.selectedDarkThemeId
+        selectedLightThemeId = ReaderTheme.migrateThemeId(config.themes.selectedLightThemeId)
+        selectedDarkThemeId = ReaderTheme.migrateThemeId(config.themes.selectedDarkThemeId)
         customThemes = config.themes.customThemes
 
         isLoaded = true
@@ -203,6 +203,14 @@ public final class SettingsViewModel {
         ReaderTheme.allBuiltIn + customThemes
     }
 
+    public var lightThemes: [ReaderTheme] {
+        ReaderTheme.themesForLightMode(customThemes: customThemes)
+    }
+
+    public var darkThemes: [ReaderTheme] {
+        ReaderTheme.themesForDarkMode(customThemes: customThemes)
+    }
+
     public func resolveTheme(id: String) -> ReaderTheme? {
         ReaderTheme.resolve(id: id, customThemes: customThemes)
     }
@@ -216,8 +224,8 @@ public final class SettingsViewModel {
         guard let theme = resolveTheme(id: themeId) else {
             debugLog("[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in")
             let fallback = colorScheme == .dark
-                ? ReaderTheme.builtInDarkBackground
-                : ReaderTheme.builtInLightBackground
+                ? ReaderTheme.builtInDark
+                : ReaderTheme.builtInLight
             applyThemeValues(fallback)
             return
         }
@@ -255,27 +263,22 @@ public final class SettingsViewModel {
         save()
     }
 
-    public func updateCustomTheme(_ theme: ReaderTheme) {
-        guard let index = customThemes.firstIndex(where: { $0.id == theme.id }) else { return }
-        customThemes[index] = theme
-        save()
-    }
-
     public func deleteCustomTheme(id: String) {
         customThemes.removeAll { $0.id == id }
         if selectedLightThemeId == id {
-            selectedLightThemeId = "builtin-light-background"
+            selectedLightThemeId = "builtin-light"
         }
         if selectedDarkThemeId == id {
-            selectedDarkThemeId = "builtin-dark-background"
+            selectedDarkThemeId = "builtin-dark"
         }
         save()
     }
 
-    public func duplicateTheme(_ source: ReaderTheme, name: String) -> ReaderTheme {
+    public func duplicateTheme(_ source: ReaderTheme) -> ReaderTheme {
         let newTheme = ReaderTheme(
-            name: name,
+            name: uniqueCopyName(for: source.name, existing: allThemes.map(\.name)),
             isBuiltIn: false,
+            appearance: source.appearance,
             backgroundColor: source.backgroundColor,
             foregroundColor: source.foregroundColor,
             highlightColor: source.highlightColor,
@@ -292,6 +295,18 @@ public final class SettingsViewModel {
         )
         addCustomTheme(newTheme)
         return newTheme
+    }
+
+    public func updateCustomTheme(_ theme: ReaderTheme) {
+        guard let index = customThemes.firstIndex(where: { $0.id == theme.id }) else { return }
+        customThemes[index] = theme
+        if !theme.availableFor(colorScheme: "light") && selectedLightThemeId == theme.id {
+            selectedLightThemeId = "builtin-light"
+        }
+        if !theme.availableFor(colorScheme: "dark") && selectedDarkThemeId == theme.id {
+            selectedDarkThemeId = "builtin-dark"
+        }
+        save()
     }
 
     public func save() {
@@ -371,4 +386,12 @@ public final class SettingsViewModel {
     private var tapToPlayPreferredPlayerValue: Bool { kDefaultTapToPlayPreferredPlayer }
     private var preferAudioOverEbookValue: Bool { kDefaultPreferAudioOverEbook }
     #endif
+
+    private func uniqueCopyName(for baseName: String, existing: [String]) -> String {
+        let candidate = "\(baseName) Copy"
+        if !existing.contains(candidate) { return candidate }
+        var n = 2
+        while existing.contains("\(baseName) Copy \(n)") { n += 1 }
+        return "\(baseName) Copy \(n)"
+    }
 }

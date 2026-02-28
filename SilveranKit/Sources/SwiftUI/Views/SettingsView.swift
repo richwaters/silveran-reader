@@ -709,7 +709,7 @@ private struct MacReaderSettingsView: View {
                             label("Light Mode Theme")
                             themePickerView(
                                 selection: $themes.selectedLightThemeId,
-                                customThemes: themes.customThemes
+                                themes: ReaderTheme.themesForLightMode(customThemes: themes.customThemes)
                             )
                             .onChange(of: themes.selectedLightThemeId) { _, _ in
                                 applyActiveThemeToReading()
@@ -720,7 +720,7 @@ private struct MacReaderSettingsView: View {
                             label("Dark Mode Theme")
                             themePickerView(
                                 selection: $themes.selectedDarkThemeId,
-                                customThemes: themes.customThemes
+                                themes: ReaderTheme.themesForDarkMode(customThemes: themes.customThemes)
                             )
                             .onChange(of: themes.selectedDarkThemeId) { _, _ in
                                 applyActiveThemeToReading()
@@ -768,17 +768,11 @@ private struct MacReaderSettingsView: View {
     @ViewBuilder
     private func themePickerView(
         selection: Binding<String>,
-        customThemes: [ReaderTheme]
+        themes: [ReaderTheme]
     ) -> some View {
         Picker("", selection: selection) {
-            ForEach(ReaderTheme.allBuiltIn) { theme in
+            ForEach(themes) { theme in
                 Text(theme.name).tag(theme.id)
-            }
-            if !customThemes.isEmpty {
-                Divider()
-                ForEach(customThemes) { theme in
-                    Text(theme.name).tag(theme.id)
-                }
             }
         }
         .labelsHidden()
@@ -846,13 +840,12 @@ private struct MacManageThemesView: View {
     var body: some View {
         VStack(spacing: 0) {
             List {
-                Section("Built-in Themes") {
+                Section {
                     ForEach(ReaderTheme.allBuiltIn) { theme in
                         themeRow(theme)
                     }
-                }
-                if !themes.customThemes.isEmpty {
-                    Section("Custom Themes") {
+                    if !themes.customThemes.isEmpty {
+                        Divider()
                         ForEach(themes.customThemes) { theme in
                             themeRow(theme)
                         }
@@ -881,7 +874,7 @@ private struct MacManageThemesView: View {
         return Menu {
             ForEach(allThemes) { theme in
                 Button("From \"\(theme.name)\"") {
-                    let newTheme = duplicateTheme(theme, name: "\(theme.name) Copy")
+                    let newTheme = duplicateTheme(theme)
                     editingTheme = newTheme
                 }
             }
@@ -914,9 +907,20 @@ private struct MacManageThemesView: View {
                 } else {
                     Text(theme.name).fontWeight(.medium)
                 }
-                Text(theme.readaloudHighlightMode.capitalized + " highlight")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(theme.readaloudHighlightMode.capitalized + " highlight")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !theme.isBuiltIn {
+                        Text(appearanceLabel(theme.appearance))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(3)
+                    }
+                }
             }
 
             Spacer()
@@ -931,15 +935,19 @@ private struct MacManageThemesView: View {
             }
 
             Menu {
-                Button { themes.selectedLightThemeId = theme.id } label: {
-                    Label("Use for Light Mode", systemImage: "sun.max")
+                if theme.availableFor(colorScheme: "light") {
+                    Button { themes.selectedLightThemeId = theme.id } label: {
+                        Label("Use for Light Mode", systemImage: "sun.max")
+                    }
                 }
-                Button { themes.selectedDarkThemeId = theme.id } label: {
-                    Label("Use for Dark Mode", systemImage: "moon")
+                if theme.availableFor(colorScheme: "dark") {
+                    Button { themes.selectedDarkThemeId = theme.id } label: {
+                        Label("Use for Dark Mode", systemImage: "moon")
+                    }
                 }
                 Divider()
                 Button {
-                    let dup = duplicateTheme(theme, name: "\(theme.name) Copy")
+                    let dup = duplicateTheme(theme)
                     editingTheme = dup
                 } label: {
                     Label("Duplicate", systemImage: "doc.on.doc")
@@ -971,10 +979,12 @@ private struct MacManageThemesView: View {
         .padding(.vertical, 2)
     }
 
-    private func duplicateTheme(_ source: ReaderTheme, name: String) -> ReaderTheme {
+    private func duplicateTheme(_ source: ReaderTheme) -> ReaderTheme {
+        let allNames = (ReaderTheme.allBuiltIn + themes.customThemes).map(\.name)
         let newTheme = ReaderTheme(
-            name: name,
+            name: uniqueCopyName(for: source.name, existing: allNames),
             isBuiltIn: false,
+            appearance: source.appearance,
             backgroundColor: source.backgroundColor,
             foregroundColor: source.foregroundColor,
             highlightColor: source.highlightColor,
@@ -993,13 +1003,29 @@ private struct MacManageThemesView: View {
         return newTheme
     }
 
+    private func uniqueCopyName(for baseName: String, existing: [String]) -> String {
+        let candidate = "\(baseName) Copy"
+        if !existing.contains(candidate) { return candidate }
+        var n = 2
+        while existing.contains("\(baseName) Copy \(n)") { n += 1 }
+        return "\(baseName) Copy \(n)"
+    }
+
     private func deleteTheme(id: String) {
         themes.customThemes.removeAll { $0.id == id }
         if themes.selectedLightThemeId == id {
-            themes.selectedLightThemeId = "builtin-light-background"
+            themes.selectedLightThemeId = "builtin-light"
         }
         if themes.selectedDarkThemeId == id {
-            themes.selectedDarkThemeId = "builtin-dark-background"
+            themes.selectedDarkThemeId = "builtin-dark"
+        }
+    }
+
+    private func appearanceLabel(_ appearance: ThemeAppearance) -> String {
+        switch appearance {
+        case .light: return "Light only"
+        case .dark: return "Dark only"
+        case .any: return "Both"
         }
     }
 
@@ -1039,6 +1065,18 @@ private struct MacThemeEditorSheet: View {
                         TextField("Theme Name", text: $draft.name)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 300)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Show In").font(.headline)
+                        Picker("Show In", selection: $draft.appearance) {
+                            Text("Light & Dark").tag(ThemeAppearance.any)
+                            Text("Light Only").tag(ThemeAppearance.light)
+                            Text("Dark Only").tag(ThemeAppearance.dark)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 300)
+                        .labelsHidden()
                     }
 
                     Divider()
@@ -1159,6 +1197,12 @@ private struct MacThemeEditorSheet: View {
     private func saveTheme() {
         if let idx = themes.customThemes.firstIndex(where: { $0.id == draft.id }) {
             themes.customThemes[idx] = draft
+        }
+        if !draft.availableFor(colorScheme: "light") && themes.selectedLightThemeId == draft.id {
+            themes.selectedLightThemeId = "builtin-light"
+        }
+        if !draft.availableFor(colorScheme: "dark") && themes.selectedDarkThemeId == draft.id {
+            themes.selectedDarkThemeId = "builtin-dark"
         }
         dismiss()
     }

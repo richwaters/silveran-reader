@@ -1,9 +1,16 @@
 import Foundation
 
+public enum ThemeAppearance: String, Codable, Sendable, CaseIterable {
+    case light
+    case dark
+    case any
+}
+
 public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
     public let id: String
     public var name: String
     public let isBuiltIn: Bool
+    public var appearance: ThemeAppearance
     public var backgroundColor: String
     public var foregroundColor: String
     public var highlightColor: String
@@ -22,6 +29,7 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         id: String = UUID().uuidString,
         name: String,
         isBuiltIn: Bool = false,
+        appearance: ThemeAppearance = .any,
         backgroundColor: String,
         foregroundColor: String,
         highlightColor: String,
@@ -39,6 +47,7 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         self.id = id
         self.name = name
         self.isBuiltIn = isBuiltIn
+        self.appearance = appearance
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
         self.highlightColor = highlightColor
@@ -53,82 +62,98 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         self.userHighlightMode = userHighlightMode
         self.customCSS = customCSS
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        isBuiltIn = try container.decode(Bool.self, forKey: .isBuiltIn)
+        appearance = (try? container.decode(ThemeAppearance.self, forKey: .appearance)) ?? .any
+        backgroundColor = try container.decode(String.self, forKey: .backgroundColor)
+        foregroundColor = try container.decode(String.self, forKey: .foregroundColor)
+        highlightColor = try container.decode(String.self, forKey: .highlightColor)
+        highlightThickness = try container.decode(Double.self, forKey: .highlightThickness)
+        readaloudHighlightMode = try container.decode(String.self, forKey: .readaloudHighlightMode)
+        userHighlightColor1 = try container.decode(String.self, forKey: .userHighlightColor1)
+        userHighlightColor2 = try container.decode(String.self, forKey: .userHighlightColor2)
+        userHighlightColor3 = try container.decode(String.self, forKey: .userHighlightColor3)
+        userHighlightColor4 = try container.decode(String.self, forKey: .userHighlightColor4)
+        userHighlightColor5 = try container.decode(String.self, forKey: .userHighlightColor5)
+        userHighlightColor6 = try container.decode(String.self, forKey: .userHighlightColor6)
+        userHighlightMode = try container.decode(String.self, forKey: .userHighlightMode)
+        customCSS = try? container.decode(String.self, forKey: .customCSS)
+    }
+
+    public func availableFor(colorScheme: String) -> Bool {
+        switch appearance {
+        case .any: return true
+        case .light: return colorScheme == "light"
+        case .dark: return colorScheme == "dark"
+        }
+    }
 }
 
 extension ReaderTheme {
-    public static let builtInLightBackground = ReaderTheme(
-        id: "builtin-light-background",
-        name: "Light (Background)",
+    public static let builtInLight = ReaderTheme(
+        id: "builtin-light",
+        name: "Light (Default)",
         isBuiltIn: true,
-        backgroundColor: kDefaultBackgroundColorLight,
-        foregroundColor: kDefaultForegroundColorLight,
-        highlightColor: "#CCCCCC",
-        readaloudHighlightMode: "background"
-    )
-
-    public static let builtInDarkBackground = ReaderTheme(
-        id: "builtin-dark-background",
-        name: "Dark (Background)",
-        isBuiltIn: true,
-        backgroundColor: kDefaultBackgroundColorDark,
-        foregroundColor: kDefaultForegroundColorDark,
-        highlightColor: "#333333",
-        readaloudHighlightMode: "background"
-    )
-
-    public static let builtInLightText = ReaderTheme(
-        id: "builtin-light-text",
-        name: "Light (Text)",
-        isBuiltIn: true,
+        appearance: .light,
         backgroundColor: kDefaultBackgroundColorLight,
         foregroundColor: kDefaultForegroundColorLight,
         highlightColor: "#254DF4",
         readaloudHighlightMode: "text"
     )
 
-    public static let builtInDarkText = ReaderTheme(
-        id: "builtin-dark-text",
-        name: "Dark (Text)",
+    public static let builtInDark = ReaderTheme(
+        id: "builtin-dark",
+        name: "Dark (Default)",
         isBuiltIn: true,
+        appearance: .dark,
         backgroundColor: kDefaultBackgroundColorDark,
         foregroundColor: kDefaultForegroundColorDark,
         highlightColor: "#65A8EE",
         readaloudHighlightMode: "text"
-    )
-
-    public static let builtInLightUnderline = ReaderTheme(
-        id: "builtin-light-underline",
-        name: "Light (Underline)",
-        isBuiltIn: true,
-        backgroundColor: kDefaultBackgroundColorLight,
-        foregroundColor: kDefaultForegroundColorLight,
-        highlightColor: "#254DF4",
-        readaloudHighlightMode: "underline"
-    )
-
-    public static let builtInDarkUnderline = ReaderTheme(
-        id: "builtin-dark-underline",
-        name: "Dark (Underline)",
-        isBuiltIn: true,
-        backgroundColor: kDefaultBackgroundColorDark,
-        foregroundColor: kDefaultForegroundColorDark,
-        highlightColor: "#65A8EE",
-        readaloudHighlightMode: "underline"
     )
 
     public static let allBuiltIn: [ReaderTheme] = [
-        .builtInLightBackground,
-        .builtInDarkBackground,
-        .builtInLightText,
-        .builtInDarkText,
-        .builtInLightUnderline,
-        .builtInDarkUnderline,
+        .builtInLight,
+        .builtInDark,
     ]
 
     public static func resolve(id: String, customThemes: [ReaderTheme]) -> ReaderTheme? {
         if let builtIn = allBuiltIn.first(where: { $0.id == id }) {
             return builtIn
         }
+        // Migrate old built-in IDs
+        if id.hasPrefix("builtin-light") {
+            return .builtInLight
+        }
+        if id.hasPrefix("builtin-dark") {
+            return .builtInDark
+        }
         return customThemes.first(where: { $0.id == id })
+    }
+
+    public static func migrateThemeId(_ id: String) -> String {
+        if id.hasPrefix("builtin-light") { return builtInLight.id }
+        if id.hasPrefix("builtin-dark") { return builtInDark.id }
+        return id
+    }
+
+    public static func themesForLightMode(customThemes: [ReaderTheme]) -> [ReaderTheme] {
+        allBuiltIn.filter { $0.availableFor(colorScheme: "light") }
+            + customThemes.filter { $0.availableFor(colorScheme: "light") }
+    }
+
+    public static func themesForDarkMode(customThemes: [ReaderTheme]) -> [ReaderTheme] {
+        allBuiltIn.filter { $0.availableFor(colorScheme: "dark") }
+            + customThemes.filter { $0.availableFor(colorScheme: "dark") }
+    }
+}
+
+extension ReaderTheme: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

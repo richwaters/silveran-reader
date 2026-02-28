@@ -385,8 +385,8 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var customThemes: [ReaderTheme]
 
         public init(
-            selectedLightThemeId: String = "builtin-light-background",
-            selectedDarkThemeId: String = "builtin-dark-background",
+            selectedLightThemeId: String = "builtin-light",
+            selectedDarkThemeId: String = "builtin-dark",
             customThemes: [ReaderTheme] = []
         ) {
             self.selectedLightThemeId = selectedLightThemeId
@@ -396,12 +396,14 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let container = try? decoder.container(keyedBy: CodingKeys.self)
-            selectedLightThemeId =
+            let rawLightId =
                 (try? container?.decode(String.self, forKey: .selectedLightThemeId))
-                ?? "builtin-light-background"
-            selectedDarkThemeId =
+                ?? "builtin-light"
+            selectedLightThemeId = ReaderTheme.migrateThemeId(rawLightId)
+            let rawDarkId =
                 (try? container?.decode(String.self, forKey: .selectedDarkThemeId))
-                ?? "builtin-dark-background"
+                ?? "builtin-dark"
+            selectedDarkThemeId = ReaderTheme.migrateThemeId(rawDarkId)
             customThemes =
                 (try? container?.decode([ReaderTheme].self, forKey: .customThemes))
                 ?? []

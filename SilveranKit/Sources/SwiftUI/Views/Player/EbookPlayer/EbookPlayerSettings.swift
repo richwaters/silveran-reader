@@ -259,7 +259,7 @@ struct EbookPlayerSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Light Mode Theme", selection: $settingsVM.selectedLightThemeId) {
-                    ForEach(settingsVM.allThemes) { theme in
+                    ForEach(settingsVM.lightThemes) { theme in
                         Text(theme.name).tag(theme.id)
                     }
                 }
@@ -275,7 +275,7 @@ struct EbookPlayerSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Dark Mode Theme", selection: $settingsVM.selectedDarkThemeId) {
-                    ForEach(settingsVM.allThemes) { theme in
+                    ForEach(settingsVM.darkThemes) { theme in
                         Text(theme.name).tag(theme.id)
                     }
                 }

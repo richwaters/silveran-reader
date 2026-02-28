@@ -53,6 +53,8 @@ struct ThemeEditorView: View {
             VStack(alignment: .leading, spacing: 20) {
                 nameField
 
+                appearanceField
+
                 Divider()
 
                 readerColorsSection
@@ -85,6 +87,23 @@ struct ThemeEditorView: View {
                 #if os(macOS)
                 .frame(maxWidth: 300)
                 #endif
+        }
+    }
+
+    private var appearanceField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Show In")
+                .font(.headline)
+            Picker("Show In", selection: $draft.appearance) {
+                Text("Light & Dark").tag(ThemeAppearance.any)
+                Text("Light Only").tag(ThemeAppearance.light)
+                Text("Dark Only").tag(ThemeAppearance.dark)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            #if os(macOS)
+            .frame(maxWidth: 300)
+            #endif
         }
     }
 
