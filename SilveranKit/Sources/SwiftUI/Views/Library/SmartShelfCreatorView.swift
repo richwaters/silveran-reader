@@ -26,8 +26,6 @@ struct SmartShelfCreatorView: View {
     @State private var identifiedConditions: [IdentifiedCondition]
     @State private var showingConditionPicker = false
     @State private var editingConditionIndex: Int?
-    @State private var cachedValues: [ShelfConditionType: [String]] = [:]
-    @State private var cachedStatuses: [String] = []
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
     @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
@@ -105,50 +103,14 @@ struct SmartShelfCreatorView: View {
         .background(Color(nsColor: .controlBackgroundColor))
         .sheet(item: $selectedConditionType) { type in
             ConditionEditorSheet(
-                conditionType: type,
-                cachedValues: cachedValues,
-                cachedStatuses: cachedStatuses
+                conditionType: type
             ) { newConditions in
                 appendConditions(newConditions)
             }
         }
         .onAppear {
-            precomputeAvailableValues()
+            debugLog("[SmartShelfCreator] appeared, vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)")
         }
-    }
-
-    private func precomputeAvailableValues() {
-        let books = mediaViewModel.library.bookMetaData
-        var tagSet = Set<String>()
-        var seriesSet = Set<String>()
-        var authorSet = Set<String>()
-        var narratorSet = Set<String>()
-        var translatorSet = Set<String>()
-        var yearSet = Set<String>()
-        var statusSet = Set<String>()
-
-        for book in books {
-            for tag in book.tagNames { tagSet.insert(tag) }
-            for s in book.series ?? [] { seriesSet.insert(s.name) }
-            for a in book.authors ?? [] { if let n = a.name { authorSet.insert(n) } }
-            for n in book.narrators ?? [] { if let name = n.name { narratorSet.insert(name) } }
-            for c in book.creators ?? [] where c.role == "trl" {
-                if let n = c.name { translatorSet.insert(n) }
-            }
-            let year = book.sortablePublicationYear
-            if !year.isEmpty { yearSet.insert(year) }
-            if let name = book.status?.name { statusSet.insert(name) }
-        }
-
-        cachedValues = [
-            .tag: tagSet.sorted(),
-            .series: seriesSet.sorted(),
-            .author: authorSet.sorted(),
-            .narrator: narratorSet.sorted(),
-            .translator: translatorSet.sorted(),
-            .publicationYear: yearSet.sorted(),
-        ]
-        cachedStatuses = statusSet.sorted()
     }
 
     private var headerBar: some View {

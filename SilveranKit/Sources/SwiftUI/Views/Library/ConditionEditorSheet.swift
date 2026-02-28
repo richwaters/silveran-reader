@@ -4,9 +4,9 @@ import SwiftUI
 struct ConditionEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
+    @Environment(MediaViewModel.self) private var mediaViewModel
+
     let conditionType: ShelfConditionType
-    let cachedValues: [ShelfConditionType: [String]]
-    let cachedStatuses: [String]
     let onAdd: ([ShelfCondition]) -> Void
 
     @State private var ratingMode: RatingMode = .single
@@ -50,21 +50,49 @@ struct ConditionEditorSheet: View {
 
     init(
         conditionType: ShelfConditionType,
-        cachedValues: [ShelfConditionType: [String]],
-        cachedStatuses: [String],
         onAdd: @escaping ([ShelfCondition]) -> Void
     ) {
         self.conditionType = conditionType
-        self.cachedValues = cachedValues
-        self.cachedStatuses = cachedStatuses
         self.onAdd = onAdd
+    }
 
-        if conditionType == .publicationYear {
-            let years = (cachedValues[.publicationYear] ?? []).compactMap { Int($0) }.sorted()
-            _selectedYear = State(initialValue: years.last ?? 0)
-            _yearRangeLow = State(initialValue: years.first ?? 0)
-            _yearRangeHigh = State(initialValue: years.last ?? 0)
+    private var availableValues: [ShelfConditionType: [String]] {
+        let books = mediaViewModel.library.bookMetaData
+        var tagSet = Set<String>()
+        var seriesSet = Set<String>()
+        var authorSet = Set<String>()
+        var narratorSet = Set<String>()
+        var translatorSet = Set<String>()
+        var yearSet = Set<String>()
+
+        for book in books {
+            for tag in book.tagNames { tagSet.insert(tag) }
+            for s in book.series ?? [] { seriesSet.insert(s.name) }
+            for a in book.authors ?? [] { if let n = a.name { authorSet.insert(n) } }
+            for n in book.narrators ?? [] { if let name = n.name { narratorSet.insert(name) } }
+            for c in book.creators ?? [] where c.role == "trl" {
+                if let n = c.name { translatorSet.insert(n) }
+            }
+            let year = book.sortablePublicationYear
+            if !year.isEmpty { yearSet.insert(year) }
         }
+
+        return [
+            .tag: tagSet.sorted(),
+            .series: seriesSet.sorted(),
+            .author: authorSet.sorted(),
+            .narrator: narratorSet.sorted(),
+            .translator: translatorSet.sorted(),
+            .publicationYear: yearSet.sorted(),
+        ]
+    }
+
+    private var availableStatuses: [String] {
+        var statusSet = Set<String>()
+        for book in mediaViewModel.library.bookMetaData {
+            if let name = book.status?.name { statusSet.insert(name) }
+        }
+        return statusSet.sorted()
     }
 
     var body: some View {
@@ -106,6 +134,26 @@ struct ConditionEditorSheet: View {
             .padding()
         }
         .frame(minWidth: 400, minHeight: 450)
+        .onAppear {
+            debugLog("[ConditionEditorSheet] opened for \(conditionType.label)")
+            debugLog("[ConditionEditorSheet] vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)")
+
+            let books = mediaViewModel.library.bookMetaData
+            let booksWithAuthors = books.filter { !($0.authors?.isEmpty ?? true) }.count
+            let booksWithNarrators = books.filter { !($0.narrators?.isEmpty ?? true) }.count
+            let booksWithTags = books.filter { !$0.tagNames.isEmpty }.count
+            debugLog("[ConditionEditorSheet] books with metadata: authors=\(booksWithAuthors), narrators=\(booksWithNarrators), tags=\(booksWithTags)")
+
+            let values = availableValues
+            debugLog("[ConditionEditorSheet] computed values: authors=\(values[.author]?.count ?? 0), narrators=\(values[.narrator]?.count ?? 0), tags=\(values[.tag]?.count ?? 0), series=\(values[.series]?.count ?? 0)")
+
+            if conditionType == .publicationYear {
+                let years = (values[.publicationYear] ?? []).compactMap { Int($0) }.sorted()
+                selectedYear = years.last ?? 0
+                yearRangeLow = years.first ?? 0
+                yearRangeHigh = years.last ?? 0
+            }
+        }
     }
 
     // MARK: - Editor routing
@@ -122,9 +170,9 @@ struct ConditionEditorSheet: View {
                 )
             case .status:
                 multiSelectEditor(
-                    items: cachedStatuses,
+                    items: availableStatuses,
                     itemLabel: "Statuses",
-                    searchable: cachedStatuses.count > 5
+                    searchable: availableStatuses.count > 5
                 )
             case .location:
                 multiSelectEditor(
@@ -144,31 +192,31 @@ struct ConditionEditorSheet: View {
                 publicationYearEditor
             case .tag:
                 multiSelectEditor(
-                    items: cachedValues[.tag] ?? [],
+                    items: availableValues[.tag] ?? [],
                     itemLabel: "Tags",
                     supportsPresence: true
                 )
             case .series:
                 multiSelectEditor(
-                    items: cachedValues[.series] ?? [],
+                    items: availableValues[.series] ?? [],
                     itemLabel: "Series",
                     supportsPresence: true
                 )
             case .author:
                 multiSelectEditor(
-                    items: cachedValues[.author] ?? [],
+                    items: availableValues[.author] ?? [],
                     itemLabel: "Authors",
                     supportsPresence: true
                 )
             case .narrator:
                 multiSelectEditor(
-                    items: cachedValues[.narrator] ?? [],
+                    items: availableValues[.narrator] ?? [],
                     itemLabel: "Narrators",
                     supportsPresence: true
                 )
             case .translator:
                 multiSelectEditor(
-                    items: cachedValues[.translator] ?? [],
+                    items: availableValues[.translator] ?? [],
                     itemLabel: "Translators",
                     supportsPresence: true
                 )
@@ -301,7 +349,7 @@ struct ConditionEditorSheet: View {
 
     @ViewBuilder
     private var publicationYearEditor: some View {
-        let yearStrings = cachedValues[.publicationYear] ?? []
+        let yearStrings = availableValues[.publicationYear] ?? []
         let years = yearStrings.compactMap { Int($0) }.sorted(by: >)
 
         VStack(spacing: 0) {
@@ -607,7 +655,7 @@ struct ConditionEditorSheet: View {
             case .publicationYear:
                 if presenceMode != .selectSpecific { return true }
                 if yearTab == .beforeAfter {
-                    let hasYears = !(cachedValues[.publicationYear] ?? []).isEmpty
+                    let hasYears = !(availableValues[.publicationYear] ?? []).isEmpty
                     if !hasYears { return false }
                     return yearCompareMode == .single || yearRangeLow <= yearRangeHigh
                 }
