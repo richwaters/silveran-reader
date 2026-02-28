@@ -201,7 +201,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Source").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Source").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -237,7 +237,7 @@ extension SourceView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Books by Source",
+                            headerTitle: "By Source",
                             sidebarTitle: "Source",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -320,7 +320,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Source").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Source").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

@@ -194,7 +194,7 @@ extension TranslatorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Translator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Translator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -230,7 +230,7 @@ extension TranslatorView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Books by Translator",
+                            headerTitle: "By Translator",
                             sidebarTitle: "Translators",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -316,7 +316,7 @@ extension TranslatorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Translator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Translator").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

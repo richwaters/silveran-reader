@@ -1856,7 +1856,7 @@ struct MoreSeriesView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Series").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -1985,7 +1985,7 @@ struct MoreCollectionsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Collection").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2105,7 +2105,7 @@ struct MoreAuthorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Author").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Author").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2225,7 +2225,7 @@ struct MoreNarratorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Narrator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2344,7 +2344,7 @@ struct MoreTagsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Tag").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Tag").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2465,7 +2465,7 @@ struct MoreTranslatorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Translator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Translator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2584,7 +2584,7 @@ struct MorePublicationYearsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Year").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Publication Year").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2708,7 +2708,7 @@ struct MoreRatingsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Rating").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Rating").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(

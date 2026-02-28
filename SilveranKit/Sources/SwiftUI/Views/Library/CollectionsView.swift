@@ -202,7 +202,7 @@ extension CollectionsView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Collection").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -238,7 +238,7 @@ extension CollectionsView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Books by Collection",
+                            headerTitle: "Server Collections",
                             sidebarTitle: "Collections",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -328,7 +328,7 @@ extension CollectionsView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Collection").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

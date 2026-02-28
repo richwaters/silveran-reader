@@ -207,7 +207,7 @@ extension NarratorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Narrator").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -244,7 +244,7 @@ extension NarratorView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Books by Narrator",
+                            headerTitle: "By Narrator",
                             sidebarTitle: "Narrators",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -331,7 +331,7 @@ extension NarratorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Narrator").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Narrator").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

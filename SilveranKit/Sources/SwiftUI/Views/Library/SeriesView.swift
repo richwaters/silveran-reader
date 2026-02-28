@@ -194,7 +194,7 @@ extension SeriesView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Series").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -230,7 +230,7 @@ extension SeriesView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Books by Series",
+                            headerTitle: "By Series",
                             sidebarTitle: "Series",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -323,7 +323,7 @@ extension SeriesView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Books by Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("By Series").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }
