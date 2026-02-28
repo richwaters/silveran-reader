@@ -202,14 +202,12 @@ struct CategoryRowContent: View {
 
     var body: some View {
         HStack {
+            #if os(iOS)
             Image(systemName: iconName)
-                #if os(iOS)
-            .font(.body)
-                #else
-            .font(.system(size: 14))
-                #endif
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
+            #endif
 
             Text(name)
                 #if os(iOS)
