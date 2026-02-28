@@ -360,7 +360,7 @@ struct SidebarView: View {
             get: {
                 sidebarConfig.first(where: { $0.id == groupId })?.expanded ?? true
             },
-            set: { _ in }
+            set: { _ in toggleExpanded(groupId) }
         )
     }
 

@@ -832,13 +832,10 @@ private struct HomeSectionRow: View {
     private let horizontalSpacing: CGFloat = 14
     private let tileWidth: CGFloat = 125
 
-    @State private var scrollProxy: ScrollViewProxy? = nil
-    @State private var canScrollLeft: Bool = false
-    @State private var canScrollRight: Bool = false
     #if os(macOS)
-    @State private var scrollOffset: CGFloat = 0
-    @State private var lastScrollOffset: CGFloat = 0
-    @State private var isDragging: Bool = false
+    @State private var canScrollLeft: Bool = false
+    @State private var canScrollRight: Bool = true
+    @State private var scrollTarget: Int = 0
     #endif
 
     var body: some View {
@@ -854,6 +851,9 @@ private struct HomeSectionRow: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(canScrollLeft ? Color.secondary : Color.secondary.opacity(0.5))
@@ -864,6 +864,9 @@ private struct HomeSectionRow: View {
                     } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .semibold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(
@@ -902,14 +905,35 @@ private struct HomeSectionRow: View {
                         .fill(Color.secondary.opacity(0.08))
                 )
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: horizontalSpacing) {
-                        ForEach(section.items) { item in
-                            card(for: item, metrics: metrics)
-                                .id(item.id)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: horizontalSpacing) {
+                            ForEach(section.items) { item in
+                                card(for: item, metrics: metrics)
+                                    .id(item.id)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    #if os(macOS)
+                    .onScrollGeometryChange(for: Bool.self) { geo in
+                        geo.contentOffset.x > 1
+                    } action: { _, val in
+                        canScrollLeft = val
+                    }
+                    .onScrollGeometryChange(for: Bool.self) { geo in
+                        let max = geo.contentSize.width - geo.containerSize.width
+                        return max > 1 && geo.contentOffset.x < max - 1
+                    } action: { _, val in
+                        canScrollRight = val
+                    }
+                    .onChange(of: scrollTarget) {
+                        guard scrollTarget >= 0, scrollTarget < section.items.count else { return }
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo(section.items[scrollTarget].id, anchor: .leading)
                         }
                     }
-                    .padding(.vertical, 4)
+                    #endif
                 }
                 .frame(height: calculateRowHeight(metrics: metrics))
             }
@@ -968,38 +992,13 @@ private struct HomeSectionRow: View {
 
     #if os(macOS)
     private func scrollLeft() {
-        let itemWidth = tileWidth + horizontalSpacing
-        let currentIndex = round(-scrollOffset / itemWidth)
-        let targetIndex = max(currentIndex - 1, 0)
-
-        withAnimation(.easeOut(duration: 0.3)) {
-            scrollOffset = -targetIndex * itemWidth
-            lastScrollOffset = scrollOffset
-        }
+        scrollTarget = max(scrollTarget - 3, 0)
     }
 
     private func scrollRight() {
-        let itemWidth = tileWidth + horizontalSpacing
-        let currentIndex = round(-scrollOffset / itemWidth)
-        let targetIndex = min(currentIndex + 1, CGFloat(section.items.count - 1))
-
-        withAnimation(.easeOut(duration: 0.3)) {
-            scrollOffset = -targetIndex * itemWidth
-            lastScrollOffset = scrollOffset
-        }
+        scrollTarget = min(scrollTarget + 3, section.items.count - 1)
     }
     #endif
-
-    private func findCurrentVisibleItemIndex() -> Int? {
-        guard let selection, selection.sectionIndex == sectionIndex else {
-            return 0
-        }
-        return section.items.firstIndex { $0.id == selection.itemID }
-    }
-
-    private func scrollToSelectionIfNeeded(_ itemID: BookMetadata.ID, proxy: ScrollViewProxy) {
-        return
-    }
 
     private func calculateRowHeight(metrics: MediaItemCardMetrics) -> CGFloat {
         return metrics.maxCardHeight
