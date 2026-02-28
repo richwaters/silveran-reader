@@ -85,6 +85,9 @@ public struct LibraryView: View {
                         notification: notification,
                         onDismiss: {
                             mediaViewModel.dismissSyncNotification()
+                        },
+                        onIgnore: { bookIds in
+                            mediaViewModel.ignoreFailedSyncs(bookIds: bookIds)
                         }
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))

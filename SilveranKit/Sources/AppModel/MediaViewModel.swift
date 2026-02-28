@@ -142,7 +142,7 @@ public final class MediaViewModel {
             )
             Task { [weak self] in
                 await ProgressSyncActor.shared.registerSyncNotificationCallback {
-                    @MainActor [weak self] synced, failed in
+                    @MainActor [weak self] synced, failedBookIds in
                     guard let self else { return }
                     if synced > 0 {
                         let message =
@@ -152,11 +152,18 @@ public final class MediaViewModel {
                         self.showSyncNotification(
                             SyncNotification(message: message, type: .success)
                         )
-                    } else if failed > 0 {
+                    } else if !failedBookIds.isEmpty {
+                        let bookNames = failedBookIds.compactMap { bookId in
+                            self.library.bookMetaData.first(where: { $0.uuid == bookId })?.title
+                        }
+                        let message = bookNames.isEmpty
+                            ? "Failed to sync \(failedBookIds.count) book(s)"
+                            : "Failed to sync: \(bookNames.joined(separator: ", "))"
                         self.showSyncNotification(
                             SyncNotification(
-                                message: "Failed to sync \(failed) book(s)",
-                                type: .error
+                                message: message,
+                                type: .error,
+                                failedBookIds: failedBookIds
                             )
                         )
                     }
@@ -1470,15 +1477,29 @@ public final class MediaViewModel {
 
     public func showSyncNotification(_ notification: SyncNotification) {
         syncNotification = notification
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(5))
-            if syncNotification?.id == notification.id {
-                syncNotification = nil
+        if notification.failedBookIds.isEmpty {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(5))
+                if syncNotification?.id == notification.id {
+                    syncNotification = nil
+                }
             }
         }
     }
 
     public func dismissSyncNotification() {
         syncNotification = nil
+    }
+
+    public func ignoreFailedSyncs(bookIds: [String]) {
+        Task {
+            for bookId in bookIds {
+                await ProgressSyncActor.shared.removePendingSync(for: bookId)
+            }
+            await MainActor.run {
+                self.syncNotification = nil
+            }
+            await self.refreshMetadata(source: "ignoreFailedSyncs")
+        }
     }
 }

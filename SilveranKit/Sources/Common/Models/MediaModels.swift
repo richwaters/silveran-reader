@@ -459,6 +459,7 @@ public struct SyncNotification: Sendable, Equatable {
     public let id: UUID
     public let message: String
     public let type: NotificationType
+    public let failedBookIds: [String]
 
     public enum NotificationType: Sendable, Equatable {
         case success
@@ -466,10 +467,11 @@ public struct SyncNotification: Sendable, Equatable {
         case error
     }
 
-    public init(message: String, type: NotificationType) {
+    public init(message: String, type: NotificationType, failedBookIds: [String] = []) {
         self.id = UUID()
         self.message = message
         self.type = type
+        self.failedBookIds = failedBookIds
     }
 }
 

@@ -70,7 +70,7 @@ public actor ProgressSyncActor {
     private var syncHistory: [String: [SyncHistoryEntry]] = [:]
 
     private var observers: [UUID: @Sendable @MainActor () -> Void] = [:]
-    private var syncNotificationCallback: (@Sendable @MainActor (Int, Int) -> Void)?
+    private var syncNotificationCallback: (@Sendable @MainActor (Int, [String]) -> Void)?
 
     private var incomingPositionObservers:
         [UUID: (bookId: String, callback: @Sendable @MainActor (IncomingServerPosition) -> Void)] =
@@ -247,7 +247,7 @@ public actor ProgressSyncActor {
         }
 
         var syncedCount = 0
-        var failedCount = 0
+        var failedBookIds: [String] = []
 
         let queueSnapshot = pendingProgressQueue
         for var pending in queueSnapshot {
@@ -286,16 +286,17 @@ public actor ProgressSyncActor {
                     debugLog("[PSA] syncPendingQueue: \(pending.bookId) sent successfully")
                 } else if result == .failure {
                     debugLog("[PSA] syncPendingQueue: \(pending.bookId) failed permanently")
-                    failedCount += 1
+                    failedBookIds.append(pending.bookId)
                 }
             }
         }
 
+        let failedCount = failedBookIds.count
         debugLog("[PSA] syncPendingQueue: complete - sent=\(syncedCount), failed=\(failedCount)")
 
         if syncedCount > 0 || failedCount > 0 {
             await notifyObservers()
-            await syncNotificationCallback?(syncedCount, failedCount)
+            await syncNotificationCallback?(syncedCount, failedBookIds)
         }
 
         return (syncedCount, failedCount)
@@ -315,6 +316,11 @@ public actor ProgressSyncActor {
 
     public func hasPendingSync(for bookId: String) -> Bool {
         pendingProgressQueue.contains { $0.bookId == bookId }
+    }
+
+    public func removePendingSync(for bookId: String) async {
+        await removeFromQueue(bookId: bookId)
+        await notifyObservers()
     }
 
     // MARK: - Position Fetch
@@ -579,7 +585,7 @@ public actor ProgressSyncActor {
     }
 
     public func registerSyncNotificationCallback(
-        _ callback: @escaping @Sendable @MainActor (Int, Int) -> Void
+        _ callback: @escaping @Sendable @MainActor (Int, [String]) -> Void
     ) {
         syncNotificationCallback = callback
     }

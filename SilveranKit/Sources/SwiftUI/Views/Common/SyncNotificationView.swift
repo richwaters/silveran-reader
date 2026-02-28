@@ -3,6 +3,7 @@ import SwiftUI
 struct SyncNotificationView: View {
     let notification: SyncNotification
     let onDismiss: () -> Void
+    var onIgnore: (([String]) -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -18,6 +19,17 @@ struct SyncNotificationView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
+
+            if !notification.failedBookIds.isEmpty {
+                Button {
+                    onIgnore?(notification.failedBookIds)
+                } label: {
+                    Text("Ignore")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+            }
 
             Button {
                 onDismiss()
