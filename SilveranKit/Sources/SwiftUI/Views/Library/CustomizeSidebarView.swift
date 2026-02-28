@@ -412,6 +412,7 @@ struct CustomizeSidebarView: View {
                     .foregroundStyle(.secondary)
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .frame(width: 20)
         }
     }
