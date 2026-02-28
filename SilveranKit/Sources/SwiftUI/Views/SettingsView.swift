@@ -904,53 +904,66 @@ private struct MacManageThemesView: View {
     @ViewBuilder
     private func themeRow(_ theme: ReaderTheme) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(hex: theme.backgroundColor) ?? .white)
-                    .frame(width: 32, height: 32)
-                Text("Aa")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color(hex: theme.foregroundColor) ?? .black)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-            )
-
-            VStack(alignment: .leading, spacing: 2) {
-                if renamingThemeId == theme.id {
-                    TextField("Theme Name", text: $renameText)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { commitRename(theme) }
+            Button {
+                if theme.isBuiltIn {
+                    let dup = duplicateTheme(theme)
+                    editingTheme = dup
                 } else {
-                    Text(theme.name).fontWeight(.medium)
+                    editingTheme = theme
                 }
-                HStack(spacing: 4) {
-                    Text(theme.readaloudHighlightMode.capitalized + " highlight")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if !theme.isBuiltIn {
-                        Text(appearanceLabel(theme.appearance))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.15))
-                            .cornerRadius(3)
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(hex: theme.backgroundColor) ?? .white)
+                            .frame(width: 32, height: 32)
+                        Text("Aa")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color(hex: theme.foregroundColor) ?? .black)
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        if renamingThemeId == theme.id {
+                            TextField("Theme Name", text: $renameText)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit { commitRename(theme) }
+                        } else {
+                            Text(theme.name).fontWeight(.medium)
+                        }
+                        HStack(spacing: 4) {
+                            Text(theme.readaloudHighlightMode.capitalized + " highlight")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if !theme.isBuiltIn {
+                                Text(appearanceLabel(theme.appearance))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.secondary.opacity(0.15))
+                                    .cornerRadius(3)
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    if themes.selectedLightThemeId == theme.id {
+                        Image(systemName: "sun.max.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                    }
+                    if themes.selectedDarkThemeId == theme.id {
+                        Image(systemName: "moon.fill")
+                            .font(.caption).foregroundStyle(.indigo)
                     }
                 }
+                .contentShape(Rectangle())
             }
-
-            Spacer()
-
-            if themes.selectedLightThemeId == theme.id {
-                Image(systemName: "sun.max.fill")
-                    .font(.caption).foregroundStyle(.orange)
-            }
-            if themes.selectedDarkThemeId == theme.id {
-                Image(systemName: "moon.fill")
-                    .font(.caption).foregroundStyle(.indigo)
-            }
+            .buttonStyle(.plain)
 
             Menu {
                 if theme.availableFor(colorScheme: "light") {
@@ -976,9 +989,6 @@ private struct MacManageThemesView: View {
                         renameText = theme.name
                     } label: {
                         Label("Rename", systemImage: "pencil")
-                    }
-                    Button { editingTheme = theme } label: {
-                        Label("Edit", systemImage: "slider.horizontal.3")
                     }
                     Divider()
                     Button(role: .destructive) {
