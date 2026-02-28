@@ -114,6 +114,32 @@ struct CustomizeSidebarView: View {
 
             Spacer()
 
+            if groups.count > 1 {
+                Button {
+                    guard groupIndex > 0 else { return }
+                    groups.swapAt(groupIndex, groupIndex - 1)
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(groupIndex == 0)
+                .help("Move group up")
+
+                Button {
+                    guard groupIndex < groups.count - 1 else { return }
+                    groups.swapAt(groupIndex, groupIndex + 1)
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(groupIndex == groups.count - 1)
+                .help("Move group down")
+            }
+
             if groups.count > 1 || group.items.isEmpty {
                 Button(role: .destructive) {
                     deleteGroup(at: groupIndex)
