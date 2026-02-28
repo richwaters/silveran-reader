@@ -43,13 +43,14 @@ struct CategoryListSidebar<
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerSection
-            HStack(spacing: 0) {
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                headerSection
                 sidebarList
-                ResizableDivider(width: $listWidth, minWidth: 150, maxWidth: 400)
-                contentArea
             }
+            .frame(width: listWidth)
+            ResizableDivider(width: $listWidth, minWidth: 150, maxWidth: 400)
+            contentArea
         }
     }
 
@@ -107,7 +108,6 @@ struct CategoryListSidebar<
                 .padding(.bottom, 16)
             }
         }
-        .frame(width: listWidth)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
     }
 
