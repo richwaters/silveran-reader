@@ -134,14 +134,13 @@ struct MediaGridView: View {
     @State private var selectedLocation: LocationFilterOption = .all
     @State private var shouldEnsureActiveItemVisible: Bool = false
     @State private var hasHandledInitialSelection: Bool = false
-    @State private var showSourceBadge: Bool = false
-    @State private var showSeriesPositionBadge: Bool
+    @AppStorage private var showSourceBadge: Bool
+    @AppStorage private var showSeriesPositionBadge: Bool
+    @AppStorage private var showAudioIndicator: Bool
     @State private var showStickyControls: Bool = false
-    @AppStorage("viewLayout.books") private var layoutStyleRaw: String = LibraryLayoutStyle.grid
-        .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
-    @AppStorage("coverSize.global") private var coverSizeValue: Double = CoverSizeRange.defaultValue
+    @AppStorage private var layoutStyleRaw: String
+    @AppStorage private var coverPrefRaw: String
+    @AppStorage private var coverSizeValue: Double
     #if os(macOS)
     @State private var columnCustomization: TableColumnCustomization<BookMetadata> =
         Self.loadColumnCustomization()
@@ -267,6 +266,7 @@ struct MediaGridView: View {
         title: String,
         searchText: String = "",
         mediaKind: MediaKind = .ebook,
+        viewOptionsKey: String = "books",
         tagFilter: String? = nil,
         seriesFilter: String? = nil,
         collectionFilter: String? = nil,
@@ -292,6 +292,16 @@ struct MediaGridView: View {
         initialSelectedItem: BookMetadata? = nil,
         filteredItems: [BookMetadata]? = nil
     ) {
+        _layoutStyleRaw = AppStorage(
+            wrappedValue: LibraryLayoutStyle.grid.rawValue, "viewLayout.\(viewOptionsKey)")
+        _coverPrefRaw = AppStorage(
+            wrappedValue: CoverPreference.preferEbook.rawValue, "coverPref.\(viewOptionsKey)")
+        _coverSizeValue = AppStorage(
+            wrappedValue: CoverSizeRange.defaultValue, "coverSize.\(viewOptionsKey)")
+        _showAudioIndicator = AppStorage(wrappedValue: true, "showAudioIndicator.\(viewOptionsKey)")
+        _showSourceBadge = AppStorage(wrappedValue: false, "showSourceBadge.\(viewOptionsKey)")
+        _showSeriesPositionBadge = AppStorage(
+            wrappedValue: seriesFilter != nil, "showSeriesPositionBadge.\(viewOptionsKey)")
         self.title = title
         self.searchText = searchText
         self.mediaKind = mediaKind
@@ -350,7 +360,6 @@ struct MediaGridView: View {
         _tableSortOrder = State(initialValue: [tableSort.comparator])
         _lastSortKeyPath = State(initialValue: tableSort.keyPath)
         #endif
-        _showSeriesPositionBadge = State(initialValue: seriesFilter != nil)
         self.initialSelectedItem = initialSelectedItem
         self.filteredItems = filteredItems
     }
@@ -751,13 +760,7 @@ struct MediaGridView: View {
                     set: { coverPrefRaw = $0.rawValue }
                 ),
                 coverSize: $coverSizeValue,
-                showAudioIndicator: Binding(
-                    get: { settingsViewModel.showAudioIndicator },
-                    set: { newValue in
-                        settingsViewModel.showAudioIndicator = newValue
-                        Task { try? await settingsViewModel.save() }
-                    }
-                ),
+                showAudioIndicator: $showAudioIndicator,
                 showSourceBadge: $showSourceBadge,
                 showSeriesPositionBadge: $showSeriesPositionBadge,
                 availableTags: cachedAvailableTags,
@@ -820,13 +823,7 @@ struct MediaGridView: View {
                 set: { coverPrefRaw = $0.rawValue }
             ),
             coverSize: $coverSizeValue,
-            showAudioIndicator: Binding(
-                get: { settingsViewModel.showAudioIndicator },
-                set: { newValue in
-                    settingsViewModel.showAudioIndicator = newValue
-                    Task { await settingsViewModel.save() }
-                }
-            ),
+            showAudioIndicator: $showAudioIndicator,
             showSourceBadge: $showSourceBadge,
             showSeriesPositionBadge: $showSeriesPositionBadge,
             availableTags: cachedAvailableTags,
@@ -1033,7 +1030,7 @@ struct MediaGridView: View {
                                     item: item,
                                     coverPreference: coverPreference,
                                     tileSize: compactTileSize,
-                                    showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                    showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
                                         ? mediaViewModel.sourceLabel(for: item.id) : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
@@ -1056,7 +1053,7 @@ struct MediaGridView: View {
                                     item: item,
                                     mediaKind: mediaKind,
                                     coverPreference: coverPreference,
-                                    showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                    showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
                                         ? mediaViewModel.sourceLabel(for: item.id) : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
@@ -1145,7 +1142,7 @@ struct MediaGridView: View {
             mediaKind: mediaKind,
             metrics: metrics,
             isSelected: activeInfoItem?.id == item.id,
-            showAudioIndicator: settingsViewModel.showAudioIndicator,
+            showAudioIndicator: showAudioIndicator,
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
@@ -1162,7 +1159,7 @@ struct MediaGridView: View {
             mediaKind: mediaKind,
             metrics: metrics,
             isSelected: activeInfoItem?.id == item.id,
-            showAudioIndicator: settingsViewModel.showAudioIndicator,
+            showAudioIndicator: showAudioIndicator,
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,

@@ -17,7 +17,7 @@ struct SourceView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.source") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.source") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("source.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -258,6 +258,7 @@ extension SourceView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
                                     defaultSort: "title",
                                     tableContext: "category",
                                     preferredTileWidth: 120,
@@ -350,6 +351,7 @@ extension SourceView {
             title: sourceName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
             defaultSort: "title",
             preferredTileWidth: 110,
             minimumTileWidth: 90,
@@ -364,6 +366,7 @@ extension SourceView {
             title: sourceName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
             defaultSort: "title",
             preferredTileWidth: 120,
             minimumTileWidth: 50,

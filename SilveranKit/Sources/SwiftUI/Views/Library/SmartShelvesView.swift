@@ -33,8 +33,8 @@ struct SmartShelvesView: View {
     @State private var editingShelf: SmartShelf?
     @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.smartShelves") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
     @AppStorage("smartShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -270,6 +270,7 @@ extension SmartShelvesView {
                                         shelf: shelf,
                                         books: books,
                                         searchText: searchText,
+                                        viewOptionsKey: "smartShelfDetail.\(shelfId)",
                                         initialSelectedItem: nil
                                     )
                                 } else {
@@ -412,6 +413,7 @@ extension SmartShelvesView {
                 shelf: shelf,
                 books: books,
                 searchText: "",
+                viewOptionsKey: "smartShelfDetail.\(shelfId)",
                 initialSelectedItem: initialSelectedItem
             )
             .navigationTitle(shelf.name)
@@ -425,6 +427,7 @@ struct SmartShelfDetailView: View {
     let shelf: SmartShelf
     let books: [BookMetadata]
     let searchText: String
+    let viewOptionsKey: String
     let initialSelectedItem: BookMetadata?
     @Environment(MediaViewModel.self) private var mediaViewModel
 
@@ -432,11 +435,13 @@ struct SmartShelfDetailView: View {
         shelf: SmartShelf,
         books: [BookMetadata],
         searchText: String,
+        viewOptionsKey: String = "smartShelves",
         initialSelectedItem: BookMetadata? = nil
     ) {
         self.shelf = shelf
         self.books = books
         self.searchText = searchText
+        self.viewOptionsKey = viewOptionsKey
         self.initialSelectedItem = initialSelectedItem
     }
 
@@ -445,6 +450,7 @@ struct SmartShelfDetailView: View {
             title: shelf.name,
             searchText: searchText,
             mediaKind: .ebook,
+            viewOptionsKey: viewOptionsKey,
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,

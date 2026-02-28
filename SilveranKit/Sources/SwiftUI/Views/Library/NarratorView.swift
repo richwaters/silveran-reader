@@ -17,7 +17,7 @@ struct NarratorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -265,6 +265,7 @@ extension NarratorView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "narratorView.\(mediaKind.rawValue)",
                                     narratorFilter: group.name,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -361,6 +362,7 @@ extension NarratorView {
             title: narratorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "narratorView.\(mediaKind.rawValue)",
             narratorFilter: narratorName,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -375,6 +377,7 @@ extension NarratorView {
             title: narratorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "narratorView.\(mediaKind.rawValue)",
             narratorFilter: narratorName,
             defaultSort: "title",
             preferredTileWidth: 120,

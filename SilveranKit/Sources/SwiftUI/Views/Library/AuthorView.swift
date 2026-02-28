@@ -17,7 +17,7 @@ struct AuthorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -277,6 +277,7 @@ extension AuthorView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "authorView.\(mediaKind.rawValue)",
                                     authorFilter: group.name,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -374,6 +375,7 @@ extension AuthorView {
             title: authorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "authorView.\(mediaKind.rawValue)",
             authorFilter: authorName,
             defaultSort: "title",
             tableContext: "category",
@@ -390,6 +392,7 @@ extension AuthorView {
             title: authorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "authorView.\(mediaKind.rawValue)",
             authorFilter: authorName,
             defaultSort: "title",
             tableContext: "category",

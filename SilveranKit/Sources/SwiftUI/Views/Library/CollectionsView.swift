@@ -17,7 +17,7 @@ struct CollectionsView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -259,6 +259,7 @@ extension CollectionsView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "collectionsView.\(mediaKind.rawValue)",
                                     collectionFilter: group.id,
                                     defaultSort: "titleAZ",
                                     tableContext: "category",
@@ -371,6 +372,7 @@ extension CollectionsView {
             title: collectionName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "collectionsView.\(mediaKind.rawValue)",
             collectionFilter: collectionIdentifier,
             defaultSort: "titleAZ",
             preferredTileWidth: 110,
@@ -385,6 +387,7 @@ extension CollectionsView {
             title: collectionName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "collectionsView.\(mediaKind.rawValue)",
             collectionFilter: collectionIdentifier,
             defaultSort: "titleAZ",
             preferredTileWidth: 120,
@@ -405,6 +408,7 @@ extension CollectionsView {
             title: seriesName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "collectionsView.\(mediaKind.rawValue)",
             seriesFilter: seriesName,
             defaultSort: "seriesPosition",
             preferredTileWidth: 110,
@@ -419,6 +423,7 @@ extension CollectionsView {
             title: seriesName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "collectionsView.\(mediaKind.rawValue)",
             seriesFilter: seriesName,
             defaultSort: "seriesPosition",
             preferredTileWidth: 120,

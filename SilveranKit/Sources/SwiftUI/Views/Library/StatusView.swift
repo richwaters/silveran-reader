@@ -17,7 +17,7 @@ struct StatusView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.status") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.status") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("status.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -259,6 +259,7 @@ extension StatusView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "statusView.\(mediaKind.rawValue)",
                                     statusFilter: group.name,
                                     defaultSort: "recentlyRead",
                                     tableContext: "category",
@@ -351,6 +352,7 @@ extension StatusView {
             title: statusName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "statusView.\(mediaKind.rawValue)",
             statusFilter: statusName,
             defaultSort: "recentlyRead",
             preferredTileWidth: 110,
@@ -365,6 +367,7 @@ extension StatusView {
             title: statusName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "statusView.\(mediaKind.rawValue)",
             statusFilter: statusName,
             defaultSort: "recentlyRead",
             preferredTileWidth: 120,

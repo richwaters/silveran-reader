@@ -17,7 +17,7 @@ struct RatingView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -248,6 +248,7 @@ extension RatingView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "ratingView.\(mediaKind.rawValue)",
                                     ratingFilter: group.id,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -341,6 +342,7 @@ extension RatingView {
             title: displayName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "ratingView.\(mediaKind.rawValue)",
             ratingFilter: rating,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -355,6 +357,7 @@ extension RatingView {
             title: displayName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "ratingView.\(mediaKind.rawValue)",
             ratingFilter: rating,
             defaultSort: "title",
             preferredTileWidth: 120,

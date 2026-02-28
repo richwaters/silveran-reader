@@ -78,6 +78,7 @@ struct iOSBookDetailView: View {
                 title: series.name,
                 searchText: "",
                 mediaKind: mediaKind,
+                viewOptionsKey: "seriesView.\(mediaKind.rawValue)",
                 tagFilter: nil,
                 seriesFilter: series.name,
                 statusFilter: nil,

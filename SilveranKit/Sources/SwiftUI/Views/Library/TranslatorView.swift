@@ -17,7 +17,7 @@ struct TranslatorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -251,6 +251,7 @@ extension TranslatorView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "translatorView.\(mediaKind.rawValue)",
                                     translatorFilter: group.name,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -346,6 +347,7 @@ extension TranslatorView {
             title: translatorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "translatorView.\(mediaKind.rawValue)",
             translatorFilter: translatorName,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -360,6 +362,7 @@ extension TranslatorView {
             title: translatorName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "translatorView.\(mediaKind.rawValue)",
             translatorFilter: translatorName,
             defaultSort: "title",
             preferredTileWidth: 120,

@@ -59,8 +59,8 @@ public struct iOSLibraryView: View {
     @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.iOSLibrary") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
 
     private var coverPreference: CoverPreference {
@@ -684,6 +684,7 @@ struct BooksContentView: View {
             title: "All Books",
             searchText: searchText,
             mediaKind: .ebook,
+            viewOptionsKey: "books.ios",
             tagFilter: nil,
             seriesFilter: nil,
             statusFilter: nil,
@@ -708,6 +709,7 @@ struct DownloadedContentView: View {
             title: "Downloaded",
             searchText: searchText,
             mediaKind: .ebook,
+            viewOptionsKey: "downloaded",
             tagFilter: nil,
             seriesFilter: nil,
             statusFilter: nil,
@@ -730,8 +732,8 @@ struct CollectionsListView: View {
     @Binding var navigationPath: NavigationPath
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -923,7 +925,7 @@ struct SeriesContentView: View {
     @Binding var searchText: String
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
 
     private var coverPreference: CoverPreference {
@@ -1297,6 +1299,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: authorName,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "authorView.ebook",
                     tagFilter: nil,
                     seriesFilter: nil,
                     authorFilter: authorName,
@@ -1317,6 +1320,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: series.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "seriesView.ebook",
                     tagFilter: nil,
                     seriesFilter: series.name,
                     statusFilter: nil,
@@ -1336,6 +1340,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: collection.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "collectionsView.ebook",
                     tagFilter: nil,
                     seriesFilter: nil,
                     collectionFilter: collection.id,
@@ -1356,6 +1361,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: narrator.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "narratorView.ebook",
                     tagFilter: nil,
                     seriesFilter: nil,
                     authorFilter: nil,
@@ -1377,6 +1383,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: tag.name.capitalized,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "tagView.ebook",
                     tagFilter: tag.name,
                     seriesFilter: nil,
                     authorFilter: nil,
@@ -1397,6 +1404,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: translator.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "translatorView.ebook",
                     translatorFilter: translator.name,
                     statusFilter: nil,
                     defaultSort: "titleAZ",
@@ -1415,6 +1423,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: year.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "publicationYearView.ebook",
                     publicationYearFilter: year.name,
                     statusFilter: nil,
                     defaultSort: "titleAZ",
@@ -1433,6 +1442,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                     title: rating.name,
                     searchText: "",
                     mediaKind: .ebook,
+                    viewOptionsKey: "ratingView.ebook",
                     ratingFilter: rating.name,
                     statusFilter: nil,
                     defaultSort: "titleAZ",
@@ -1744,7 +1754,7 @@ struct MoreSeriesView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -1872,8 +1882,8 @@ struct MoreCollectionsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     private var layoutStyle: CategoryLayoutStyle {
@@ -2001,7 +2011,7 @@ struct MoreAuthorsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -2121,8 +2131,8 @@ struct MoreNarratorsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     private var layoutStyle: CategoryLayoutStyle {
@@ -2241,7 +2251,7 @@ struct MoreTagsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -2360,8 +2370,8 @@ struct MoreTranslatorsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     private var layoutStyle: CategoryLayoutStyle {
@@ -2481,7 +2491,7 @@ struct MorePublicationYearsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -2600,7 +2610,7 @@ struct MoreRatingsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
 

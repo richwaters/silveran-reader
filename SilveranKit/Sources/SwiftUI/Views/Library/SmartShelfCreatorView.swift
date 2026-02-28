@@ -28,8 +28,8 @@ struct SmartShelfCreatorView: View {
     @State private var editingConditionIndex: Int?
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
-        .rawValue
+    @AppStorage("coverPref.smartShelfCreator") private var coverPrefRaw: String = CoverPreference
+        .preferEbook.rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook

@@ -48,13 +48,22 @@ struct HomeView: View {
     @State private var isAnimatingSidebar = false
     #endif
     @State private var navigationPath = NavigationPath()
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @State private var showViewOptions: Bool = false
+    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
+    @AppStorage("coverSize.home") private var coverSizeValue: Double = CoverSizeRange.defaultValue
+    @AppStorage("showAudioIndicator.home") private var showAudioIndicator: Bool = true
+    @AppStorage("showSourceBadge.home") private var showSourceBadge: Bool = false
+    @AppStorage("showSeriesPositionBadge.home") private var showSeriesPositionBadge: Bool = false
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
+
+    private var coverSize: CGFloat {
+        CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max)
     }
 
     private let sidebarWidth: CGFloat = 340
@@ -105,6 +114,7 @@ struct HomeView: View {
                                     .foregroundStyle(.red)
                             }
                         }
+                        viewOptionsButton
                         Button {
                             showSettings = true
                         } label: {
@@ -112,6 +122,10 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showViewOptions) {
+                viewOptionsSheet
+                    .presentationDetents([.medium])
             }
             .searchable(
                 text: $searchText,
@@ -170,10 +184,16 @@ struct HomeView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: sectionSpacing) {
-                            Text("Home")
-                                .font(.system(size: 32, weight: .regular, design: .serif))
-                                .padding(.horizontal, horizontalPadding)
-                                .padding(.bottom, headerBottomPadding)
+                            HStack {
+                                Text("Home")
+                                    .font(.system(size: 32, weight: .regular, design: .serif))
+                                Spacer()
+                                #if os(macOS)
+                                viewOptionsButton
+                                #endif
+                            }
+                            .padding(.horizontal, horizontalPadding)
+                            .padding(.bottom, headerBottomPadding)
 
                             if allowEmptyStateDisplay && sections.allSatisfy({ $0.items.isEmpty }) {
                                 VStack(spacing: 12) {
@@ -223,8 +243,11 @@ struct HomeView: View {
                                         isSidebarVisible: $isSidebarVisible,
                                         sidebarSections: $sidebarSections,
                                         selectedSidebarItem: $selectedSidebarItem,
-                                        showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                        showAudioIndicator: showAudioIndicator,
+                                        showSourceBadge: showSourceBadge,
+                                        showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        coverSize: coverSize,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
                                     .id(section.id)
@@ -237,8 +260,11 @@ struct HomeView: View {
                                         isSidebarVisible: $isSidebarVisible,
                                         sidebarSections: $sidebarSections,
                                         selectedSidebarItem: $selectedSidebarItem,
-                                        showAudioIndicator: settingsViewModel.showAudioIndicator,
+                                        showAudioIndicator: showAudioIndicator,
+                                        showSourceBadge: showSourceBadge,
+                                        showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
@@ -701,6 +727,7 @@ struct HomeView: View {
             title: filter.title,
             searchText: "",
             mediaKind: filter.mediaKind,
+            viewOptionsKey: "home",
             tagFilter: filter.tagFilter,
             seriesFilter: nil,
             statusFilter: filter.statusFilter,
@@ -719,6 +746,7 @@ struct HomeView: View {
             title: filter.title,
             searchText: "",
             mediaKind: filter.mediaKind,
+            viewOptionsKey: "home",
             tagFilter: filter.tagFilter,
             seriesFilter: nil,
             statusFilter: filter.statusFilter,
@@ -760,6 +788,7 @@ struct HomeView: View {
             title: "Search",
             searchText: searchText,
             mediaKind: .ebook,
+            viewOptionsKey: "home.search",
             tagFilter: nil,
             seriesFilter: nil,
             statusFilter: nil,
@@ -781,6 +810,7 @@ struct HomeView: View {
             title: "Search",
             searchText: searchText,
             mediaKind: .ebook,
+            viewOptionsKey: "home.search",
             tagFilter: nil,
             seriesFilter: nil,
             statusFilter: nil,
@@ -798,6 +828,7 @@ struct HomeView: View {
             title: seriesName,
             searchText: "",
             mediaKind: .ebook,
+            viewOptionsKey: "home",
             tagFilter: nil,
             seriesFilter: seriesName,
             statusFilter: nil,
@@ -813,6 +844,109 @@ struct HomeView: View {
     }
     #endif
 
+    private var viewOptionsButton: some View {
+        Button {
+            showViewOptions.toggle()
+        } label: {
+            Label("View Options", systemImage: "ellipsis.circle")
+        }
+        #if os(macOS)
+        .popover(isPresented: $showViewOptions) {
+            viewOptionsPopoverContent
+        }
+        #endif
+    }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var viewOptionsSheet: some View {
+        NavigationStack {
+            viewOptionsPopoverContent
+                .navigationTitle("View Options")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showViewOptions = false }
+                    }
+                }
+        }
+    }
+    #endif
+
+    @ViewBuilder
+    private var viewOptionsPopoverContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Cover Style")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Button {
+                        coverPrefRaw = CoverPreference.preferEbook.rawValue
+                    } label: {
+                        Image(systemName: "book.fill")
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(coverPreference == .preferEbook ? .accentColor : .secondary)
+
+                    Button {
+                        coverPrefRaw = CoverPreference.preferAudiobook.rawValue
+                    } label: {
+                        Image(systemName: "headphones")
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Cover Size")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Image(systemName: "square.grid.3x3")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: $coverSizeValue,
+                        in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
+                        step: 5
+                    )
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Display")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Toggle("Audio Indicator", isOn: $showAudioIndicator)
+                Toggle("Source Badge", isOn: $showSourceBadge)
+                Toggle("Series Position", isOn: $showSeriesPositionBadge)
+            }
+
+            Divider()
+
+            Button("Reset to Defaults") {
+                coverPrefRaw = CoverPreference.preferEbook.rawValue
+                coverSizeValue = CoverSizeRange.defaultValue
+                showAudioIndicator = true
+                showSourceBadge = false
+                showSeriesPositionBadge = false
+            }
+            .font(.subheadline)
+        }
+        .padding()
+        #if os(macOS)
+        .frame(width: 200)
+        #else
+        .frame(minWidth: 220)
+        #endif
+    }
 }
 
 private struct HomeSectionRow: View {
@@ -823,14 +957,17 @@ private struct HomeSectionRow: View {
     @Binding var sidebarSections: [SidebarSectionDescription]
     @Binding var selectedSidebarItem: SidebarItemDescription?
     let showAudioIndicator: Bool
+    let showSourceBadge: Bool
+    let showSeriesPositionBadge: Bool
     let coverPreference: CoverPreference
+    let coverSize: CGFloat
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
     #endif
     let onNavigateToSection: (HomeView.HomeSection) -> Void
 
     private let horizontalSpacing: CGFloat = 14
-    private let tileWidth: CGFloat = 125
+    private var tileWidth: CGFloat { coverSize }
 
     #if os(macOS)
     @State private var canScrollLeft: Bool = false
@@ -948,8 +1085,8 @@ private struct HomeSectionRow: View {
             metrics: metrics,
             isSelected: isItemSelected(item.id),
             showAudioIndicator: showAudioIndicator,
-            sourceLabel: nil,
-            seriesPositionBadge: nil,
+            sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+            seriesPositionBadge: seriesPositionBadge(for: item),
             coverPreference: coverPreference,
             onSelect: { selected in
                 select(selected)
@@ -999,6 +1136,12 @@ private struct HomeSectionRow: View {
         scrollTarget = min(scrollTarget + 3, section.items.count - 1)
     }
     #endif
+
+    private func seriesPositionBadge(for item: BookMetadata) -> String? {
+        guard showSeriesPositionBadge else { return nil }
+        guard let seriesList = item.series, let series = seriesList.first else { return nil }
+        return series.formattedPosition
+    }
 
     private func calculateRowHeight(metrics: MediaItemCardMetrics) -> CGFloat {
         return metrics.maxCardHeight

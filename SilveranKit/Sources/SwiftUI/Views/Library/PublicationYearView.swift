@@ -17,7 +17,7 @@ struct PublicationYearView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -245,6 +245,7 @@ extension PublicationYearView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "publicationYearView.\(mediaKind.rawValue)",
                                     publicationYearFilter: group.name,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -337,6 +338,7 @@ extension PublicationYearView {
             title: year,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "publicationYearView.\(mediaKind.rawValue)",
             publicationYearFilter: year,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -351,6 +353,7 @@ extension PublicationYearView {
             title: year,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "publicationYearView.\(mediaKind.rawValue)",
             publicationYearFilter: year,
             defaultSort: "title",
             preferredTileWidth: 120,

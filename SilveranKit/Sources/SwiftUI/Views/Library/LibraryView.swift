@@ -140,6 +140,7 @@ public struct LibraryView: View {
                     title: configuration.title,
                     searchText: searchText,
                     mediaKind: configuration.mediaKind,
+                    viewOptionsKey: item.content.stableIdentifier,
                     tagFilter: configuration.tagFilter,
                     seriesFilter: configuration.seriesFilter,
                     collectionFilter: configuration.collectionFilter,
@@ -373,7 +374,8 @@ public struct LibraryView: View {
                     SmartShelfDetailView(
                         shelf: shelf,
                         books: books,
-                        searchText: searchText
+                        searchText: searchText,
+                        viewOptionsKey: "smartShelfDetail.\(shelfId)"
                     )
                 }
             case .placeholder(let title):
@@ -385,6 +387,7 @@ public struct LibraryView: View {
                 MediaGridView(
                     title: "Downloaded",
                     mediaKind: .ebook,
+                    viewOptionsKey: "downloaded",
                     preferredTileWidth: 120,
                     minimumTileWidth: 50,
                     onMetadataLinkClicked: { target in

@@ -17,7 +17,7 @@ struct TagView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -265,6 +265,7 @@ extension TagView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "tagView.\(mediaKind.rawValue)",
                                     tagFilter: group.name,
                                     defaultSort: "title",
                                     tableContext: "category",
@@ -361,6 +362,7 @@ extension TagView {
             title: tagName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "tagView.\(mediaKind.rawValue)",
             tagFilter: tagName,
             defaultSort: "title",
             preferredTileWidth: 110,
@@ -376,6 +378,7 @@ extension TagView {
             title: tagName,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "tagView.\(mediaKind.rawValue)",
             tagFilter: tagName,
             defaultSort: "title",
             preferredTileWidth: 120,

@@ -17,7 +17,7 @@ struct SeriesView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.global") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -253,6 +253,7 @@ extension SeriesView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
+                                    viewOptionsKey: "seriesView.\(mediaKind.rawValue)",
                                     seriesFilter: group.id,
                                     defaultSort: sortKey,
                                     tableContext: "category",
@@ -356,6 +357,7 @@ extension SeriesView {
             title: displayTitle,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "seriesView.\(mediaKind.rawValue)",
             seriesFilter: seriesName,
             defaultSort: sortKey,
             preferredTileWidth: 110,
@@ -370,6 +372,7 @@ extension SeriesView {
             title: displayTitle,
             searchText: "",
             mediaKind: mediaKind,
+            viewOptionsKey: "seriesView.\(mediaKind.rawValue)",
             seriesFilter: seriesName,
             defaultSort: sortKey,
             preferredTileWidth: 120,
