@@ -8,6 +8,7 @@ struct BookmarksPanel: View {
     let onNavigate: (Highlight) -> Void
     let onDelete: (Highlight) -> Void
     let onAddBookmark: () -> Void
+    let highlightColorResolver: (HighlightColor?) -> Color
     var initialTab: Tab = .bookmarks
 
     @State private var selectedTab: Tab = .bookmarks
@@ -20,6 +21,7 @@ struct BookmarksPanel: View {
         onNavigate: @escaping (Highlight) -> Void,
         onDelete: @escaping (Highlight) -> Void,
         onAddBookmark: @escaping () -> Void,
+        highlightColorResolver: @escaping (HighlightColor?) -> Color,
         initialTab: Tab = .bookmarks
     ) {
         self.bookmarks = bookmarks
@@ -28,6 +30,7 @@ struct BookmarksPanel: View {
         self.onNavigate = onNavigate
         self.onDelete = onDelete
         self.onAddBookmark = onAddBookmark
+        self.highlightColorResolver = highlightColorResolver
         self.initialTab = initialTab
         self._selectedTab = State(initialValue: initialTab)
     }
@@ -54,6 +57,7 @@ struct BookmarksPanel: View {
             if let highlight = selectedHighlight {
                 HighlightDetailView(
                     highlight: highlight,
+                    highlightColorResolver: highlightColorResolver,
                     onBack: { selectedHighlight = nil },
                     onNavigate: {
                         onNavigate(highlight)
@@ -199,6 +203,7 @@ struct BookmarksPanel: View {
                 ForEach(highlights) { highlight in
                     HighlightRow(
                         highlight: highlight,
+                        highlightColorResolver: highlightColorResolver,
                         onTap: { selectedHighlight = highlight },
                         onNavigate: { onNavigate(highlight) },
                         onDelete: { onDelete(highlight) }
@@ -290,6 +295,7 @@ private struct BookmarkRow: View {
 @available(macOS 14.0, iOS 17.0, *)
 private struct HighlightRow: View {
     let highlight: Highlight
+    let highlightColorResolver: (HighlightColor?) -> Color
     let onTap: () -> Void
     let onNavigate: () -> Void
     let onDelete: () -> Void
@@ -299,7 +305,7 @@ private struct HighlightRow: View {
             Button(action: onTap) {
                 HStack {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(highlight.color?.color ?? Color.yellow.opacity(0.4))
+                        .fill(highlightColorResolver(highlight.color))
                         .frame(width: 6)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -359,6 +365,7 @@ private struct HighlightRow: View {
 @available(macOS 14.0, iOS 17.0, *)
 private struct HighlightDetailView: View {
     let highlight: Highlight
+    let highlightColorResolver: (HighlightColor?) -> Color
     let onBack: () -> Void
     let onNavigate: () -> Void
     let onDelete: () -> Void
@@ -391,7 +398,7 @@ private struct HighlightDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .top, spacing: 12) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(highlight.color?.color ?? Color.yellow.opacity(0.4))
+                            .fill(highlightColorResolver(highlight.color))
                             .frame(width: 6)
 
                         Text(highlight.text)

@@ -92,6 +92,11 @@ struct EbookPlayerToolbar: ToolbarContent {
                     onAddBookmark: {
                         Task { await viewModel.addBookmarkAtCurrentPage() }
                     },
+                    highlightColorResolver: { color in
+                        guard let color else { return Color.yellow.opacity(0.4) }
+                        let hex = viewModel.settingsVM.hexColor(for: color)
+                        return Color(hex: hex) ?? color.color
+                    },
                     initialTab: viewModel.bookmarksPanelInitialTab
                 )
             }

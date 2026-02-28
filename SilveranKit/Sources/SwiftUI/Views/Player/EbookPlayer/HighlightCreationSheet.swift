@@ -2,6 +2,7 @@ import SwiftUI
 
 @available(macOS 14.0, iOS 17.0, *)
 struct HighlightCreationSheet: View {
+    let settingsVM: SettingsViewModel
     let selectedText: String
     let onSave: (HighlightColor?, String?) -> Void
     let onCancel: () -> Void
@@ -94,7 +95,7 @@ struct HighlightCreationSheet: View {
                         .fill(
                             isBookmarkOnly
                                 ? Color.secondary.opacity(0.1)
-                                : (selectedColor?.color ?? Color.yellow.opacity(0.4))
+                                : colorForHighlight(selectedColor)
                         )
                 )
         }
@@ -108,7 +109,7 @@ struct HighlightCreationSheet: View {
                     selectedColor = color
                 } label: {
                     Circle()
-                        .fill(color.color)
+                        .fill(colorForHighlight(color))
                         .frame(width: 32, height: 32)
                         .overlay {
                             if selectedColor == color {
@@ -128,5 +129,11 @@ struct HighlightCreationSheet: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private func colorForHighlight(_ color: HighlightColor?) -> Color {
+        guard let color else { return Color.yellow.opacity(0.4) }
+        let hex = settingsVM.hexColor(for: color)
+        return Color(hex: hex) ?? color.color
     }
 }

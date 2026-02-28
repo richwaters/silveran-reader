@@ -1047,6 +1047,7 @@ private struct MacThemeEditorSheet: View {
     @Binding var themes: SilveranGlobalConfig.Themes
     @Binding var reading: SilveranGlobalConfig.Reading
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var draft: ReaderTheme
 
     init(theme: ReaderTheme, themes: Binding<SilveranGlobalConfig.Themes>, reading: Binding<SilveranGlobalConfig.Reading>) {
@@ -1204,7 +1205,29 @@ private struct MacThemeEditorSheet: View {
         if !draft.availableFor(colorScheme: "dark") && themes.selectedDarkThemeId == draft.id {
             themes.selectedDarkThemeId = "builtin-dark"
         }
+        let activeId = colorScheme == .dark
+            ? themes.selectedDarkThemeId
+            : themes.selectedLightThemeId
+        if activeId == draft.id {
+            applyThemeToReading(draft)
+        }
         dismiss()
+    }
+
+    private func applyThemeToReading(_ theme: ReaderTheme) {
+        reading.backgroundColor = theme.backgroundColor
+        reading.foregroundColor = theme.foregroundColor
+        reading.highlightColor = theme.highlightColor
+        reading.highlightThickness = theme.highlightThickness
+        reading.readaloudHighlightMode = theme.readaloudHighlightMode
+        reading.userHighlightColor1 = theme.userHighlightColor1
+        reading.userHighlightColor2 = theme.userHighlightColor2
+        reading.userHighlightColor3 = theme.userHighlightColor3
+        reading.userHighlightColor4 = theme.userHighlightColor4
+        reading.userHighlightColor5 = theme.userHighlightColor5
+        reading.userHighlightColor6 = theme.userHighlightColor6
+        reading.userHighlightMode = theme.userHighlightMode
+        reading.customCSS = theme.customCSS
     }
 }
 

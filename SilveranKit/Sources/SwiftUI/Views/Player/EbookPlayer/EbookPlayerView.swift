@@ -153,6 +153,11 @@ public struct EbookPlayerView: View {
                     onAddBookmark: {
                         Task { await viewModel.addBookmarkAtCurrentPage() }
                     },
+                    highlightColorResolver: { color in
+                        guard let color else { return Color.yellow.opacity(0.4) }
+                        let hex = viewModel.settingsVM.hexColor(for: color)
+                        return Color(hex: hex) ?? color.color
+                    },
                     initialTab: viewModel.bookmarksPanelInitialTab
                 )
                 .navigationTitle("Bookmarks & Highlights")
@@ -174,6 +179,7 @@ public struct EbookPlayerView: View {
             )
         ) { wrapper in
             HighlightCreationSheet(
+                settingsVM: viewModel.settingsVM,
                 selectedText: wrapper.selection.text,
                 onSave: { color, note in
                     Task {
