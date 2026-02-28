@@ -362,37 +362,37 @@ struct EbookPlayerSettings: View {
             }
 
             iOSUserHighlightColorControl(
-                label: "Highlight #1 (Yellow)",
+                label: settingsVM.userHighlightLabel1,
                 hex: $settingsVM.userHighlightColor1,
                 defaultHex: kDefaultUserHighlightColor1
             )
 
             iOSUserHighlightColorControl(
-                label: "Highlight #2 (Blue)",
+                label: settingsVM.userHighlightLabel2,
                 hex: $settingsVM.userHighlightColor2,
                 defaultHex: kDefaultUserHighlightColor2
             )
 
             iOSUserHighlightColorControl(
-                label: "Highlight #3 (Green)",
+                label: settingsVM.userHighlightLabel3,
                 hex: $settingsVM.userHighlightColor3,
                 defaultHex: kDefaultUserHighlightColor3
             )
 
             iOSUserHighlightColorControl(
-                label: "Highlight #4 (Pink)",
+                label: settingsVM.userHighlightLabel4,
                 hex: $settingsVM.userHighlightColor4,
                 defaultHex: kDefaultUserHighlightColor4
             )
 
             iOSUserHighlightColorControl(
-                label: "Highlight #5 (Orange)",
+                label: settingsVM.userHighlightLabel5,
                 hex: $settingsVM.userHighlightColor5,
                 defaultHex: kDefaultUserHighlightColor5
             )
 
             iOSUserHighlightColorControl(
-                label: "Highlight #6 (Purple)",
+                label: settingsVM.userHighlightLabel6,
                 hex: $settingsVM.userHighlightColor6,
                 defaultHex: kDefaultUserHighlightColor6
             )
@@ -486,6 +486,12 @@ struct EbookPlayerSettings: View {
         settingsVM.userHighlightColor4 = kDefaultUserHighlightColor4
         settingsVM.userHighlightColor5 = kDefaultUserHighlightColor5
         settingsVM.userHighlightColor6 = kDefaultUserHighlightColor6
+        settingsVM.userHighlightLabel1 = kDefaultUserHighlightLabel1
+        settingsVM.userHighlightLabel2 = kDefaultUserHighlightLabel2
+        settingsVM.userHighlightLabel3 = kDefaultUserHighlightLabel3
+        settingsVM.userHighlightLabel4 = kDefaultUserHighlightLabel4
+        settingsVM.userHighlightLabel5 = kDefaultUserHighlightLabel5
+        settingsVM.userHighlightLabel6 = kDefaultUserHighlightLabel6
         settingsVM.backgroundColor = nil
         settingsVM.foregroundColor = nil
         settingsVM.enableMarginClickNavigation = kDefaultEnableMarginClickNavigation

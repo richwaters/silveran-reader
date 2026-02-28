@@ -22,6 +22,12 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
     public var userHighlightColor4: String
     public var userHighlightColor5: String
     public var userHighlightColor6: String
+    public var userHighlightLabel1: String
+    public var userHighlightLabel2: String
+    public var userHighlightLabel3: String
+    public var userHighlightLabel4: String
+    public var userHighlightLabel5: String
+    public var userHighlightLabel6: String
     public var userHighlightMode: String
     public var customCSS: String?
 
@@ -41,6 +47,12 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         userHighlightColor4: String = kDefaultUserHighlightColor4,
         userHighlightColor5: String = kDefaultUserHighlightColor5,
         userHighlightColor6: String = kDefaultUserHighlightColor6,
+        userHighlightLabel1: String = kDefaultUserHighlightLabel1,
+        userHighlightLabel2: String = kDefaultUserHighlightLabel2,
+        userHighlightLabel3: String = kDefaultUserHighlightLabel3,
+        userHighlightLabel4: String = kDefaultUserHighlightLabel4,
+        userHighlightLabel5: String = kDefaultUserHighlightLabel5,
+        userHighlightLabel6: String = kDefaultUserHighlightLabel6,
         userHighlightMode: String = kDefaultUserHighlightMode,
         customCSS: String? = nil
     ) {
@@ -59,6 +71,12 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         self.userHighlightColor4 = userHighlightColor4
         self.userHighlightColor5 = userHighlightColor5
         self.userHighlightColor6 = userHighlightColor6
+        self.userHighlightLabel1 = userHighlightLabel1
+        self.userHighlightLabel2 = userHighlightLabel2
+        self.userHighlightLabel3 = userHighlightLabel3
+        self.userHighlightLabel4 = userHighlightLabel4
+        self.userHighlightLabel5 = userHighlightLabel5
+        self.userHighlightLabel6 = userHighlightLabel6
         self.userHighlightMode = userHighlightMode
         self.customCSS = customCSS
     }
@@ -80,6 +98,12 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         userHighlightColor4 = try container.decode(String.self, forKey: .userHighlightColor4)
         userHighlightColor5 = try container.decode(String.self, forKey: .userHighlightColor5)
         userHighlightColor6 = try container.decode(String.self, forKey: .userHighlightColor6)
+        userHighlightLabel1 = (try? container.decode(String.self, forKey: .userHighlightLabel1)) ?? kDefaultUserHighlightLabel1
+        userHighlightLabel2 = (try? container.decode(String.self, forKey: .userHighlightLabel2)) ?? kDefaultUserHighlightLabel2
+        userHighlightLabel3 = (try? container.decode(String.self, forKey: .userHighlightLabel3)) ?? kDefaultUserHighlightLabel3
+        userHighlightLabel4 = (try? container.decode(String.self, forKey: .userHighlightLabel4)) ?? kDefaultUserHighlightLabel4
+        userHighlightLabel5 = (try? container.decode(String.self, forKey: .userHighlightLabel5)) ?? kDefaultUserHighlightLabel5
+        userHighlightLabel6 = (try? container.decode(String.self, forKey: .userHighlightLabel6)) ?? kDefaultUserHighlightLabel6
         userHighlightMode = try container.decode(String.self, forKey: .userHighlightMode)
         customCSS = try? container.decode(String.self, forKey: .customCSS)
     }

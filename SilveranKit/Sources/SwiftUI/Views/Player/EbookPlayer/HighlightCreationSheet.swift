@@ -108,23 +108,29 @@ struct HighlightCreationSheet: View {
                 Button {
                     selectedColor = color
                 } label: {
-                    Circle()
-                        .fill(colorForHighlight(color))
-                        .frame(width: 32, height: 32)
-                        .overlay {
-                            if selectedColor == color {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.primary)
+                    VStack(spacing: 4) {
+                        Circle()
+                            .fill(colorForHighlight(color))
+                            .frame(width: 32, height: 32)
+                            .overlay {
+                                if selectedColor == color {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.primary)
+                                }
                             }
-                        }
-                        .overlay {
-                            Circle()
-                                .strokeBorder(
-                                    selectedColor == color ? Color.primary : Color.clear,
-                                    lineWidth: 2
-                                )
-                        }
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(
+                                        selectedColor == color ? Color.primary : Color.clear,
+                                        lineWidth: 2
+                                    )
+                            }
+                        Text(settingsVM.label(for: color))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .buttonStyle(.plain)
             }

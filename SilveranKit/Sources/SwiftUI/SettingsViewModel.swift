@@ -66,6 +66,12 @@ public final class SettingsViewModel {
     public var userHighlightColor4: String = kDefaultUserHighlightColor4
     public var userHighlightColor5: String = kDefaultUserHighlightColor5
     public var userHighlightColor6: String = kDefaultUserHighlightColor6
+    public var userHighlightLabel1: String = kDefaultUserHighlightLabel1
+    public var userHighlightLabel2: String = kDefaultUserHighlightLabel2
+    public var userHighlightLabel3: String = kDefaultUserHighlightLabel3
+    public var userHighlightLabel4: String = kDefaultUserHighlightLabel4
+    public var userHighlightLabel5: String = kDefaultUserHighlightLabel5
+    public var userHighlightLabel6: String = kDefaultUserHighlightLabel6
     public var userHighlightMode: String = kDefaultUserHighlightMode
     public var readaloudHighlightMode: String = kDefaultReadaloudHighlightMode
 
@@ -99,6 +105,17 @@ public final class SettingsViewModel {
             case .pink: return userHighlightColor4
             case .orange: return userHighlightColor5
             case .purple: return userHighlightColor6
+        }
+    }
+
+    public func label(for color: HighlightColor) -> String {
+        switch color {
+            case .yellow: return userHighlightLabel1
+            case .blue: return userHighlightLabel2
+            case .green: return userHighlightLabel3
+            case .pink: return userHighlightLabel4
+            case .orange: return userHighlightLabel5
+            case .purple: return userHighlightLabel6
         }
     }
 
@@ -177,6 +194,12 @@ public final class SettingsViewModel {
         userHighlightColor4 = config.reading.userHighlightColor4
         userHighlightColor5 = config.reading.userHighlightColor5
         userHighlightColor6 = config.reading.userHighlightColor6
+        userHighlightLabel1 = config.reading.userHighlightLabel1
+        userHighlightLabel2 = config.reading.userHighlightLabel2
+        userHighlightLabel3 = config.reading.userHighlightLabel3
+        userHighlightLabel4 = config.reading.userHighlightLabel4
+        userHighlightLabel5 = config.reading.userHighlightLabel5
+        userHighlightLabel6 = config.reading.userHighlightLabel6
         userHighlightMode = config.reading.userHighlightMode
         readaloudHighlightMode = config.reading.readaloudHighlightMode
 
@@ -244,6 +267,12 @@ public final class SettingsViewModel {
         userHighlightColor4 = theme.userHighlightColor4
         userHighlightColor5 = theme.userHighlightColor5
         userHighlightColor6 = theme.userHighlightColor6
+        userHighlightLabel1 = theme.userHighlightLabel1
+        userHighlightLabel2 = theme.userHighlightLabel2
+        userHighlightLabel3 = theme.userHighlightLabel3
+        userHighlightLabel4 = theme.userHighlightLabel4
+        userHighlightLabel5 = theme.userHighlightLabel5
+        userHighlightLabel6 = theme.userHighlightLabel6
         userHighlightMode = theme.userHighlightMode
         customCSS = theme.customCSS
         save()
@@ -290,6 +319,12 @@ public final class SettingsViewModel {
             userHighlightColor4: source.userHighlightColor4,
             userHighlightColor5: source.userHighlightColor5,
             userHighlightColor6: source.userHighlightColor6,
+            userHighlightLabel1: source.userHighlightLabel1,
+            userHighlightLabel2: source.userHighlightLabel2,
+            userHighlightLabel3: source.userHighlightLabel3,
+            userHighlightLabel4: source.userHighlightLabel4,
+            userHighlightLabel5: source.userHighlightLabel5,
+            userHighlightLabel6: source.userHighlightLabel6,
             userHighlightMode: source.userHighlightMode,
             customCSS: source.customCSS
         )

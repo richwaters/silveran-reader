@@ -189,6 +189,12 @@ public struct SettingsView: View {
                     userHighlightColor4: newValue.reading.userHighlightColor4,
                     userHighlightColor5: newValue.reading.userHighlightColor5,
                     userHighlightColor6: newValue.reading.userHighlightColor6,
+                    userHighlightLabel1: newValue.reading.userHighlightLabel1,
+                    userHighlightLabel2: newValue.reading.userHighlightLabel2,
+                    userHighlightLabel3: newValue.reading.userHighlightLabel3,
+                    userHighlightLabel4: newValue.reading.userHighlightLabel4,
+                    userHighlightLabel5: newValue.reading.userHighlightLabel5,
+                    userHighlightLabel6: newValue.reading.userHighlightLabel6,
                     userHighlightMode: newValue.reading.userHighlightMode,
                     readaloudHighlightMode: newValue.reading.readaloudHighlightMode,
                     tabBarSlot1: newValue.library.tabBarSlot1,
@@ -278,6 +284,12 @@ extension SettingsView {
         config.reading.userHighlightColor4 = kDefaultUserHighlightColor4
         config.reading.userHighlightColor5 = kDefaultUserHighlightColor5
         config.reading.userHighlightColor6 = kDefaultUserHighlightColor6
+        config.reading.userHighlightLabel1 = kDefaultUserHighlightLabel1
+        config.reading.userHighlightLabel2 = kDefaultUserHighlightLabel2
+        config.reading.userHighlightLabel3 = kDefaultUserHighlightLabel3
+        config.reading.userHighlightLabel4 = kDefaultUserHighlightLabel4
+        config.reading.userHighlightLabel5 = kDefaultUserHighlightLabel5
+        config.reading.userHighlightLabel6 = kDefaultUserHighlightLabel6
         config.reading.backgroundColor = nil
         config.reading.foregroundColor = nil
         config.reading.enableMarginClickNavigation = kDefaultEnableMarginClickNavigation
@@ -797,6 +809,12 @@ private struct MacReaderSettingsView: View {
         reading.userHighlightColor4 = theme.userHighlightColor4
         reading.userHighlightColor5 = theme.userHighlightColor5
         reading.userHighlightColor6 = theme.userHighlightColor6
+        reading.userHighlightLabel1 = theme.userHighlightLabel1
+        reading.userHighlightLabel2 = theme.userHighlightLabel2
+        reading.userHighlightLabel3 = theme.userHighlightLabel3
+        reading.userHighlightLabel4 = theme.userHighlightLabel4
+        reading.userHighlightLabel5 = theme.userHighlightLabel5
+        reading.userHighlightLabel6 = theme.userHighlightLabel6
         reading.userHighlightMode = theme.userHighlightMode
         reading.customCSS = theme.customCSS
     }
@@ -996,6 +1014,12 @@ private struct MacManageThemesView: View {
             userHighlightColor4: source.userHighlightColor4,
             userHighlightColor5: source.userHighlightColor5,
             userHighlightColor6: source.userHighlightColor6,
+            userHighlightLabel1: source.userHighlightLabel1,
+            userHighlightLabel2: source.userHighlightLabel2,
+            userHighlightLabel3: source.userHighlightLabel3,
+            userHighlightLabel4: source.userHighlightLabel4,
+            userHighlightLabel5: source.userHighlightLabel5,
+            userHighlightLabel6: source.userHighlightLabel6,
             userHighlightMode: source.userHighlightMode,
             customCSS: source.customCSS
         )
@@ -1130,12 +1154,12 @@ private struct MacThemeEditorSheet: View {
                         .frame(maxWidth: 300)
                         .labelsHidden()
 
-                        macColorRow(label: "#1 (Yellow)", hex: $draft.userHighlightColor1)
-                        macColorRow(label: "#2 (Blue)", hex: $draft.userHighlightColor2)
-                        macColorRow(label: "#3 (Green)", hex: $draft.userHighlightColor3)
-                        macColorRow(label: "#4 (Pink)", hex: $draft.userHighlightColor4)
-                        macColorRow(label: "#5 (Orange)", hex: $draft.userHighlightColor5)
-                        macColorRow(label: "#6 (Purple)", hex: $draft.userHighlightColor6)
+                        macLabeledColorRow(label: $draft.userHighlightLabel1, hex: $draft.userHighlightColor1)
+                        macLabeledColorRow(label: $draft.userHighlightLabel2, hex: $draft.userHighlightColor2)
+                        macLabeledColorRow(label: $draft.userHighlightLabel3, hex: $draft.userHighlightColor3)
+                        macLabeledColorRow(label: $draft.userHighlightLabel4, hex: $draft.userHighlightColor4)
+                        macLabeledColorRow(label: $draft.userHighlightLabel5, hex: $draft.userHighlightColor5)
+                        macLabeledColorRow(label: $draft.userHighlightLabel6, hex: $draft.userHighlightColor6)
                     }
 
                     Divider()
@@ -1195,6 +1219,31 @@ private struct MacThemeEditorSheet: View {
         }
     }
 
+    @ViewBuilder
+    private func macLabeledColorRow(label: Binding<String>, hex: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            TextField("Label", text: label)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 120)
+
+            ColorPicker("", selection: Binding(
+                get: { Color(hex: hex.wrappedValue) ?? .gray },
+                set: { newColor in
+                    if let newHex = newColor.hexString() {
+                        hex.wrappedValue = newHex
+                    }
+                }
+            ), supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: 48, height: 28)
+
+            TextField("#RRGGBB", text: hex)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .frame(maxWidth: 100)
+        }
+    }
+
     private func saveTheme() {
         if let idx = themes.customThemes.firstIndex(where: { $0.id == draft.id }) {
             themes.customThemes[idx] = draft
@@ -1226,6 +1275,12 @@ private struct MacThemeEditorSheet: View {
         reading.userHighlightColor4 = theme.userHighlightColor4
         reading.userHighlightColor5 = theme.userHighlightColor5
         reading.userHighlightColor6 = theme.userHighlightColor6
+        reading.userHighlightLabel1 = theme.userHighlightLabel1
+        reading.userHighlightLabel2 = theme.userHighlightLabel2
+        reading.userHighlightLabel3 = theme.userHighlightLabel3
+        reading.userHighlightLabel4 = theme.userHighlightLabel4
+        reading.userHighlightLabel5 = theme.userHighlightLabel5
+        reading.userHighlightLabel6 = theme.userHighlightLabel6
         reading.userHighlightMode = theme.userHighlightMode
         reading.customCSS = theme.customCSS
     }

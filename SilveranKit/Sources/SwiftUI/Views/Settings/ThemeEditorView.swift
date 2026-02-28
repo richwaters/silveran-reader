@@ -175,12 +175,12 @@ struct ThemeEditorView: View {
                 #endif
             }
 
-            editorColorRow(label: "#1 (Yellow)", hex: $draft.userHighlightColor1)
-            editorColorRow(label: "#2 (Blue)", hex: $draft.userHighlightColor2)
-            editorColorRow(label: "#3 (Green)", hex: $draft.userHighlightColor3)
-            editorColorRow(label: "#4 (Pink)", hex: $draft.userHighlightColor4)
-            editorColorRow(label: "#5 (Orange)", hex: $draft.userHighlightColor5)
-            editorColorRow(label: "#6 (Purple)", hex: $draft.userHighlightColor6)
+            labeledColorRow(label: $draft.userHighlightLabel1, hex: $draft.userHighlightColor1)
+            labeledColorRow(label: $draft.userHighlightLabel2, hex: $draft.userHighlightColor2)
+            labeledColorRow(label: $draft.userHighlightLabel3, hex: $draft.userHighlightColor3)
+            labeledColorRow(label: $draft.userHighlightLabel4, hex: $draft.userHighlightColor4)
+            labeledColorRow(label: $draft.userHighlightLabel5, hex: $draft.userHighlightColor5)
+            labeledColorRow(label: $draft.userHighlightLabel6, hex: $draft.userHighlightColor6)
         }
     }
 
@@ -207,6 +207,16 @@ struct ThemeEditorView: View {
         ThemeColorControl(label: label, hex: hex)
     }
 
+    @ViewBuilder
+    private func labeledColorRow(label: Binding<String>, hex: Binding<String>) -> some View {
+        HStack {
+            TextField("Label", text: label)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 120)
+            ThemeColorControl(label: label.wrappedValue, hex: hex)
+        }
+    }
+
     private func captureOriginalValues() {
         originalFlatValues = FlatColorSnapshot(
             backgroundColor: settingsVM.backgroundColor,
@@ -220,6 +230,12 @@ struct ThemeEditorView: View {
             userHighlightColor4: settingsVM.userHighlightColor4,
             userHighlightColor5: settingsVM.userHighlightColor5,
             userHighlightColor6: settingsVM.userHighlightColor6,
+            userHighlightLabel1: settingsVM.userHighlightLabel1,
+            userHighlightLabel2: settingsVM.userHighlightLabel2,
+            userHighlightLabel3: settingsVM.userHighlightLabel3,
+            userHighlightLabel4: settingsVM.userHighlightLabel4,
+            userHighlightLabel5: settingsVM.userHighlightLabel5,
+            userHighlightLabel6: settingsVM.userHighlightLabel6,
             userHighlightMode: settingsVM.userHighlightMode,
             customCSS: settingsVM.customCSS
         )
@@ -241,6 +257,12 @@ struct ThemeEditorView: View {
         settingsVM.userHighlightColor4 = theme.userHighlightColor4
         settingsVM.userHighlightColor5 = theme.userHighlightColor5
         settingsVM.userHighlightColor6 = theme.userHighlightColor6
+        settingsVM.userHighlightLabel1 = theme.userHighlightLabel1
+        settingsVM.userHighlightLabel2 = theme.userHighlightLabel2
+        settingsVM.userHighlightLabel3 = theme.userHighlightLabel3
+        settingsVM.userHighlightLabel4 = theme.userHighlightLabel4
+        settingsVM.userHighlightLabel5 = theme.userHighlightLabel5
+        settingsVM.userHighlightLabel6 = theme.userHighlightLabel6
         settingsVM.userHighlightMode = theme.userHighlightMode
         settingsVM.customCSS = theme.customCSS
         settingsVM.save()
@@ -268,6 +290,12 @@ struct ThemeEditorView: View {
             settingsVM.userHighlightColor4 = snap.userHighlightColor4
             settingsVM.userHighlightColor5 = snap.userHighlightColor5
             settingsVM.userHighlightColor6 = snap.userHighlightColor6
+            settingsVM.userHighlightLabel1 = snap.userHighlightLabel1
+            settingsVM.userHighlightLabel2 = snap.userHighlightLabel2
+            settingsVM.userHighlightLabel3 = snap.userHighlightLabel3
+            settingsVM.userHighlightLabel4 = snap.userHighlightLabel4
+            settingsVM.userHighlightLabel5 = snap.userHighlightLabel5
+            settingsVM.userHighlightLabel6 = snap.userHighlightLabel6
             settingsVM.userHighlightMode = snap.userHighlightMode
             settingsVM.customCSS = snap.customCSS
             settingsVM.save()
@@ -288,6 +316,12 @@ private struct FlatColorSnapshot {
     let userHighlightColor4: String
     let userHighlightColor5: String
     let userHighlightColor6: String
+    let userHighlightLabel1: String
+    let userHighlightLabel2: String
+    let userHighlightLabel3: String
+    let userHighlightLabel4: String
+    let userHighlightLabel5: String
+    let userHighlightLabel6: String
     let userHighlightMode: String
     let customCSS: String?
 }

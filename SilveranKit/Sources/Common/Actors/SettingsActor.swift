@@ -64,6 +64,12 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var userHighlightColor4: String
         public var userHighlightColor5: String
         public var userHighlightColor6: String
+        public var userHighlightLabel1: String
+        public var userHighlightLabel2: String
+        public var userHighlightLabel3: String
+        public var userHighlightLabel4: String
+        public var userHighlightLabel5: String
+        public var userHighlightLabel6: String
         public var userHighlightMode: String
         public var readaloudHighlightMode: String
         public var tvSubtitleFontSize: Double
@@ -89,6 +95,12 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             userHighlightColor4: String = kDefaultUserHighlightColor4,
             userHighlightColor5: String = kDefaultUserHighlightColor5,
             userHighlightColor6: String = kDefaultUserHighlightColor6,
+            userHighlightLabel1: String = kDefaultUserHighlightLabel1,
+            userHighlightLabel2: String = kDefaultUserHighlightLabel2,
+            userHighlightLabel3: String = kDefaultUserHighlightLabel3,
+            userHighlightLabel4: String = kDefaultUserHighlightLabel4,
+            userHighlightLabel5: String = kDefaultUserHighlightLabel5,
+            userHighlightLabel6: String = kDefaultUserHighlightLabel6,
             userHighlightMode: String = kDefaultUserHighlightMode,
             readaloudHighlightMode: String = kDefaultReadaloudHighlightMode,
             tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize
@@ -117,6 +129,12 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             self.userHighlightColor4 = userHighlightColor4
             self.userHighlightColor5 = userHighlightColor5
             self.userHighlightColor6 = userHighlightColor6
+            self.userHighlightLabel1 = userHighlightLabel1
+            self.userHighlightLabel2 = userHighlightLabel2
+            self.userHighlightLabel3 = userHighlightLabel3
+            self.userHighlightLabel4 = userHighlightLabel4
+            self.userHighlightLabel5 = userHighlightLabel5
+            self.userHighlightLabel6 = userHighlightLabel6
             self.userHighlightMode = userHighlightMode
             self.readaloudHighlightMode = readaloudHighlightMode
             self.tvSubtitleFontSize = tvSubtitleFontSize
@@ -177,6 +195,24 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             userHighlightColor6 =
                 (try? container?.decode(String.self, forKey: .userHighlightColor6))
                 ?? kDefaultUserHighlightColor6
+            userHighlightLabel1 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel1))
+                ?? kDefaultUserHighlightLabel1
+            userHighlightLabel2 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel2))
+                ?? kDefaultUserHighlightLabel2
+            userHighlightLabel3 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel3))
+                ?? kDefaultUserHighlightLabel3
+            userHighlightLabel4 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel4))
+                ?? kDefaultUserHighlightLabel4
+            userHighlightLabel5 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel5))
+                ?? kDefaultUserHighlightLabel5
+            userHighlightLabel6 =
+                (try? container?.decode(String.self, forKey: .userHighlightLabel6))
+                ?? kDefaultUserHighlightLabel6
             userHighlightMode =
                 (try? container?.decode(String.self, forKey: .userHighlightMode))
                 ?? kDefaultUserHighlightMode
@@ -206,6 +242,8 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             case customCSS, enableMarginClickNavigation, singleColumnMode
             case userHighlightColor1, userHighlightColor2, userHighlightColor3
             case userHighlightColor4, userHighlightColor5, userHighlightColor6
+            case userHighlightLabel1, userHighlightLabel2, userHighlightLabel3
+            case userHighlightLabel4, userHighlightLabel5, userHighlightLabel6
             case userHighlightMode, readaloudHighlightMode, tvSubtitleFontSize
         }
 
@@ -504,6 +542,12 @@ public actor SettingsActor {
             || reading.userHighlightColor4 != defaults.userHighlightColor4
             || reading.userHighlightColor5 != defaults.userHighlightColor5
             || reading.userHighlightColor6 != defaults.userHighlightColor6
+            || reading.userHighlightLabel1 != defaults.userHighlightLabel1
+            || reading.userHighlightLabel2 != defaults.userHighlightLabel2
+            || reading.userHighlightLabel3 != defaults.userHighlightLabel3
+            || reading.userHighlightLabel4 != defaults.userHighlightLabel4
+            || reading.userHighlightLabel5 != defaults.userHighlightLabel5
+            || reading.userHighlightLabel6 != defaults.userHighlightLabel6
             || reading.userHighlightMode != defaults.userHighlightMode
             || reading.customCSS != defaults.customCSS
 
@@ -523,6 +567,12 @@ public actor SettingsActor {
             userHighlightColor4: reading.userHighlightColor4,
             userHighlightColor5: reading.userHighlightColor5,
             userHighlightColor6: reading.userHighlightColor6,
+            userHighlightLabel1: reading.userHighlightLabel1,
+            userHighlightLabel2: reading.userHighlightLabel2,
+            userHighlightLabel3: reading.userHighlightLabel3,
+            userHighlightLabel4: reading.userHighlightLabel4,
+            userHighlightLabel5: reading.userHighlightLabel5,
+            userHighlightLabel6: reading.userHighlightLabel6,
             userHighlightMode: reading.userHighlightMode,
             customCSS: reading.customCSS
         )
@@ -587,6 +637,12 @@ public actor SettingsActor {
         userHighlightColor4: String? = nil,
         userHighlightColor5: String? = nil,
         userHighlightColor6: String? = nil,
+        userHighlightLabel1: String? = nil,
+        userHighlightLabel2: String? = nil,
+        userHighlightLabel3: String? = nil,
+        userHighlightLabel4: String? = nil,
+        userHighlightLabel5: String? = nil,
+        userHighlightLabel6: String? = nil,
         userHighlightMode: String? = nil,
         readaloudHighlightMode: String? = nil,
         tabBarSlot1: String? = nil,
@@ -692,6 +748,24 @@ public actor SettingsActor {
         }
         if let userHighlightColor6 {
             updated.reading.userHighlightColor6 = userHighlightColor6
+        }
+        if let userHighlightLabel1 {
+            updated.reading.userHighlightLabel1 = userHighlightLabel1
+        }
+        if let userHighlightLabel2 {
+            updated.reading.userHighlightLabel2 = userHighlightLabel2
+        }
+        if let userHighlightLabel3 {
+            updated.reading.userHighlightLabel3 = userHighlightLabel3
+        }
+        if let userHighlightLabel4 {
+            updated.reading.userHighlightLabel4 = userHighlightLabel4
+        }
+        if let userHighlightLabel5 {
+            updated.reading.userHighlightLabel5 = userHighlightLabel5
+        }
+        if let userHighlightLabel6 {
+            updated.reading.userHighlightLabel6 = userHighlightLabel6
         }
         if let userHighlightMode {
             updated.reading.userHighlightMode = userHighlightMode
