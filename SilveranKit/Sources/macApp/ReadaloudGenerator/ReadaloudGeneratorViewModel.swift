@@ -277,11 +277,8 @@ public final class ReadaloudGeneratorViewModel {
         do {
             let alignmentRequest = try AlignmentRequest(epubURL: epubURL, audioBookURLs: [audioURL])
             let alignmentConfig = AlignmentConfig(
-                modelFile: modelPath,
                 audioLoaderType: .avfoundation,
-                throttle: false,
-                whisperBeamSize: nil,
-                whisperDtw: false,
+                concurrency: 0,
                 reportType: .none,
                 startChapter: startChapter,
                 endChapter: endChapter,
@@ -289,10 +286,17 @@ public final class ReadaloudGeneratorViewModel {
                 granularityExpansion: granularityExpansion,
                 extraContributors: ["SilveranReader 1.0"]
             )
+            let whisperConfig = WhisperConfig(
+                modelFile: modelPath,
+                beamSize: nil,
+                dtw: false
+            )
             let session = AlignmentSession(
                 request: alignmentRequest,
                 config: alignmentConfig,
-                logger: logger
+                logger: logger,
+                whisperConfig: whisperConfig,
+                transcriptionStore:nil,
             )
             defer { session.cleanup() }
             _ = session.addProgressListener(progressListener)
