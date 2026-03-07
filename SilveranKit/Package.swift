@@ -25,11 +25,10 @@ let package = Package(
             url: "https://github.com/stackotter/swift-cross-ui.git",
             branch: "main"
         ),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", branch:"main"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0"),
-        //.package(url: "https://github.com/kyonifer/StoryAlign.git", branch: "v1.2"),
-        .package(url: "https://codeberg.org/richwaters/StoryAlign.git", from: "1.2.0"),
+        .package(url: "https://github.com/kyonifer/StoryAlign.git", from: "1.2.0"),
     ],
     targets: [
         .target(

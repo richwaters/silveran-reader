@@ -69,31 +69,7 @@ targets:
     dependencies:
       - package: SilveranKit
         product: SilveranKitMacApp
-    postCompileScripts:
-      - name: Fix Whisper Framework Symlinks
-        script: |
-          FRAMEWORK="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/whisper.framework"
-          if [ -d "$FRAMEWORK" ]; then
-              # Fix Versions/Current symlink
-              if [ -d "$FRAMEWORK/Versions/Current" ] && [ ! -L "$FRAMEWORK/Versions/Current" ]; then
-                  rm -rf "$FRAMEWORK/Versions/Current"
-                  ln -s A "$FRAMEWORK/Versions/Current"
-              fi
-              # Fix top-level symlinks
-              if [ -d "$FRAMEWORK/Resources" ] && [ ! -L "$FRAMEWORK/Resources" ]; then
-                  rm -rf "$FRAMEWORK/Resources"
-                  ln -s Versions/Current/Resources "$FRAMEWORK/Resources"
-              fi
-              if [ -d "$FRAMEWORK/Versions/A/Headers" ] && [ ! -L "$FRAMEWORK/Headers" ]; then
-                  rm -rf "$FRAMEWORK/Headers" 2>/dev/null
-                  ln -s Versions/Current/Headers "$FRAMEWORK/Headers"
-              fi
-              if [ -d "$FRAMEWORK/Versions/A/Modules" ] && [ ! -L "$FRAMEWORK/Modules" ]; then
-                  rm -rf "$FRAMEWORK/Modules" 2>/dev/null
-                  ln -s Versions/Current/Modules "$FRAMEWORK/Modules"
-              fi
-          fi
-        shell: /bin/bash
+
   Silveran Reader (iOS):
     type: application
     platform: iOS
