@@ -315,7 +315,7 @@ public struct ReadaloudGeneratorView: View {
 
             if !viewModel.currentMessage.isEmpty {
                 Text(viewModel.currentMessage)
-                    .font(.caption)
+                    .font(.caption).monospaced()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
