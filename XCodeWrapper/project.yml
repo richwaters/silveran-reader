@@ -28,12 +28,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: XCodeWrapper/SilveranReaderMac.entitlements
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.books
-        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
-        INFOPLIST_KEY_KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: XCodeWrapper/Info-macOS.plist
         MARKETING_VERSION: 0.1
         PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
         #INFOPLIST_KEY_CFBundleDisplayName: Silveran Reader
@@ -42,11 +38,26 @@ targets:
         PRODUCT_NAME: Silveran Reader
         #SWIFT_UPCOMING_FEATURE_NONSENDING_NONISOLATING_BY_DEFAULT: YES
         SWIFT_VERSION: 6.2
+    info:
+      path: XCodeWrapper/Info-macOS.plist
+      properties:
+        CFBundleName: "Silveran Reader"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        LSApplicationCategoryType: "public.app-category.books"
+        NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
+        ITSAppUsesNonExemptEncryption: false
     sources:
       - path: XCodeWrapper
         excludes:
           - "**/*.entitlements"
           - "**/.DS_Store"
+          - "Info-*.plist"
           - "WebResources/"
           - "Assets.xcassets/"
           - "project.yml"
@@ -137,6 +148,7 @@ targets:
         excludes:
           - "**/*.entitlements"
           - "**/.DS_Store"
+          - "Info-*.plist"
           - "WebResources/"
           - "Assets.xcassets/"
           - "project.yml"
@@ -180,17 +192,29 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_WKBackgroundModes: audio
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: "$(APP_BUNDLE_ID)"
-        INFOPLIST_KEY_KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
-        INFOPLIST_KEY_KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: XCodeWrapper/Info-watchOS.plist
         MARKETING_VERSION: 0.1
         PRODUCT_BUNDLE_IDENTIFIER: "$(WATCH_APP_BUNDLE_ID)"
         PRODUCT_NAME: Silveran Reader
         SWIFT_VERSION: 6.2
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_CFBundleIconName: AppIcon
+    info:
+      path: XCodeWrapper/Info-watchOS.plist
+      properties:
+        CFBundleName: "Silveran Reader"
+        CFBundleDisplayName: "Silveran Reader"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        WKApplication: true
+        WKBackgroundModes:
+          - audio
+        WKCompanionAppBundleIdentifier: "$(APP_BUNDLE_ID)"
     sources:
       - path: XCodeWrapper/EntryPointStub.swift
       - path: XCodeWrapper/WatchAssets.xcassets
@@ -212,9 +236,8 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: XCodeWrapper/Info-tvOS.plist
         MARKETING_VERSION: 0.1
         PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
         PRODUCT_NAME: Silveran Reader
@@ -234,6 +257,7 @@ targets:
         KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
         LSApplicationCategoryType: "public.app-category.books"
         UILaunchScreen: {}
+        UIUserInterfaceStyle: Automatic
         UIBackgroundModes:
           - audio
         ITSAppUsesNonExemptEncryption: false

@@ -34,5 +34,7 @@
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
 </dict>
 </plist>
