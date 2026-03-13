@@ -1,0 +1,5 @@
+APP_BUNDLE_ID = com.kyonifer.SilveranReader
+WATCH_APP_BUNDLE_ID = $(APP_BUNDLE_ID).watchkitapp
+KEYCHAIN_GROUP_SUFFIX = com.kyonifer.silveran.shared
+KEYCHAIN_SERVICE = com.kyonifer.silveranreader.storyteller
+KEYCHAIN_ACCESS_GROUP = $(AppIdentifierPrefix)$(KEYCHAIN_GROUP_SUFFIX)

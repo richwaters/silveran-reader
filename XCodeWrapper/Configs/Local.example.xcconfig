@@ -1,0 +1,7 @@
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Overrides for your personal dev account's namespace/keychain details
+APP_BUNDLE_ID = com.example.SilveranReader
+WATCH_APP_BUNDLE_ID = $(APP_BUNDLE_ID).watchkitapp
+KEYCHAIN_GROUP_SUFFIX = com.example.silveran.shared
+KEYCHAIN_SERVICE = com.example.silveranreader.storyteller
