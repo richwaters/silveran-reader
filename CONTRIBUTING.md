@@ -16,6 +16,8 @@ In theory, `XCodeWrapper/` and `SilveranKit/` could be merged into one package f
 - Run `git submodule update --init` to checkout `extern/foliate-js`
 - Install `xcodegen` and `xcbeautify` from Homebrew.
 - Install Xcode CLI Tools and accept the Xcode license
+- Copy `XCodeWrapper/Configs/Local.example.xcconfig` to `XCodeWrapper/Configs/Local.xcconfig`.
+- Set `DEVELOPMENT_TEAM` in that file, and optionally override the bundle IDs and keychain settings for your local signing namespace.
 - Run `scripts/genxproj` before your initial build, or whenever `project.yml` changes. This script generates `Silveran.xcodeproj`.
 - Run `scripts/genicons` if you want the icon to have the correct icon. You will need `imagemagick` from Homebrew for this step.
 

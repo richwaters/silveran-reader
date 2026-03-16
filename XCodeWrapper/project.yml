@@ -12,40 +12,57 @@ configs:
 packages:
   SilveranKit:
     path: SilveranKit
+targetTemplates:
+  appBase:
+    type: application
+    productName: "Silveran Reader"
+    configFiles:
+      Debug: XCodeWrapper/Configs/Debug.xcconfig
+      Release: XCodeWrapper/Configs/Release.xcconfig
+    settings:
+      base:
+        CURRENT_PROJECT_VERSION: 1
+        DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+        GENERATE_INFOPLIST_FILE: NO
+        MARKETING_VERSION: 0.1
+        PRODUCT_NAME: Silveran Reader
+        SWIFT_VERSION: 6.2
+
 targets:
   Silveran Reader (macOS):
-    type: application
+    templates:
+      - appBase
     platform: macOS
     supportedDestinations: [macOS]
-    productName: "Silveran Reader"
     settings:
       base:
         MACOSX_DEPLOYMENT_TARGET: 15.0
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_ENTITLEMENTS: XCodeWrapper/SilveranReaderMac.entitlements
-        CURRENT_PROJECT_VERSION: 1
-        DEVELOPMENT_TEAM: 9CJ7KG7UKQ
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.books
-        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        MARKETING_VERSION: 0.1
-        PRODUCT_BUNDLE_IDENTIFIER: com.kyonifer.SilveranReader
+        INFOPLIST_FILE: XCodeWrapper/Info-macOS.plist
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
         #INFOPLIST_KEY_CFBundleDisplayName: Silveran Reader
         #INFOPLIST_KEY_CFBundleName: Silveran Reader
         # Unknown why this redundant definition is needed for XCode to honor the app name
-        PRODUCT_NAME: Silveran Reader
         #SWIFT_UPCOMING_FEATURE_NONSENDING_NONISOLATING_BY_DEFAULT: YES
-        SWIFT_VERSION: 6.2
+    info:
+      path: XCodeWrapper/Info-macOS.plist
+      properties:
+        CFBundleName: "Silveran Reader"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        LSApplicationCategoryType: "public.app-category.books"
+        NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
+        ITSAppUsesNonExemptEncryption: false
     sources:
       - path: XCodeWrapper
-        excludes:
-          - "**/*.entitlements"
-          - "**/.DS_Store"
-          - "WebResources/"
-          - "Assets.xcassets/"
-          - "project.yml"
-          - "PrivacyInfo.xcprivacy"
+        includes:
+          - "**/*.swift"
       - path: XCodeWrapper/Assets.xcassets
         type: assetcatalog
       - path: XCodeWrapper/PrivacyInfo.xcprivacy
@@ -71,26 +88,20 @@ targets:
         product: SilveranKitMacApp
 
   Silveran Reader (iOS):
-    type: application
+    templates:
+      - appBase
     platform: iOS
-    productName: "Silveran Reader"
     settings:
       base:
         IPHONEOS_DEPLOYMENT_TARGET: 17.0
         CODE_SIGN_ENTITLEMENTS: XCodeWrapper/SilveranReaderIos.entitlements
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 1
-        DEVELOPMENT_TEAM: 9CJ7KG7UKQ
-        GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: XCodeWrapper/Info-iOS.plist
-        MARKETING_VERSION: 0.1
-        PRODUCT_BUNDLE_IDENTIFIER: com.kyonifer.SilveranReader
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
         #INFOPLIST_KEY_CFBundleDisplayName: Silveran Reader
         #INFOPLIST_KEY_CFBundleName: Silveran Reader
-        PRODUCT_NAME: Silveran Reader
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         #SWIFT_UPCOMING_FEATURE_NONSENDING_NONISOLATING_BY_DEFAULT: YES
-        SWIFT_VERSION: 6.2
     info:
       path: XCodeWrapper/Info-iOS.plist
       properties:
@@ -101,6 +112,8 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
         CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
         LSApplicationCategoryType: "public.app-category.books"
         NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
         UILaunchScreen: {}
@@ -124,13 +137,8 @@ targets:
                 UISceneDelegateClassName: SilveranKitiOSApp.CarPlaySceneDelegate
     sources:
       - path: XCodeWrapper
-        excludes:
-          - "**/*.entitlements"
-          - "**/.DS_Store"
-          - "WebResources/"
-          - "Assets.xcassets/"
-          - "project.yml"
-          - "PrivacyInfo.xcprivacy"
+        includes:
+          - "**/*.swift"
       - path: XCodeWrapper/Assets.xcassets
         type: assetcatalog
       - path: XCodeWrapper/PrivacyInfo.xcprivacy
@@ -157,25 +165,33 @@ targets:
       - target: "Silveran Reader (watchOS)"
         embed: true
   Silveran Reader (watchOS):
-    type: application
+    templates:
+      - appBase
     platform: watchOS
-    productName: "Silveran Reader"
     settings:
       base:
         WATCHOS_DEPLOYMENT_TARGET: 10.0
         CODE_SIGN_ENTITLEMENTS: XCodeWrapper/SilveranReaderWatch.entitlements
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 1
-        DEVELOPMENT_TEAM: 9CJ7KG7UKQ
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_WKBackgroundModes: audio
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.kyonifer.SilveranReader
-        MARKETING_VERSION: 0.1
-        PRODUCT_BUNDLE_IDENTIFIER: com.kyonifer.SilveranReader.watchkitapp
-        PRODUCT_NAME: Silveran Reader
-        SWIFT_VERSION: 6.2
+        INFOPLIST_FILE: XCodeWrapper/Info-watchOS.plist
+        PRODUCT_BUNDLE_IDENTIFIER: "$(WATCH_APP_BUNDLE_ID)"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_CFBundleIconName: AppIcon
+    info:
+      path: XCodeWrapper/Info-watchOS.plist
+      properties:
+        CFBundleName: "Silveran Reader"
+        CFBundleDisplayName: "Silveran Reader"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
+        WKApplication: true
+        WKBackgroundModes:
+          - audio
+        WKCompanionAppBundleIdentifier: "$(APP_BUNDLE_ID)"
     sources:
       - path: XCodeWrapper/EntryPointStub.swift
       - path: XCodeWrapper/WatchAssets.xcassets
@@ -184,23 +200,16 @@ targets:
       - package: SilveranKit
         product: SilveranKitWatchApp
   Silveran Reader (tvOS):
-    type: application
+    templates:
+      - appBase
     platform: tvOS
-    productName: "Silveran Reader"
     settings:
       base:
         TVOS_DEPLOYMENT_TARGET: 17.0
         CODE_SIGN_ENTITLEMENTS: XCodeWrapper/SilveranReaderTV.entitlements
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 1
-        DEVELOPMENT_TEAM: 9CJ7KG7UKQ
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
-        MARKETING_VERSION: 0.1
-        PRODUCT_BUNDLE_IDENTIFIER: com.kyonifer.SilveranReader
-        PRODUCT_NAME: Silveran Reader
-        SWIFT_VERSION: 6.2
+        INFOPLIST_FILE: XCodeWrapper/Info-tvOS.plist
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
         ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon"
     info:
       path: XCodeWrapper/Info-tvOS.plist
@@ -212,8 +221,11 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundlePackageType: "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
         CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
+        KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
         LSApplicationCategoryType: "public.app-category.books"
         UILaunchScreen: {}
+        UIUserInterfaceStyle: Automatic
         UIBackgroundModes:
           - audio
         ITSAppUsesNonExemptEncryption: false

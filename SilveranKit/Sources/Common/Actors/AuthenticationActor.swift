@@ -5,13 +5,18 @@ import Security
 public actor AuthenticationActor {
     public static let shared = AuthenticationActor()
 
-    private let service = "com.kyonifer.silveran.storyteller"
-    private let accessGroup = "9CJ7KG7UKQ.com.kyonifer.silveran.shared"
+    private let service: String
+    private let accessGroup: String
     private let serverURLKey = "serverURL"
     private let usernameKey = "username"
     private let passwordKey = "password"
+    private static let serviceInfoKey = "KEYCHAIN_SERVICE"
+    private static let accessGroupInfoKey = "KEYCHAIN_ACCESS_GROUP"
 
-    private init() {}
+    private init() {
+        service = Self.requiredInfoValue(for: Self.serviceInfoKey)
+        accessGroup = Self.requiredInfoValue(for: Self.accessGroupInfoKey)
+    }
 
     public func saveCredentials(url: String, username: String, password: String) async throws {
         try await deleteCredentials()
@@ -109,6 +114,21 @@ public actor AuthenticationActor {
         }
 
         return string
+    }
+
+    nonisolated private static func infoValue(for key: String) -> String? {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String else {
+            return nil
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    nonisolated private static func requiredInfoValue(for key: String) -> String {
+        guard let value = infoValue(for: key) else {
+            preconditionFailure("Missing required Info.plist value for \(key)")
+        }
+        return value
     }
 }
 
