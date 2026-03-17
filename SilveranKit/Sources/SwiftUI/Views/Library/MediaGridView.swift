@@ -560,7 +560,6 @@ struct MediaGridView: View {
             }
             #endif
             .frame(width: contentWidth)
-            .contentMargins(.trailing, 10, for: .scrollIndicators)
             .scrollClipDisabled(true)
             .modifier(SoftScrollEdgeModifier())
             .contentShape(Rectangle())
