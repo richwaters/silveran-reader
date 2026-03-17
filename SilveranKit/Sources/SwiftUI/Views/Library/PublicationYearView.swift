@@ -188,7 +188,7 @@ extension PublicationYearView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Publication Year").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -224,7 +224,6 @@ extension PublicationYearView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Publication Year",
                             sidebarTitle: "Years",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -307,7 +306,7 @@ extension PublicationYearView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Publication Year").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

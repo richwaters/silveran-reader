@@ -125,13 +125,13 @@ public class LibrarySidebarModel {
     private static func booksSubItems(parent: String) -> [SidebarItemDescription] {
         [
             SidebarItemDescription(
-                name: "By Series",
+                name: "Series",
                 systemImage: "books.vertical",
                 badge: -1,
                 content: .placeholder(title: "\(parent) by Series")
             ),
             SidebarItemDescription(
-                name: "By Author",
+                name: "Author",
                 systemImage: "person.2",
                 badge: -1,
                 content: .placeholder(title: "\(parent) by Author")

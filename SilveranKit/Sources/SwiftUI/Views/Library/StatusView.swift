@@ -115,7 +115,7 @@ extension StatusView {
                     case .fan, .grid: fanGridContent
                 }
             }
-            .navigationTitle("By Status").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Status").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -202,7 +202,7 @@ extension StatusView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Status").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Status").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -238,7 +238,6 @@ extension StatusView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Status",
                             sidebarTitle: "Status",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -321,7 +320,7 @@ extension StatusView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Status").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Status").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

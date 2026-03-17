@@ -191,7 +191,7 @@ extension RatingView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Rating").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -227,7 +227,6 @@ extension RatingView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Rating",
                             sidebarTitle: "Ratings",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -310,7 +309,7 @@ extension RatingView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Rating").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

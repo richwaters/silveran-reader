@@ -216,7 +216,7 @@ extension AuthorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Author").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -256,7 +256,6 @@ extension AuthorView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Author",
                             sidebarTitle: "Authors",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -341,7 +340,7 @@ extension AuthorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Author").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

@@ -204,7 +204,7 @@ extension TagView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Tag").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -244,7 +244,6 @@ extension TagView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Tag",
                             sidebarTitle: "Tags",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
@@ -329,7 +328,7 @@ extension TagView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Tag").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }

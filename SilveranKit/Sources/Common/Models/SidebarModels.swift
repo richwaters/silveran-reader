@@ -218,55 +218,55 @@ public enum LibrarySidebarDefaults {
                 name: "Library",
                 items: [
                     SidebarItemDescription(
-                        name: "By Series",
+                        name: "Series",
                         systemImage: "books.vertical",
                         badge: -1,
                         content: .seriesView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Author",
+                        name: "Author",
                         systemImage: "person.2",
                         badge: -1,
                         content: .authorView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Narrator",
+                        name: "Narrator",
                         systemImage: "mic",
                         badge: -1,
                         content: .narratorView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Translator",
+                        name: "Translator",
                         systemImage: "character.book.closed.fill",
                         badge: -1,
                         content: .translatorView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Tag",
+                        name: "Tag",
                         systemImage: "tag",
                         badge: -1,
                         content: .tagView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Publication Year",
+                        name: "Pub Year",
                         systemImage: "calendar",
                         badge: -1,
                         content: .publicationYearView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Rating",
+                        name: "Rating",
                         systemImage: "star",
                         badge: -1,
                         content: .ratingView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Status",
+                        name: "Status",
                         systemImage: "arrow.right.circle",
                         badge: -1,
                         content: .statusView(.ebook)
                     ),
                     SidebarItemDescription(
-                        name: "By Source",
+                        name: "Source",
                         systemImage: "externaldrive",
                         badge: -1,
                         content: .sourceView(.ebook)

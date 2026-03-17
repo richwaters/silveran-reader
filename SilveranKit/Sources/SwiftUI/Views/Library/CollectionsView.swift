@@ -238,7 +238,6 @@ extension CollectionsView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Server Collections",
                             sidebarTitle: "Collections",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,

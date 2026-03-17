@@ -243,7 +243,6 @@ extension SmartShelvesView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "Smart Shelves",
                             sidebarTitle: "Shelves",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,

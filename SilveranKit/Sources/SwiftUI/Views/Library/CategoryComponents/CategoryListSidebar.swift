@@ -7,7 +7,6 @@ struct CategoryListSidebar<
     ToolbarContent: View,
     ContextMenu: View
 >: View {
-    let headerTitle: String
     let sidebarTitle: String
     let groups: [CategoryGroup]
     @Binding var selectedGroupId: String?
@@ -19,7 +18,6 @@ struct CategoryListSidebar<
     let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     init(
-        headerTitle: String,
         sidebarTitle: String,
         groups: [CategoryGroup],
         selectedGroupId: Binding<String?>,
@@ -30,7 +28,6 @@ struct CategoryListSidebar<
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
         @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
-        self.headerTitle = headerTitle
         self.sidebarTitle = sidebarTitle
         self.groups = groups
         self._selectedGroupId = selectedGroupId
@@ -56,9 +53,12 @@ struct CategoryListSidebar<
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(headerTitle)
+            Text(sidebarTitle)
                 .font(.system(size: 32, weight: .regular, design: .serif))
+                .lineLimit(1)
+                .truncationMode(.tail)
             HStack {
+                SidebarSortButton(sortByCount: $sortByCount)
                 toolbarContent()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -81,17 +81,6 @@ struct CategoryListSidebar<
 
     private var sidebarList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(sidebarTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                SidebarSortButton(sortByCount: $sortByCount)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(sortedGroups) { group in
@@ -131,7 +120,6 @@ struct CategoryListSidebar<
 
 extension CategoryListSidebar where ContextMenu == EmptyView {
     init(
-        headerTitle: String,
         sidebarTitle: String,
         groups: [CategoryGroup],
         selectedGroupId: Binding<String?>,
@@ -141,7 +129,6 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
     ) {
-        self.headerTitle = headerTitle
         self.sidebarTitle = sidebarTitle
         self.groups = groups
         self._selectedGroupId = selectedGroupId

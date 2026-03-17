@@ -114,7 +114,7 @@ extension SourceView {
                     case .fan, .grid: fanGridContent
                 }
             }
-            .navigationTitle("By Source").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Sources").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -201,7 +201,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Source").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -237,8 +237,7 @@ extension SourceView {
                 switch layoutStyle {
                     case .list:
                         CategoryListSidebar(
-                            headerTitle: "By Source",
-                            sidebarTitle: "Source",
+                            sidebarTitle: "Sources",
                             groups: categoryGroups,
                             selectedGroupId: $selectedGroupId,
                             listWidth: $listWidth,
@@ -320,7 +319,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("By Source").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
             stickyHeaderView
         }
     }
