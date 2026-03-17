@@ -292,10 +292,12 @@ struct DraggableAudioCard<FullContent: View>: View {
     }
 
     private var chapterTimeRemaining: TimeInterval? {
-        guard let elapsed = chapterElapsedSeconds, let total = chapterTotalSeconds else {
+        guard let elapsed = chapterElapsedSeconds, let total = chapterTotalSeconds,
+            playbackRate > 0
+        else {
             return nil
         }
-        return max(0, total - elapsed)
+        return max(0, total - elapsed) / playbackRate
     }
 
     private func handleDragEnd(translation: CGFloat, velocity: CGFloat, screenHeight: CGFloat) {
