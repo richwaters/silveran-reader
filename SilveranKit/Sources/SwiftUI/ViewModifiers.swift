@@ -13,20 +13,33 @@ struct SoftScrollEdgeModifier: ViewModifier {
 #if os(macOS)
 import AppKit
 
+/// Tracks how much a window has been expanded by sidebars so we can
+/// always derive the base content width: `window.frame.width - right - left`.
 @MainActor
 private final class WindowExpansionState {
     static let shared = WindowExpansionState()
     private var windowStates: [ObjectIdentifier: (right: CGFloat, left: CGFloat)] = [:]
 
-    func getExpansion(for window: NSWindow) -> (right: CGFloat, left: CGFloat) {
-        return windowStates[ObjectIdentifier(window)] ?? (0, 0)
+    func get(for window: NSWindow) -> (right: CGFloat, left: CGFloat) {
+        windowStates[ObjectIdentifier(window)] ?? (0, 0)
     }
 
-    func setExpansion(for window: NSWindow, right: CGFloat, left: CGFloat) {
+    func set(for window: NSWindow, right: CGFloat, left: CGFloat) {
         windowStates[ObjectIdentifier(window)] = (right, left)
+    }
+
+    func baseWidth(for window: NSWindow) -> CGFloat {
+        let exp = get(for: window)
+        return window.frame.width - exp.right - exp.left
     }
 }
 
+/// Expands a window outward when sidebars open, contracts when they close,
+/// and persists the base (no-sidebar) width to UserDefaults.
+///
+/// Invariant: UserDefaults[savedWidthKey] always stores the base content width
+/// (with no sidebar expansion). On restore we add back whatever sidebars are
+/// currently requested.
 struct WindowFrameAdjuster: NSViewRepresentable {
     let expandRight: Bool
     let expandLeft: Bool
@@ -56,186 +69,186 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         self.savedWidthKey = savedWidthKey
     }
 
-    func makeNSView(context: Context) -> NSView {
-        NSView()
-    }
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
             guard let window = nsView.window else { return }
+            let c = context.coordinator
+            c.window = window
+            c.rightAmount = rightAmount
+            c.leftAmount = leftAmount
+            c.savedWidthKey = savedWidthKey
 
-            let coordinator = context.coordinator
-            coordinator.window = window
-            coordinator.rightAmount = rightAmount
-            coordinator.leftAmount = leftAmount
-
-            let sharedState = WindowExpansionState.shared
-            let currentExpansion = sharedState.getExpansion(for: window)
-
-            if !coordinator.initialized {
-                coordinator.initialized = true
-                coordinator.lastExpandedRight = expandRight
-                coordinator.lastExpandedLeft = expandLeft
-                setupResizeObserver(window: window, coordinator: coordinator)
-
-                if let key = savedWidthKey,
-                    let savedWidth = UserDefaults.standard.object(forKey: key) as? CGFloat,
-                    savedWidth > 0
-                {
-                    let expectedWidth = savedWidth + currentExpansion.right + currentExpansion.left
-                    if abs(window.frame.width - expectedWidth) > 1 {
-                        var frame = window.frame
-                        frame.size.width = expectedWidth
-                        window.setFrame(frame, display: true, animate: false)
-                    }
-                }
-
-                if expandRight && currentExpansion.right == 0 {
-                    var frame = window.frame
-                    frame.size.width += rightAmount
-                    sharedState.setExpansion(
-                        for: window,
-                        right: rightAmount,
-                        left: currentExpansion.left
-                    )
-                    window.setFrame(frame, display: true, animate: true)
-                }
-                if expandLeft && currentExpansion.left == 0 {
-                    var frame = window.frame
-                    frame.size.width += leftAmount
-                    frame.origin.x -= leftAmount
-                    sharedState.setExpansion(
-                        for: window,
-                        right: currentExpansion.right,
-                        left: leftAmount
-                    )
-                    window.setFrame(frame, display: true, animate: true)
-                }
-                return
+            if !c.initialized {
+                initialize(window: window, coordinator: c)
+            } else {
+                handleSidebarChange(window: window, coordinator: c)
             }
+        }
+    }
 
+    // MARK: - Init (first updateNSView only)
+
+    private func initialize(window: NSWindow, coordinator c: Coordinator) {
+        c.initialized = true
+        c.lastExpandRight = expandRight
+        c.lastExpandLeft = expandLeft
+
+        let state = WindowExpansionState.shared
+
+        // 1. Determine base width: saved value or current window width.
+        let baseWidth: CGFloat
+        if let key = savedWidthKey,
+            let saved = UserDefaults.standard.object(forKey: key) as? CGFloat,
+            saved > 0
+        {
+            baseWidth = saved
+        } else {
+            baseWidth = window.frame.width
+        }
+
+        // 2. Compute target = base + whichever sidebars are open right now.
+        let targetRight: CGFloat = expandRight ? rightAmount : 0
+        let targetLeft: CGFloat = expandLeft ? leftAmount : 0
+        let targetWidth = baseWidth + targetRight + targetLeft
+
+        // 3. Set frame if it differs.
+        if abs(window.frame.width - targetWidth) > 1 {
             var frame = window.frame
-            var needsUpdate = false
-            var newRight = currentExpansion.right
-            var newLeft = currentExpansion.left
+            frame.size.width = targetWidth
+            window.setFrame(frame, display: true, animate: false)
+        }
 
-            if expandRight != coordinator.lastExpandedRight {
-                if expandRight && currentExpansion.right == 0 {
-                    frame.size.width += rightAmount
-                    newRight = rightAmount
-                    needsUpdate = true
-                } else if !expandRight && currentExpansion.right > 0 {
-                    frame.size.width -= rightAmount
-                    newRight = 0
-                    needsUpdate = true
-                }
-                coordinator.lastExpandedRight = expandRight
-            }
+        // 4. Record expansion so future toggles know the current state.
+        state.set(for: window, right: targetRight, left: targetLeft)
 
-            if expandLeft != coordinator.lastExpandedLeft {
-                if expandLeft && currentExpansion.left == 0 {
-                    frame.size.width += leftAmount
-                    frame.origin.x -= leftAmount
-                    newLeft = leftAmount
-                    needsUpdate = true
-                } else if !expandLeft && currentExpansion.left > 0 {
-                    frame.size.width -= leftAmount
-                    frame.origin.x += leftAmount
-                    newLeft = 0
-                    needsUpdate = true
-                }
-                coordinator.lastExpandedLeft = expandLeft
-            }
-
-            if needsUpdate {
-                sharedState.setExpansion(for: window, right: newRight, left: newLeft)
-                window.setFrame(frame, display: true, animate: true)
-            }
+        // 5. Start observing resizes to persist base width.
+        if let key = savedWidthKey {
+            setupResizeObserver(window: window, coordinator: c, key: key)
         }
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
+    // MARK: - Sidebar toggle (subsequent updateNSView calls)
 
-    private func setupResizeObserver(window: NSWindow, coordinator: Coordinator) {
-        guard let key = savedWidthKey, coordinator.resizeObserver == nil else { return }
+    private func handleSidebarChange(window: NSWindow, coordinator c: Coordinator) {
+        let state = WindowExpansionState.shared
+        let exp = state.get(for: window)
+        var frame = window.frame
+        var newRight = exp.right
+        var newLeft = exp.left
+        var changed = false
 
-        coordinator.resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: window,
-            queue: .main
-        ) { _ in
-            MainActor.assumeIsolated {
-                if window.contentView?.inLiveResize == true {
-                    return
-                }
-                let expansion = WindowExpansionState.shared.getExpansion(for: window)
-                guard expansion.right == 0 && expansion.left == 0 else { return }
-                UserDefaults.standard.set(window.frame.width, forKey: key)
+        if expandRight != c.lastExpandRight {
+            if expandRight && exp.right == 0 {
+                frame.size.width += rightAmount
+                newRight = rightAmount
+                changed = true
+            } else if !expandRight && exp.right > 0 {
+                frame.size.width -= rightAmount
+                newRight = 0
+                changed = true
             }
+            c.lastExpandRight = expandRight
         }
 
-        coordinator.resizeEndObserver = NotificationCenter.default.addObserver(
+        if expandLeft != c.lastExpandLeft {
+            if expandLeft && exp.left == 0 {
+                frame.size.width += leftAmount
+                frame.origin.x -= leftAmount
+                newLeft = leftAmount
+                changed = true
+            } else if !expandLeft && exp.left > 0 {
+                frame.size.width -= leftAmount
+                frame.origin.x += leftAmount
+                newLeft = 0
+                changed = true
+            }
+            c.lastExpandLeft = expandLeft
+        }
+
+        if changed {
+            state.set(for: window, right: newRight, left: newLeft)
+            window.setFrame(frame, display: true, animate: true)
+            saveBaseWidth(window: window)
+        }
+    }
+
+    // MARK: - Persistence
+
+    private func saveBaseWidth(window: NSWindow) {
+        guard let key = savedWidthKey else { return }
+        let base = WindowExpansionState.shared.baseWidth(for: window)
+        UserDefaults.standard.set(base, forKey: key)
+    }
+
+    private func setupResizeObserver(window: NSWindow, coordinator c: Coordinator, key: String) {
+        c.resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEndLiveResizeNotification,
             object: window,
             queue: .main
-        ) { _ in
+        ) { [weak c] _ in
             MainActor.assumeIsolated {
-                let expansion = WindowExpansionState.shared.getExpansion(for: window)
-                guard expansion.right == 0 && expansion.left == 0 else { return }
-                UserDefaults.standard.set(window.frame.width, forKey: key)
+                guard c != nil else { return }
+                let base = WindowExpansionState.shared.baseWidth(for: window)
+                UserDefaults.standard.set(base, forKey: key)
             }
         }
     }
 
+    // MARK: - Coordinator
+
     class Coordinator {
         var initialized = false
-        var lastExpandedRight = false
-        var lastExpandedLeft = false
+        var lastExpandRight = false
+        var lastExpandLeft = false
         var resizeObserver: Any?
-        var resizeEndObserver: Any?
         weak var window: NSWindow?
         var rightAmount: CGFloat = 0
         var leftAmount: CGFloat = 0
+        var savedWidthKey: String?
 
         deinit {
             if let observer = resizeObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
-            if let observer = resizeEndObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
             guard let window else { return }
 
-            let capturedWindow = window
-            let capturedLastExpandedRight = lastExpandedRight
-            let capturedLastExpandedLeft = lastExpandedLeft
-            let capturedRightAmount = rightAmount
-            let capturedLeftAmount = leftAmount
+            let w = window
+            let wasRight = lastExpandRight
+            let wasLeft = lastExpandLeft
+            let rAmt = rightAmount
+            let lAmt = leftAmount
+            let key = savedWidthKey
 
             DispatchQueue.main.async {
-                let sharedState = WindowExpansionState.shared
-                let currentExpansion = sharedState.getExpansion(for: capturedWindow)
-                var frame = capturedWindow.frame
-                var newRight = currentExpansion.right
-                var newLeft = currentExpansion.left
-                var needsUpdate = false
+                let state = WindowExpansionState.shared
+                let exp = state.get(for: w)
+                var frame = w.frame
+                var newRight = exp.right
+                var newLeft = exp.left
+                var changed = false
 
-                if capturedLastExpandedRight && currentExpansion.right > 0 {
-                    frame.size.width -= capturedRightAmount
+                if wasRight && exp.right > 0 {
+                    frame.size.width -= rAmt
                     newRight = 0
-                    needsUpdate = true
+                    changed = true
                 }
-                if capturedLastExpandedLeft && currentExpansion.left > 0 {
-                    frame.size.width -= capturedLeftAmount
-                    frame.origin.x += capturedLeftAmount
+                if wasLeft && exp.left > 0 {
+                    frame.size.width -= lAmt
+                    frame.origin.x += lAmt
                     newLeft = 0
-                    needsUpdate = true
+                    changed = true
                 }
-                if needsUpdate {
-                    sharedState.setExpansion(for: capturedWindow, right: newRight, left: newLeft)
-                    capturedWindow.setFrame(frame, display: true, animate: false)
+                if changed {
+                    state.set(for: w, right: newRight, left: newLeft)
+                    w.setFrame(frame, display: true, animate: false)
+                }
+                if let key {
+                    let base = state.baseWidth(for: w)
+                    UserDefaults.standard.set(base, forKey: key)
                 }
             }
         }
