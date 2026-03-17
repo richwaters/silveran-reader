@@ -44,8 +44,6 @@ struct HomeView: View {
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
     @State private var cardTapInProgress: Bool = false
-    @State private var baseContentWidth: CGFloat?
-    @State private var isAnimatingSidebar = false
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
@@ -68,7 +66,6 @@ struct HomeView: View {
 
     private let sidebarWidth: CGFloat = 340
     #if os(macOS)
-    private let sidebarTotalWidth: CGFloat = 341
     #endif
     private let horizontalPadding: CGFloat = 24
     private let verticalPadding: CGFloat = 28
@@ -173,11 +170,6 @@ struct HomeView: View {
         GeometryReader { geometry in
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && selectedItem != nil
-            let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
-            let contentWidth =
-                isAnimatingSidebar
-                ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment))
-                : (geometry.size.width - sidebarAdjustment)
             #endif
 
             HStack(spacing: 0) {
@@ -275,9 +267,6 @@ struct HomeView: View {
                             }
                         }
                     }
-                    #if os(macOS)
-                    .frame(width: contentWidth, height: geometry.size.height)
-                    #endif
                     .contentShape(Rectangle())
                     .onTapGesture {
                         #if os(macOS)
@@ -320,25 +309,11 @@ struct HomeView: View {
                 #endif
             }
             #if os(macOS)
-            .onChange(of: isSidebarVisible) { _, newValue in
-                let currentAdj: CGFloat = newValue ? 0 : sidebarTotalWidth
-                baseContentWidth = geometry.size.width - currentAdj
-                isAnimatingSidebar = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    isAnimatingSidebar = false
-                }
-            }
+            .animation(.easeInOut(duration: 0.25), value: shouldShowSidebar)
             #endif
         }
         #if os(macOS)
         .clipped()
-        .background(
-            WindowFrameAdjuster(
-                expandRight: isSidebarVisible && selectedItem != nil,
-                rightAmount: sidebarTotalWidth,
-                savedWidthKey: "LibraryWindowWidth"
-            )
-        )
         .focusable(true)
         .focusEffectDisabled(true)
         .onMoveCommand(perform: handleMoveCommand)

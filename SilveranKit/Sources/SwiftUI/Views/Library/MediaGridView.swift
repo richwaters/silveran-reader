@@ -113,8 +113,6 @@ struct MediaGridView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
-    @State private var baseContentWidth: CGFloat?
-    @State private var isAnimatingSidebar = false
     #endif
 
     @State private var activeInfoItem: BookMetadata? = nil
@@ -447,7 +445,6 @@ struct MediaGridView: View {
     }
 
     #if os(macOS)
-    private let sidebarTotalWidth: CGFloat = 341
     #endif
 
     var body: some View {
@@ -455,11 +452,12 @@ struct MediaGridView: View {
             #if os(macOS)
             let shouldShowSidebar = isSidebarVisible && activeInfoItem != nil
             let usesTableLayout = layoutStyle == .table
-            let sidebarAdjustment: CGFloat = shouldShowSidebar ? sidebarTotalWidth : 0
+            let availableWidth = geometry.size.width
+            let detailWidth = sidebarWidth + sidebarSpacing
             let contentWidth =
-                isAnimatingSidebar
-                ? (baseContentWidth ?? (geometry.size.width - sidebarAdjustment))
-                : (geometry.size.width - sidebarAdjustment)
+                shouldShowSidebar
+                ? max(availableWidth - detailWidth, 0)
+                : max(availableWidth, platformMinimumWidth)
 
             HStack(spacing: 0) {
                 mainContent(
@@ -499,29 +497,12 @@ struct MediaGridView: View {
                     }
                 }
             }
-            .onChange(of: isSidebarVisible) { _, newValue in
-                let currentAdj: CGFloat = newValue ? 0 : sidebarTotalWidth
-                baseContentWidth = geometry.size.width - currentAdj
-                isAnimatingSidebar = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    isAnimatingSidebar = false
-                }
-            }
+            .animation(.easeInOut(duration: 0.25), value: shouldShowSidebar)
             #else
             let contentWidth = max(geometry.size.width, platformMinimumWidth)
             scrollableContent(for: max(contentWidth, minimumTileWidth))
             #endif
         }
-        #if os(macOS)
-        .clipped()
-        .background(
-            WindowFrameAdjuster(
-                expandRight: isSidebarVisible && activeInfoItem != nil,
-                rightAmount: sidebarTotalWidth,
-                savedWidthKey: "LibraryWindowWidth"
-            )
-        )
-        #endif
         .frame(minWidth: platformMinimumWidth)
         #if os(macOS)
         .ignoresSafeArea(.container, edges: .top)
