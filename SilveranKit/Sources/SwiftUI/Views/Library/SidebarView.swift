@@ -12,6 +12,7 @@ struct SidebarView: View {
     #if os(macOS)
     @State private var editingShelf: SmartShelf?
     @State private var showCustomizeSidebar: Bool = false
+    @State private var showCustomizeSidebarWithDashboard: Bool = false
     #endif
 
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
@@ -68,6 +69,14 @@ struct SidebarView: View {
     }
 
     static func resolveDynamicPin(id: String) -> SidebarItemDescription? {
+        if id.hasPrefix("pin.sidebar:") {
+            let stableId = String(id.dropFirst("pin.sidebar:".count))
+            guard var description = SidebarConfigHelper.defaultItemLookup[stableId] else {
+                return nil
+            }
+            description.id = id
+            return description
+        }
         if id.hasPrefix("pin.series:") {
             let name = String(id.dropFirst("pin.series:".count))
             return SidebarItemDescription(
@@ -306,6 +315,9 @@ struct SidebarView: View {
         .sheet(isPresented: $showCustomizeSidebar) {
             CustomizeSidebarView()
         }
+        .sheet(isPresented: $showCustomizeSidebarWithDashboard) {
+            CustomizeSidebarView(showHomeSectionsOnAppear: true)
+        }
         #endif
     }
 
@@ -455,6 +467,33 @@ struct SidebarView: View {
                     Label("Delete Shelf", systemImage: "trash")
                 }
             }
+        }
+
+        if !isPinned && item.content == .home {
+            Button {
+                showCustomizeSidebarWithDashboard = true
+            } label: {
+                Label("Edit Dashboard", systemImage: "gearshape")
+            }
+        }
+
+        if !isPinned && item.content != .home {
+            let dashboardPinId = "pin.sidebar:\(item.content.stableIdentifier)"
+            if !SidebarPinHelper.isPinned(dashboardPinId) {
+                Button {
+                    SidebarPinHelper.addToDashboard(item.content.stableIdentifier)
+                } label: {
+                    Label("Add to Dashboard", systemImage: "house")
+                }
+            }
+        }
+
+        Divider()
+
+        Button {
+            showCustomizeSidebar = true
+        } label: {
+            Label("Edit Sidebar...", systemImage: "sidebar.left")
         }
     }
     #endif

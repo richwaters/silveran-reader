@@ -82,6 +82,10 @@ enum HomeSectionConfigHelper {
     }
 
     private static func pinDisplayName(for id: String) -> String? {
+        if id.hasPrefix("pin.sidebar:") {
+            let stableId = String(id.dropFirst("pin.sidebar:".count))
+            return SidebarConfigHelper.defaultItemLookup[stableId]?.name
+        }
         if id.hasPrefix("pin.series:") { return String(id.dropFirst("pin.series:".count)) }
         if id.hasPrefix("pin.author:") { return String(id.dropFirst("pin.author:".count)) }
         if id.hasPrefix("pin.collection:") { return String(id.dropFirst("pin.collection:".count)) }
@@ -99,6 +103,10 @@ enum HomeSectionConfigHelper {
     }
 
     private static func pinSystemImage(for id: String) -> String? {
+        if id.hasPrefix("pin.sidebar:") {
+            let stableId = String(id.dropFirst("pin.sidebar:".count))
+            return SidebarConfigHelper.defaultItemLookup[stableId]?.systemImage
+        }
         if id.hasPrefix("pin.series:") { return "books.vertical" }
         if id.hasPrefix("pin.author:") { return "person.2" }
         if id.hasPrefix("pin.collection:") { return "rectangle.stack" }
@@ -193,6 +201,41 @@ enum SidebarPinHelper {
         SidebarConfigHelper.config = groups
     }
 
+    static func addToDashboard(_ stableId: String) {
+        let pinId = "pin.sidebar:\(stableId)"
+        var groups = SidebarConfigHelper.config
+
+        let newItem = SidebarConfigItem(id: pinId, visible: false, permanent: false)
+
+        var inserted = false
+        for i in groups.indices {
+            if let markerIndex = groups[i].items.firstIndex(where: {
+                $0.id == SidebarConfigHelper.newPinLocationMarker
+            }) {
+                groups[i].items.insert(newItem, at: markerIndex)
+                inserted = true
+                break
+            }
+        }
+        if !inserted {
+            if let pinsIndex = groups.firstIndex(where: { $0.name == "Pins" }) {
+                groups[pinsIndex].items.insert(newItem, at: 0)
+            } else if !groups.isEmpty {
+                groups[0].items.append(newItem)
+            }
+        }
+        SidebarConfigHelper.config = groups
+
+        var homeConfig = HomeSectionConfigHelper.config
+        if let idx = homeConfig.firstIndex(where: { $0.id == pinId }) {
+            homeConfig[idx].visible = true
+        } else {
+            homeConfig.append(HomeSectionConfigItem(id: pinId, visible: true))
+        }
+        HomeSectionConfigHelper.save(homeConfig)
+    }
+
+    static func pinId(forSidebarItem stableId: String) -> String { "pin.sidebar:\(stableId)" }
     static func pinId(forSeries name: String) -> String { "pin.series:\(name)" }
     static func pinId(forCollection name: String) -> String { "pin.collection:\(name)" }
     static func pinId(forAuthor name: String) -> String { "pin.author:\(name)" }

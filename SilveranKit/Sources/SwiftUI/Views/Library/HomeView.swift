@@ -646,6 +646,42 @@ struct HomeView: View {
             }
             title = shelf.name
             matched = mediaViewModel.booksForShelf(shelf)
+        } else if pinId.hasPrefix("pin.sidebar:") {
+            let stableId = String(pinId.dropFirst("pin.sidebar:".count))
+            guard let item = SidebarConfigHelper.defaultItemLookup[stableId] else { return nil }
+            title = item.name
+            switch item.content {
+            case .mediaGrid(let config):
+                matched = allBooks
+                if let tag = config.tagFilter {
+                    matched = matched.filter { $0.matchesTag(tag) }
+                }
+                if let series = config.seriesFilter {
+                    matched = matched.filter { $0.matchesSeries(series) }
+                }
+                if let author = config.authorFilter {
+                    matched = matched.filter { $0.matchesAuthor(author) }
+                }
+                if let narrator = config.narratorFilter {
+                    matched = matched.filter { $0.matchesNarrator(narrator) }
+                }
+                if let status = config.statusFilter {
+                    matched = matched.filter { $0.matchesStatus(status) }
+                }
+                if config.locationFilter == .downloaded {
+                    matched = matched.filter {
+                        mediaViewModel.isCategoryDownloaded(.synced, for: $0)
+                            || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
+                    }
+                }
+            case .downloaded:
+                matched = allBooks.filter {
+                    mediaViewModel.isCategoryDownloaded(.synced, for: $0)
+                        || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
+                }
+            default:
+                matched = allBooks
+            }
         } else {
             return nil
         }

@@ -13,9 +13,11 @@ struct CustomizeSidebarView: View {
     @FocusState private var focusedGroupId: UUID?
 
     private let defaultLookup = SidebarConfigHelper.defaultItemLookup
+    private let showHomeSectionsOnAppear: Bool
 
-    init() {
+    init(showHomeSectionsOnAppear: Bool = false) {
         _groups = State(initialValue: SidebarConfigHelper.config)
+        self.showHomeSectionsOnAppear = showHomeSectionsOnAppear
     }
 
     var body: some View {
@@ -28,6 +30,13 @@ struct CustomizeSidebarView: View {
         }
         .frame(width: 450, height: 600)
         .background(Color(nsColor: .controlBackgroundColor))
+        .onAppear {
+            if showHomeSectionsOnAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    homePopoverVisible = true
+                }
+            }
+        }
     }
 
     private var headerBar: some View {
@@ -495,6 +504,10 @@ struct CustomizeSidebarView: View {
     }
 
     private func resolveDefaultPinName(for id: String) -> String {
+        if id.hasPrefix("pin.sidebar:") {
+            let stableId = String(id.dropFirst("pin.sidebar:".count))
+            return defaultLookup[stableId]?.name ?? stableId
+        }
         if id.hasPrefix("pin.smartShelf:") {
             let uuidString = String(id.dropFirst("pin.smartShelf:".count))
             if let uuid = UUID(uuidString: uuidString),
@@ -520,6 +533,10 @@ struct CustomizeSidebarView: View {
     }
 
     private func pinSystemImage(for id: String) -> String? {
+        if id.hasPrefix("pin.sidebar:") {
+            let stableId = String(id.dropFirst("pin.sidebar:".count))
+            return defaultLookup[stableId]?.systemImage
+        }
         if id.hasPrefix("pin.series:") { return "books.vertical" }
         if id.hasPrefix("pin.author:") { return "person.2" }
         if id.hasPrefix("pin.collection:") { return "rectangle.stack" }
