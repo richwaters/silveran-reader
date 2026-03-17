@@ -74,8 +74,8 @@ public enum CategoryLayoutStyle: String, CaseIterable, Identifiable, Sendable {
     public var label: String {
         switch self {
             case .list: "List"
-            case .fan: "Fan"
-            case .grid: "Grid"
+            case .fan: "Carousel"
+            case .grid: "Stacks"
         }
     }
 
