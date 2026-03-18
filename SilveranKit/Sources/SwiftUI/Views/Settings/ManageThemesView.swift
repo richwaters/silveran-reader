@@ -26,6 +26,7 @@ struct ManageThemesView: View {
         }
         .sheet(item: $editingTheme) { theme in
             ThemeEditorView(settingsVM: settingsVM, theme: theme)
+                .presentationDetents([.fraction(0.7)])
         }
         #else
         VStack(spacing: 0) {

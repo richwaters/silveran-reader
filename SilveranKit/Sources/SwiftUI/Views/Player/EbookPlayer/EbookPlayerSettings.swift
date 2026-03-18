@@ -289,6 +289,9 @@ struct EbookPlayerSettings: View {
             }
             .sheet(isPresented: $showManageThemes) {
                 ManageThemesView(settingsVM: settingsVM)
+                    #if os(iOS)
+                    .presentationDetents([.fraction(0.7)])
+                    #endif
             }
         }
         .onAppear {
