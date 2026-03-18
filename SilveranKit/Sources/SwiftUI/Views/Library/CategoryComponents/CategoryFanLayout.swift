@@ -4,6 +4,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
     let groups: [CategoryGroup]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
+    let sortByCount: Bool
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
     @ViewBuilder let header: () -> Header
     @ViewBuilder let stickyHeader: () -> StickyHeader
@@ -18,6 +19,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
         @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
@@ -26,10 +28,21 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.onNavigate = onNavigate
         self.header = header
         self.stickyHeader = stickyHeader
         self.contextMenuBuilder = contextMenuBuilder
+    }
+
+    private var sortedGroups: [CategoryGroup] {
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
     }
 
     var body: some View {
@@ -60,7 +73,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                     .padding(.horizontal, horizontalPadding)
 
                 LazyVStack(alignment: .leading, spacing: sectionSpacing) {
-                    ForEach(groups) { group in
+                    ForEach(sortedGroups) { group in
                         CategoryFanSection(
                             group: group,
                             mediaKind: mediaKind,
@@ -183,6 +196,7 @@ extension CategoryFanLayout where ContextMenu == EmptyView {
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
         @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() }
@@ -190,6 +204,7 @@ extension CategoryFanLayout where ContextMenu == EmptyView {
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.onNavigate = onNavigate
         self.header = header
         self.stickyHeader = stickyHeader
@@ -202,12 +217,14 @@ extension CategoryFanLayout where StickyHeader == EmptyView, ContextMenu == Empt
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() }
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.onNavigate = onNavigate
         self.header = header
         self.stickyHeader = { EmptyView() }

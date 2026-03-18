@@ -287,6 +287,7 @@ extension RatingView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
+                sortByCount: sortByCount,
                 onNavigate: handleNavigation
             ) {
                 headerView
@@ -298,6 +299,7 @@ extension RatingView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
+                sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
                 onNavigate: handleNavigation
             ) {
@@ -317,6 +319,7 @@ extension RatingView {
 
     private var stickyHeaderView: some View {
         HStack {
+            SidebarSortButton(sortByCount: $sortByCount)
             CategoryViewOptionsMenu(
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(

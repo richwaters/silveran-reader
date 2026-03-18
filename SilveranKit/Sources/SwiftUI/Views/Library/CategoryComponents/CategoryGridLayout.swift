@@ -4,6 +4,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
     let groups: [CategoryGroup]
     let mediaKind: MediaKind
     let coverPreference: CoverPreference
+    let sortByCount: Bool
     let showBookCountBadge: Bool
     let onNavigate: (CategoryGroup, BookMetadata?) -> Void
     @ViewBuilder let header: () -> Header
@@ -18,6 +19,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
@@ -27,11 +29,22 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.showBookCountBadge = showBookCountBadge
         self.onNavigate = onNavigate
         self.header = header
         self.stickyHeader = stickyHeader
         self.contextMenuBuilder = contextMenuBuilder
+    }
+
+    private var sortedGroups: [CategoryGroup] {
+        guard sortByCount else { return groups }
+        return groups.sorted { lhs, rhs in
+            if lhs.books.count != rhs.books.count {
+                return lhs.books.count > rhs.books.count
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
     }
 
     var body: some View {
@@ -65,7 +78,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                 ]
 
                 LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(groups) { group in
+                    ForEach(sortedGroups) { group in
                         GroupedBooksCardView(
                             title: group.name,
                             books: group.books,
@@ -211,6 +224,7 @@ extension CategoryGridLayout where ContextMenu == EmptyView {
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
@@ -219,6 +233,7 @@ extension CategoryGridLayout where ContextMenu == EmptyView {
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.showBookCountBadge = showBookCountBadge
         self.onNavigate = onNavigate
         self.header = header
@@ -232,6 +247,7 @@ extension CategoryGridLayout where StickyHeader == EmptyView, ContextMenu == Emp
         groups: [CategoryGroup],
         mediaKind: MediaKind,
         coverPreference: CoverPreference,
+        sortByCount: Bool = false,
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() }
@@ -239,6 +255,7 @@ extension CategoryGridLayout where StickyHeader == EmptyView, ContextMenu == Emp
         self.groups = groups
         self.mediaKind = mediaKind
         self.coverPreference = coverPreference
+        self.sortByCount = sortByCount
         self.showBookCountBadge = showBookCountBadge
         self.onNavigate = onNavigate
         self.header = header
