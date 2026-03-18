@@ -187,6 +187,7 @@ struct CategoryRowContent: View {
     let name: String
     let bookCount: Int
     let isSelected: Bool
+    var showBookCount: Bool = true
     var pinId: String? = nil
     var isHovered: Bool = false
 
@@ -213,19 +214,21 @@ struct CategoryRowContent: View {
 
             Spacer()
 
-            Text("\(bookCount)")
-                #if os(iOS)
-            .font(.subheadline)
-                #else
-            .font(.system(size: 12))
-                #endif
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.15))
-                )
+            if showBookCount {
+                Text("\(bookCount)")
+                    #if os(iOS)
+                .font(.subheadline)
+                    #else
+                .font(.system(size: 12))
+                    #endif
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.15))
+                    )
+            }
         }
         .padding(.horizontal, 16)
         #if os(iOS)

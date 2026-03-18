@@ -238,6 +238,7 @@ extension RatingView {
                                     name: group.name,
                                     bookCount: group.books.count,
                                     isSelected: isSelected,
+                                    showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
                                     isHovered: isHovered
                                 )
