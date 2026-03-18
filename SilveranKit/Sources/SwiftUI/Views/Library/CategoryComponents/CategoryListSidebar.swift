@@ -230,10 +230,11 @@ struct CategoryRowContent: View {
                     )
             }
         }
-        .padding(.horizontal, 16)
         #if os(iOS)
+        .padding(.horizontal, 16)
         .padding(.vertical, 12)
         #else
+        .padding(.leading, 8)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 6)
