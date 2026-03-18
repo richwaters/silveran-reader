@@ -176,6 +176,7 @@ targets:
         INFOPLIST_FILE: XCodeWrapper/Info-watchOS.plist
         PRODUCT_BUNDLE_IDENTIFIER: "$(WATCH_APP_BUNDLE_ID)"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_WKBackgroundModes: audio
     info:
       path: XCodeWrapper/Info-watchOS.plist
       properties:
@@ -189,8 +190,6 @@ targets:
         KEYCHAIN_ACCESS_GROUP: "$(KEYCHAIN_ACCESS_GROUP)"
         KEYCHAIN_SERVICE: "$(KEYCHAIN_SERVICE)"
         WKApplication: true
-        WKBackgroundModes:
-          - audio
         WKCompanionAppBundleIdentifier: "$(APP_BUNDLE_ID)"
     sources:
       - path: XCodeWrapper/EntryPointStub.swift
