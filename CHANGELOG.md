@@ -1,39 +1,58 @@
 # Changelog
 
-## [0.1-69] -> [0.1-75]
+## [0.1-69] -> [0.1-88]
 
 ### Features
 
 #### General
 - Resumable downloads with automatic retry and background support
-- New book library view modes: compact grid and list view
-- New series/collection view mode: grid view
-- Configurable home view to pick order and visibility of rows
+- New book library view modes: table view, compact grid, and list view
+- New series/collection view modes: stack, carousel, list view
+- New "By Source" and "By Status" views folded into a unified secondary sidebar
+- User-created highlight themes with editable annotation names
+- Group/expanding highlight support
 - Cover preference can be set to prefer audiobook or ebook
+- Cover size slider with responsive covers
 - Series fan view improvements: carousel for long series, animated pagination, clicking a book opens its sidebar (macOS), first book displayed on top
+- "Sort by" available in all categories including carousel and stack views
+- Metadata links with back navigation support
 - Added support for more metadata: ratings, translators, publication year, last read, etc.
+- Fractional series position numbers
+- Monospace font for progress numbers
+- Book count display in sidebar categories
+- Sticky view options consistent across all views
+- Tags flow to two rows
 
 #### macOS
-- Dynamic shelves with automatic book selection based on customizeable logic
-- Sidebar supports favorites with pinnable views, series, shelves, etc.
-- Overhauled sidebar with collapsible sections and hideable items
+- Smart shelves with metadata filters, pins, badges
+- Fully customizable sidebar: all items pinnable, reorderable, hideable with right-click context menus
+- Glass effect sticky headers on library views
+- Configurable home view with custom rows
+- Secondary sidebar with sort options and compact layout
 - Book info sidebar expands outwards instead of squishing main content
 - Consolidated one-click and two-click modes into one UX (hopefully better than both!)
+- Updated StoryAlign to 1.2
 
 #### iOS
-- Readaloud creation support on server
-- Better small screen layouts for grid views
+- Readaloud creation support
+- New library views including table view
 - Alphabet scrubbing for searching large book listings
+- Improved layouts for small screens
 
 ### Bug Fixes
-
+- Fixed annotation highlight color propagation and theme handling edge cases
+- Fixed hierarchical TOC books
+- Fixed ebook player retaining size/state on reopen
+- Fixed "show below" stats not accounting for playback rate
+- Fixed window width drifting between view switches
+- Sync failure errors can now be dismissed
 - Tags are now sortable and preserve original capitalization
 - Normalized cover sizes across views
-- Grid performance improvements
-- Fixed sidebar icons and reactivity (or lack thereof)
-- Fixed badging and shelf builder bugs
+- Table layout, overflow, and performance fixes
+- Various sidebar, pin, and smart shelf loading fixes
+- Fixed broken chevrons on macOS
+- Fixed iOS highlights, heading alignments, and category view issues
 - Completed books now always show 100% progress (watchOS)
-- Fixed iOS heading alignments
 
 ---
 
