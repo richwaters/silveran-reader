@@ -227,6 +227,8 @@ struct ManageThemesView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
