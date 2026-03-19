@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1-90]
+
+### Bug Fixes
+- Fixed carousel/stacks navigation in More tab category views not responding to taps
+- Fixed "View Details" context menu not working in list view and compact grid view on iOS
+
+---
+
 ## [0.1-69] -> [0.1-88]
 
 ### Features
