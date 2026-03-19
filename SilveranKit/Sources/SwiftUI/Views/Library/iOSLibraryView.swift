@@ -1757,6 +1757,7 @@ struct MoreSeriesView: View {
     @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
@@ -1834,6 +1835,10 @@ struct MoreSeriesView: View {
         }
     }
 
+    private func navigateToSeries(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(SeriesNavIdentifier(name: group.id))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -1841,7 +1846,7 @@ struct MoreSeriesView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToSeries(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -1849,7 +1854,7 @@ struct MoreSeriesView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToSeries(group) }
             ) { headerView }
         }
     }
@@ -1885,6 +1890,7 @@ struct MoreCollectionsView: View {
     @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .fan
@@ -1963,6 +1969,12 @@ struct MoreCollectionsView: View {
         }
     }
 
+    private func navigateToCollection(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(
+            CollectionNavIdentifier(id: group.id, name: group.name)
+        )
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -1970,7 +1982,7 @@ struct MoreCollectionsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToCollection(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -1978,7 +1990,7 @@ struct MoreCollectionsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToCollection(group) }
             ) { headerView }
         }
     }
@@ -2014,6 +2026,7 @@ struct MoreAuthorsView: View {
     @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2083,6 +2096,10 @@ struct MoreAuthorsView: View {
         }
     }
 
+    private func navigateToAuthor(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(group.name)
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2090,7 +2107,7 @@ struct MoreAuthorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToAuthor(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2098,7 +2115,7 @@ struct MoreAuthorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToAuthor(group) }
             ) { headerView }
         }
     }
@@ -2134,6 +2151,7 @@ struct MoreNarratorsView: View {
     @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2203,6 +2221,10 @@ struct MoreNarratorsView: View {
         }
     }
 
+    private func navigateToNarrator(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(NarratorNavIdentifier(name: group.name))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2210,7 +2232,7 @@ struct MoreNarratorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToNarrator(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2218,7 +2240,7 @@ struct MoreNarratorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToNarrator(group) }
             ) { headerView }
         }
     }
@@ -2254,6 +2276,7 @@ struct MoreTagsView: View {
     @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2322,6 +2345,10 @@ struct MoreTagsView: View {
         }
     }
 
+    private func navigateToTag(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(TagNavIdentifier(name: group.name))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2329,7 +2356,7 @@ struct MoreTagsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToTag(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2337,7 +2364,7 @@ struct MoreTagsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToTag(group) }
             ) { headerView }
         }
     }
@@ -2373,6 +2400,7 @@ struct MoreTranslatorsView: View {
     @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2443,6 +2471,10 @@ struct MoreTranslatorsView: View {
         }
     }
 
+    private func navigateToTranslator(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(TranslatorNavIdentifier(name: group.name))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2450,7 +2482,7 @@ struct MoreTranslatorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToTranslator(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2458,7 +2490,7 @@ struct MoreTranslatorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToTranslator(group) }
             ) { headerView }
         }
     }
@@ -2494,6 +2526,7 @@ struct MorePublicationYearsView: View {
     @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2562,6 +2595,10 @@ struct MorePublicationYearsView: View {
         }
     }
 
+    private func navigateToYear(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(PublicationYearNavIdentifier(name: group.name))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2569,7 +2606,7 @@ struct MorePublicationYearsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToYear(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2577,7 +2614,7 @@ struct MorePublicationYearsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToYear(group) }
             ) { headerView }
         }
     }
@@ -2613,6 +2650,7 @@ struct MoreRatingsView: View {
     @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
+    @Environment(\.mediaNavigationPath) private var navigationPath
 
     private var layoutStyle: CategoryLayoutStyle {
         CategoryLayoutStyle(rawValue: layoutStyleRaw) ?? .list
@@ -2686,6 +2724,10 @@ struct MoreRatingsView: View {
         }
     }
 
+    private func navigateToRating(_ group: CategoryGroup) {
+        navigationPath?.wrappedValue.append(RatingNavIdentifier(name: group.id))
+    }
+
     @ViewBuilder
     private var fanGridContent: some View {
         if layoutStyle == .fan {
@@ -2693,7 +2735,7 @@ struct MoreRatingsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToRating(group) }
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2701,7 +2743,7 @@ struct MoreRatingsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { _, _ in }
+                onNavigate: { group, _ in navigateToRating(group) }
             ) { headerView }
         }
     }
