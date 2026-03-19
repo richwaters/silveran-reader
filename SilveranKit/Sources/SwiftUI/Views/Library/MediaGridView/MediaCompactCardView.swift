@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MediaCompactCardView: View {
     let item: BookMetadata
+    let mediaKind: MediaKind
     let coverPreference: CoverPreference
     let tileSize: CGFloat
     let showAudioIndicator: Bool
@@ -16,13 +17,28 @@ struct MediaCompactCardView: View {
     @State private var isHovered = false
     @State private var hoveredTab: TabCategory?
     #endif
+    #if os(iOS)
+    @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @State private var pendingDetailsNavigation = false
+    #endif
 
     var body: some View {
         #if os(iOS)
-        NavigationLink(value: item) {
-            cardContent
+        if let playerData = preferredPlayerBookData {
+            NavigationLink(value: playerData) {
+                cardContent
+            }
+            .buttonStyle(.plain)
+            .background(deferredNavigationLinks)
+            .contextMenu { iOSContextMenu }
+        } else {
+            NavigationLink(value: item) {
+                cardContent
+            }
+            .buttonStyle(.plain)
+            .background(deferredNavigationLinks)
+            .contextMenu { iOSContextMenu }
         }
-        .buttonStyle(.plain)
         #else
         cardContent
         #endif
@@ -117,6 +133,78 @@ struct MediaCompactCardView: View {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
         }
     }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var iOSContextMenu: some View {
+        Button {
+            handleDetailsNavigation()
+        } label: {
+            Label("View Details", systemImage: "info.circle")
+        }
+    }
+
+    private func handleDetailsNavigation() {
+        if let mediaNavigationPath {
+            mediaNavigationPath.wrappedValue.append(item)
+        } else {
+            pendingDetailsNavigation = true
+        }
+    }
+
+    @ViewBuilder
+    private var deferredNavigationLinks: some View {
+        if mediaNavigationPath == nil {
+            NavigationLink(isActive: $pendingDetailsNavigation) {
+                iOSBookDetailView(item: item, mediaKind: mediaKind)
+            } label: {
+                EmptyView()
+            }
+            .frame(width: 0, height: 0)
+            .hidden()
+        }
+    }
+
+    private var preferredPlayerBookData: PlayerBookData? {
+        let settings = mediaViewModel.cachedConfig.library
+        guard settings.tapToPlayPreferredPlayer else { return nil }
+
+        let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
+        let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
+        let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+
+        let category: LocalMediaCategory?
+        if syncedDownloaded {
+            category = .synced
+        } else if audioDownloaded && ebookDownloaded {
+            category = settings.preferAudioOverEbook ? .audio : .ebook
+        } else if audioDownloaded {
+            category = .audio
+        } else if ebookDownloaded {
+            category = .ebook
+        } else {
+            category = nil
+        }
+
+        guard let category else { return nil }
+        let freshMetadata = mediaViewModel.library.bookMetaData.first { $0.id == item.id } ?? item
+        let path = mediaViewModel.localMediaPath(for: item.id, category: category)
+        let variant: MediaViewModel.CoverVariant =
+            freshMetadata.hasAvailableAudiobook ? .audioSquare : .standard
+        let cover = mediaViewModel.coverImage(for: freshMetadata, variant: variant)
+        let ebookCover =
+            freshMetadata.hasAvailableAudiobook
+            ? mediaViewModel.coverImage(for: freshMetadata, variant: .standard)
+            : nil
+        return PlayerBookData(
+            metadata: freshMetadata,
+            localMediaPath: path,
+            category: category,
+            coverArt: cover,
+            ebookCoverArt: ebookCover
+        )
+    }
+    #endif
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {

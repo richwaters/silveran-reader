@@ -14,6 +14,10 @@ struct MediaTableRowView: View {
     #if os(macOS)
     @State private var hoveredMediaType: MediaType?
     #endif
+    #if os(iOS)
+    @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @State private var pendingDetailsNavigation = false
+    #endif
 
     private let rowHeight: CGFloat = 72
     private let coverSize: CGFloat = 56
@@ -27,12 +31,14 @@ struct MediaTableRowView: View {
                 rowContent
             }
             .buttonStyle(.plain)
+            .background(deferredNavigationLinks)
             .contextMenu { iOSContextMenu }
         } else {
             NavigationLink(value: item) {
                 rowContent
             }
             .buttonStyle(.plain)
+            .background(deferredNavigationLinks)
             .contextMenu { iOSContextMenu }
         }
         #else
@@ -44,9 +50,30 @@ struct MediaTableRowView: View {
     @ViewBuilder
     private var iOSContextMenu: some View {
         Button {
-            onInfo(item)
+            handleDetailsNavigation()
         } label: {
             Label("View Details", systemImage: "info.circle")
+        }
+    }
+
+    private func handleDetailsNavigation() {
+        if let mediaNavigationPath {
+            mediaNavigationPath.wrappedValue.append(item)
+        } else {
+            pendingDetailsNavigation = true
+        }
+    }
+
+    @ViewBuilder
+    private var deferredNavigationLinks: some View {
+        if mediaNavigationPath == nil {
+            NavigationLink(isActive: $pendingDetailsNavigation) {
+                iOSBookDetailView(item: item, mediaKind: mediaKind)
+            } label: {
+                EmptyView()
+            }
+            .frame(width: 0, height: 0)
+            .hidden()
         }
     }
 

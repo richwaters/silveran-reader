@@ -1022,6 +1022,7 @@ struct MediaGridView: View {
                             ForEach(cachedDisplayItems) { item in
                                 MediaCompactCardView(
                                     item: item,
+                                    mediaKind: mediaKind,
                                     coverPreference: coverPreference,
                                     tileSize: compactTileSize,
                                     showAudioIndicator: showAudioIndicator,
