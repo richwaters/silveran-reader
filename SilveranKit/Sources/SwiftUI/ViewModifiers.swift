@@ -184,7 +184,7 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         UserDefaults.standard.set(base, forKey: key)
     }
 
-    private func setupResizeObserver(window: NSWindow, coordinator c: Coordinator, key: String) {
+    private func setupResizeObserver(window: NSWindow, coordinator c: Coordinator&Sendable, key: String) {
         c.resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEndLiveResizeNotification,
             object: window,
