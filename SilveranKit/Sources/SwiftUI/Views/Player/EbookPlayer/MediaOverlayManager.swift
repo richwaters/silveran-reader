@@ -29,6 +29,8 @@ class MediaOverlayManager {
     private let textIdIndexBySection: [Int: [String: Int]]
     /// Cached TOC sections (labelled sections) to avoid refiltering on every access.
     private let tocSectionsCache: [SectionInfo]
+    /// Section indices whose text locator lists have already been sent to the JS manager.
+    private var sentTextLocatorSections: Set<Int> = []
 
     weak var commsBridge: WebViewCommsBridge?
     weak var progressManager: EbookProgressManager?
@@ -430,7 +432,7 @@ class MediaOverlayManager {
         )
         if success {
             debugLog("[MOM] handleSeekEvent - seek successful")
-            await sendHighlightCommand(sectionIndex: sectionIndex, textId: anchor)
+            await sendHighlightCommand(sectionIndex: sectionIndex, textId: anchor, seekToLocation: true)
 
             if wasPlaying {
                 debugLog("[MOM] handleSeekEvent - resuming playback")
@@ -944,6 +946,8 @@ class MediaOverlayManager {
         seekToLocation: Bool = false
     ) async {
         do {
+            await ensureSectionLocatorsSent(sectionIndex)
+
             try await commsBridge?.sendJsHighlightFragment(
                 sectionIndex: sectionIndex,
                 textId: textId,
@@ -1013,5 +1017,66 @@ class MediaOverlayManager {
         lastFlipTime = Date()
         debugLog("[MOM] Page flip")
         try? await commsBridge?.sendJsGoRightCommand()
+    }
+}
+
+
+// MARK: - Text Fragment Locators
+
+extension MediaOverlayManager {
+    private func ensureSectionLocatorsSent(_ sectionIndex: Int) async {
+        guard !sentTextLocatorSections.contains(sectionIndex) else {
+            return
+        }
+        guard let section = getSection(at: sectionIndex) else { return }
+        guard !section.mediaOverlay.isEmpty else { return }
+        let locators:[String] = section.mediaOverlay.compactMap { overlay in
+            guard overlay.isTextFragmentLocator else {
+                return nil
+            }
+            return overlay.textId
+        }
+        guard locators.count > 0 else {
+            sentTextLocatorSections.insert(sectionIndex)
+            return
+        }
+        
+        do {
+            try await commsBridge?.sendJsTextFragmentLocators(
+                sectionIndex: sectionIndex,
+                locators: locators
+            )
+            sentTextLocatorSections.insert(sectionIndex)
+            debugLog("[MOM] Sent \(locators.count) locators for section \(sectionIndex)")
+        } catch {
+            debugLog("[MOM] Failed to send locators for section \(sectionIndex): \(error)")
+        }
+    }
+}
+
+extension WebViewCommsBridge {
+    func sendJsTextFragmentLocators(sectionIndex: Int, locators: [String]) async throws {
+        guard let webView = webView else {
+            throw WebViewCommsBridgeError.webViewNotAvailable
+        }
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: locators)
+        let jsonString = String(data: jsonData, encoding: .utf8)!
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        
+        debugLog(
+            "[WebViewCommsBridge] sendJsTextFragmentLocators(sectionIndex: \(sectionIndex), count: \(locators.count))"
+        )
+        _ = try await webView.evaluateJavaScript(
+            "window.foliateManager.registerTextFragmentLocators(\(sectionIndex), '\(jsonString)')"
+        )
+    }
+}
+
+
+extension SMILEntry {
+    var isTextFragmentLocator: Bool {
+        textId.hasPrefix(":~:text=")
     }
 }
