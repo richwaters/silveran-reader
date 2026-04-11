@@ -343,9 +343,25 @@ export class TextFragmentResolver {
           continue;
         }
 
-        let j = docNorm.indexOf(end, i + start.length);
+        const startEnd = i + start.length;
+
+        // Right edge of start must also be word-bounded (inner boundary)
+        if (this.isWordChar(start[start.length - 1]) &&
+            startEnd < docNorm.length &&
+            this.isWordChar(docNorm[startEnd])) {
+          pos = i + 1;
+          continue;
+        }
+
+        let j = docNorm.indexOf(end, startEnd);
 
         while (j >= 0) {
+          // Left edge of end must be word-bounded (inner boundary)
+          if (this.isWordChar(end[0]) && j > 0 && this.isWordChar(docNorm[j - 1])) {
+            j = docNorm.indexOf(end, j + 1);
+            continue;
+          }
+
           const matchEnd = j + end.length;
           // Check word boundary at end (only if no suffix)
           if (!suffix && this.isWordChar(end[end.length - 1]) && matchEnd < docNorm.length && this.isWordChar(docNorm[matchEnd])) {
