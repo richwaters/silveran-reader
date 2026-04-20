@@ -515,6 +515,11 @@ class EbookProgressManager {
         chapterCurrentPage = message.pageIndex
         chapterTotalPages = message.totalPages
         updateChapterProgress(currentPage: message.pageIndex, totalPages: message.totalPages)
+        if let section = message.sectionIndex, let mom = mediaOverlayManager {
+            Task { @MainActor in
+                await mom.ensureSectionLocatorsSent(section)
+            }
+        }
 
         let isUserNav = shouldNotifyUserNav || shouldNotifyUserNavForChapterTransition
 

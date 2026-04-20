@@ -1024,7 +1024,7 @@ class MediaOverlayManager {
 // MARK: - Text Fragment Locators
 
 extension MediaOverlayManager {
-    private func ensureSectionLocatorsSent(_ sectionIndex: Int) async {
+    func ensureSectionLocatorsSent(_ sectionIndex: Int) async {
         guard !sentTextLocatorSections.contains(sectionIndex) else {
             return
         }
