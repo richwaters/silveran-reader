@@ -8,5 +8,5 @@ cd "${SCRIPT_DIR}/.."
 xcodebuild -project Silveran.xcodeproj \
     -scheme "Silveran Reader (tvOS)" \
     -configuration Debug \
-    -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)' \
+    -destination 'platform=tvOS Simulator,name=Apple TV' \
     -derivedDataPath .buildTV build | xcbeautify
