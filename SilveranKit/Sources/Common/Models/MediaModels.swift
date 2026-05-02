@@ -626,6 +626,9 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public let status: BookStatus?
     public let position: BookReadingPosition?
     public let rating: Double?
+    public var alignedAt: String? = nil
+    public var alignedByStorytellerVersion: String? = nil
+    public var alignedWith: String? = nil
     public var id: String { uuid }
 
     public var hasAudioNarration: Bool {
@@ -719,6 +722,28 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     }
 
     public var sortableTitle: String { title.articleStripped }
+
+    public var sortableSubtitle: String { subtitle ?? "" }
+
+    public var sortableLanguage: String { language ?? "" }
+
+    public var sortableCollections: String {
+        collections?.map(\.name).joined(separator: ", ") ?? ""
+    }
+
+    public var sortableAllCreators: String {
+        (creators ?? []).compactMap(\.name).joined(separator: ", ")
+    }
+
+    public var sortableAlignedAt: String { alignedAt ?? "" }
+
+    public var sortableAlignedByVersion: String { alignedByStorytellerVersion ?? "" }
+
+    public var sortableAlignedWith: String { alignedWith ?? "" }
+
+    public func sortableCreator(role: String) -> String {
+        (creators ?? []).first(where: { $0.role == role })?.name ?? ""
+    }
 
     public var sortablePublicationYear: String {
         guard let pubDate = publicationDate, pubDate.count >= 4 else { return "" }

@@ -132,6 +132,8 @@ struct MediaTableView: NSViewRepresentable {
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
+    @Binding var creatorSortRoleCode: String?
+    var enabledCreatorRoles: Set<String>
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
@@ -144,6 +146,8 @@ struct MediaTableView: NSViewRepresentable {
         selection: Binding<BookMetadata.ID?>,
         columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
         sortOrder: Binding<[KeyPathComparator<BookMetadata>]>,
+        creatorSortRoleCode: Binding<String?> = .constant(nil),
+        enabledCreatorRoles: Set<String> = [],
         onSelect: @escaping (BookMetadata) -> Void,
         onInfo: @escaping (BookMetadata) -> Void,
         onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil
@@ -155,6 +159,8 @@ struct MediaTableView: NSViewRepresentable {
         self._selection = selection
         self._columnCustomization = columnCustomization
         self._sortOrder = sortOrder
+        self._creatorSortRoleCode = creatorSortRoleCode
+        self.enabledCreatorRoles = enabledCreatorRoles
         self.onSelect = onSelect
         self.onInfo = onInfo
         self.onMetadataLinkClicked = onMetadataLinkClicked
@@ -221,6 +227,7 @@ struct MediaTableView: NSViewRepresentable {
         coordinator.items = items
         coordinator.coverPreference = coverPreference
         coordinator.mediaViewModel = mediaViewModel
+        coordinator.enabledCreatorRoles = enabledCreatorRoles
 
         let newCoverHidden = isCoverColumnHidden
         coordinator.isCoverHidden = newCoverHidden
@@ -268,9 +275,28 @@ struct MediaTableView: NSViewRepresentable {
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
     private static let defaultColumnOrder = [
-        "cover", "title", "author", "series", "progress", "narrator", "translator",
-        "publicationYear", "status", "added", "lastRead", "tags", "media",
+        "cover", "title", "subtitle", "author", "series", "progress", "narrator",
+        "language", "collections", "publicationYear", "status", "added", "lastRead",
+        "tags", "media", "allCreators", "alignedAt", "alignedByVersion", "alignedWith",
     ]
+
+    static let curatedCreatorRoles: [(code: String, label: String)] = [
+        ("trl", "Translator"),
+        ("edt", "Editor"),
+        ("ill", "Illustrator"),
+        ("clr", "Colorist"),
+        ("aui", "Author of Introduction"),
+        ("ctb", "Contributor"),
+    ]
+
+    static func creatorColumnID(for roleCode: String) -> String {
+        "creator_\(roleCode)"
+    }
+
+    static func creatorRoleCode(from columnID: String) -> String? {
+        guard columnID.hasPrefix("creator_") else { return nil }
+        return String(columnID.dropFirst("creator_".count))
+    }
 
     private var columnWidthsKey: String { "library.table.\(tableContext).columnWidths" }
     private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
@@ -303,6 +329,18 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     private func updateColumnVisibility(tableView: NSTableView, coordinator: Coordinator) {
+        let existingIDs = Set(tableView.tableColumns.map { $0.identifier.rawValue })
+        for role in coordinator.enabledCreatorRoles {
+            let id = Self.creatorColumnID(for: role)
+            if !existingIDs.contains(id) {
+                let label = Self.labelForRole(role)
+                addColumn(
+                    to: tableView, id: id, title: label,
+                    minWidth: 80, width: 120, maxWidth: 10000
+                )
+            }
+        }
+
         var newVisibleIDs: Set<String> = []
         for column in tableView.tableColumns {
             let id = column.identifier.rawValue
@@ -328,56 +366,117 @@ struct MediaTableView: NSViewRepresentable {
         coordinator.visibleColumnIDs = newVisibleIDs
     }
 
-    private func setupColumns(tableView: NSTableView, context: Context) {
-        let columnDefs:
-            [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
-                "cover": ("", 30, 50, 70),
-                "title": ("Title", 100, 200, 10000),
-                "author": ("Author", 80, 150, 10000),
-                "series": ("Series", 80, 140, 10000),
-                "progress": ("Progress", 60, 100, 140),
-                "narrator": ("Narrator", 80, 120, 10000),
-                "translator": ("Translator", 80, 120, 10000),
-                "publicationYear": ("Published", 80, 100, 10000),
-                "status": ("Status", 60, 80, 10000),
-                "added": ("Added", 80, 100, 10000),
-                "lastRead": ("Last Read", 80, 100, 10000),
-                "tags": ("Tags", 80, 120, 10000),
-                "media": ("Media", 100, 120, 150),
-            ]
+    private static let staticColumnDefs:
+        [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
+            "cover": ("", 30, 50, 70),
+            "title": ("Title", 100, 200, 10000),
+            "subtitle": ("Subtitle", 80, 150, 10000),
+            "author": ("Author", 80, 150, 10000),
+            "series": ("Series", 80, 140, 10000),
+            "progress": ("Progress", 60, 100, 140),
+            "narrator": ("Narrator", 80, 120, 10000),
+            "language": ("Language", 50, 80, 10000),
+            "collections": ("Collections", 80, 120, 10000),
+            "publicationYear": ("Published", 80, 100, 10000),
+            "status": ("Status", 60, 80, 10000),
+            "added": ("Added", 80, 100, 10000),
+            "lastRead": ("Last Read", 80, 100, 10000),
+            "tags": ("Tags", 80, 120, 10000),
+            "media": ("Media", 100, 120, 150),
+            "allCreators": ("Creators", 80, 140, 10000),
+            "alignedAt": ("Aligned", 80, 100, 10000),
+            "alignedByVersion": ("ST Version", 60, 90, 10000),
+            "alignedWith": ("Engine", 60, 100, 10000),
+        ]
 
+    private static let ascendingSortColumns: Set<String> = [
+        "title", "subtitle", "author", "series", "narrator", "language", "collections",
+        "publicationYear", "status", "added", "tags", "allCreators",
+        "alignedByVersion", "alignedWith",
+    ]
+    private static let descendingSortColumns: Set<String> = [
+        "lastRead", "progress", "alignedAt",
+    ]
+
+    private func setupColumns(tableView: NSTableView, context: Context) {
         let savedWidths = loadColumnWidths()
         let savedOrder = loadColumnOrder()
-        let columnOrder = savedOrder.filter { columnDefs[$0] != nil }
-        let missingColumns = Self.defaultColumnOrder.filter { !columnOrder.contains($0) }
-        let finalOrder = columnOrder + missingColumns
 
-        for id in finalOrder {
-            guard let def = columnDefs[id] else { continue }
-            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            column.title = def.title
-            column.minWidth = def.minWidth
-            column.width = savedWidths[id] ?? def.width
-            column.maxWidth = def.maxWidth
-            column.isEditable = false
-
-            if id == "title" || id == "author" || id == "series" || id == "narrator"
-                || id == "translator" || id == "publicationYear" || id == "status" || id == "added"
-                || id == "tags"
-            {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+        let migratedOrder = savedOrder.map { $0 == "translator" ? "creator_trl" : $0 }
+        let migratedWidths = Dictionary(
+            uniqueKeysWithValues: savedWidths.map { key, value in
+                (key == "translator" ? "creator_trl" : key, value)
             }
+        )
 
-            if id == "lastRead" {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
-            }
+        let staticOrder = migratedOrder.filter { Self.staticColumnDefs[$0] != nil }
+        let missingStatic = Self.defaultColumnOrder.filter { !staticOrder.contains($0) }
+        let finalStaticOrder = staticOrder + missingStatic
 
-            if id == "progress" {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
-            }
+        let creatorIDs = migratedOrder.filter { Self.creatorRoleCode(from: $0) != nil }
 
-            tableView.addTableColumn(column)
+        for id in finalStaticOrder {
+            guard let def = Self.staticColumnDefs[id] else { continue }
+            addColumn(
+                to: tableView, id: id, title: def.title,
+                minWidth: def.minWidth, width: migratedWidths[id] ?? def.width,
+                maxWidth: def.maxWidth
+            )
         }
+
+        for id in creatorIDs {
+            guard let roleCode = Self.creatorRoleCode(from: id) else { continue }
+            let label = Self.labelForRole(roleCode)
+            addColumn(
+                to: tableView, id: id, title: label,
+                minWidth: 80, width: migratedWidths[id] ?? 120,
+                maxWidth: 10000
+            )
+        }
+    }
+
+    private func addColumn(
+        to tableView: NSTableView, id: String, title: String,
+        minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat
+    ) {
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+        column.title = title
+        column.minWidth = minWidth
+        column.width = width
+        column.maxWidth = maxWidth
+        column.isEditable = false
+
+        if Self.ascendingSortColumns.contains(id) || Self.creatorRoleCode(from: id) != nil {
+            column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+        } else if Self.descendingSortColumns.contains(id) {
+            column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
+        }
+
+        tableView.addTableColumn(column)
+    }
+
+    static let marcRelatorLabels: [String: String] = [
+        "abr": "Abridger", "act": "Actor", "adp": "Adapter", "anm": "Animator",
+        "ann": "Annotator", "arc": "Architect", "arr": "Arranger", "art": "Artist",
+        "aut": "Author", "aui": "Author of Introduction", "blw": "Blurb Writer",
+        "bkd": "Book Designer", "bkp": "Book Producer", "clr": "Colorist",
+        "cmm": "Commentator", "com": "Compiler", "cmp": "Composer", "cnd": "Conductor",
+        "ctb": "Contributor", "cov": "Cover Designer", "cre": "Creator", "cur": "Curator",
+        "drt": "Director", "dsr": "Designer", "edt": "Editor", "edc": "Editor of Compilation",
+        "eng": "Engineer", "ill": "Illustrator", "ink": "Inker", "itr": "Instrumentalist",
+        "ive": "Interviewee", "ivr": "Interviewer", "lbt": "Librettist", "ltr": "Letterer",
+        "lyr": "Lyricist", "mus": "Musician", "nrt": "Narrator", "pbl": "Publisher",
+        "pnc": "Penciller", "pht": "Photographer", "prf": "Performer", "pro": "Producer",
+        "prg": "Programmer", "pfr": "Proofreader", "red": "Redaktor", "rev": "Reviewer",
+        "sce": "Scenarist", "sng": "Singer", "spk": "Speaker", "stl": "Storyteller",
+        "trc": "Transcriber", "trl": "Translator", "vac": "Voice Actor",
+        "wam": "Writer of Accompanying Material", "waw": "Writer of Afterword",
+        "wfw": "Writer of Foreword", "win": "Writer of Introduction",
+        "wpr": "Writer of Preface",
+    ]
+
+    static func labelForRole(_ code: String) -> String {
+        marcRelatorLabels[code] ?? code.uppercased()
     }
 
     private func updateSortIndicators(tableView: NSTableView, context: Context) {
@@ -389,19 +488,34 @@ struct MediaTableView: NSViewRepresentable {
 
         let keyPathToColumn: [AnyKeyPath: String] = [
             \BookMetadata.title: "title",
+            \BookMetadata.sortableSubtitle: "subtitle",
             \BookMetadata.sortableAuthor: "author",
             \BookMetadata.sortableSeries: "series",
             \BookMetadata.progress: "progress",
             \BookMetadata.sortableNarrator: "narrator",
-            \BookMetadata.sortableTranslator: "translator",
+            \BookMetadata.sortableLanguage: "language",
+            \BookMetadata.sortableCollections: "collections",
             \BookMetadata.sortablePublicationYear: "publicationYear",
             \BookMetadata.sortableStatus: "status",
             \BookMetadata.sortableAdded: "added",
             \BookMetadata.sortableLastRead: "lastRead",
             \BookMetadata.sortableTags: "tags",
+            \BookMetadata.sortableAllCreators: "allCreators",
+            \BookMetadata.sortableAlignedAt: "alignedAt",
+            \BookMetadata.sortableAlignedByVersion: "alignedByVersion",
+            \BookMetadata.sortableAlignedWith: "alignedWith",
         ]
 
-        guard let columnID = keyPathToColumn[comparator.keyPath],
+        let columnID: String?
+        if let mapped = keyPathToColumn[comparator.keyPath] {
+            columnID = mapped
+        } else if let ctx = context.coordinator.creatorSortRoleCode {
+            columnID = Self.creatorColumnID(for: ctx)
+        } else {
+            columnID = nil
+        }
+
+        guard let columnID,
             let column = tableView.tableColumn(
                 withIdentifier: NSUserInterfaceItemIdentifier(columnID)
             )
@@ -424,6 +538,8 @@ struct MediaTableView: NSViewRepresentable {
         var mediaViewModel: MediaViewModel
         var isCoverHidden: Bool = false
         var visibleColumnIDs: Set<String> = []
+        var creatorSortRoleCode: String?
+        var enabledCreatorRoles: Set<String> = []
         weak var tableView: NSTableView?
         weak var scrollView: NSScrollView?
 
@@ -469,6 +585,11 @@ struct MediaTableView: NSViewRepresentable {
                     return makeCoverCell(tableView: tableView, cellID: cellID, item: item)
                 case "title":
                     return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
+                case "subtitle":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.subtitle ?? "", secondary: true
+                    )
                 case "author":
                     let name = item.authors?.first?.name ?? ""
                     let target: MetadataLinkTarget? = name.isEmpty ? nil : .author(name)
@@ -491,14 +612,16 @@ struct MediaTableView: NSViewRepresentable {
                         text: name,
                         linkTarget: target
                     )
-                case "translator":
-                    let name = item.sortableTranslator
-                    let target: MetadataLinkTarget? = name.isEmpty ? nil : .translator(name)
-                    return makeLinkTextCell(
-                        tableView: tableView,
-                        cellID: cellID,
-                        text: name,
-                        linkTarget: target
+                case "language":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.language ?? "", secondary: true
+                    )
+                case "collections":
+                    let names = item.collections?.map(\.name).joined(separator: ", ") ?? ""
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: names, secondary: true
                     )
                 case "publicationYear":
                     let year = item.sortablePublicationYear
@@ -534,7 +657,34 @@ struct MediaTableView: NSViewRepresentable {
                     return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
                 case "media":
                     return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
+                case "allCreators":
+                    return makeAllCreatorsCell(
+                        tableView: tableView, cellID: cellID, item: item
+                    )
+                case "alignedAt":
+                    return makeDateCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        dateString: item.alignedAt
+                    )
+                case "alignedByVersion":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.alignedByStorytellerVersion ?? "", secondary: true
+                    )
+                case "alignedWith":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.alignedWith ?? "", secondary: true
+                    )
                 default:
+                    if let roleCode = MediaTableView.creatorRoleCode(from: columnID) {
+                        let name = item.sortableCreator(role: roleCode)
+                        return makeTextCell(
+                            tableView: tableView, cellID: cellID,
+                            text: name, secondary: true
+                        )
+                    }
                     return nil
             }
         }
@@ -552,6 +702,10 @@ struct MediaTableView: NSViewRepresentable {
             switch key {
                 case "title":
                     parent.sortOrder = [KeyPathComparator(\BookMetadata.title, order: order)]
+                case "subtitle":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableSubtitle, order: order)
+                    ]
                 case "author":
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableAuthor, order: order)
@@ -566,9 +720,13 @@ struct MediaTableView: NSViewRepresentable {
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableNarrator, order: order)
                     ]
-                case "translator":
+                case "language":
                     parent.sortOrder = [
-                        KeyPathComparator(\BookMetadata.sortableTranslator, order: order)
+                        KeyPathComparator(\BookMetadata.sortableLanguage, order: order)
+                    ]
+                case "collections":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableCollections, order: order)
                     ]
                 case "publicationYear":
                     parent.sortOrder = [
@@ -588,9 +746,34 @@ struct MediaTableView: NSViewRepresentable {
                     ]
                 case "tags":
                     parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
+                case "allCreators":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAllCreators, order: order)
+                    ]
+                case "alignedAt":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedAt, order: order)
+                    ]
+                case "alignedByVersion":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedByVersion, order: order)
+                    ]
+                case "alignedWith":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedWith, order: order)
+                    ]
                 default:
-                    break
+                    if let roleCode = MediaTableView.creatorRoleCode(from: key) {
+                        creatorSortRoleCode = roleCode
+                        parent.creatorSortRoleCode = roleCode
+                        parent.sortOrder = [
+                            KeyPathComparator(\BookMetadata.sortableTranslator, order: order)
+                        ]
+                        return
+                    }
             }
+            creatorSortRoleCode = nil
+            parent.creatorSortRoleCode = nil
         }
 
         func tableViewSelectionDidChange(_ notification: Notification) {
@@ -729,6 +912,36 @@ struct MediaTableView: NSViewRepresentable {
                     $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
                 },
                 onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil,
+                compact: isCoverHidden
+            )
+            cell.setContent(content)
+            return cell
+        }
+
+        private func makeAllCreatorsCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+                ?? HostingCellView(identifier: cellID)
+            let excludedRoles: Set<String> = Set(
+                visibleColumnIDs.compactMap { MediaTableView.creatorRoleCode(from: $0) }
+            )
+            let creators = (item.creators ?? []).compactMap { creator -> String? in
+                if let role = creator.role, excludedRoles.contains(role) { return nil }
+                guard let name = creator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !name.isEmpty
+                else { return nil }
+                if let role = creator.role {
+                    let label = MediaTableView.labelForRole(role)
+                    return "\(name) (\(label))"
+                }
+                return name
+            }
+            let content = TagFlowCellContent(
+                tags: creators,
                 compact: isCoverHidden
             )
             cell.setContent(content)
