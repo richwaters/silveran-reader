@@ -199,6 +199,10 @@ struct MediaTableView: NSViewRepresentable {
         tableView.dataSource = context.coordinator
         tableView.delegate = context.coordinator
 
+        let menu = NSMenu()
+        menu.delegate = context.coordinator
+        tableView.menu = menu
+
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
         context.coordinator.scrollView = scrollView
@@ -384,7 +388,7 @@ struct MediaTableView: NSViewRepresentable {
             "tags": ("Tags", 80, 120, 10000),
             "media": ("Media", 100, 120, 150),
             "allCreators": ("Creators", 80, 140, 10000),
-            "alignedAt": ("Aligned", 80, 100, 10000),
+            "alignedAt": ("Aligned Date", 80, 115, 10000),
             "alignedByVersion": ("ST Version", 60, 90, 10000),
             "alignedWith": ("Engine", 60, 100, 10000),
         ]
@@ -531,7 +535,7 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
         var parent: MediaTableView
         var items: [BookMetadata]
         var coverPreference: CoverPreference
@@ -806,6 +810,182 @@ struct MediaTableView: NSViewRepresentable {
             parent.onMetadataLinkClicked?(target)
         }
 
+        // MARK: - NSMenuDelegate (right-click context menu)
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            guard let tableView, tableView.clickedRow >= 0,
+                tableView.clickedRow < items.count
+            else { return }
+
+            let item = items[tableView.clickedRow]
+            let status = item.readaloud?.status?.uppercased() ?? ""
+            let hasEbookAndAudio = item.hasAvailableEbook && item.hasAvailableAudiobook
+
+            if status == "PROCESSING" || status == "QUEUED" {
+                let cancel = NSMenuItem(
+                    title: "Cancel Processing",
+                    action: #selector(cancelProcessing(_:)),
+                    keyEquivalent: ""
+                )
+                cancel.target = self
+                cancel.representedObject = item.uuid
+                menu.addItem(cancel)
+            } else if status == "ALIGNED" {
+                addReprocessItems(to: menu, bookId: item.uuid)
+            } else if status == "ERROR" || status == "STOPPED" {
+                let retry = NSMenuItem(
+                    title: "Retry Processing",
+                    action: #selector(reprocessFull(_:)),
+                    keyEquivalent: ""
+                )
+                retry.target = self
+                retry.representedObject = item.uuid
+                menu.addItem(retry)
+
+                let realign = NSMenuItem(
+                    title: "Re-align Only",
+                    action: #selector(reprocessSync(_:)),
+                    keyEquivalent: ""
+                )
+                realign.target = self
+                realign.representedObject = item.uuid
+                menu.addItem(realign)
+            } else if hasEbookAndAudio {
+                let create = NSMenuItem(
+                    title: "Create Readaloud",
+                    action: #selector(createReadaloud(_:)),
+                    keyEquivalent: ""
+                )
+                create.target = self
+                create.representedObject = item.uuid
+                menu.addItem(create)
+            }
+
+            let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+            let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
+            let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
+
+            if (ebookDownloaded || audioDownloaded || syncedDownloaded) && menu.items.count > 0 {
+                menu.addItem(.separator())
+            }
+
+            if ebookDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Ebook",
+                    action: #selector(deleteLocalEbook(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+            if audioDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Audiobook",
+                    action: #selector(deleteLocalAudiobook(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+            if syncedDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Readaloud",
+                    action: #selector(deleteLocalReadaloud(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+        }
+
+        private func addReprocessItems(to menu: NSMenu, bookId: String) {
+            let sync = NSMenuItem(
+                title: "Re-align (Fast)",
+                action: #selector(reprocessSync(_:)),
+                keyEquivalent: ""
+            )
+            sync.target = self
+            sync.representedObject = bookId
+            menu.addItem(sync)
+
+            let transcribe = NSMenuItem(
+                title: "Re-transcribe & Align",
+                action: #selector(reprocessTranscription(_:)),
+                keyEquivalent: ""
+            )
+            transcribe.target = self
+            transcribe.representedObject = bookId
+            menu.addItem(transcribe)
+
+            let full = NSMenuItem(
+                title: "Full Reprocess",
+                action: #selector(reprocessFull(_:)),
+                keyEquivalent: ""
+            )
+            full.target = self
+            full.representedObject = bookId
+            menu.addItem(full)
+        }
+
+        @objc private func createReadaloud(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessSync(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .sync)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessTranscription(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .transcription)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessFull(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .full)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func cancelProcessing(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.cancelAlignment(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func deleteLocalEbook(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .ebook)
+        }
+
+        @objc private func deleteLocalAudiobook(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .audio)
+        }
+
+        @objc private func deleteLocalReadaloud(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .synced)
+        }
+
         private func makeCoverCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
@@ -822,6 +1002,7 @@ struct MediaTableView: NSViewRepresentable {
                 mediaViewModel: mediaViewModel
             )
             cell.setContent(content)
+            cell.toolTip = item.readaloud?.processingTooltip
             return cell
         }
 
@@ -1646,6 +1827,10 @@ private struct CoverCellContent: View {
 
     private let height: CGFloat = 40
 
+    private var readaloudStatus: String? {
+        item.readaloud?.status?.uppercased()
+    }
+
     var body: some View {
         let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
         let width = height * coverVariant.preferredAspectRatio
@@ -1658,11 +1843,58 @@ private struct CoverCellContent: View {
                     .interpolation(.medium)
                     .scaledToFill()
             }
+
+            processingOverlay
         }
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
         .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        }
+    }
+
+    @ViewBuilder
+    private var processingOverlay: some View {
+        switch readaloudStatus {
+            case "PROCESSING":
+                let progress = item.readaloud?.stageProgress ?? 0
+                ZStack {
+                    Color.black.opacity(0.45)
+                    CircularProgressRing(progress: progress)
+                        .frame(width: 24, height: 24)
+                }
+            case "QUEUED":
+                ZStack {
+                    Color.black.opacity(0.45)
+                    Image(systemName: "clock")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            case "ERROR", "STOPPED":
+                ZStack {
+                    Color.black.opacity(0.45)
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.orange)
+                }
+            default:
+                EmptyView()
+        }
+    }
+}
+
+private struct CircularProgressRing: View {
+    let progress: Double
+    private let lineWidth: CGFloat = 2.5
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.3), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
         }
     }
 }
@@ -2153,6 +2385,12 @@ private final class DateFormatterCache {
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter
     }()
+    private let jsDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE MMM dd yyyy HH:mm:ss 'GMT'xx"
+        return formatter
+    }()
     private let displayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -2201,6 +2439,18 @@ private final class DateFormatterCache {
             ?? isoWithoutFractional.date(from: dateString)
             ?? fallbackWithTimeFormatter.date(from: dateString)
             ?? fallbackFormatter.date(from: dateString)
+            ?? parseJSDate(dateString)
+    }
+
+    private func parseJSDate(_ dateString: String) -> Date? {
+        // JS Date.toString(): "Mon Dec 15 2025 17:23:45 GMT+0100 (Central European Standard Time)"
+        let stripped: String
+        if let parenRange = dateString.range(of: " (") {
+            stripped = String(dateString[..<parenRange.lowerBound])
+        } else {
+            stripped = dateString
+        }
+        return jsDateFormatter.date(from: stripped)
     }
 }
 #endif

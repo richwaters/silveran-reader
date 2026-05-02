@@ -158,7 +158,7 @@ struct CreateReadaloudRow: View {
                         isStartingAlignment = true
                         _ = await StorytellerActor.shared.startAlignment(
                             for: item.uuid,
-                            restart: isErrorOrStopped
+                            restart: isErrorOrStopped ? .full : .none
                         )
                         await StorytellerActor.shared.fetchLibraryInformation()
                         isStartingAlignment = false

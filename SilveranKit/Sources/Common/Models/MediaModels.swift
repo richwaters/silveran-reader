@@ -236,6 +236,37 @@ public struct BookReadaloud: Codable, Sendable, Hashable {
         return restartPending == 1
     }
 
+    public var friendlyStage: String? {
+        switch currentStage?.uppercased() {
+            case "SPLIT_TRACKS": return "Splitting Audio"
+            case "TRANSCRIBE_CHAPTERS": return "Transcribing"
+            case "SYNC_CHAPTERS": return "Syncing"
+            default: return currentStage
+        }
+    }
+
+    public var processingTooltip: String? {
+        let s = status?.uppercased() ?? ""
+        switch s {
+            case "PROCESSING":
+                if let stage = friendlyStage, let progress = stageProgress {
+                    return "\(stage): \(Int(progress * 100))%"
+                }
+                return "Processing..."
+            case "QUEUED":
+                if let pos = queuePosition {
+                    return "Queued (#\(pos))"
+                }
+                return "Queued"
+            case "ERROR":
+                return "Processing error"
+            case "STOPPED":
+                return "Processing stopped"
+            default:
+                return nil
+        }
+    }
+
     public init(
         uuid: String?,
         filepath: String?,

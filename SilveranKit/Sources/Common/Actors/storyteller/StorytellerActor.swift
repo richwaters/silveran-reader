@@ -7,6 +7,13 @@ import FoundationNetworking
 import Network
 #endif
 
+public enum AlignmentRestartMode: String, Sendable {
+    case none = "false"
+    case full = "full"
+    case transcription = "transcription"
+    case sync = "sync"
+}
+
 public enum ConnectionStatus: Equatable, Sendable {
     case disconnected
     case connecting
@@ -1109,7 +1116,7 @@ public actor StorytellerActor {
 
     /// Starts alignment processing for a book (creates readaloud from ebook + audiobook).
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (POST handler).
-    public func startAlignment(for bookId: String, restart: Bool = false) async -> Bool {
+    public func startAlignment(for bookId: String, restart: AlignmentRestartMode = .none) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let processURL =
             baseURL
@@ -1118,8 +1125,8 @@ public actor StorytellerActor {
             .appendingPathComponent("process")
 
         var queryParameters: [String: String] = [:]
-        if restart {
-            queryParameters["restart"] = "true"
+        if restart != .none {
+            queryParameters["restart"] = restart.rawValue
         }
 
         var allowedStatuses = Set(200..<300)
@@ -1249,7 +1256,7 @@ public actor StorytellerActor {
     /// Triggers Storyteller's processing pipeline via `/api/v2/books/{bookId}/process`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts`.
     /// TODO: UNTESTED
-    func startProcessing(for bookId: String, restart: Bool = false) async -> Bool {
+    func startProcessing(for bookId: String, restart: AlignmentRestartMode = .none) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let processURL =
             baseURL
@@ -1258,8 +1265,8 @@ public actor StorytellerActor {
             .appendingPathComponent("process")
 
         var queryParameters: [String: String] = [:]
-        if restart {
-            queryParameters["restart"] = "true"
+        if restart != .none {
+            queryParameters["restart"] = restart.rawValue
         }
 
         var allowedStatuses = Set(200..<300)

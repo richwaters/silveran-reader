@@ -629,7 +629,7 @@ struct MediaGridSortAndFilterBar: View {
     @ViewBuilder
     private var alignmentDataSubmenu: some View {
         Menu("Alignment Data") {
-            columnToggle(id: "alignedAt", label: "Date Aligned")
+            columnToggle(id: "alignedAt", label: "Aligned Date")
             columnToggle(id: "alignedByVersion", label: "ST Version")
             columnToggle(id: "alignedWith", label: "Transcription Engine")
         }
