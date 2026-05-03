@@ -175,6 +175,7 @@ struct MetadataEditorBookForm: View {
 
                 stringListEditor(
                     label: "Tags",
+                    placeholder: "Tag",
                     field: "tags",
                     bookId: book.id,
                     revert: {
@@ -303,6 +304,7 @@ struct MetadataEditorBookForm: View {
     @ViewBuilder
     private func stringListEditor(
         label: String,
+        placeholder: String? = nil,
         field: String,
         bookId: String,
         revert: @escaping () -> Void
@@ -333,7 +335,7 @@ struct MetadataEditorBookForm: View {
             ForEach(Array(items.enumerated()), id: \.offset) { index, _ in
                 HStack {
                     TextField(
-                        label,
+                        placeholder ?? label,
                         text: Binding(
                             get: {
                                 let current =
