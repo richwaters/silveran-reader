@@ -183,6 +183,10 @@ final class MetadataEditorViewModel {
             isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
         case "narrators":
             isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
+        case "tags":
+            isChanged = book.tags != (orig.tags?.map { $0.name } ?? [])
+        case "collections":
+            isChanged = book.collectionUuids != (orig.collections?.compactMap { $0.uuid } ?? [])
         default:
             isChanged = true
         }
