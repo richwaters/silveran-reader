@@ -862,6 +862,20 @@ struct MediaTableView: NSViewRepresentable {
                 menu.addItem(create)
             }
 
+            if item.hasAvailableEbook {
+                if menu.items.count > 0 {
+                    menu.addItem(.separator())
+                }
+                let upgrade = NSMenuItem(
+                    title: "Convert to EPUB 3",
+                    action: #selector(upgradeEpub(_:)),
+                    keyEquivalent: ""
+                )
+                upgrade.target = self
+                upgrade.representedObject = item.uuid
+                menu.addItem(upgrade)
+            }
+
             let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
             let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
             let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
@@ -967,6 +981,14 @@ struct MediaTableView: NSViewRepresentable {
             guard let bookId = sender.representedObject as? String else { return }
             Task {
                 _ = await StorytellerActor.shared.cancelAlignment(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func upgradeEpub(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.upgradeEpub(for: bookId)
                 await StorytellerActor.shared.fetchLibraryInformation()
             }
         }

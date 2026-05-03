@@ -1192,6 +1192,47 @@ public actor StorytellerActor {
         }
     }
 
+    /// Upgrades a book's EPUB files from EPUB 2 to EPUB 3.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upgrade-epub/route.ts`.
+    public func upgradeEpub(for bookId: String) async -> Bool {
+        guard let (baseURL, token) = await ensureAuthentication() else { return false }
+        let url =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("upgrade-epub")
+
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+        allowedStatuses.insert(404)
+
+        do {
+            let bodyData = try JSONSerialization.data(
+                withJSONObject: ["createBackup": true]
+            )
+            let response = try await httpPost(
+                url.absoluteString,
+                headers: [
+                    "Authorization": authorizationHeaderValue(for: token),
+                    "Content-Type": "application/json",
+                ],
+                body: bodyData,
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            return evaluateResponse(
+                response,
+                methodName: "upgradeEpub",
+                context: "book \(bookId)"
+            ) == .success
+        } catch {
+            logStorytellerError("upgradeEpub", error: error)
+            return false
+        }
+    }
+
     /// Merges books via `/api/v2/books/merge`.
     /// Server implementation:  `storyteller/web/src/app/api/v2/books/merge/route.ts`.
     // TODO: UNTESTED
