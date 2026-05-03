@@ -574,7 +574,10 @@ struct MetadataEditorBookForm: View {
                             $0.series = $0.originalMetadata.series?.map { s in
                                 MetadataEditorViewModel.EditableSeries(
                                     name: s.name,
-                                    position: s.position.map { String(Int($0)) } ?? "",
+                                    position: s.position.map {
+                                        $0.truncatingRemainder(dividingBy: 1) == 0
+                                            ? String(Int($0)) : String($0)
+                                    } ?? "",
                                     featured: s.featured == 1,
                                     uuid: s.uuid
                                 )
