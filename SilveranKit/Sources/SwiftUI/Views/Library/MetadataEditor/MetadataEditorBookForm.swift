@@ -200,6 +200,12 @@ struct MetadataEditorBookForm: View {
         .help("Revert to original value")
     }
 
+    private func fieldBorderColor(field: String, bookId: String) -> Color {
+        if viewModel.fieldHasError(field, for: bookId) { return .red }
+        if viewModel.isDirty(field: field, for: bookId) { return .orange }
+        return .clear
+    }
+
     @ViewBuilder
     private func editableTextField(
         _ label: String,
@@ -221,7 +227,7 @@ struct MetadataEditorBookForm: View {
 
             TextField(label, text: value)
                 .textFieldStyle(.roundedBorder)
-                .border(isDirty ? Color.orange : Color.clear, width: 2)
+                .border(fieldBorderColor(field: field, bookId: bookId), width: 2)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
@@ -607,6 +613,11 @@ struct MetadataEditorBookForm: View {
                             bookId: book.id, seriesId: series.id, keyPath: \.position)
                     )
                     .textFieldStyle(.roundedBorder)
+                    .border(
+                        viewModel.seriesPositionHasError(bookId: book.id, seriesId: series.id)
+                            ? Color.red : Color.clear, width: 2
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
                     .frame(maxWidth: 60)
 
                     Toggle(

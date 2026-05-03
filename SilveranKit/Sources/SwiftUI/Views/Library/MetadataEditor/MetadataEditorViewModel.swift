@@ -191,6 +191,56 @@ final class MetadataEditorViewModel {
         books.contains { $0.hasDirtyFields }
     }
 
+    struct ValidationError {
+        let field: String
+        let message: String
+    }
+
+    func validationErrors(for bookId: String) -> [ValidationError] {
+        guard let book = books.first(where: { $0.id == bookId }) else { return [] }
+        var errors: [ValidationError] = []
+
+        if book.dirtyFields.contains("title") && book.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            errors.append(ValidationError(field: "title", message: "Title cannot be empty"))
+        }
+
+        for (index, series) in book.series.enumerated() {
+            let pos = series.position.trimmingCharacters(in: .whitespaces)
+            if !pos.isEmpty && Double(pos) == nil {
+                errors.append(ValidationError(
+                    field: "series.\(index).position",
+                    message: "Series position '\(pos)' is not a number"
+                ))
+            }
+        }
+
+        let ratingStr = book.rating.trimmingCharacters(in: .whitespaces)
+        if book.dirtyFields.contains("rating") && !ratingStr.isEmpty && Double(ratingStr) == nil {
+            errors.append(ValidationError(field: "rating", message: "Invalid rating"))
+        }
+
+        return errors
+    }
+
+    func hasValidationErrors(for bookId: String) -> Bool {
+        !validationErrors(for: bookId).isEmpty
+    }
+
+    var hasAnyValidationErrors: Bool {
+        books.contains { hasValidationErrors(for: $0.id) }
+    }
+
+    func fieldHasError(_ field: String, for bookId: String) -> Bool {
+        validationErrors(for: bookId).contains { $0.field == field }
+    }
+
+    func seriesPositionHasError(bookId: String, seriesId: UUID) -> Bool {
+        guard let book = books.first(where: { $0.id == bookId }),
+            let index = book.series.firstIndex(where: { $0.id == seriesId })
+        else { return false }
+        return validationErrors(for: bookId).contains { $0.field == "series.\(index).position" }
+    }
+
     func buildPayload(for book: EditableBook) -> StorytellerBookUpdatePayload? {
         guard book.hasDirtyFields else { return nil }
         var payload = StorytellerBookUpdatePayload(uuid: book.id)

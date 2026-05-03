@@ -138,6 +138,11 @@ public struct MetadataEditorView: View {
 
     // MARK: - Bottom Bar
 
+    private var currentBookErrors: [MetadataEditorViewModel.ValidationError] {
+        guard let bookId = viewModel.selectedBookId else { return [] }
+        return viewModel.validationErrors(for: bookId)
+    }
+
     @ViewBuilder
     private var bottomBar: some View {
         HStack {
@@ -145,6 +150,13 @@ public struct MetadataEditorView: View {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.red)
                     .font(.callout)
+            } else if !currentBookErrors.isEmpty {
+                Label(
+                    currentBookErrors.map(\.message).joined(separator: "; "),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .foregroundStyle(.red)
+                .font(.callout)
             }
 
             Spacer()
@@ -163,12 +175,15 @@ public struct MetadataEditorView: View {
                 viewModel.isSaving || viewModel.selectedBookId == nil
                     || !(viewModel.books.first { $0.id == viewModel.selectedBookId }?.hasDirtyFields
                         ?? false)
+                    || viewModel.hasValidationErrors(for: viewModel.selectedBookId ?? "")
             )
 
             Button("Save All to Server") {
                 Task { @MainActor in await viewModel.saveAll() }
             }
-            .disabled(viewModel.isSaving || !viewModel.hasAnyDirtyBooks)
+            .disabled(
+                viewModel.isSaving || !viewModel.hasAnyDirtyBooks
+                    || viewModel.hasAnyValidationErrors)
             .keyboardShortcut("s", modifiers: .command)
         }
         .padding(12)
