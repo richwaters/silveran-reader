@@ -2,11 +2,91 @@
 import SwiftUI
 import AppKit
 
+private let tableTrailingPadding: CGFloat = 12
+
 private final class ImmediateSelectTableView: NSTableView {
     var onRowClicked: ((Int) -> Void)?
     var onLinkClicked: ((MetadataLinkTarget) -> Void)?
-    private var lastFittedWidth: CGFloat = 0
-    fileprivate var isProgrammaticResize: Bool = false
+    fileprivate var isFitting = false
+    fileprivate var suppressColumnWidthPersistence = false
+    fileprivate var activeIdealWidths: [String: CGFloat] = [:]
+    private var lastClipWidth: CGFloat = 0
+
+    private func columnTargetWidth() -> CGFloat? {
+        guard let clipView = enclosingScrollView?.contentView else { return nil }
+        let availableWidth = clipView.bounds.width
+        guard availableWidth > 0 else { return nil }
+        let visibleColumns = tableColumns.filter { !$0.isHidden }
+        guard !visibleColumns.isEmpty else { return nil }
+        let spacingTotal = intercellSpacing.width * CGFloat(max(visibleColumns.count - 1, 0))
+        return max(availableWidth - spacingTotal - tableTrailingPadding, 0)
+    }
+
+    fileprivate func fitDocumentWidthToClipView() {
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        let width = clipView.bounds.width
+        guard width > 0, abs(frame.width - width) > 0.5 else { return }
+        setFrameSize(NSSize(width: width, height: frame.height))
+    }
+
+    fileprivate func applyIdealWidthsAndTile() {
+        suppressColumnWidthPersistence = true
+        defer { suppressColumnWidthPersistence = false }
+
+        fitDocumentWidthToClipView()
+        if !activeIdealWidths.isEmpty {
+            applyWidths(activeIdealWidths)
+        }
+        tile()
+    }
+
+    override func layout() {
+        super.layout()
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        let width = clipView.bounds.width
+        guard width > 0, abs(width - lastClipWidth) > 0.5 else { return }
+        lastClipWidth = width
+        applyIdealWidthsAndTile()
+    }
+
+    override func tile() {
+        super.tile()
+        guard !isFitting else { return }
+        guard let targetWidth = columnTargetWidth() else { return }
+
+        let visibleColumns = tableColumns.filter { !$0.isHidden }
+        guard visibleColumns.count >= 2 else { return }
+
+        let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
+        var remaining = targetWidth - totalWidth
+        guard abs(remaining) > 1 else { return }
+
+        isFitting = true
+        defer { isFitting = false }
+
+        for column in visibleColumns.reversed() {
+            guard abs(remaining) > 0.5 else { break }
+            let newWidth = column.width + remaining
+            let clamped = min(max(newWidth, column.minWidth), column.maxWidth)
+            let delta = clamped - column.width
+            if abs(delta) > 0.1 {
+                remaining -= delta
+                column.width = clamped
+            }
+        }
+    }
+
+    fileprivate func applyWidths(_ widths: [String: CGFloat]) {
+        isFitting = true
+        defer { isFitting = false }
+
+        for column in tableColumns {
+            let id = column.identifier.rawValue
+            if let w = widths[id] {
+                column.width = min(max(w, column.minWidth), column.maxWidth)
+            }
+        }
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -63,65 +143,6 @@ private final class ImmediateSelectTableView: NSTableView {
         super.mouseDown(with: event)
     }
 
-    override func layout() {
-        super.layout()
-        adjustWidthToClipView()
-    }
-
-    private func adjustWidthToClipView() {
-        guard let clipView = enclosingScrollView?.contentView else { return }
-        let availableWidth = clipView.bounds.width
-        guard availableWidth > 0, !tableColumns.isEmpty else { return }
-
-        if abs(availableWidth - lastFittedWidth) > 0.5 {
-            isProgrammaticResize = true
-            fitVisibleColumns(to: availableWidth)
-            DispatchQueue.main.async { [weak self] in
-                self?.isProgrammaticResize = false
-            }
-            lastFittedWidth = availableWidth
-        }
-
-        if abs(frame.width - availableWidth) > 0.5 {
-            setFrameSize(NSSize(width: availableWidth, height: frame.height))
-        }
-    }
-
-    private func fitVisibleColumns(to availableWidth: CGFloat) {
-        let visibleColumns = tableColumns.filter { !$0.isHidden }
-        guard !visibleColumns.isEmpty else { return }
-
-        let spacingTotal = intercellSpacing.width * CGFloat(max(visibleColumns.count - 1, 0))
-        let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
-        let targetWidth = max(availableWidth - spacingTotal, 0)
-
-        if totalWidth + 0.5 < targetWidth {
-            if let last = visibleColumns.last {
-                last.width += (targetWidth - totalWidth)
-            }
-            return
-        }
-        guard totalWidth > targetWidth + 0.5 else { return }
-
-        let minTotal = visibleColumns.reduce(0) { $0 + $1.minWidth }
-        if minTotal >= targetWidth {
-            for column in visibleColumns {
-                column.width = column.minWidth
-            }
-            return
-        }
-
-        let adjustable = visibleColumns.reduce(0) { $0 + max($1.width - $1.minWidth, 0) }
-        guard adjustable > 0 else { return }
-
-        let overflow = totalWidth - targetWidth
-        for column in visibleColumns {
-            let delta = max(column.width - column.minWidth, 0)
-            let shrink = overflow * (delta / adjustable)
-            let proposed = column.width - shrink
-            column.width = max(column.minWidth, proposed)
-        }
-    }
 }
 
 struct MediaTableView: NSViewRepresentable {
@@ -129,6 +150,7 @@ struct MediaTableView: NSViewRepresentable {
     let coverPreference: CoverPreference
     let mediaViewModel: MediaViewModel
     let tableContext: String
+    let isDetailSidebarOpen: Bool
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
@@ -143,6 +165,7 @@ struct MediaTableView: NSViewRepresentable {
         coverPreference: CoverPreference,
         mediaViewModel: MediaViewModel,
         tableContext: String = "main",
+        isDetailSidebarOpen: Bool = false,
         selection: Binding<BookMetadata.ID?>,
         columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
         sortOrder: Binding<[KeyPathComparator<BookMetadata>]>,
@@ -156,6 +179,7 @@ struct MediaTableView: NSViewRepresentable {
         self.coverPreference = coverPreference
         self.mediaViewModel = mediaViewModel
         self.tableContext = tableContext
+        self.isDetailSidebarOpen = isDetailSidebarOpen
         self._selection = selection
         self._columnCustomization = columnCustomization
         self._sortOrder = sortOrder
@@ -185,7 +209,7 @@ struct MediaTableView: NSViewRepresentable {
         tableView.rowHeight = 48
         tableView.usesAutomaticRowHeights = false
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
-        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.allowsColumnReordering = true
         tableView.allowsColumnResizing = true
         tableView.allowsColumnSelection = false
@@ -193,6 +217,7 @@ struct MediaTableView: NSViewRepresentable {
         tableView.allowsEmptySelection = true
         tableView.backgroundColor = .clear
         tableView.headerView = NSTableHeaderView()
+        tableView.autoresizingMask = [.width]
 
         setupColumns(tableView: tableView, context: context)
 
@@ -227,6 +252,8 @@ struct MediaTableView: NSViewRepresentable {
         let oldCoverPreference = coordinator.coverPreference
         let oldCoverHidden = coordinator.isCoverHidden
 
+        let oldSidebarOpen = coordinator.isDetailSidebarOpen
+
         coordinator.parent = self
         coordinator.items = items
         coordinator.coverPreference = coverPreference
@@ -235,18 +262,42 @@ struct MediaTableView: NSViewRepresentable {
 
         let newCoverHidden = isCoverColumnHidden
         coordinator.isCoverHidden = newCoverHidden
+        coordinator.isDetailSidebarOpen = isDetailSidebarOpen
+
+        if let immediateTable = tableView as? ImmediateSelectTableView {
+            immediateTable.activeIdealWidths = loadColumnWidths()
+        }
+
+        if oldSidebarOpen != isDetailSidebarOpen {
+            scrollView.layoutSubtreeIfNeeded()
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                immediateTable.applyIdealWidthsAndTile()
+            }
+        }
 
         updateColumnVisibility(tableView: tableView, coordinator: coordinator)
 
-        if oldItems.map(\.id) != newItems.map(\.id) {
+        let oldIDs = oldItems.map(\.id)
+        let newIDs = newItems.map(\.id)
+
+        if oldIDs != newIDs {
             tableView.reloadData()
-        } else if oldItems != newItems {
+        } else if oldCoverHidden != newCoverHidden {
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<newItems.count))
             tableView.reloadData()
         } else if oldCoverPreference != coverPreference {
             tableView.reloadData()
-        } else if oldCoverHidden != newCoverHidden {
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<items.count))
-            tableView.reloadData()
+        } else if oldItems != newItems {
+            var changedRows = IndexSet()
+            for i in 0..<min(oldItems.count, newItems.count) {
+                if oldItems[i] != newItems[i] {
+                    changedRows.insert(i)
+                }
+            }
+            if !changedRows.isEmpty {
+                let allColumns = IndexSet(integersIn: 0..<tableView.numberOfColumns)
+                tableView.reloadData(forRowIndexes: changedRows, columnIndexes: allColumns)
+            }
         }
 
         if let selectedID = selection {
@@ -264,6 +315,7 @@ struct MediaTableView: NSViewRepresentable {
 
         updateSortIndicators(tableView: tableView, context: context)
     }
+
 
     private var isCoverColumnHidden: Bool {
         let visibility = columnCustomization[visibility: "cover"]
@@ -302,15 +354,26 @@ struct MediaTableView: NSViewRepresentable {
         return String(columnID.dropFirst("creator_".count))
     }
 
-    private var columnWidthsKey: String { "library.table.\(tableContext).columnWidths" }
+    private var columnWidthsKey: String {
+        let base = "library.table.\(tableContext).columnWidths"
+        return isDetailSidebarOpen ? "\(base).detail" : base
+    }
     private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
 
-    fileprivate func saveColumnWidths(from tableView: NSTableView) {
-        var widths: [String: Double] = [:]
-        for column in tableView.tableColumns {
-            widths[column.identifier.rawValue] = Double(column.width)
-        }
-        UserDefaults.standard.set(widths, forKey: columnWidthsKey)
+    fileprivate func columnWidths(from tableView: NSTableView) -> [String: Double] {
+        Dictionary(uniqueKeysWithValues: tableView.tableColumns.map {
+            ($0.identifier.rawValue, Double($0.width))
+        })
+    }
+
+    fileprivate func saveColumnWidths(_ widths: [String: Double], forKey key: String) {
+        UserDefaults.standard.set(widths, forKey: key)
+    }
+
+    fileprivate static func resetColumnWidths(tableContext: String) {
+        let base = "library.table.\(tableContext).columnWidths"
+        UserDefaults.standard.removeObject(forKey: base)
+        UserDefaults.standard.removeObject(forKey: "\(base).detail")
     }
 
     fileprivate func saveColumnOrder(from tableView: NSTableView) {
@@ -365,7 +428,18 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         if !coordinator.visibleColumnIDs.isEmpty && newVisibleIDs != coordinator.visibleColumnIDs {
-            tableView.sizeToFit()
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                let savedWidths = loadColumnWidths()
+                for column in tableView.tableColumns where !column.isHidden {
+                    let id = column.identifier.rawValue
+                    if !coordinator.visibleColumnIDs.contains(id),
+                       let savedWidth = savedWidths[id]
+                    {
+                        column.width = savedWidth
+                    }
+                }
+                immediateTable.tile()
+            }
         }
         coordinator.visibleColumnIDs = newVisibleIDs
     }
@@ -541,11 +615,15 @@ struct MediaTableView: NSViewRepresentable {
         var coverPreference: CoverPreference
         var mediaViewModel: MediaViewModel
         var isCoverHidden: Bool = false
+        var isDetailSidebarOpen: Bool = false
         var visibleColumnIDs: Set<String> = []
         var creatorSortRoleCode: String?
         var enabledCreatorRoles: Set<String> = []
         weak var tableView: NSTableView?
         weak var scrollView: NSScrollView?
+        private var isHandlingColumnResize = false
+        private var saveWidthsWorkItem: DispatchWorkItem?
+        private var saveOrderWorkItem: DispatchWorkItem?
 
         init(parent: MediaTableView, mediaViewModel: MediaViewModel) {
             self.parent = parent
@@ -557,18 +635,47 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         func tableViewColumnDidResize(_ notification: Notification) {
-            guard let tableView = notification.object as? NSTableView else { return }
-            if let immediateTable = tableView as? ImmediateSelectTableView,
-                immediateTable.isProgrammaticResize
+            guard let tv = notification.object as? NSTableView else { return }
+            if let immediateTable = tv as? ImmediateSelectTableView,
+               immediateTable.suppressColumnWidthPersistence
             {
                 return
             }
-            parent.saveColumnWidths(from: tableView)
+            guard !isHandlingColumnResize else { return }
+            isHandlingColumnResize = true
+            defer { isHandlingColumnResize = false }
+
+            (tv as? ImmediateSelectTableView)?.tile()
+
+            let parent = self.parent
+            let key = parent.columnWidthsKey
+
+            saveWidthsWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak tv] in
+                MainActor.assumeIsolated {
+                    guard let tv = tv else { return }
+                    let currentWidths = parent.columnWidths(from: tv)
+                    parent.saveColumnWidths(currentWidths, forKey: key)
+                    if let immediateTable = tv as? ImmediateSelectTableView {
+                        immediateTable.activeIdealWidths = currentWidths.mapValues { CGFloat($0) }
+                    }
+                }
+            }
+            saveWidthsWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
         }
 
         func tableViewColumnDidMove(_ notification: Notification) {
-            guard let tableView = notification.object as? NSTableView else { return }
-            parent.saveColumnOrder(from: tableView)
+            guard let tv = notification.object as? NSTableView else { return }
+            saveOrderWorkItem?.cancel()
+            let parent = self.parent
+            let work = DispatchWorkItem {
+                MainActor.assumeIsolated {
+                    parent.saveColumnOrder(from: tv)
+                }
+            }
+            saveOrderWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {

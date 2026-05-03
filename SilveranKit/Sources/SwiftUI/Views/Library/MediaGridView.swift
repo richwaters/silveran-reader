@@ -637,6 +637,7 @@ struct MediaGridView: View {
                     coverPreference: coverPreference,
                     mediaViewModel: mediaViewModel,
                     tableContext: tableContext,
+                    isDetailSidebarOpen: isSidebarVisible && activeInfoItem != nil,
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in
