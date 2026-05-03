@@ -22,7 +22,7 @@ final class MetadataEditorViewModel {
 
     struct EditableBook: Identifiable {
         let id: String
-        let originalMetadata: BookMetadata
+        var originalMetadata: BookMetadata
 
         var title: String
         var subtitle: String
@@ -342,14 +342,17 @@ final class MetadataEditorViewModel {
         for book in books where book.hasDirtyFields {
             guard let payload = buildPayload(for: book) else { continue }
             let result = await StorytellerActor.shared.updateBook(payload)
-            if result != nil {
+            if let updatedMetadata = result {
                 saveResults[book.id] = true
                 if let index = books.firstIndex(where: { $0.id == book.id }) {
                     books[index].dirtyFields.removeAll()
+                    books[index].originalMetadata = updatedMetadata
                 }
             } else {
                 saveResults[book.id] = false
-                saveError = "Failed to save \(book.displayTitle)"
+                let serverError = await StorytellerActor.shared.lastUpdateBookError
+                saveError =
+                    "\(book.displayTitle): \(serverError ?? "Unknown error")"
             }
         }
 
@@ -366,14 +369,17 @@ final class MetadataEditorViewModel {
         saveError = nil
 
         let result = await StorytellerActor.shared.updateBook(payload)
-        if result != nil {
+        if let updatedMetadata = result {
             saveResults[bookId] = true
             if let index = books.firstIndex(where: { $0.id == bookId }) {
                 books[index].dirtyFields.removeAll()
+                books[index].originalMetadata = updatedMetadata
             }
         } else {
             saveResults[bookId] = false
-            saveError = "Failed to save \(book.displayTitle)"
+            let serverError = await StorytellerActor.shared.lastUpdateBookError
+            saveError =
+                "\(book.displayTitle): \(serverError ?? "Unknown error")"
         }
 
         await StorytellerActor.shared.fetchLibraryInformation()

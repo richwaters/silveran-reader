@@ -46,6 +46,7 @@ public actor StorytellerActor {
     private var apiBaseURL: URL?
     private var accessToken: AccessToken?
     private(set) public var libraryMetadata: [BookMetadata] = []
+    public var lastUpdateBookError: String?
     private var cachedStatuses: [BookStatus] = []
     public private(set) var connectionStatus: ConnectionStatus = .disconnected
 
@@ -987,24 +988,31 @@ public actor StorytellerActor {
                 allowedStatusCodes: allowedStatuses
             )
 
-            guard
-                case .success = evaluateResponse(
-                    response,
-                    methodName: "updateBook",
-                    context: "book \(payload.uuid)"
-                )
-            else {
+            let status = evaluateResponse(
+                response,
+                methodName: "updateBook",
+                context: "book \(payload.uuid)"
+            )
+            guard case .success = status else {
+                if let errorMessage = extractServerErrorMessage(from: response.data) {
+                    lastUpdateBookError = errorMessage
+                } else {
+                    lastUpdateBookError = "Server rejected update (HTTP \(response.statusCode))"
+                }
                 return nil
             }
 
             do {
+                lastUpdateBookError = nil
                 return try decoder.decode(BookMetadata.self, from: response.data)
             } catch {
                 logStorytellerError("updateBook decode", error: error)
+                lastUpdateBookError = "Failed to decode server response"
                 return nil
             }
         } catch {
             logStorytellerError("updateBook", error: error)
+            lastUpdateBookError = "Network error: \(error.localizedDescription)"
             return nil
         }
     }
@@ -2435,6 +2443,13 @@ public actor StorytellerActor {
                 }
                 return .unexpected(statusCode)
         }
+    }
+
+    private func extractServerErrorMessage(from data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let message = json["message"] as? String
+        else { return nil }
+        return message
     }
 
     private func resolveUploadLocation(_ locationHeader: String, relativeTo baseURL: URL) -> URL {
