@@ -147,6 +147,7 @@ struct MediaGridView: View {
     @State private var lastSortKeyPath: AnyKeyPath?
     @State private var creatorSortRoleCode: String?
     @State private var enabledCreatorRoles: Set<String> = Self.loadEnabledCreatorRoles()
+    @State private var columnResetToken: Int = 0
 
     private static let columnCustomizationKey = "library.table.columnCustomization"
     private static let enabledCreatorRolesKey = "library.table.enabledCreatorRoles"
@@ -638,6 +639,7 @@ struct MediaGridView: View {
                     mediaViewModel: mediaViewModel,
                     tableContext: tableContext,
                     isDetailSidebarOpen: isSidebarVisible && activeInfoItem != nil,
+                    columnResetToken: columnResetToken,
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in
@@ -807,6 +809,8 @@ struct MediaGridView: View {
                     columnCustomization = TableColumnCustomization<BookMetadata>()
                     UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
                     enabledCreatorRoles = []
+                    MediaTableView.resetColumnDefaults(tableContext: tableContext)
+                    columnResetToken += 1
                 }
             )
         }

@@ -151,6 +151,7 @@ struct MediaTableView: NSViewRepresentable {
     let mediaViewModel: MediaViewModel
     let tableContext: String
     let isDetailSidebarOpen: Bool
+    var columnResetToken: Int = 0
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
@@ -166,6 +167,7 @@ struct MediaTableView: NSViewRepresentable {
         mediaViewModel: MediaViewModel,
         tableContext: String = "main",
         isDetailSidebarOpen: Bool = false,
+        columnResetToken: Int = 0,
         selection: Binding<BookMetadata.ID?>,
         columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
         sortOrder: Binding<[KeyPathComparator<BookMetadata>]>,
@@ -180,6 +182,7 @@ struct MediaTableView: NSViewRepresentable {
         self.mediaViewModel = mediaViewModel
         self.tableContext = tableContext
         self.isDetailSidebarOpen = isDetailSidebarOpen
+        self.columnResetToken = columnResetToken
         self._selection = selection
         self._columnCustomization = columnCustomization
         self._sortOrder = sortOrder
@@ -271,6 +274,15 @@ struct MediaTableView: NSViewRepresentable {
         if oldSidebarOpen != isDetailSidebarOpen {
             scrollView.layoutSubtreeIfNeeded()
             if let immediateTable = tableView as? ImmediateSelectTableView {
+                immediateTable.applyIdealWidthsAndTile()
+            }
+        }
+
+        if coordinator.columnResetToken != columnResetToken {
+            coordinator.columnResetToken = columnResetToken
+            reorderColumnsToDefault(tableView: tableView)
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                immediateTable.activeIdealWidths = [:]
                 immediateTable.applyIdealWidthsAndTile()
             }
         }
@@ -370,10 +382,11 @@ struct MediaTableView: NSViewRepresentable {
         UserDefaults.standard.set(widths, forKey: key)
     }
 
-    fileprivate static func resetColumnWidths(tableContext: String) {
+    static func resetColumnDefaults(tableContext: String) {
         let base = "library.table.\(tableContext).columnWidths"
         UserDefaults.standard.removeObject(forKey: base)
         UserDefaults.standard.removeObject(forKey: "\(base).detail")
+        UserDefaults.standard.removeObject(forKey: "library.table.\(tableContext).columnOrder")
     }
 
     fileprivate func saveColumnOrder(from tableView: NSTableView) {
@@ -393,6 +406,28 @@ struct MediaTableView: NSViewRepresentable {
 
     private func loadColumnOrder() -> [String] {
         UserDefaults.standard.stringArray(forKey: columnOrderKey) ?? Self.defaultColumnOrder
+    }
+
+    private func reorderColumnsToDefault(tableView: NSTableView) {
+        let currentIDs = tableView.tableColumns.map { $0.identifier.rawValue }
+        var targetOrder = Self.defaultColumnOrder
+        let extras = currentIDs.filter { !targetOrder.contains($0) }
+        targetOrder.append(contentsOf: extras)
+
+        for (targetIndex, id) in targetOrder.enumerated() {
+            guard let currentIndex = tableView.tableColumns.firstIndex(where: {
+                $0.identifier.rawValue == id
+            }) else { continue }
+            if currentIndex != targetIndex {
+                tableView.moveColumn(currentIndex, toColumn: targetIndex)
+            }
+        }
+
+        for column in tableView.tableColumns {
+            if let def = Self.staticColumnDefs[column.identifier.rawValue] {
+                column.width = def.width
+            }
+        }
     }
 
     private func updateColumnVisibility(tableView: NSTableView, coordinator: Coordinator) {
@@ -616,6 +651,7 @@ struct MediaTableView: NSViewRepresentable {
         var mediaViewModel: MediaViewModel
         var isCoverHidden: Bool = false
         var isDetailSidebarOpen: Bool = false
+        var columnResetToken: Int = 0
         var visibleColumnIDs: Set<String> = []
         var creatorSortRoleCode: String?
         var enabledCreatorRoles: Set<String> = []
