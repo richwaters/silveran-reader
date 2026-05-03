@@ -627,7 +627,7 @@ struct MediaGridView: View {
             tableHeader
                 .padding(.horizontal, gridHorizontalPadding)
                 .padding(.leading, 8)
-                .padding(.top)
+                .padding(.top, 52)
 
             if cachedDisplayItems.isEmpty {
                 emptyStateView

@@ -86,7 +86,6 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                 }
                 .padding(.horizontal, horizontalPadding)
             }
-            .padding(.top, 24)
             .padding(.bottom, 40)
         }
         #if os(macOS)
