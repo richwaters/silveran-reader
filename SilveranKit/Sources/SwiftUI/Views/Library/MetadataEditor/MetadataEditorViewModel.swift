@@ -148,8 +148,19 @@ final class MetadataEditorViewModel {
     }
 
     func removeBook(id: String) {
-        books.removeAll { $0.id == id }
-        if selectedBookId == id {
+        removeBooks(ids: [id])
+    }
+
+    func removeBooks(ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        let previousSelected = selectedBookId
+        books.removeAll { ids.contains($0.id) }
+
+        if let previousSelected, !ids.contains(previousSelected),
+            books.contains(where: { $0.id == previousSelected })
+        {
+            selectedBookId = previousSelected
+        } else {
             selectedBookId = books.first?.id
         }
     }

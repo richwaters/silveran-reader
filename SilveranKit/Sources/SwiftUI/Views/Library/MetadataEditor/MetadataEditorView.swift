@@ -4,6 +4,7 @@ public struct MetadataEditorView: View {
     public let initialBookIds: [String]
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var viewModel = MetadataEditorViewModel()
+    @State private var sidebarSelection: Set<String> = []
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
 
@@ -36,6 +37,7 @@ public struct MetadataEditorView: View {
         .frame(minWidth: 700, minHeight: 500)
         .onAppear {
             viewModel.addBooks(ids: initialBookIds, from: mediaViewModel.library)
+            sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
         }
         .onReceive(NotificationCenter.default.publisher(for: .metadataEditorAddBooks)) {
             notification in
@@ -43,6 +45,7 @@ public struct MetadataEditorView: View {
                 return
             }
             viewModel.addBooks(ids: bookIds, from: mediaViewModel.library)
+            sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
         }
     }
 
@@ -92,10 +95,7 @@ public struct MetadataEditorView: View {
 
     @ViewBuilder
     private var bookListSidebar: some View {
-        List(selection: Binding(
-            get: { viewModel.selectedBookId },
-            set: { viewModel.selectedBookId = $0 }
-        )) {
+        List(selection: $sidebarSelection) {
             ForEach(viewModel.books) { book in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -126,14 +126,24 @@ public struct MetadataEditorView: View {
                     }
                 }
                 .tag(book.id)
-                .contextMenu {
-                    Button("Remove from Editor") {
-                        viewModel.removeBook(id: book.id)
-                    }
-                }
             }
         }
         .listStyle(.sidebar)
+        .contextMenu {
+            Button("Remove Selected") {
+                viewModel.removeBooks(ids: sidebarSelection)
+                sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
+            }
+            .disabled(sidebarSelection.isEmpty)
+        }
+        .onChange(of: sidebarSelection) { oldValue, newValue in
+            let added = newValue.subtracting(oldValue)
+            if let newId = added.first {
+                viewModel.selectedBookId = newId
+            } else if !newValue.contains(viewModel.selectedBookId ?? "") {
+                viewModel.selectedBookId = newValue.first
+            }
+        }
     }
 
     // MARK: - Bottom Bar
