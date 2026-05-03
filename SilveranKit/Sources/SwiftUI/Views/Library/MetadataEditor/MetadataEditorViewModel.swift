@@ -39,6 +39,7 @@ final class MetadataEditorViewModel {
         var collectionUuids: [String]
 
         var dirtyFields: Set<String> = []
+        var importedItems: [String: Set<String>] = [:]
 
         var displayTitle: String {
             title.isEmpty ? "(Untitled)" : title
@@ -388,5 +389,143 @@ final class MetadataEditorViewModel {
 
         await StorytellerActor.shared.fetchLibraryInformation()
         isSaving = false
+    }
+
+    // MARK: - Hardcover Import
+
+    func applyImport(details: HardcoverBookDetails, fields: Set<String>, for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+
+        if fields.contains("title"), let value = details.title, !value.isEmpty {
+            books[index].title = value
+            books[index].dirtyFields.insert("title")
+        }
+        if fields.contains("subtitle"), let value = details.subtitle, !value.isEmpty {
+            books[index].subtitle = value
+            books[index].dirtyFields.insert("subtitle")
+        }
+        if fields.contains("description"), let value = details.description, !value.isEmpty {
+            books[index].description = value
+            books[index].dirtyFields.insert("description")
+        }
+        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+            books[index].publicationDate = value
+            books[index].dirtyFields.insert("publicationDate")
+        }
+        if fields.contains("rating"), let value = details.rating {
+            books[index].rating = String(value)
+            books[index].dirtyFields.insert("rating")
+        }
+
+        if fields.contains("authors") && !details.authors.isEmpty {
+            var seen = Set(books[index].authors.map { $0.lowercased() })
+            var imported = Set<String>()
+            for author in details.authors {
+                guard !seen.contains(author.lowercased()) else { continue }
+                seen.insert(author.lowercased())
+                books[index].authors.append(author)
+                imported.insert(author)
+            }
+            if !imported.isEmpty {
+                books[index].importedItems["authors", default: []].formUnion(imported)
+            }
+            books[index].dirtyFields.insert("authors")
+        }
+
+        if fields.contains("narrators") && !details.narrators.isEmpty {
+            var seen = Set(books[index].narrators.map { $0.lowercased() })
+            var imported = Set<String>()
+            for narrator in details.narrators {
+                guard !seen.contains(narrator.lowercased()) else { continue }
+                seen.insert(narrator.lowercased())
+                books[index].narrators.append(narrator)
+                imported.insert(narrator)
+            }
+            if !imported.isEmpty {
+                books[index].importedItems["narrators", default: []].formUnion(imported)
+            }
+            books[index].dirtyFields.insert("narrators")
+        }
+
+        if fields.contains("creators") && !details.creators.isEmpty {
+            var seenKeys = Set(
+                books[index].creators.map {
+                    "\($0.name.lowercased())|\($0.role.lowercased())"
+                })
+            var imported = Set<String>()
+            for creator in details.creators {
+                let key = "\(creator.name.lowercased())|\(creator.role.lowercased())"
+                guard !seenKeys.contains(key) else { continue }
+                seenKeys.insert(key)
+                books[index].creators.append(
+                    EditableCreator(
+                        name: creator.name,
+                        fileAs: "",
+                        role: creator.role
+                    ))
+                imported.insert(creator.name)
+            }
+            if !imported.isEmpty {
+                books[index].importedItems["creators", default: []].formUnion(imported)
+            }
+            books[index].dirtyFields.insert("creators")
+        }
+
+        if fields.contains("series") && !details.series.isEmpty {
+            var seenNames = Set(
+                books[index].series.map { $0.name.lowercased() })
+            var imported = Set<String>()
+            for s in details.series {
+                if seenNames.contains(s.name.lowercased()) {
+                    if let existingIdx = books[index].series.firstIndex(where: {
+                        $0.name.lowercased() == s.name.lowercased()
+                    }) {
+                        if let pos = s.position {
+                            books[index].series[existingIdx].position =
+                                pos.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int(pos)) : String(pos)
+                        }
+                        books[index].series[existingIdx].featured = s.featured
+                    }
+                } else {
+                    seenNames.insert(s.name.lowercased())
+                    let posStr: String = s.position.map {
+                        $0.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(Int($0)) : String($0)
+                    } ?? ""
+                    books[index].series.append(
+                        EditableSeries(
+                            name: s.name,
+                            position: posStr,
+                            featured: s.featured
+                        ))
+                    imported.insert(s.name)
+                }
+            }
+            if !imported.isEmpty {
+                books[index].importedItems["series", default: []].formUnion(imported)
+            }
+            books[index].dirtyFields.insert("series")
+        }
+
+        if fields.contains("tags") && !details.tags.isEmpty {
+            var seen = Set(books[index].tags.map { $0.lowercased() })
+            var imported = Set<String>()
+            for tag in details.tags {
+                guard !seen.contains(tag.lowercased()) else { continue }
+                seen.insert(tag.lowercased())
+                books[index].tags.append(tag)
+                imported.insert(tag)
+            }
+            if !imported.isEmpty {
+                books[index].importedItems["tags", default: []].formUnion(imported)
+            }
+            books[index].dirtyFields.insert("tags")
+        }
+    }
+
+    func isImported(field: String, value: String, for bookId: String) -> Bool {
+        guard let book = books.first(where: { $0.id == bookId }) else { return false }
+        return book.importedItems[field]?.contains(value) ?? false
     }
 }

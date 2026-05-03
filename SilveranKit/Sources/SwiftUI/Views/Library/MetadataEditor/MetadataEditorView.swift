@@ -7,6 +7,7 @@ public struct MetadataEditorView: View {
     @State private var sidebarSelection: Set<String> = []
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
+    @State private var showHardcoverImport = false
 
     public init(initialBookIds: [String]) {
         self.initialBookIds = initialBookIds
@@ -46,6 +47,16 @@ public struct MetadataEditorView: View {
             }
             viewModel.addBooks(ids: bookIds, from: mediaViewModel.library)
             sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
+        }
+        .sheet(isPresented: $showHardcoverImport) {
+            if let book = viewModel.selectedBook {
+                HardcoverImportView(
+                    bookTitle: book.title,
+                    bookAuthor: book.authors.first
+                ) { details, fields in
+                    viewModel.applyImport(details: details, fields: fields, for: book.id)
+                }
+            }
         }
     }
 
@@ -176,6 +187,11 @@ public struct MetadataEditorView: View {
                     .controlSize(.small)
                     .padding(.trailing, 4)
             }
+
+            Button("Download Metadata") {
+                showHardcoverImport = true
+            }
+            .disabled(viewModel.selectedBookId == nil)
 
             Button("Save Selected to Server") {
                 guard let bookId = viewModel.selectedBookId else { return }

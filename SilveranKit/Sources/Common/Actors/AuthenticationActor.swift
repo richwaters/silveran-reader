@@ -10,6 +10,7 @@ public actor AuthenticationActor {
     private let serverURLKey = "serverURL"
     private let usernameKey = "username"
     private let passwordKey = "password"
+    private let hardcoverTokenKey = "hardcoverToken"
     private static let serviceInfoKey = "KEYCHAIN_SERVICE"
     private static let accessGroupInfoKey = "KEYCHAIN_ACCESS_GROUP"
 
@@ -61,6 +62,38 @@ public actor AuthenticationActor {
             return creds != nil
         } catch {
             return false
+        }
+    }
+
+    // MARK: - Hardcover Token
+
+    public func saveHardcoverToken(_ token: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: hardcoverTokenKey,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecUseDataProtectionKeychain as String: true,
+        ]
+        SecItemDelete(query as CFDictionary)
+        try saveString(token, for: hardcoverTokenKey)
+    }
+
+    public func loadHardcoverToken() throws -> String? {
+        try loadString(for: hardcoverTokenKey)
+    }
+
+    public func deleteHardcoverToken() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: hardcoverTokenKey,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecUseDataProtectionKeychain as String: true,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            throw KeychainError.unableToDelete(status: status)
         }
     }
 

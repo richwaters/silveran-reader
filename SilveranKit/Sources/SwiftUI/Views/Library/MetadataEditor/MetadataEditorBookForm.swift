@@ -332,8 +332,15 @@ struct MetadataEditorBookForm: View {
                 .buttonStyle(.borderless)
             }
 
-            ForEach(Array(items.enumerated()), id: \.offset) { index, _ in
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 HStack {
+                    let isImported = viewModel.isImported(
+                        field: field, value: item, for: bookId)
+                    if isImported {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 6, height: 6)
+                    }
                     TextField(
                         placeholder ?? label,
                         text: Binding(
@@ -419,6 +426,13 @@ struct MetadataEditorBookForm: View {
 
             ForEach(creators) { creator in
                 HStack(spacing: 4) {
+                    if viewModel.isImported(
+                        field: "creators", value: creator.name, for: book.id)
+                    {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 6, height: 6)
+                    }
                     TextField(
                         "Name",
                         text: creatorBinding(bookId: book.id, creatorId: creator.id, keyPath: \.name)
@@ -606,6 +620,13 @@ struct MetadataEditorBookForm: View {
 
             ForEach(seriesList) { series in
                 HStack(spacing: 4) {
+                    if viewModel.isImported(
+                        field: "series", value: series.name, for: book.id)
+                    {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 6, height: 6)
+                    }
                     TextField(
                         "Series Name",
                         text: seriesBinding(bookId: book.id, seriesId: series.id, keyPath: \.name)
