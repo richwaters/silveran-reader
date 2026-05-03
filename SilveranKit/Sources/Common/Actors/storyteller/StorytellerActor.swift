@@ -816,8 +816,7 @@ public actor StorytellerActor {
 
     /// Updates book metadata using the multipart protocol handled at `/api/v2/books/{bookId}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/route.ts` (PUT handler).
-    /// TODO: UNTESTED
-    func updateBook(
+    public func updateBook(
         _ payload: StorytellerBookUpdatePayload,
         textCover: StorytellerCoverUpload? = nil,
         audioCover: StorytellerCoverUpload? = nil,
@@ -864,7 +863,14 @@ public actor StorytellerActor {
         }
 
         if let publicationDate = payload.publicationDate {
-            guard appendJSONField("publicationDate", value: publicationDate) else { return nil }
+            switch publicationDate {
+            case .value(let date):
+                guard appendJSONField("publicationDate", value: date) else { return nil }
+            case .null:
+                guard appendJSONField("publicationDate", value: Optional<String>.none) else {
+                    return nil
+                }
+            }
         }
 
         if let descriptionWrapper = payload.description {
@@ -872,7 +878,12 @@ public actor StorytellerActor {
         }
 
         if let ratingWrapper = payload.rating {
-            guard appendJSONField("rating", value: ratingWrapper) else { return nil }
+            switch ratingWrapper {
+            case .value(let rating):
+                guard appendJSONField("rating", value: rating) else { return nil }
+            case .null:
+                guard appendJSONField("rating", value: Optional<Double>.none) else { return nil }
+            }
         }
 
         if let statusWrapper = payload.status {
@@ -880,24 +891,28 @@ public actor StorytellerActor {
         }
 
         if let authors = payload.authors {
+            registerField("authors")
             for author in authors {
                 guard appendJSONField("authors", value: Optional(author)) else { return nil }
             }
         }
 
         if let narrators = payload.narrators {
+            registerField("narrators")
             for narrator in narrators {
                 guard appendJSONField("narrators", value: Optional(narrator)) else { return nil }
             }
         }
 
         if let creators = payload.creators {
+            registerField("creators")
             for creator in creators {
                 guard appendJSONField("creators", value: creator) else { return nil }
             }
         }
 
         if let series = payload.series {
+            registerField("series")
             for item in series {
                 guard appendJSONField("series", value: item) else { return nil }
             }
@@ -911,6 +926,7 @@ public actor StorytellerActor {
         }
 
         if let tags = payload.tags {
+            registerField("tags")
             for tag in tags {
                 guard appendJSONField("tags", value: Optional(tag)) else { return nil }
             }

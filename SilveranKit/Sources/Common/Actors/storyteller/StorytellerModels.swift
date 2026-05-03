@@ -1,5 +1,10 @@
 import Foundation
 
+public enum NullableField<T: Sendable>: Sendable {
+    case value(T)
+    case null
+}
+
 struct AccessToken: Decodable {
     let accessToken: String
     let tokenType: String
@@ -33,25 +38,46 @@ struct StorytellerCollection: Decodable {
     }
 }
 
-struct StorytellerCoverUpload {
-    let filename: String
-    let data: Data
-    let contentType: String?
+public struct StorytellerCoverUpload {
+    public let filename: String
+    public let data: Data
+    public let contentType: String?
+
+    public init(filename: String, data: Data, contentType: String?) {
+        self.filename = filename
+        self.data = data
+        self.contentType = contentType
+    }
 }
 
-struct StorytellerCreatorRelationUpdate: Codable {
-    let uuid: String?
-    let id: Int?
-    let name: String
-    let fileAs: String
-    let role: String?
+public struct StorytellerCreatorRelationUpdate: Codable, Sendable {
+    public let uuid: String?
+    public let id: Int?
+    public let name: String
+    public let fileAs: String
+    public let role: String?
+
+    public init(uuid: String?, id: Int?, name: String, fileAs: String, role: String?) {
+        self.uuid = uuid
+        self.id = id
+        self.name = name
+        self.fileAs = fileAs
+        self.role = role
+    }
 }
 
-struct StorytellerSeriesRelationUpdate: Codable {
-    let uuid: String?
-    let name: String
-    let featured: Bool?
-    let position: Int?
+public struct StorytellerSeriesRelationUpdate: Codable, Sendable {
+    public let uuid: String?
+    public let name: String
+    public let featured: Bool?
+    public let position: Double?
+
+    public init(uuid: String?, name: String, featured: Bool?, position: Double?) {
+        self.uuid = uuid
+        self.name = name
+        self.featured = featured
+        self.position = position
+    }
 }
 
 struct StorytellerBookAssetRelationUpdate: Codable {
@@ -95,21 +121,25 @@ struct StorytellerBookMergeUpdate: Codable {
     var rating: Double?
 }
 
-struct StorytellerBookUpdatePayload {
-    let uuid: String
-    var title: String?
-    var subtitle: String?
-    var language: String?
-    var publicationDate: String?
-    var description: String?
-    var rating: Double?
-    var status: String?
-    var authors: [String]?
-    var narrators: [String]?
-    var creators: [StorytellerCreatorRelationUpdate]?
-    var series: [StorytellerSeriesRelationUpdate]?
-    var collections: [String]?
-    var tags: [String]?
+public struct StorytellerBookUpdatePayload: Sendable {
+    public let uuid: String
+    public var title: String?
+    public var subtitle: String?
+    public var language: String?
+    public var publicationDate: NullableField<String>?
+    public var description: String?
+    public var rating: NullableField<Double>?
+    public var status: String?
+    public var authors: [String]?
+    public var narrators: [String]?
+    public var creators: [StorytellerCreatorRelationUpdate]?
+    public var series: [StorytellerSeriesRelationUpdate]?
+    public var collections: [String]?
+    public var tags: [String]?
+
+    public init(uuid: String) {
+        self.uuid = uuid
+    }
 }
 
 struct StorytellerCollectionCreatePayload: Codable {

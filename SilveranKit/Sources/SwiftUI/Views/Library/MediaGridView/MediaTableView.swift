@@ -5,7 +5,7 @@ import AppKit
 private let tableTrailingPadding: CGFloat = 12
 
 private final class ImmediateSelectTableView: NSTableView {
-    var onRowClicked: ((Int) -> Void)?
+    var onRowDoubleClicked: ((Int) -> Void)?
     var onLinkClicked: ((MetadataLinkTarget) -> Void)?
     fileprivate var isFitting = false
     fileprivate var suppressColumnWidthPersistence = false
@@ -137,10 +137,13 @@ private final class ImmediateSelectTableView: NSTableView {
                     }
                 }
             }
-            onRowClicked?(clickedRow)
         }
 
         super.mouseDown(with: event)
+
+        if event.clickCount == 2 && clickedRow >= 0 {
+            onRowDoubleClicked?(clickedRow)
+        }
     }
 
 }
@@ -160,6 +163,7 @@ struct MediaTableView: NSViewRepresentable {
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
+    var onEditMetadata: (([String]) -> Void)?
 
     init(
         items: [BookMetadata],
@@ -175,7 +179,8 @@ struct MediaTableView: NSViewRepresentable {
         enabledCreatorRoles: Set<String> = [],
         onSelect: @escaping (BookMetadata) -> Void,
         onInfo: @escaping (BookMetadata) -> Void,
-        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil
+        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil,
+        onEditMetadata: (([String]) -> Void)? = nil
     ) {
         self.items = items
         self.coverPreference = coverPreference
@@ -191,6 +196,7 @@ struct MediaTableView: NSViewRepresentable {
         self.onSelect = onSelect
         self.onInfo = onInfo
         self.onMetadataLinkClicked = onMetadataLinkClicked
+        self.onEditMetadata = onEditMetadata
     }
 
     func makeCoordinator() -> Coordinator {
@@ -216,7 +222,7 @@ struct MediaTableView: NSViewRepresentable {
         tableView.allowsColumnReordering = true
         tableView.allowsColumnResizing = true
         tableView.allowsColumnSelection = false
-        tableView.allowsMultipleSelection = false
+        tableView.allowsMultipleSelection = true
         tableView.allowsEmptySelection = true
         tableView.backgroundColor = .clear
         tableView.headerView = NSTableHeaderView()
@@ -236,8 +242,8 @@ struct MediaTableView: NSViewRepresentable {
         context.coordinator.scrollView = scrollView
 
         let coordinator = context.coordinator
-        tableView.onRowClicked = { [weak coordinator] row in
-            coordinator?.handleRowClicked(row)
+        tableView.onRowDoubleClicked = { [weak coordinator] row in
+            coordinator?.handleRowDoubleClicked(row)
         }
         tableView.onLinkClicked = { [weak coordinator] target in
             coordinator?.handleLinkClicked(target)
@@ -925,12 +931,12 @@ struct MediaTableView: NSViewRepresentable {
 
         func tableViewSelectionDidChange(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
-            let selectedRow = tableView.selectedRow
-            if selectedRow >= 0 && selectedRow < items.count {
-                let item = items[selectedRow]
+            let selectedIndexes = tableView.selectedRowIndexes
+            if let lastIndex = selectedIndexes.last, lastIndex < items.count {
+                let item = items[lastIndex]
                 parent.selection = item.id
                 parent.onSelect(item)
-            } else {
+            } else if selectedIndexes.isEmpty {
                 parent.selection = nil
             }
         }
@@ -943,7 +949,7 @@ struct MediaTableView: NSViewRepresentable {
             isCoverHidden ? 28 : 48
         }
 
-        func handleRowClicked(_ row: Int) {
+        func handleRowDoubleClicked(_ row: Int) {
             guard row >= 0 && row < items.count else { return }
             let item = items[row]
             parent.onInfo(item)
@@ -962,6 +968,17 @@ struct MediaTableView: NSViewRepresentable {
             else { return }
 
             let item = items[tableView.clickedRow]
+
+            let showInfo = NSMenuItem(
+                title: "Show Book Information",
+                action: #selector(showBookInfo(_:)),
+                keyEquivalent: ""
+            )
+            showInfo.target = self
+            showInfo.representedObject = item
+            menu.addItem(showInfo)
+            menu.addItem(.separator())
+
             let status = item.readaloud?.status?.uppercased() ?? ""
             let hasEbookAndAudio = item.hasAvailableEbook && item.hasAvailableAudiobook
 
@@ -1057,6 +1074,40 @@ struct MediaTableView: NSViewRepresentable {
                 del.representedObject = item
                 menu.addItem(del)
             }
+
+            if menu.items.count > 0 {
+                menu.addItem(.separator())
+            }
+            let editMeta = NSMenuItem(
+                title: "Edit Metadata...",
+                action: #selector(editMetadata(_:)),
+                keyEquivalent: ""
+            )
+            editMeta.target = self
+            menu.addItem(editMeta)
+        }
+
+        @objc private func editMetadata(_ sender: NSMenuItem) {
+            guard let tableView else { return }
+            var bookIds: [String] = []
+            let selectedIndexes = tableView.selectedRowIndexes
+            if selectedIndexes.count > 1 {
+                for index in selectedIndexes where index < items.count {
+                    bookIds.append(items[index].uuid)
+                }
+            } else {
+                let clickedRow = tableView.clickedRow
+                if clickedRow >= 0 && clickedRow < items.count {
+                    bookIds.append(items[clickedRow].uuid)
+                }
+            }
+            guard !bookIds.isEmpty else { return }
+            parent.onEditMetadata?(bookIds)
+        }
+
+        @objc private func showBookInfo(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            parent.onInfo(item)
         }
 
         private func addReprocessItems(to menu: NSMenu, bookId: String) {

@@ -113,6 +113,7 @@ struct MediaGridView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
+    @Environment(\.openWindow) private var openWindow
     #endif
 
     @State private var activeInfoItem: BookMetadata? = nil
@@ -652,7 +653,13 @@ struct MediaGridView: View {
                     enabledCreatorRoles: enabledCreatorRoles,
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) },
-                    onMetadataLinkClicked: onMetadataLinkClicked
+                    onMetadataLinkClicked: onMetadataLinkClicked,
+                    onEditMetadata: { bookIds in
+                        openWindow(id: "MetadataEditor")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            MetadataEditorNotification.post(bookIds: bookIds)
+                        }
+                    }
                 )
                 .padding(.top, 8)
             }
