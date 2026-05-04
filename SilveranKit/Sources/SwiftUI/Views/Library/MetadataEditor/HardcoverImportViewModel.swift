@@ -179,8 +179,8 @@ final class HardcoverImportViewModel {
         }()
 
         fetchedDetails = HardcoverBookDetails(
-            title: bookDetails.title,
-            subtitle: bookDetails.subtitle,
+            title: edition.title ?? bookDetails.title,
+            subtitle: edition.subtitle ?? bookDetails.subtitle,
             description: bookDetails.description,
             releaseDate: releaseDate,
             rating: bookDetails.rating,

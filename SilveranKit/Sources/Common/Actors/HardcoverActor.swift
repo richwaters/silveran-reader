@@ -10,10 +10,18 @@ public struct HardcoverSearchResult: Sendable, Identifiable {
 public struct HardcoverEditionInfo: Sendable, Identifiable {
     public let id: Int
     public let format: String
+    public let editionInfo: String?
+    public let title: String?
+    public let subtitle: String?
     public let isbn13: String?
+    public let isbn10: String?
+    public let asin: String?
     public let pages: Int?
+    public let audioSeconds: Int?
     public let releaseDate: String?
     public let language: String?
+    public let country: String?
+    public let publisher: String?
     public let narrators: [String]
     public let otherContributors: [(name: String, role: String)]
 }
@@ -177,10 +185,18 @@ public actor HardcoverActor {
                         editions {
                             id
                             edition_format
+                            edition_information
+                            title
+                            subtitle
                             isbn_13
+                            isbn_10
+                            asin
                             pages
+                            audio_seconds
                             release_date
                             language { language }
+                            country { name }
+                            publisher { name }
                             contributions {
                                 contribution
                                 author { name }
@@ -273,6 +289,8 @@ public actor HardcoverActor {
                 let edId = ed["id"] as? Int
             else { return nil }
             let lang = (ed["language"] as? [String: Any])?["language"] as? String
+            let country = (ed["country"] as? [String: Any])?["name"] as? String
+            let publisher = (ed["publisher"] as? [String: Any])?["name"] as? String
             let edContribs = ed["contributions"] as? [[String: Any]] ?? []
             var edNarrators: [String] = []
             var edOther: [(name: String, role: String)] = []
@@ -290,10 +308,18 @@ public actor HardcoverActor {
             return HardcoverEditionInfo(
                 id: edId,
                 format: format,
+                editionInfo: ed["edition_information"] as? String,
+                title: ed["title"] as? String,
+                subtitle: ed["subtitle"] as? String,
                 isbn13: ed["isbn_13"] as? String,
+                isbn10: ed["isbn_10"] as? String,
+                asin: ed["asin"] as? String,
                 pages: ed["pages"] as? Int,
+                audioSeconds: ed["audio_seconds"] as? Int,
                 releaseDate: ed["release_date"] as? String,
                 language: lang,
+                country: country,
+                publisher: publisher,
                 narrators: edNarrators,
                 otherContributors: edOther
             )

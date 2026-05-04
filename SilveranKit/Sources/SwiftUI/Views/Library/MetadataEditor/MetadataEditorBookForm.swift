@@ -59,6 +59,7 @@ struct MetadataEditorBookForm: View {
     @ViewBuilder
     private func descriptionSection(book: MetadataEditorViewModel.EditableBook) -> some View {
         let isDirty = viewModel.isDirty(field: "description", for: book.id)
+        let isImported = viewModel.isImportedField("description", for: book.id)
         GroupBox {
             TextEditor(text: Binding(
                 get: { viewModel.books.first { $0.id == bookId }?.description ?? "" },
@@ -72,6 +73,22 @@ struct MetadataEditorBookForm: View {
             .font(.body)
             .border(fieldBorderColor(field: "description", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            if isImported {
+                let original = book.originalMetadata.description ?? ""
+                if !original.isEmpty {
+                    Text(original)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .strikethrough()
+                        .lineLimit(3)
+                } else {
+                    Text("(was empty)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                }
+            }
         } label: {
             HStack {
                 Text("Description").font(.headline)
@@ -105,18 +122,7 @@ struct MetadataEditorBookForm: View {
                     }
                 })
 
-                editableTextField("Publication Date", field: "publicationDate", value: Binding(
-                    get: { viewModel.books.first { $0.id == bookId }?.publicationDate ?? "" },
-                    set: { newValue in
-                        updateField(bookId: book.id, field: "publicationDate") {
-                            $0.publicationDate = newValue
-                        }
-                    }
-                ), bookId: book.id, revert: {
-                    revertField(bookId: book.id, field: "publicationDate") {
-                        $0.publicationDate = $0.originalMetadata.publicationDate ?? ""
-                    }
-                })
+                publicationDateField(book: book)
 
                 ratingPicker(book: book)
 
@@ -217,20 +223,36 @@ struct MetadataEditorBookForm: View {
         revert: @escaping () -> Void
     ) -> some View {
         let isDirty = viewModel.isDirty(field: field, for: bookId)
-        HStack {
-            HStack(spacing: 4) {
-                if isDirty {
-                    revertButton(action: revert)
+        let isImported = viewModel.isImportedField(field, for: bookId)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                HStack(spacing: 4) {
+                    if isDirty {
+                        revertButton(action: revert)
+                    }
+                    Text(label)
+                        .foregroundStyle(.secondary)
                 }
-                Text(label)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 140, alignment: .trailing)
+                .frame(width: 140, alignment: .trailing)
 
-            TextField(label, text: value)
-                .textFieldStyle(.roundedBorder)
-                .border(fieldBorderColor(field: field, bookId: bookId), width: 2)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                TextField(label, text: value)
+                    .textFieldStyle(.roundedBorder)
+                    .border(fieldBorderColor(field: field, bookId: bookId), width: 2)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            if isImported {
+                let original = originalScalarValue(field: field, bookId: bookId)
+                if !original.isEmpty {
+                    HStack {
+                        Spacer().frame(width: 140)
+                        Text(original)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .strikethrough()
+                            .lineLimit(1)
+                    }
+                }
+            }
         }
     }
 
@@ -299,6 +321,80 @@ struct MetadataEditorBookForm: View {
             }
             .border(fieldBorderColor(field: "status", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+    }
+
+    @ViewBuilder
+    private func publicationDateField(book: MetadataEditorViewModel.EditableBook) -> some View {
+        let isDirty = viewModel.isDirty(field: "publicationDate", for: book.id)
+        let isImported = viewModel.isImportedField("publicationDate", for: book.id)
+        let fullValue = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
+        let datePart = String(fullValue.prefix(10))
+        let timePart = fullValue.count > 10 ? String(fullValue.dropFirst(10)) : ""
+
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                HStack(spacing: 4) {
+                    if isDirty {
+                        revertButton {
+                            revertField(bookId: book.id, field: "publicationDate") {
+                                $0.publicationDate = $0.originalMetadata.publicationDate ?? ""
+                            }
+                        }
+                    }
+                    Text("Publication Date")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 140, alignment: .trailing)
+
+                HStack(spacing: 0) {
+                    TextField("Date", text: Binding(
+                        get: { datePart },
+                        set: { newValue in
+                            let newFull = newValue + timePart
+                            updateField(bookId: book.id, field: "publicationDate") {
+                                $0.publicationDate = newFull
+                            }
+                        }
+                    ))
+                    .textFieldStyle(.plain)
+
+                    if !timePart.isEmpty {
+                        Text(timePart)
+                            .foregroundStyle(.tertiary)
+                            .font(.body)
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(
+                            fieldBorderColor(field: "publicationDate", bookId: book.id),
+                            lineWidth: 2)
+                )
+            }
+            if isImported {
+                let original = originalScalarValue(field: "publicationDate", bookId: book.id)
+                if !original.isEmpty {
+                    HStack {
+                        Spacer().frame(width: 140)
+                        Text(original)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .strikethrough()
+                            .lineLimit(1)
+                    }
+                }
+            }
         }
     }
 
@@ -744,6 +840,20 @@ struct MetadataEditorBookForm: View {
         case "language": return book.language
         case "publicationDate": return book.publicationDate
         case "rating": return book.rating
+        default: return ""
+        }
+    }
+
+    private func originalScalarValue(field: String, bookId: String) -> String {
+        guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return "" }
+        let orig = book.originalMetadata
+        switch field {
+        case "title": return orig.title
+        case "subtitle": return orig.subtitle ?? ""
+        case "description": return orig.description ?? ""
+        case "language": return orig.language ?? ""
+        case "publicationDate": return orig.publicationDate ?? ""
+        case "rating": return orig.rating.map { String($0) } ?? ""
         default: return ""
         }
     }

@@ -461,43 +461,69 @@ struct HardcoverImportView: View {
             ? bookDetails.creators : edition.otherContributors
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(edition.format) Edition").font(.headline)
+                Text(edition.editionInfo ?? edition.format).font(.headline)
 
-                Group {
-                    row("Title", bookDetails.title)
-                    row("Subtitle", bookDetails.subtitle)
-                    row("Language", edition.language ?? bookDetails.language)
-                    row("Release Date", edition.releaseDate ?? bookDetails.releaseDate)
-                    if let isbn = edition.isbn13 {
-                        row("ISBN", isbn)
-                    }
-                    if let pages = edition.pages {
-                        row("Pages", "\(pages)")
-                    }
-                }
-
-                if !bookDetails.authors.isEmpty {
-                    row("Authors", bookDetails.authors.joined(separator: ", "))
-                }
-                if !narrators.isEmpty {
-                    row("Narrators", narrators.joined(separator: ", "))
-                }
-                if !creators.isEmpty {
-                    row("Creators", creators.map { "\($0.name) (\($0.role))" }
-                        .joined(separator: ", "))
-                }
-                if !bookDetails.series.isEmpty {
-                    row("Series", bookDetails.series.map { s in
-                        s.position != nil ? "\(s.name) #\(s.position!.formatted())" : s.name
-                    }.joined(separator: ", "))
-                }
-                if !bookDetails.tags.isEmpty {
-                    row("Tags", bookDetails.tags.prefix(10).joined(separator: ", "))
-                }
+                editionPreviewFields(edition: edition, bookDetails: bookDetails)
+                editionPreviewPeople(
+                    bookDetails: bookDetails, narrators: narrators, creators: creators)
+                editionPreviewCollections(bookDetails: bookDetails)
             }
             .padding()
         }
-        .frame(width: 350, height: 280)
+        .frame(width: 380, height: 320)
+    }
+
+    @ViewBuilder
+    private func editionPreviewFields(
+        edition: HardcoverEditionInfo, bookDetails: HardcoverBookDetails
+    ) -> some View {
+        row("Title", edition.title ?? bookDetails.title)
+        row("Subtitle", edition.subtitle ?? bookDetails.subtitle)
+        row("Language", edition.language ?? bookDetails.language)
+        row("Country", edition.country)
+        row("Release Date", edition.releaseDate ?? bookDetails.releaseDate)
+        row("Publisher", edition.publisher)
+        row("Pages", edition.pages.map { "\($0)" })
+        if let secs = edition.audioSeconds, secs > 0 {
+            let hrs = secs / 3600
+            let mins = (secs % 3600) / 60
+            row("Audio Length", "\(hrs)h \(mins)m")
+        }
+        row("ISBN-13", edition.isbn13)
+        row("ISBN-10", edition.isbn10)
+        row("ASIN", edition.asin)
+    }
+
+    @ViewBuilder
+    private func editionPreviewPeople(
+        bookDetails: HardcoverBookDetails, narrators: [String],
+        creators: [(name: String, role: String)]
+    ) -> some View {
+        if !bookDetails.authors.isEmpty {
+            row("Authors", bookDetails.authors.joined(separator: ", "))
+        }
+        if !narrators.isEmpty {
+            row("Narrators", narrators.joined(separator: ", "))
+        }
+        if !creators.isEmpty {
+            row(
+                "Creators",
+                creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))
+        }
+    }
+
+    @ViewBuilder
+    private func editionPreviewCollections(bookDetails: HardcoverBookDetails) -> some View {
+        if !bookDetails.series.isEmpty {
+            row(
+                "Series",
+                bookDetails.series.map { s in
+                    s.position != nil ? "\(s.name) #\(s.position!.formatted())" : s.name
+                }.joined(separator: ", "))
+        }
+        if !bookDetails.tags.isEmpty {
+            row("Tags", bookDetails.tags.prefix(10).joined(separator: ", "))
+        }
     }
 
     @ViewBuilder

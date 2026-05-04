@@ -432,12 +432,13 @@ final class MetadataEditorViewModel {
             books[index].importedFields.insert("description")
             markDirty(field: "description", for: bookId)
         }
-        if fields.contains("language"), let value = details.language, !value.isEmpty,
-            value != books[index].language
-        {
-            books[index].language = value
-            books[index].importedFields.insert("language")
-            markDirty(field: "language", for: bookId)
+        if fields.contains("language"), let value = details.language, !value.isEmpty {
+            let code = Self.languageNameToCode(value)
+            if code != books[index].language {
+                books[index].language = code
+                books[index].importedFields.insert("language")
+                markDirty(field: "language", for: bookId)
+            }
         }
         if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty,
             value != books[index].publicationDate
@@ -562,6 +563,19 @@ final class MetadataEditorViewModel {
                 markDirty(field: "tags", for: bookId)
             }
         }
+    }
+
+    private static func languageNameToCode(_ name: String) -> String {
+        let target = name.lowercased()
+        let english = Locale(identifier: "en")
+        for code in Locale.isoLanguageCodes {
+            if let localized = english.localizedString(forLanguageCode: code),
+                localized.lowercased() == target
+            {
+                return code
+            }
+        }
+        return name
     }
 
     func isImportedField(_ field: String, for bookId: String) -> Bool {
