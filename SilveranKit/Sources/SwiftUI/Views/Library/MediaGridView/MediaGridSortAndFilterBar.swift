@@ -513,7 +513,7 @@ struct MediaGridSortAndFilterBar: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 Button {
-                    coverPreference = .storytellerDouble
+                    coverPreference = .preferEbook
                 } label: {
                     Image(systemName: "book.fill")
                         .frame(width: 32, height: 28)

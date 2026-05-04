@@ -8,6 +8,7 @@ struct MediaCompactCardView: View {
     let showAudioIndicator: Bool
     let sourceLabel: String?
     let seriesPositionBadge: String?
+    let progressStyle: ProgressIndicatorStyle
     let isSelected: Bool
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
@@ -85,7 +86,7 @@ struct MediaCompactCardView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if progress > 0 {
+                if progressStyle == .line && progress > 0 {
                     GeometryReader { geometry in
                         let clamped = min(max(progress, 0), 1)
                         ZStack(alignment: .leading) {
@@ -99,17 +100,24 @@ struct MediaCompactCardView: View {
                     .frame(height: 3)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if progressStyle == .circle && progress > 0 {
+                    CircularProgressBadge(progress: progress)
+                        .padding(.trailing, 3)
+                        .padding(.bottom, 3)
+                }
+            }
             .overlay(alignment: .bottomLeading) {
                 if let sourceLabel = sourceLabel {
                     SourceBadge(label: sourceLabel)
                         .padding(2)
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
+            .overlay(alignment: .topTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: item, coverVariant: coverVariant)
                         .padding(.trailing, 2)
-                        .padding(.bottom, 2)
+                        .padding(.top, 2)
                 }
             }
             .overlay(alignment: .topLeading) {

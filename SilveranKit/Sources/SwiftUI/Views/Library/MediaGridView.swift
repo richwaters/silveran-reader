@@ -1115,6 +1115,7 @@ struct MediaGridView: View {
                                     sourceLabel: showSourceBadge
                                         ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
+                                    progressStyle: progressStyle,
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
                                         selectItem(selected)
