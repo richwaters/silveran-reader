@@ -225,6 +225,12 @@ struct HardcoverImportView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            if expandedResultIds.contains(result.id) {
+                expandedResultIds.remove(result.id)
+            } else {
+                expandedResultIds.insert(result.id)
+                Task { await viewModel.fetchInfo(for: result) }
+            }
             Task { await viewModel.selectResult(result) }
         }
         .padding(.vertical, 2)
@@ -428,7 +434,7 @@ struct HardcoverImportView: View {
                     Button(action: {
                         editionPreviewId = editionPreviewId == edition.id ? nil : edition.id
                     }) {
-                        Image(systemName: "magnifyingglass")
+                        Image(systemName: "info.circle")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
