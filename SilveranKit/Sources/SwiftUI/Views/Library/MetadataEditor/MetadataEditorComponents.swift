@@ -438,6 +438,7 @@ struct WordDiffView: View {
 
     private func longestCommonSubsequence(_ a: [String], _ b: [String]) -> [String] {
         let m = a.count, n = b.count
+        guard m > 0 && n > 0 else { return [] }
         var dp = Array(repeating: Array(repeating: 0, count: n + 1), count: m + 1)
         for i in 1...m {
             for j in 1...n {

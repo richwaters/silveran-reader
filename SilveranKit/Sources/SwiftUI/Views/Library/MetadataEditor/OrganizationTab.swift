@@ -44,6 +44,16 @@ struct OrganizationTab: View {
                     .padding([.horizontal, .top])
 
                 HStack(spacing: 8) {
+                    Button("Delete All") {
+                        guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
+                        viewModel.books[idx].tags.removeAll()
+                        viewModel.markDirty(field: "tags", for: bookId)
+                        editedTagSelection.removeAll()
+                    }
+                    .controlSize(.small)
+                    .foregroundStyle(.red)
+
                     Button(action: {
                         guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
                         else { return }
@@ -138,8 +148,8 @@ struct OrganizationTab: View {
                     Spacer()
                     if !serverTagSelection.isEmpty {
                         Button("Import Selected (\(serverTagSelection.count))") {
-                            let names = serverTagSelection.compactMap { idx in
-                                idx < serverTagRows.count ? serverTagRows[idx].value : nil
+                            let names = serverTagSelection.compactMap { id in
+                                serverTagRows.first { $0.id == id }?.value
                             }
                             viewModel.importTags(names, for: bookId)
                             serverTagSelection.removeAll()

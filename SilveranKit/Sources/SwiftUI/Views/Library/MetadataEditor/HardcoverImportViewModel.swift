@@ -141,6 +141,10 @@ final class HardcoverImportViewModel {
         }
 
         isSearching = false
+
+        if let first = searchResults.first {
+            await selectResult(first)
+        }
     }
 
     var selectedEditionId: Int?
