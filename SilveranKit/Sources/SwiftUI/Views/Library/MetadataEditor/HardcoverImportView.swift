@@ -361,7 +361,7 @@ struct HardcoverImportView: View {
                     Text("Physical Only").tag(Optional("physical"))
                     Divider()
                     ForEach(formats, id: \.self) { fmt in
-                        Text(fmt).tag(Optional(fmt))
+                        Text(displayFormat(fmt)).tag(Optional(fmt))
                     }
                 }
                 .labelsHidden()
@@ -396,7 +396,7 @@ struct HardcoverImportView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 14)
-                    Text(edition.format)
+                    Text(displayFormat(edition.format))
                         .font(.caption)
                         .frame(width: 80, alignment: .leading)
                         .lineLimit(1)
@@ -554,6 +554,11 @@ struct HardcoverImportView: View {
             }
         }
         return String(name.prefix(3))
+    }
+
+    private func displayFormat(_ format: String) -> String {
+        guard let first = format.first else { return format }
+        return String(first).uppercased() + format.dropFirst()
     }
 
     private func editionIcon(_ format: String) -> String {
