@@ -657,6 +657,11 @@ struct MediaGridView: View {
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
                     onEditMetadata: { bookIds in
+                        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+                            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+                            showPermissionError = true
+                            return
+                        }
                         Task {
                             let result = await StorytellerActor.shared.checkBookUpdatePermission()
                             switch result {
