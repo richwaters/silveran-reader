@@ -422,7 +422,7 @@ struct HardcoverImportView: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 28, alignment: .leading)
                         .lineLimit(1)
-                    Text(edition.pages.map { "\($0) pp" } ?? "")
+                    Text(editionLengthLabel(edition))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .frame(width: 50, alignment: .trailing)
@@ -587,6 +587,18 @@ struct HardcoverImportView: View {
                 guard let first = format.first else { return format }
                 return String(first).uppercased() + format.dropFirst()
             }()
+    }
+
+    private func editionLengthLabel(_ edition: HardcoverEditionInfo) -> String {
+        if let secs = edition.audioSeconds, secs > 0 {
+            let hrs = secs / 3600
+            let mins = (secs % 3600) / 60
+            return "\(hrs)h \(mins)m"
+        }
+        if let pages = edition.pages {
+            return "\(pages) pp"
+        }
+        return ""
     }
 
     private func editionIcon(_ format: String) -> String {

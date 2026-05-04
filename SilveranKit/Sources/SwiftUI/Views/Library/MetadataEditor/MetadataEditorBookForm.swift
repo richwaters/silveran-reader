@@ -138,7 +138,7 @@ struct MetadataEditorBookForm: View {
                     }
                 })
 
-                ratingPicker(book: book)
+                ratingField(book: book)
             }
         }
     }
@@ -277,35 +277,73 @@ struct MetadataEditorBookForm: View {
     }
 
     @ViewBuilder
-    private func ratingPicker(book: MetadataEditorViewModel.EditableBook) -> some View {
+    private func ratingField(book: MetadataEditorViewModel.EditableBook) -> some View {
         let isDirty = viewModel.isDirty(field: "rating", for: book.id)
-        HStack {
-            HStack(spacing: 4) {
-                if isDirty {
-                    revertButton {
-                        revertField(bookId: book.id, field: "rating") {
-                            $0.rating = $0.originalMetadata.rating.map { String($0) } ?? ""
+        let isImported = viewModel.isImportedField("rating", for: book.id)
+        let hasRating = !(viewModel.books.first { $0.id == bookId }?.rating ?? "").isEmpty
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                HStack(spacing: 4) {
+                    if isDirty {
+                        revertButton {
+                            revertField(bookId: book.id, field: "rating") {
+                                $0.rating = $0.originalMetadata.rating.map { String($0) } ?? ""
+                            }
+                        }
+                    }
+                    Text("Rating")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 140, alignment: .trailing)
+
+                TextField("0.0", text: Binding(
+                    get: { viewModel.books.first { $0.id == bookId }?.rating ?? "" },
+                    set: { newValue in
+                        updateField(bookId: book.id, field: "rating") { $0.rating = newValue }
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 80)
+                .disabled(!hasRating)
+                .border(fieldBorderColor(field: "rating", bookId: book.id), width: 2)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Toggle("No rating", isOn: Binding(
+                    get: { !hasRating },
+                    set: { noRating in
+                        if noRating {
+                            updateField(bookId: book.id, field: "rating") { $0.rating = "" }
+                        } else {
+                            updateField(bookId: book.id, field: "rating") { $0.rating = "0" }
+                        }
+                    }
+                ))
+                #if os(macOS)
+                .toggleStyle(.checkbox)
+                #endif
+                .font(.callout)
+            }
+            if isDirty || isImported {
+                let original = originalScalarValue(field: "rating", bookId: book.id)
+                let current = viewModel.books.first { $0.id == bookId }?.rating ?? ""
+                if original != current {
+                    HStack {
+                        Spacer().frame(width: 140)
+                        if !original.isEmpty {
+                            Text(original)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .strikethrough()
+                                .lineLimit(1)
+                        } else {
+                            Text("(was empty)")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .italic()
                         }
                     }
                 }
-                Text("Rating")
-                    .foregroundStyle(.secondary)
             }
-            .frame(width: 140, alignment: .trailing)
-
-            Picker("", selection: Binding(
-                get: { viewModel.books.first { $0.id == bookId }?.rating ?? "" },
-                set: { newValue in
-                    updateField(bookId: book.id, field: "rating") { $0.rating = newValue }
-                }
-            )) {
-                Text("None").tag("")
-                ForEach(["1", "2", "3", "4", "5"], id: \.self) { r in
-                    Text(r).tag(r)
-                }
-            }
-            .border(fieldBorderColor(field: "rating", bookId: book.id), width: 2)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
 

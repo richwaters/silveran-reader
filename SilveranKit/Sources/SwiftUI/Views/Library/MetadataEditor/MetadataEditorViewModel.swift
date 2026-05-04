@@ -452,7 +452,7 @@ final class MetadataEditorViewModel {
             }
         }
         if fields.contains("rating"), let value = details.rating {
-            let ratingStr = String(value)
+            let ratingStr = String(format: "%.2f", value)
             if ratingStr != books[index].rating {
                 books[index].rating = ratingStr
                 books[index].importedFields.insert("rating")
