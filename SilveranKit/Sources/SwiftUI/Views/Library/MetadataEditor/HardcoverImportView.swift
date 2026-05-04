@@ -315,8 +315,12 @@ struct HardcoverImportView: View {
 
     // MARK: - Edition Filter
 
-    private static let digitalFormats: Set<String> = ["ebook", "kindle", "epub3", "audible", "audiobook", "unabridged audiobook"]
-    private static let physicalFormats: Set<String> = ["hardcover", "paperback", "mass market paperback"]
+    private static let digitalNormalized: Set<String> = [
+        "Ebook", "Kindle", "Audible", "Audiobook",
+    ]
+    private static let physicalNormalized: Set<String> = [
+        "Hardcover", "Paperback", "Mass Market Paperback",
+    ]
 
     private func filteredEditions(_ editions: [HardcoverEditionInfo]) -> [HardcoverEditionInfo] {
         editions.filter { edition in
@@ -324,14 +328,14 @@ struct HardcoverImportView: View {
                 guard edition.language?.lowercased() == lang.lowercased() else { return false }
             }
             if let fmt = editionFilterFormat {
-                let lower = edition.format.lowercased()
+                let normalized = normalizedFormat(edition.format)
                 switch fmt {
                 case "digital":
-                    guard Self.digitalFormats.contains(lower) else { return false }
+                    guard Self.digitalNormalized.contains(normalized) else { return false }
                 case "physical":
-                    guard Self.physicalFormats.contains(lower) else { return false }
+                    guard Self.physicalNormalized.contains(normalized) else { return false }
                 default:
-                    guard lower == fmt.lowercased() else { return false }
+                    guard normalized == fmt else { return false }
                 }
             }
             return true
@@ -342,7 +346,7 @@ struct HardcoverImportView: View {
     private func editionFilterPopover(for bookId: Int) -> some View {
         let editions = viewModel.infoDetails[bookId]?.editions ?? []
         let languages = Array(Set(editions.compactMap(\.language))).sorted()
-        let formats = Array(Set(editions.map(\.format))).sorted()
+        let formats = Array(Set(editions.map { normalizedFormat($0.format) })).sorted()
 
         VStack(alignment: .leading, spacing: 10) {
             Text("Filter Editions").font(.headline)
@@ -367,7 +371,7 @@ struct HardcoverImportView: View {
                     Text("Physical Only").tag(Optional("physical"))
                     Divider()
                     ForEach(formats, id: \.self) { fmt in
-                        Text(displayFormat(fmt)).tag(Optional(fmt))
+                        Text(fmt).tag(Optional(fmt))
                     }
                 }
                 .labelsHidden()
@@ -402,7 +406,7 @@ struct HardcoverImportView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 14)
-                    Text(displayFormat(edition.format))
+                    Text(normalizedFormat(edition.format))
                         .font(.caption)
                         .frame(width: 80, alignment: .leading)
                         .lineLimit(1)
@@ -562,9 +566,25 @@ struct HardcoverImportView: View {
         return String(name.prefix(3))
     }
 
-    private func displayFormat(_ format: String) -> String {
-        guard let first = format.first else { return format }
-        return String(first).uppercased() + format.dropFirst()
+    private static let formatNormalization: [String: String] = [
+        "ebook": "Ebook",
+        "e-book": "Ebook",
+        "kindle": "Kindle",
+        "epub3": "Ebook",
+        "audible": "Audible",
+        "audiobook": "Audiobook",
+        "unabridged audiobook": "Audiobook",
+        "hardcover": "Hardcover",
+        "paperback": "Paperback",
+        "mass market paperback": "Mass Market Paperback",
+    ]
+
+    private func normalizedFormat(_ format: String) -> String {
+        Self.formatNormalization[format.lowercased()]
+            ?? {
+                guard let first = format.first else { return format }
+                return String(first).uppercased() + format.dropFirst()
+            }()
     }
 
     private func editionIcon(_ format: String) -> String {
