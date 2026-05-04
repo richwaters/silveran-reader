@@ -175,7 +175,9 @@ struct HardcoverImportView: View {
                             set: { _ in viewModel.toggleField(field.key) }
                         )
                     )
+                    #if os(macOS)
                     .toggleStyle(.checkbox)
+                    #endif
                     .font(.callout)
                 }
             }

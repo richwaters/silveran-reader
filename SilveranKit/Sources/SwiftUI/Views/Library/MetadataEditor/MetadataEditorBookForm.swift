@@ -603,8 +603,12 @@ struct MetadataEditorBookForm: View {
     @ViewBuilder
     private var marcHelpButton: some View {
         Button(action: {
-            NSWorkspace.shared.open(
-                URL(string: "https://www.loc.gov/marc/relators/relaterm.html")!)
+            let url = URL(string: "https://www.loc.gov/marc/relators/relaterm.html")!
+            #if os(macOS)
+            NSWorkspace.shared.open(url)
+            #else
+            UIApplication.shared.open(url)
+            #endif
         }) {
             Image(systemName: "questionmark.circle")
                 .foregroundStyle(.secondary)
@@ -727,7 +731,9 @@ struct MetadataEditorBookForm: View {
                             }
                         )
                     )
+                    #if os(macOS)
                     .toggleStyle(.checkbox)
+                    #endif
 
                     Button(action: {
                         guard

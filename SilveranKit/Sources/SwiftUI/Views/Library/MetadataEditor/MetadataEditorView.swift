@@ -93,7 +93,9 @@ public struct MetadataEditorView: View {
             Spacer()
 
             Toggle("Don't show again", isOn: $hideWarning)
+                #if os(macOS)
                 .toggleStyle(.checkbox)
+                #endif
                 .font(.callout)
 
             Button(action: { showWarning = false }) {
