@@ -1072,7 +1072,7 @@ struct MediaGridView: View {
                         #else
                         let gridAlignment: HorizontalAlignment = .leading
                         #endif
-                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
+                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 0) {
                             ForEach(cachedDisplayItems) { item in
                                 card(for: item, metrics: gridMetrics)
                             }

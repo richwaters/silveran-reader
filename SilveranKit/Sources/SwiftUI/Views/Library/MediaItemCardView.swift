@@ -34,11 +34,11 @@ struct MediaItemCardMetrics {
         mediaKind: MediaKind,
         coverPreference: CoverPreference = .preferEbook
     ) -> MediaItemCardMetrics {
-        let cardPadding = 4.0
+        let cardPadding = 2.0
         let coverWidth = max(tileWidth - (cardPadding * 2), tileWidth * 0.90)
         let labelLeadingPadding = max(cardPadding + 6, 12)
         let infoIconSize = max(18, tileWidth * 0.12)
-        let contentSpacing = max(8, tileWidth * 0.06)
+        let contentSpacing = max(4, tileWidth * 0.03)
 
         let tallestCoverAspectRatio: CGFloat = 1.0 / coverPreference.preferredContainerAspectRatio
         let tallestCoverHeight = coverWidth * tallestCoverAspectRatio
@@ -51,7 +51,7 @@ struct MediaItemCardMetrics {
         let titleContainerHeight = estimatedLineHeight * maxTitleLines
 
         let authorRowHeight: CGFloat = 20
-        let authorRowBottomPadding: CGFloat = 4
+        let authorRowBottomPadding: CGFloat = 0
         let titleToAuthorGap: CGFloat = 2
 
         let coverContainerHeight = tallestCoverHeight + progressBarTopPadding + progressBarHeight
