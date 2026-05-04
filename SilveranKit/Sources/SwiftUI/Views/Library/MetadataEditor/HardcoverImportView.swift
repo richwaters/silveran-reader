@@ -405,6 +405,11 @@ struct HardcoverImportView: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 55, alignment: .leading)
                         .lineLimit(1)
+                    Text(countryAbbreviation(edition.country) ?? "")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, alignment: .leading)
+                        .lineLimit(1)
                     Text(edition.pages.map { "\($0) pp" } ?? "")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -535,6 +540,20 @@ struct HardcoverImportView: View {
             }
             .font(.callout)
         }
+    }
+
+    private func countryAbbreviation(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let target = name.lowercased()
+        let english = Locale(identifier: "en")
+        for code in Locale.isoRegionCodes {
+            if let localized = english.localizedString(forRegionCode: code),
+                localized.lowercased() == target
+            {
+                return code
+            }
+        }
+        return String(name.prefix(3))
     }
 
     private func editionIcon(_ format: String) -> String {
