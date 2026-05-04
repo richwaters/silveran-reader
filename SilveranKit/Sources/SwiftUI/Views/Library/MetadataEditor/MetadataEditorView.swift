@@ -40,6 +40,12 @@ public struct MetadataEditorView: View {
             viewModel.addBooks(ids: initialBookIds, from: mediaViewModel.library)
             sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
         }
+        .onDisappear {
+            viewModel.books.removeAll()
+            viewModel.selectedBookId = nil
+            viewModel.saveResults.removeAll()
+            viewModel.saveError = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: .metadataEditorAddBooks)) {
             notification in
             guard let bookIds = MetadataEditorNotification.bookIds(from: notification) else {
@@ -52,10 +58,14 @@ public struct MetadataEditorView: View {
             if let book = viewModel.selectedBook {
                 HardcoverImportView(
                     bookTitle: book.title,
-                    bookAuthor: book.authors.first
-                ) { details, fields in
-                    viewModel.applyImport(details: details, fields: fields, for: book.id)
-                }
+                    bookAuthor: book.authors.first,
+                    onImport: { details, fields in
+                        viewModel.applyImport(details: details, fields: fields, for: book.id)
+                    },
+                    onAutoImportAll: { fields in
+                        Task { @MainActor in await viewModel.autoImportAll(fields: fields) }
+                    }
+                )
             }
         }
     }
@@ -167,7 +177,22 @@ public struct MetadataEditorView: View {
     @ViewBuilder
     private var bottomBar: some View {
         HStack {
-            if let error = viewModel.saveError {
+            if viewModel.isAutoImporting {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(
+                        "Importing \(viewModel.autoImportProgress.current + 1)/\(viewModel.autoImportProgress.total)..."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
+            } else if let error = viewModel.autoImportError {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .font(.callout)
+                    .lineLimit(1)
+            } else if let error = viewModel.saveError {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.red)
                     .font(.callout)

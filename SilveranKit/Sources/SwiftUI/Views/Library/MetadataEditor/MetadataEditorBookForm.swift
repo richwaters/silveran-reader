@@ -70,7 +70,7 @@ struct MetadataEditorBookForm: View {
             ))
             .frame(minHeight: 80, maxHeight: 160)
             .font(.body)
-            .border(isDirty ? Color.orange : Color.clear, width: 2)
+            .border(fieldBorderColor(field: "description", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         } label: {
             HStack {
@@ -203,6 +203,7 @@ struct MetadataEditorBookForm: View {
 
     private func fieldBorderColor(field: String, bookId: String) -> Color {
         if viewModel.fieldHasError(field, for: bookId) { return .red }
+        if viewModel.isImportedField(field, for: bookId) { return .blue }
         if viewModel.isDirty(field: field, for: bookId) { return .orange }
         return .clear
     }
@@ -261,7 +262,7 @@ struct MetadataEditorBookForm: View {
                     Text(r).tag(r)
                 }
             }
-            .border(isDirty ? Color.orange : Color.clear, width: 2)
+            .border(fieldBorderColor(field: "rating", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
@@ -296,7 +297,7 @@ struct MetadataEditorBookForm: View {
                     Text(status.name).tag(status.uuid ?? "")
                 }
             }
-            .border(isDirty ? Color.orange : Color.clear, width: 2)
+            .border(fieldBorderColor(field: "status", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
@@ -313,9 +314,12 @@ struct MetadataEditorBookForm: View {
         let items = viewModel.books.first { $0.id == bookId }?.stringList(for: field) ?? []
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                let hasImports = viewModel.books.first { $0.id == bookId }?
+                    .importedItems[field]?.isEmpty == false
                 Text(label)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isDirty ? Color.orange : .primary)
+                    .foregroundStyle(
+                        hasImports ? Color.blue : isDirty ? Color.orange : .primary)
                 if isDirty {
                     revertButton(action: revert)
                 }
@@ -388,11 +392,14 @@ struct MetadataEditorBookForm: View {
     private func creatorListEditor(book: MetadataEditorViewModel.EditableBook) -> some View {
         let isDirty = viewModel.isDirty(field: "creators", for: book.id)
         let creators = viewModel.books.first { $0.id == book.id }?.creators ?? []
+        let hasImports = viewModel.books.first { $0.id == book.id }?
+            .importedItems["creators"]?.isEmpty == false
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Other Creators")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isDirty ? Color.orange : .primary)
+                    .foregroundStyle(
+                        hasImports ? Color.blue : isDirty ? Color.orange : .primary)
                 if isDirty {
                     revertButton {
                         revertField(bookId: book.id, field: "creators") {
@@ -579,11 +586,14 @@ struct MetadataEditorBookForm: View {
     private func seriesEditor(book: MetadataEditorViewModel.EditableBook) -> some View {
         let isDirty = viewModel.isDirty(field: "series", for: book.id)
         let seriesList = viewModel.books.first { $0.id == book.id }?.series ?? []
+        let hasImports = viewModel.books.first { $0.id == book.id }?
+            .importedItems["series"]?.isEmpty == false
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Series")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isDirty ? Color.orange : .primary)
+                    .foregroundStyle(
+                        hasImports ? Color.blue : isDirty ? Color.orange : .primary)
                 if isDirty {
                     revertButton {
                         revertField(bookId: book.id, field: "series") {
@@ -715,8 +725,27 @@ struct MetadataEditorBookForm: View {
         mutation: (inout MetadataEditorViewModel.EditableBook) -> Void
     ) {
         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+        let wasImported = viewModel.books[index].importedFields.contains(field)
+        let beforeValue = scalarValue(field: field, book: viewModel.books[index])
         mutation(&viewModel.books[index])
         viewModel.markDirty(field: field, for: bookId)
+        if wasImported && scalarValue(field: field, book: viewModel.books[index]) != beforeValue {
+            viewModel.books[index].importedFields.remove(field)
+        }
+    }
+
+    private func scalarValue(
+        field: String, book: MetadataEditorViewModel.EditableBook
+    ) -> String {
+        switch field {
+        case "title": return book.title
+        case "subtitle": return book.subtitle
+        case "description": return book.description
+        case "language": return book.language
+        case "publicationDate": return book.publicationDate
+        case "rating": return book.rating
+        default: return ""
+        }
     }
 
     private func revertField(
@@ -726,5 +755,6 @@ struct MetadataEditorBookForm: View {
         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
         mutation(&viewModel.books[index])
         viewModel.books[index].dirtyFields.remove(field)
+        viewModel.books[index].importedFields.remove(field)
     }
 }

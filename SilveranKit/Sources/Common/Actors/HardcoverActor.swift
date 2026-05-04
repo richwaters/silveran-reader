@@ -7,17 +7,52 @@ public struct HardcoverSearchResult: Sendable, Identifiable {
     public let releaseYear: Int?
 }
 
+public struct HardcoverEditionInfo: Sendable, Identifiable {
+    public let id: Int
+    public let format: String
+    public let isbn13: String?
+    public let pages: Int?
+    public let releaseDate: String?
+    public let language: String?
+    public let narrators: [String]
+    public let otherContributors: [(name: String, role: String)]
+}
+
 public struct HardcoverBookDetails: Sendable {
     public let title: String?
     public let subtitle: String?
     public let description: String?
     public let releaseDate: String?
     public let rating: Double?
+    public let language: String?
     public let authors: [String]
     public let narrators: [String]
     public let creators: [(name: String, role: String)]
     public let series: [(name: String, position: Double?, featured: Bool)]
     public let tags: [String]
+    public let editions: [HardcoverEditionInfo]
+
+    public init(
+        title: String?, subtitle: String?, description: String?,
+        releaseDate: String?, rating: Double?, language: String? = nil,
+        authors: [String], narrators: [String],
+        creators: [(name: String, role: String)],
+        series: [(name: String, position: Double?, featured: Bool)],
+        tags: [String], editions: [HardcoverEditionInfo]
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.description = description
+        self.releaseDate = releaseDate
+        self.rating = rating
+        self.language = language
+        self.authors = authors
+        self.narrators = narrators
+        self.creators = creators
+        self.series = series
+        self.tags = tags
+        self.editions = editions
+    }
 }
 
 public actor HardcoverActor {
@@ -139,6 +174,18 @@ public actor HardcoverActor {
                                 author { name }
                             }
                         }
+                        editions {
+                            id
+                            edition_format
+                            isbn_13
+                            pages
+                            release_date
+                            language { language }
+                            contributions {
+                                contribution
+                                author { name }
+                            }
+                        }
                     }
                 }
                 """,
@@ -157,7 +204,17 @@ public actor HardcoverActor {
         let title = book["title"] as? String
         let subtitle = book["subtitle"] as? String
         let description = book["description"] as? String
-        let releaseDate = book["release_date"] as? String
+        let releaseDate: String? = {
+            guard let raw = book["release_date"] as? String else { return nil }
+            let df = ISO8601DateFormatter()
+            df.formatOptions = [.withFullDate]
+            if let date = df.date(from: raw) {
+                let full = ISO8601DateFormatter()
+                full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                return full.string(from: date)
+            }
+            return raw
+        }()
         let rating = book["rating"] as? Double
 
         let contributions = book["contributions"] as? [[String: Any]] ?? []
@@ -210,6 +267,38 @@ public actor HardcoverActor {
             return name
         }
 
+        let editionsRaw = book["editions"] as? [[String: Any]] ?? []
+        let editions: [HardcoverEditionInfo] = editionsRaw.compactMap { ed in
+            guard let format = ed["edition_format"] as? String,
+                let edId = ed["id"] as? Int
+            else { return nil }
+            let lang = (ed["language"] as? [String: Any])?["language"] as? String
+            let edContribs = ed["contributions"] as? [[String: Any]] ?? []
+            var edNarrators: [String] = []
+            var edOther: [(name: String, role: String)] = []
+            for c in edContribs {
+                guard let a = c["author"] as? [String: Any],
+                    let name = a["name"] as? String
+                else { continue }
+                let role = c["contribution"] as? String ?? ""
+                if role.lowercased() == "narrator" {
+                    edNarrators.append(name)
+                } else if !role.isEmpty && role.lowercased() != "author" {
+                    edOther.append((name: name, role: role))
+                }
+            }
+            return HardcoverEditionInfo(
+                id: edId,
+                format: format,
+                isbn13: ed["isbn_13"] as? String,
+                pages: ed["pages"] as? Int,
+                releaseDate: ed["release_date"] as? String,
+                language: lang,
+                narrators: edNarrators,
+                otherContributors: edOther
+            )
+        }
+
         return HardcoverBookDetails(
             title: title,
             subtitle: subtitle,
@@ -220,7 +309,8 @@ public actor HardcoverActor {
             narrators: narrators,
             creators: creators,
             series: series,
-            tags: tags
+            tags: tags,
+            editions: editions
         )
     }
 

@@ -39,6 +39,7 @@ final class MetadataEditorViewModel {
         var collectionUuids: [String]
 
         var dirtyFields: Set<String> = []
+        var importedFields: Set<String> = []
         var importedItems: [String: Set<String>] = [:]
 
         var displayTitle: String {
@@ -235,6 +236,20 @@ final class MetadataEditorViewModel {
             errors.append(ValidationError(field: "rating", message: "Invalid rating"))
         }
 
+        if book.dirtyFields.contains("publicationDate") {
+            let pubDate = book.publicationDate.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !pubDate.isEmpty {
+                let fmt = ISO8601DateFormatter()
+                fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if fmt.date(from: pubDate) == nil {
+                    errors.append(ValidationError(
+                        field: "publicationDate",
+                        message: "Publication date must be ISO 8601 (e.g. 2023-01-01T00:00:00.000Z)"
+                    ))
+                }
+            }
+        }
+
         return errors
     }
 
@@ -396,25 +411,40 @@ final class MetadataEditorViewModel {
     func applyImport(details: HardcoverBookDetails, fields: Set<String>, for bookId: String) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
 
-        if fields.contains("title"), let value = details.title, !value.isEmpty {
+        if fields.contains("title"), let value = details.title, !value.isEmpty,
+            value != books[index].title
+        {
             books[index].title = value
-            books[index].dirtyFields.insert("title")
+            books[index].importedFields.insert("title")
+            markDirty(field: "title", for: bookId)
         }
-        if fields.contains("subtitle"), let value = details.subtitle, !value.isEmpty {
+        if fields.contains("subtitle"), let value = details.subtitle, !value.isEmpty,
+            value != books[index].subtitle
+        {
             books[index].subtitle = value
-            books[index].dirtyFields.insert("subtitle")
+            books[index].importedFields.insert("subtitle")
+            markDirty(field: "subtitle", for: bookId)
         }
-        if fields.contains("description"), let value = details.description, !value.isEmpty {
+        if fields.contains("description"), let value = details.description, !value.isEmpty,
+            value != books[index].description
+        {
             books[index].description = value
-            books[index].dirtyFields.insert("description")
+            books[index].importedFields.insert("description")
+            markDirty(field: "description", for: bookId)
         }
-        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+        if fields.contains("language"), let value = details.language, !value.isEmpty,
+            value != books[index].language
+        {
+            books[index].language = value
+            books[index].importedFields.insert("language")
+            markDirty(field: "language", for: bookId)
+        }
+        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty,
+            value != books[index].publicationDate
+        {
             books[index].publicationDate = value
-            books[index].dirtyFields.insert("publicationDate")
-        }
-        if fields.contains("rating"), let value = details.rating {
-            books[index].rating = String(value)
-            books[index].dirtyFields.insert("rating")
+            books[index].importedFields.insert("publicationDate")
+            markDirty(field: "publicationDate", for: bookId)
         }
 
         if fields.contains("authors") && !details.authors.isEmpty {
@@ -428,8 +458,8 @@ final class MetadataEditorViewModel {
             }
             if !imported.isEmpty {
                 books[index].importedItems["authors", default: []].formUnion(imported)
+                markDirty(field: "authors", for: bookId)
             }
-            books[index].dirtyFields.insert("authors")
         }
 
         if fields.contains("narrators") && !details.narrators.isEmpty {
@@ -443,8 +473,8 @@ final class MetadataEditorViewModel {
             }
             if !imported.isEmpty {
                 books[index].importedItems["narrators", default: []].formUnion(imported)
+                markDirty(field: "narrators", for: bookId)
             }
-            books[index].dirtyFields.insert("narrators")
         }
 
         if fields.contains("creators") && !details.creators.isEmpty {
@@ -467,25 +497,33 @@ final class MetadataEditorViewModel {
             }
             if !imported.isEmpty {
                 books[index].importedItems["creators", default: []].formUnion(imported)
+                markDirty(field: "creators", for: bookId)
             }
-            books[index].dirtyFields.insert("creators")
         }
 
         if fields.contains("series") && !details.series.isEmpty {
             var seenNames = Set(
                 books[index].series.map { $0.name.lowercased() })
             var imported = Set<String>()
+            var updated = false
             for s in details.series {
                 if seenNames.contains(s.name.lowercased()) {
                     if let existingIdx = books[index].series.firstIndex(where: {
                         $0.name.lowercased() == s.name.lowercased()
                     }) {
                         if let pos = s.position {
-                            books[index].series[existingIdx].position =
+                            let posStr =
                                 pos.truncatingRemainder(dividingBy: 1) == 0
                                 ? String(Int(pos)) : String(pos)
+                            if books[index].series[existingIdx].position != posStr {
+                                books[index].series[existingIdx].position = posStr
+                                updated = true
+                            }
                         }
-                        books[index].series[existingIdx].featured = s.featured
+                        if books[index].series[existingIdx].featured != s.featured {
+                            books[index].series[existingIdx].featured = s.featured
+                            updated = true
+                        }
                     }
                 } else {
                     seenNames.insert(s.name.lowercased())
@@ -505,7 +543,9 @@ final class MetadataEditorViewModel {
             if !imported.isEmpty {
                 books[index].importedItems["series", default: []].formUnion(imported)
             }
-            books[index].dirtyFields.insert("series")
+            if !imported.isEmpty || updated {
+                markDirty(field: "series", for: bookId)
+            }
         }
 
         if fields.contains("tags") && !details.tags.isEmpty {
@@ -519,13 +559,52 @@ final class MetadataEditorViewModel {
             }
             if !imported.isEmpty {
                 books[index].importedItems["tags", default: []].formUnion(imported)
+                markDirty(field: "tags", for: bookId)
             }
-            books[index].dirtyFields.insert("tags")
         }
+    }
+
+    func isImportedField(_ field: String, for bookId: String) -> Bool {
+        guard let book = books.first(where: { $0.id == bookId }) else { return false }
+        return book.importedFields.contains(field)
     }
 
     func isImported(field: String, value: String, for bookId: String) -> Bool {
         guard let book = books.first(where: { $0.id == bookId }) else { return false }
         return book.importedItems[field]?.contains(value) ?? false
+    }
+
+    // MARK: - Auto Import All
+
+    var isAutoImporting = false
+    var autoImportProgress: (current: Int, total: Int) = (0, 0)
+    var autoImportError: String?
+
+    func autoImportAll(fields: Set<String>) async {
+        isAutoImporting = true
+        autoImportError = nil
+        let total = books.count
+        autoImportProgress = (0, total)
+
+        for (i, book) in books.enumerated() {
+            autoImportProgress = (i, total)
+
+            var query = book.title
+            if let author = book.authors.first, !author.isEmpty {
+                query += " \(author)"
+            }
+
+            do {
+                let results = try await HardcoverActor.shared.searchBooks(query: query)
+                guard let first = results.first else { continue }
+                let details = try await HardcoverActor.shared.fetchBookDetails(id: first.id)
+                applyImport(details: details, fields: fields, for: book.id)
+            } catch {
+                autoImportError = "\(book.displayTitle): \(error.localizedDescription)"
+            }
+        }
+
+        autoImportProgress = (total, total)
+        isAutoImporting = false
     }
 }

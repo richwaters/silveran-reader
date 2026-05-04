@@ -16,23 +16,64 @@ final class HardcoverImportViewModel {
     var hasToken = false
     var isEditingToken = false
 
-    var selectedFields: Set<String> = [
-        "title", "subtitle", "description", "publicationDate",
-        "rating", "authors", "narrators", "creators", "series", "tags",
-    ]
+    var infoDetails: [Int: HardcoverBookDetails] = [:]
+    var infoFetchingId: Int?
+
+    func fetchInfo(for result: HardcoverSearchResult) async {
+        guard infoDetails[result.id] == nil else { return }
+        infoFetchingId = result.id
+        do {
+            let details = try await HardcoverActor.shared.fetchBookDetails(id: result.id)
+            infoDetails[result.id] = details
+        } catch {
+            self.error = error.localizedDescription
+        }
+        infoFetchingId = nil
+    }
+
+    var selectedFields: Set<String> = []
 
     static let allFields: [(key: String, label: String)] = [
         ("title", "Title"),
         ("subtitle", "Subtitle"),
         ("description", "Description"),
+        ("language", "Language"),
         ("publicationDate", "Publication Date"),
-        ("rating", "Rating"),
         ("authors", "Authors"),
         ("narrators", "Narrators"),
         ("creators", "Other Creators"),
         ("series", "Series"),
         ("tags", "Tags"),
     ]
+
+    private static let defaultFields: Set<String> = [
+        "title", "subtitle", "description", "language", "publicationDate",
+        "authors", "narrators", "creators", "series", "tags",
+    ]
+
+    private static let selectedFieldsKey = "hardcoverImport.selectedFields"
+
+    func loadFieldSelection() {
+        if let saved = UserDefaults.standard.stringArray(forKey: Self.selectedFieldsKey) {
+            selectedFields = Set(saved)
+        } else {
+            selectedFields = Self.defaultFields
+        }
+    }
+
+    private func persistFieldSelection() {
+        UserDefaults.standard.set(Array(selectedFields), forKey: Self.selectedFieldsKey)
+    }
+
+    func selectAllFields() {
+        selectedFields = Set(Self.allFields.map(\.key))
+        persistFieldSelection()
+    }
+
+    func selectNoFields() {
+        selectedFields = []
+        persistFieldSelection()
+    }
 
     func loadToken() async {
         do {
@@ -101,19 +142,57 @@ final class HardcoverImportViewModel {
         isSearching = false
     }
 
+    var selectedEditionId: Int?
+
     func selectResult(_ result: HardcoverSearchResult) async {
         selectedResult = result
+        selectedEditionId = nil
         isFetching = true
         error = nil
         fetchedDetails = nil
 
         do {
-            fetchedDetails = try await HardcoverActor.shared.fetchBookDetails(id: result.id)
+            let details = try await HardcoverActor.shared.fetchBookDetails(id: result.id)
+            infoDetails[result.id] = details
+            fetchedDetails = details
         } catch {
             self.error = error.localizedDescription
         }
 
         isFetching = false
+    }
+
+    func selectEdition(_ edition: HardcoverEditionInfo, bookId: Int) {
+        guard let bookDetails = infoDetails[bookId] else { return }
+        selectedEditionId = edition.id
+
+        let releaseDate: String? = {
+            guard let raw = edition.releaseDate else { return bookDetails.releaseDate }
+            let df = ISO8601DateFormatter()
+            df.formatOptions = [.withFullDate]
+            if let date = df.date(from: raw) {
+                let full = ISO8601DateFormatter()
+                full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                return full.string(from: date)
+            }
+            return raw
+        }()
+
+        fetchedDetails = HardcoverBookDetails(
+            title: bookDetails.title,
+            subtitle: bookDetails.subtitle,
+            description: bookDetails.description,
+            releaseDate: releaseDate,
+            rating: bookDetails.rating,
+            language: edition.language ?? bookDetails.language,
+            authors: bookDetails.authors,
+            narrators: edition.narrators.isEmpty ? bookDetails.narrators : edition.narrators,
+            creators: edition.otherContributors.isEmpty
+                ? bookDetails.creators : edition.otherContributors,
+            series: bookDetails.series,
+            tags: bookDetails.tags,
+            editions: bookDetails.editions
+        )
     }
 
     func toggleField(_ field: String) {
@@ -122,6 +201,7 @@ final class HardcoverImportViewModel {
         } else {
             selectedFields.insert(field)
         }
+        persistFieldSelection()
     }
 
     func prefill(title: String, author: String?) {
