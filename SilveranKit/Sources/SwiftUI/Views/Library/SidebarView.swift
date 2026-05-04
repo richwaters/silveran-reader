@@ -302,14 +302,24 @@ struct SidebarView: View {
         let config = sidebarConfig
         #if os(macOS)
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image("StorytellerLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 50, height: 50)
-                Text("Storyteller")
-                    .font(.storytellerTitle(size: 18))
-                Spacer()
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 50, height: 50)
+                    Text("Storyteller")
+                        .font(.storytellerTitle(size: 18))
+                    Spacer()
+                }
+                HStack {
+                    Spacer()
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 40, height: 40)
+                    Spacer()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, -8)
