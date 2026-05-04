@@ -351,7 +351,7 @@ struct MediaTableView: NSViewRepresentable {
     private static let defaultColumnOrder = [
         "cover", "title", "subtitle", "author", "series", "progress", "narrator",
         "language", "collections", "publicationYear", "status", "added", "lastRead",
-        "tags", "media", "allCreators", "alignedAt", "alignedByVersion", "alignedWith",
+        "tags", "source", "media", "allCreators", "alignedAt", "alignedByVersion", "alignedWith",
     ]
 
     static let curatedCreatorRoles: [(code: String, label: String)] = [
@@ -506,12 +506,13 @@ struct MediaTableView: NSViewRepresentable {
             "alignedAt": ("Aligned Date", 80, 115, 10000),
             "alignedByVersion": ("ST Version", 60, 90, 10000),
             "alignedWith": ("Engine", 60, 100, 10000),
+            "source": ("Source", 80, 120, 10000),
         ]
 
     private static let ascendingSortColumns: Set<String> = [
         "title", "subtitle", "author", "series", "narrator", "language", "collections",
         "publicationYear", "status", "added", "tags", "allCreators",
-        "alignedByVersion", "alignedWith",
+        "alignedByVersion", "alignedWith", "source",
     ]
     private static let descendingSortColumns: Set<String> = [
         "lastRead", "progress", "alignedAt",
@@ -623,6 +624,7 @@ struct MediaTableView: NSViewRepresentable {
             \BookMetadata.sortableAlignedAt: "alignedAt",
             \BookMetadata.sortableAlignedByVersion: "alignedByVersion",
             \BookMetadata.sortableAlignedWith: "alignedWith",
+            \BookMetadata.sortableSource: "source",
         ]
 
         let columnID: String?
@@ -830,6 +832,11 @@ struct MediaTableView: NSViewRepresentable {
                         tableView: tableView, cellID: cellID,
                         text: item.alignedWith ?? "", secondary: true
                     )
+                case "source":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.source ?? "", secondary: true
+                    )
                 default:
                     if let roleCode = MediaTableView.creatorRoleCode(from: columnID) {
                         let name = item.sortableCreator(role: roleCode)
@@ -914,6 +921,10 @@ struct MediaTableView: NSViewRepresentable {
                 case "alignedWith":
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableAlignedWith, order: order)
+                    ]
+                case "source":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableSource, order: order)
                     ]
                 default:
                     if let roleCode = MediaTableView.creatorRoleCode(from: key) {

@@ -266,7 +266,15 @@ public final class MediaViewModel {
 
         let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
         let standaloneMetadata = await LocalMediaActor.shared.localStandaloneMetadata
-        let metadata = storytellerMetadata + standaloneMetadata
+        let metadata = storytellerMetadata.map {
+            var book = $0
+            book.source = "Storyteller"
+            return book
+        } + standaloneMetadata.map {
+            var book = $0
+            book.source = "Local File"
+            return book
+        }
         debugLog(
             "[MediaViewModel] refreshMetadata: Using LMA metadata (\(storytellerMetadata.count) storyteller + \(standaloneMetadata.count) standalone = \(metadata.count) books)"
         )
@@ -1136,11 +1144,7 @@ public final class MediaViewModel {
     }
 
     public func sourceLabel(for bookID: String) -> String {
-        if localStandaloneBookIds.contains(bookID) {
-            return "Local File"
-        } else {
-            return "Storyteller"
-        }
+        library.bookMetaData.first { $0.id == bookID }?.source ?? "Unknown"
     }
 
     public func isServerBook(_ bookID: String) -> Bool {

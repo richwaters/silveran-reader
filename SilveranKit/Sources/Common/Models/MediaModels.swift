@@ -660,6 +660,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var alignedAt: String? = nil
     public var alignedByStorytellerVersion: String? = nil
     public var alignedWith: String? = nil
+    public var source: String? = nil
     public var id: String { uuid }
 
     public var hasAudioNarration: Bool {
@@ -771,6 +772,8 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableAlignedByVersion: String { alignedByStorytellerVersion ?? "" }
 
     public var sortableAlignedWith: String { alignedWith ?? "" }
+
+    public var sortableSource: String { source ?? "" }
 
     public func sortableCreator(role: String) -> String {
         (creators ?? []).first(where: { $0.role == role })?.name ?? ""

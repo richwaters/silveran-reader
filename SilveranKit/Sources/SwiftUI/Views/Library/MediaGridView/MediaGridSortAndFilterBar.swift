@@ -587,6 +587,7 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "added", label: "Added")
             columnToggle(id: "lastRead", label: "Last Read")
             columnToggle(id: "tags", label: "Tags")
+            columnToggle(id: "source", label: "Source")
             columnToggle(id: "media", label: "Media")
             Divider()
             creatorsSubmenu

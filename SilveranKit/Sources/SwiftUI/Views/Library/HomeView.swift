@@ -1096,7 +1096,7 @@ private struct HomeSectionRow: View {
             metrics: metrics,
             isSelected: isItemSelected(item.id),
             showAudioIndicator: showAudioIndicator,
-            sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+            sourceLabel: showSourceBadge ? item.source : nil,
             seriesPositionBadge: seriesPositionBadge(for: item),
             coverPreference: coverPreference,
             onSelect: { selected in

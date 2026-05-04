@@ -1097,7 +1097,7 @@ struct MediaGridView: View {
                                     tileSize: compactTileSize,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
@@ -1120,7 +1120,7 @@ struct MediaGridView: View {
                                     coverPreference: coverPreference,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
@@ -1199,7 +1199,7 @@ struct MediaGridView: View {
 
     @ViewBuilder
     private func card(for item: BookMetadata, metrics: MediaItemCardMetrics) -> some View {
-        let sourceLabel = showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil
+        let sourceLabel = showSourceBadge ? item.source : nil
         let seriesPositionBadge = seriesPositionBadge(for: item)
         #if os(macOS)
         MediaItemCardView(
