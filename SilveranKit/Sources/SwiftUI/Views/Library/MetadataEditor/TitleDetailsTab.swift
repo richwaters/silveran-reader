@@ -40,14 +40,7 @@ struct TitleDetailsTab: View {
                     revert: { $0.language = $0.originalMetadata.language ?? "" }
                 )
 
-                scalarField(label: "Publication Date", field: "publicationDate",
-                    get: { $0.publicationDate },
-                    set: { $0.publicationDate = $1 },
-                    revert: {
-                        $0.publicationDate = MetadataEditorViewModel.EditableBook.dateOnly(
-                            $0.originalMetadata.publicationDate) ?? ""
-                    }
-                )
+                publicationDateField
 
                 ratingField
 
@@ -295,6 +288,94 @@ struct TitleDetailsTab: View {
                     revert(&viewModel.books[index])
                     viewModel.books[index].dirtyFields.remove(field)
                     viewModel.books[index].importedFields.remove(field)
+                }
+            )
+        }
+    }
+
+    // MARK: - Publication Date
+
+    private static let dateToNoonUTC: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    private static let dateFromNoonUTC: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    @ViewBuilder
+    private var publicationDateField: some View {
+        let dateString = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
+        let hasDate = !dateString.isEmpty
+
+        TwoColumnRow {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Publication Date")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: {
+                                if let d = Self.dateToNoonUTC.date(from: "\(dateString)T12:00:00.000Z") { return d }
+                                let today = Self.dateFromNoonUTC.string(from: Date())
+                                return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
+                            },
+                            set: { newDate in
+                                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                                else { return }
+                                viewModel.books[index].publicationDate = Self.dateFromNoonUTC.string(from: newDate)
+                                viewModel.markDirty(field: "publicationDate", for: bookId)
+                            }
+                        ),
+                        displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    .disabled(!hasDate)
+                    .border(
+                        fieldMatchColor(field: "publicationDate", bookId: bookId, viewModel: viewModel),
+                        width: 2
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                    Toggle("No date", isOn: Binding(
+                        get: { !hasDate },
+                        set: { noDate in
+                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                            else { return }
+                            viewModel.books[index].publicationDate = noDate
+                                ? "" : Self.dateFromNoonUTC.string(from: Date())
+                            viewModel.markDirty(field: "publicationDate", for: bookId)
+                        }
+                    ))
+                    #if os(macOS)
+                    .toggleStyle(.checkbox)
+                    #endif
+                    .font(.callout)
+                }
+            }
+        } right: {
+            ReferenceValues(
+                label: "Publication Date",
+                field: "publicationDate",
+                bookId: bookId,
+                viewModel: viewModel,
+                revertToOriginal: {
+                    guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                    else { return }
+                    viewModel.books[index].publicationDate =
+                        MetadataEditorViewModel.EditableBook.dateOnly(
+                            viewModel.books[index].originalMetadata.publicationDate) ?? ""
+                    viewModel.books[index].dirtyFields.remove("publicationDate")
+                    viewModel.books[index].importedFields.remove("publicationDate")
                 }
             )
         }
