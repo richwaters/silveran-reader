@@ -495,6 +495,67 @@ public actor StorytellerActor {
         return nil
     }
 
+    public enum PermissionCheckResult: Sendable {
+        case allowed
+        case denied
+        case error(String)
+    }
+
+    /// Checks if the current user has the `bookUpdate` permission.
+    /// Server implementation: `storyteller/web/src/app/api/v2/user/route.ts`.
+    public func checkBookUpdatePermission() async -> PermissionCheckResult {
+        guard let (baseURL, token) = await ensureAuthentication() else {
+            return .error("Not connected to server")
+        }
+
+        let result = await fetchBookUpdatePermission(baseURL: baseURL, token: token)
+        if case .error = result {
+            guard let (retryURL, retryToken) = await ensureAuthentication(forceReauth: true) else {
+                return .error("Authentication failed")
+            }
+            return await fetchBookUpdatePermission(baseURL: retryURL, token: retryToken)
+        }
+        return result
+    }
+
+    private func fetchBookUpdatePermission(baseURL: URL, token: AccessToken) async -> PermissionCheckResult {
+        let userURL = baseURL.appendingPathComponent("user")
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+
+        do {
+            let response = try await httpGet(
+                userURL.absoluteString,
+                headers: [
+                    "Accept": "application/json",
+                    "Authorization": authorizationHeaderValue(for: token),
+                ],
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            switch evaluateResponse(response, methodName: "checkBookUpdatePermission", context: "user permissions") {
+            case .success:
+                break
+            case .unauthorized:
+                return .error("Unauthorized")
+            default:
+                return .error("Unexpected server response (\(response.statusCode))")
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any],
+                let permissions = json["permissions"] as? [String: Any],
+                let bookUpdate = permissions["bookUpdate"] as? Bool
+            else {
+                return .error("Invalid response from server")
+            }
+            return bookUpdate ? .allowed : .denied
+        } catch {
+            return .error(error.localizedDescription)
+        }
+    }
+
     /// Fetches library metadata from `/api/v2/books`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/route.ts`.
     public func fetchLibraryInformation() async -> [BookMetadata]? {

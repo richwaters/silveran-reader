@@ -137,6 +137,8 @@ struct MediaGridView: View {
     @AppStorage private var showSeriesPositionBadge: Bool
     @AppStorage private var showAudioIndicator: Bool
     @State private var showStickyControls: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     @AppStorage private var layoutStyleRaw: String
     @AppStorage private var coverPrefRaw: String
     @AppStorage private var coverSizeValue: Double
@@ -655,9 +657,21 @@ struct MediaGridView: View {
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
                     onEditMetadata: { bookIds in
-                        openWindow(id: "MetadataEditor")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            MetadataEditorNotification.post(bookIds: bookIds)
+                        Task {
+                            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+                            switch result {
+                            case .allowed:
+                                openWindow(id: "MetadataEditor")
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    MetadataEditorNotification.post(bookIds: bookIds)
+                                }
+                            case .denied:
+                                permissionErrorMessage = "Your account does not have permission to edit metadata on this server."
+                                showPermissionError = true
+                            case .error(let message):
+                                permissionErrorMessage = "Could not verify server permissions: \(message)"
+                                showPermissionError = true
+                            }
                         }
                     }
                 )
@@ -720,6 +734,11 @@ struct MediaGridView: View {
                 }
             )
         )
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
+        }
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
