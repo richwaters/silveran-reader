@@ -74,19 +74,22 @@ struct MetadataEditorBookForm: View {
             .border(fieldBorderColor(field: "description", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
-            if isImported {
+            if isDirty || isImported {
                 let original = book.originalMetadata.description ?? ""
-                if !original.isEmpty {
-                    Text(original)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .strikethrough()
-                        .lineLimit(3)
-                } else {
-                    Text("(was empty)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .italic()
+                let current = viewModel.books.first { $0.id == bookId }?.description ?? ""
+                if original != current {
+                    if !original.isEmpty {
+                        Text(original)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .strikethrough()
+                            .lineLimit(3)
+                    } else {
+                        Text("(was empty)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .italic()
+                    }
                 }
             }
         } label: {
@@ -240,9 +243,10 @@ struct MetadataEditorBookForm: View {
                     .border(fieldBorderColor(field: field, bookId: bookId), width: 2)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            if isImported {
+            if isDirty || isImported {
                 let original = originalScalarValue(field: field, bookId: bookId)
-                if !original.isEmpty {
+                let current = value.wrappedValue
+                if !original.isEmpty && original != current {
                     HStack {
                         Spacer().frame(width: 140)
                         Text(original)
@@ -382,9 +386,10 @@ struct MetadataEditorBookForm: View {
                             lineWidth: 2)
                 )
             }
-            if isImported {
+            if isDirty || isImported {
                 let original = originalScalarValue(field: "publicationDate", bookId: book.id)
-                if !original.isEmpty {
+                let current = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
+                if !original.isEmpty && original != current {
                     HStack {
                         Spacer().frame(width: 140)
                         Text(original)
@@ -433,52 +438,65 @@ struct MetadataEditorBookForm: View {
             }
 
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                HStack {
-                    let isImported = viewModel.isImported(
-                        field: field, value: item, for: bookId)
-                    if isImported {
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: 6, height: 6)
-                    }
-                    TextField(
-                        placeholder ?? label,
-                        text: Binding(
-                            get: {
-                                let current =
-                                    viewModel.books.first { $0.id == bookId }?.stringList(
-                                        for: field) ?? []
-                                guard index < current.count else { return "" }
-                                return current[index]
-                            },
-                            set: { newValue in
-                                guard
-                                    let bookIndex = viewModel.books.firstIndex(where: {
-                                        $0.id == bookId
-                                    })
-                                else { return }
-                                viewModel.books[bookIndex].updateStringList(
-                                    field: field, index: index, value: newValue)
-                                viewModel.markDirty(field: field, for: bookId)
-                            }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
+                let originalList = originalStringList(field: field, bookId: bookId)
+                let originalValue = index < originalList.count ? originalList[index] : nil
+                let isEdited = originalValue != nil && originalValue != item
 
-                    Button(action: {
-                        guard
-                            let bookIndex = viewModel.books.firstIndex(where: {
-                                $0.id == bookId
-                            })
-                        else { return }
-                        viewModel.books[bookIndex].removeFromStringList(
-                            field: field, index: index)
-                        viewModel.markDirty(field: field, for: bookId)
-                    }) {
-                        Image(systemName: "minus.circle")
-                            .foregroundStyle(.red)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        let isImported = viewModel.isImported(
+                            field: field, value: item, for: bookId)
+                        if isImported {
+                            Circle()
+                                .fill(.blue)
+                                .frame(width: 6, height: 6)
+                        }
+                        TextField(
+                            placeholder ?? label,
+                            text: Binding(
+                                get: {
+                                    let current =
+                                        viewModel.books.first { $0.id == bookId }?.stringList(
+                                            for: field) ?? []
+                                    guard index < current.count else { return "" }
+                                    return current[index]
+                                },
+                                set: { newValue in
+                                    guard
+                                        let bookIndex = viewModel.books.firstIndex(where: {
+                                            $0.id == bookId
+                                        })
+                                    else { return }
+                                    viewModel.books[bookIndex].updateStringList(
+                                        field: field, index: index, value: newValue)
+                                    viewModel.markDirty(field: field, for: bookId)
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+
+                        Button(action: {
+                            guard
+                                let bookIndex = viewModel.books.firstIndex(where: {
+                                    $0.id == bookId
+                                })
+                            else { return }
+                            viewModel.books[bookIndex].removeFromStringList(
+                                field: field, index: index)
+                            viewModel.markDirty(field: field, for: bookId)
+                        }) {
+                            Image(systemName: "minus.circle")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    .buttonStyle(.borderless)
+                    if isEdited, let originalValue {
+                        Text(originalValue)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .strikethrough()
+                            .lineLimit(1)
+                    }
                 }
             }
         }
@@ -841,6 +859,17 @@ struct MetadataEditorBookForm: View {
         case "publicationDate": return book.publicationDate
         case "rating": return book.rating
         default: return ""
+        }
+    }
+
+    private func originalStringList(field: String, bookId: String) -> [String] {
+        guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return [] }
+        let orig = book.originalMetadata
+        switch field {
+        case "authors": return orig.authors?.compactMap { $0.name } ?? []
+        case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
+        case "tags": return orig.tags?.map { $0.name } ?? []
+        default: return []
         }
     }
 
