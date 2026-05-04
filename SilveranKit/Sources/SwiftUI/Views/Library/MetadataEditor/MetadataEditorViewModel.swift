@@ -201,7 +201,7 @@ final class MetadataEditorViewModel {
         case "narrators":
             isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
         case "tags":
-            isChanged = book.tags != (orig.tags?.map { $0.name } ?? [])
+            isChanged = Set(book.tags) != Set(orig.tags?.map { $0.name } ?? [])
         case "creators":
             let origCreators = orig.creators ?? []
             if book.creators.count != origCreators.count {
@@ -602,18 +602,9 @@ final class MetadataEditorViewModel {
 
         if fields.contains("tags") && !details.tags.isEmpty {
             let tagNames = details.tags.map(\.name)
-            var seen = Set(books[index].tags.map { $0.lowercased() })
-            var imported = Set<String>()
-            for tag in tagNames {
-                guard !seen.contains(tag.lowercased()) else { continue }
-                seen.insert(tag.lowercased())
-                books[index].tags.append(tag)
-                imported.insert(tag)
-            }
-            if !imported.isEmpty {
-                books[index].importedItems["tags", default: []].formUnion(imported)
-                markDirty(field: "tags", for: bookId)
-            }
+            books[index].tags = tagNames
+            books[index].importedItems["tags"] = Set(tagNames)
+            markDirty(field: "tags", for: bookId)
         }
     }
 

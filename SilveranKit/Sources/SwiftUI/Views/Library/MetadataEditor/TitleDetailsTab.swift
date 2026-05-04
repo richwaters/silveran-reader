@@ -65,13 +65,21 @@ struct TitleDetailsTab: View {
         let seriesList = viewModel.books.first { $0.id == bookId }?.series ?? []
         let hasImports = viewModel.books.first { $0.id == bookId }?
             .importedItems["series"]?.isEmpty == false
+        let matchesHC: Bool = {
+            guard let hcList = viewModel.hardcoverSeriesList(for: bookId) else { return false }
+            let editedList = seriesList.map { s -> String in
+                if s.position.isEmpty { return s.name }
+                return "\(s.name) #\(s.position)"
+            }
+            return editedList == hcList
+        }()
 
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Series")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(
-                        hasImports ? Color.blue : isDirty ? Color.orange : .primary)
+                        matchesHC ? Color.blue : isDirty ? Color.orange : .primary)
                 Spacer()
                 Button(action: {
                     guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
@@ -102,6 +110,11 @@ struct TitleDetailsTab: View {
                         text: seriesBinding(seriesId: series.id, keyPath: \.name)
                     )
                     .textFieldStyle(.roundedBorder)
+                    .border(
+                        matchesHC ? Color.blue : isDirty ? Color.orange : Color.gray.opacity(0.3),
+                        width: 2
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
 
                     TextField(
                         "#",
@@ -110,7 +123,11 @@ struct TitleDetailsTab: View {
                     .textFieldStyle(.roundedBorder)
                     .border(
                         viewModel.seriesPositionHasError(bookId: bookId, seriesId: series.id)
-                            ? Color.red : Color.gray.opacity(0.3), width: 2
+                            ? Color.red
+                            : matchesHC ? Color.blue
+                            : isDirty ? Color.orange
+                            : Color.gray.opacity(0.3),
+                        width: 2
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .frame(maxWidth: 60)

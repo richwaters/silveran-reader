@@ -188,12 +188,12 @@ func listFieldMatchColor(
     guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return .clear }
     let current = book.stringList(for: field)
 
-    if let hc = viewModel.hardcoverStringList(field: field, for: bookId), current == hc {
+    if let hc = viewModel.hardcoverStringList(field: field, for: bookId), Set(current) == Set(hc) {
         return .blue
     }
 
     let original = viewModel.originalStringList(field: field, for: bookId)
-    if current == original {
+    if Set(current) == Set(original) {
         return .gray.opacity(0.3)
     }
 
