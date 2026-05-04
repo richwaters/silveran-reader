@@ -258,14 +258,21 @@ struct MetadataEditorBookForm: View {
             if isDirty || isImported {
                 let original = originalScalarValue(field: field, bookId: bookId)
                 let current = value.wrappedValue
-                if !original.isEmpty && original != current {
+                if original != current {
                     HStack {
                         Spacer().frame(width: 140)
-                        Text(original)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .strikethrough()
-                            .lineLimit(1)
+                        if !original.isEmpty {
+                            Text(original)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .strikethrough()
+                                .lineLimit(1)
+                        } else {
+                            Text("(was empty)")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .italic()
+                        }
                     }
                 }
             }
