@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MetadataEditorBookForm: View {
     @Bindable var viewModel: MetadataEditorViewModel
-    let availableStatuses: [BookStatus]
 
     private var bookId: String? { viewModel.selectedBookId }
 
@@ -140,8 +139,6 @@ struct MetadataEditorBookForm: View {
                 })
 
                 ratingPicker(book: book)
-
-                statusPicker(book: book)
             }
         }
     }
@@ -308,41 +305,6 @@ struct MetadataEditorBookForm: View {
                 }
             }
             .border(fieldBorderColor(field: "rating", bookId: book.id), width: 2)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-        }
-    }
-
-    @ViewBuilder
-    private func statusPicker(book: MetadataEditorViewModel.EditableBook) -> some View {
-        let isDirty = viewModel.isDirty(field: "status", for: book.id)
-        HStack {
-            HStack(spacing: 4) {
-                if isDirty {
-                    revertButton {
-                        revertField(bookId: book.id, field: "status") {
-                            $0.statusUuid = $0.originalMetadata.status?.uuid
-                        }
-                    }
-                }
-                Text("Status")
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 140, alignment: .trailing)
-
-            Picker("", selection: Binding(
-                get: { viewModel.books.first { $0.id == bookId }?.statusUuid ?? "" },
-                set: { newValue in
-                    guard !newValue.isEmpty else { return }
-                    updateField(bookId: book.id, field: "status") {
-                        $0.statusUuid = newValue
-                    }
-                }
-            )) {
-                ForEach(availableStatuses, id: \.uuid) { status in
-                    Text(status.name).tag(status.uuid ?? "")
-                }
-            }
-            .border(fieldBorderColor(field: "status", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }

@@ -25,8 +25,7 @@ public struct MetadataEditorView: View {
                     .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
             } detail: {
                 MetadataEditorBookForm(
-                    viewModel: viewModel,
-                    availableStatuses: mediaViewModel.availableStatuses
+                    viewModel: viewModel
                 )
                 .frame(minWidth: 400)
             }

@@ -39,6 +39,7 @@ final class HardcoverImportViewModel {
         ("description", "Description"),
         ("language", "Language"),
         ("publicationDate", "Publication Date"),
+        ("rating", "Rating"),
         ("authors", "Authors"),
         ("narrators", "Narrators"),
         ("creators", "Other Creators"),
@@ -48,7 +49,7 @@ final class HardcoverImportViewModel {
 
     private static let defaultFields: Set<String> = [
         "title", "subtitle", "description", "language", "publicationDate",
-        "authors", "narrators", "creators", "series", "tags",
+        "rating", "authors", "narrators", "creators", "series", "tags",
     ]
 
     private static let selectedFieldsKey = "hardcoverImport.selectedFields"

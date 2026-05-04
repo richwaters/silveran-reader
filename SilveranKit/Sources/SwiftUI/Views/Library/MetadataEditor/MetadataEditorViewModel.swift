@@ -30,7 +30,6 @@ final class MetadataEditorViewModel {
         var language: String
         var publicationDate: String
         var rating: String
-        var statusUuid: String?
         var authors: [String]
         var narrators: [String]
         var creators: [EditableCreator]
@@ -55,7 +54,6 @@ final class MetadataEditorViewModel {
             self.language = metadata.language ?? ""
             self.publicationDate = Self.dateOnly(metadata.publicationDate) ?? ""
             self.rating = metadata.rating.map { String($0) } ?? ""
-            self.statusUuid = metadata.status?.uuid
             self.authors = metadata.authors?.compactMap { $0.name } ?? []
             self.narrators = metadata.narrators?.compactMap { $0.name } ?? []
             self.creators = metadata.creators?.map { creator in
@@ -187,7 +185,6 @@ final class MetadataEditorViewModel {
         case "publicationDate":
             isChanged = book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
         case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
-        case "status": isChanged = book.statusUuid != orig.status?.uuid
         case "authors":
             isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
         case "narrators":
@@ -319,16 +316,6 @@ final class MetadataEditorViewModel {
                 return nil
             }
         }
-        if book.dirtyFields.contains("status") {
-            if let statusUuid = book.statusUuid, !statusUuid.isEmpty {
-                payload.status = statusUuid
-            } else {
-                if let index = books.firstIndex(where: { $0.id == book.id }) {
-                    books[index].dirtyFields.remove("status")
-                }
-            }
-        }
-
         let anyCreatorFieldDirty = !book.dirtyFields.isDisjoint(
             with: ["authors", "narrators", "creators"])
         if anyCreatorFieldDirty {
@@ -462,6 +449,14 @@ final class MetadataEditorViewModel {
                 books[index].publicationDate = dateOnly
                 books[index].importedFields.insert("publicationDate")
                 markDirty(field: "publicationDate", for: bookId)
+            }
+        }
+        if fields.contains("rating"), let value = details.rating {
+            let ratingStr = String(value)
+            if ratingStr != books[index].rating {
+                books[index].rating = ratingStr
+                books[index].importedFields.insert("rating")
+                markDirty(field: "rating", for: bookId)
             }
         }
 
