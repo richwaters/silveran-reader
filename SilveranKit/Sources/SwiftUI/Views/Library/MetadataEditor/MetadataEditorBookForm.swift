@@ -125,7 +125,19 @@ struct MetadataEditorBookForm: View {
                     }
                 })
 
-                publicationDateField(book: book)
+                editableTextField("Publication Date", field: "publicationDate", value: Binding(
+                    get: { viewModel.books.first { $0.id == bookId }?.publicationDate ?? "" },
+                    set: { newValue in
+                        updateField(bookId: book.id, field: "publicationDate") {
+                            $0.publicationDate = newValue
+                        }
+                    }
+                ), bookId: book.id, revert: {
+                    revertField(bookId: book.id, field: "publicationDate") {
+                        $0.publicationDate = MetadataEditorViewModel.EditableBook.dateOnly(
+                            $0.originalMetadata.publicationDate) ?? ""
+                    }
+                })
 
                 ratingPicker(book: book)
 
@@ -325,81 +337,6 @@ struct MetadataEditorBookForm: View {
             }
             .border(fieldBorderColor(field: "status", bookId: book.id), width: 2)
             .clipShape(RoundedRectangle(cornerRadius: 4))
-        }
-    }
-
-    @ViewBuilder
-    private func publicationDateField(book: MetadataEditorViewModel.EditableBook) -> some View {
-        let isDirty = viewModel.isDirty(field: "publicationDate", for: book.id)
-        let isImported = viewModel.isImportedField("publicationDate", for: book.id)
-        let fullValue = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
-        let datePart = String(fullValue.prefix(10))
-        let timePart = fullValue.count > 10 ? String(fullValue.dropFirst(10)) : ""
-
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                HStack(spacing: 4) {
-                    if isDirty {
-                        revertButton {
-                            revertField(bookId: book.id, field: "publicationDate") {
-                                $0.publicationDate = $0.originalMetadata.publicationDate ?? ""
-                            }
-                        }
-                    }
-                    Text("Publication Date")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 140, alignment: .trailing)
-
-                HStack(spacing: 0) {
-                    TextField("Date", text: Binding(
-                        get: { datePart },
-                        set: { newValue in
-                            let newFull = newValue + timePart
-                            updateField(bookId: book.id, field: "publicationDate") {
-                                $0.publicationDate = newFull
-                            }
-                        }
-                    ))
-                    .textFieldStyle(.plain)
-
-                    if !timePart.isEmpty {
-                        Text(timePart)
-                            .foregroundStyle(.tertiary)
-                            .font(.body)
-                    }
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(
-                            fieldBorderColor(field: "publicationDate", bookId: book.id),
-                            lineWidth: 2)
-                )
-            }
-            if isDirty || isImported {
-                let original = originalScalarValue(field: "publicationDate", bookId: book.id)
-                let current = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
-                if !original.isEmpty && original != current {
-                    HStack {
-                        Spacer().frame(width: 140)
-                        Text(original)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .strikethrough()
-                            .lineLimit(1)
-                    }
-                }
-            }
         }
     }
 
@@ -881,7 +818,8 @@ struct MetadataEditorBookForm: View {
         case "subtitle": return orig.subtitle ?? ""
         case "description": return orig.description ?? ""
         case "language": return orig.language ?? ""
-        case "publicationDate": return orig.publicationDate ?? ""
+        case "publicationDate":
+            return MetadataEditorViewModel.EditableBook.dateOnly(orig.publicationDate) ?? ""
         case "rating": return orig.rating.map { String($0) } ?? ""
         default: return ""
         }

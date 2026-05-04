@@ -53,7 +53,7 @@ final class MetadataEditorViewModel {
             self.subtitle = metadata.subtitle ?? ""
             self.description = metadata.description ?? ""
             self.language = metadata.language ?? ""
-            self.publicationDate = metadata.publicationDate ?? ""
+            self.publicationDate = Self.dateOnly(metadata.publicationDate) ?? ""
             self.rating = metadata.rating.map { String($0) } ?? ""
             self.statusUuid = metadata.status?.uuid
             self.authors = metadata.authors?.compactMap { $0.name } ?? []
@@ -79,6 +79,12 @@ final class MetadataEditorViewModel {
             } ?? []
             self.tags = metadata.tags?.map { $0.name } ?? []
             self.collectionUuids = metadata.collections?.compactMap { $0.uuid } ?? []
+        }
+
+        static func dateOnly(_ isoDate: String?) -> String? {
+            guard let isoDate, !isoDate.isEmpty else { return nil }
+            if isoDate.contains("T") { return String(isoDate.prefix(10)) }
+            return isoDate
         }
 
         var hasDirtyFields: Bool { !dirtyFields.isEmpty }
@@ -178,7 +184,8 @@ final class MetadataEditorViewModel {
         case "subtitle": isChanged = book.subtitle != (orig.subtitle ?? "")
         case "description": isChanged = book.description != (orig.description ?? "")
         case "language": isChanged = book.language != (orig.language ?? "")
-        case "publicationDate": isChanged = book.publicationDate != (orig.publicationDate ?? "")
+        case "publicationDate":
+            isChanged = book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
         case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
         case "status": isChanged = book.statusUuid != orig.status?.uuid
         case "authors":
@@ -239,12 +246,15 @@ final class MetadataEditorViewModel {
         if book.dirtyFields.contains("publicationDate") {
             let pubDate = book.publicationDate.trimmingCharacters(in: .whitespacesAndNewlines)
             if !pubDate.isEmpty {
-                let fmt = ISO8601DateFormatter()
-                fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if fmt.date(from: pubDate) == nil {
+                let dateRegex = /^\d{4}-\d{2}-\d{2}$/
+                let fullFmt = ISO8601DateFormatter()
+                fullFmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let isValidDate = pubDate.wholeMatch(of: dateRegex) != nil
+                let isValidFull = fullFmt.date(from: pubDate) != nil
+                if !isValidDate && !isValidFull {
                     errors.append(ValidationError(
                         field: "publicationDate",
-                        message: "Publication date must be ISO 8601 (e.g. 2023-01-01T00:00:00.000Z)"
+                        message: "Publication date must be yyyy-mm-dd format"
                     ))
                 }
             }
@@ -290,7 +300,13 @@ final class MetadataEditorViewModel {
         }
         if book.dirtyFields.contains("publicationDate") {
             let trimmed = book.publicationDate.trimmingCharacters(in: .whitespacesAndNewlines)
-            payload.publicationDate = trimmed.isEmpty ? .null : .value(trimmed)
+            if trimmed.isEmpty {
+                payload.publicationDate = .null
+            } else if trimmed.contains("T") {
+                payload.publicationDate = .value(trimmed)
+            } else {
+                payload.publicationDate = .value(trimmed + "T00:00:00.000Z")
+            }
         }
         if book.dirtyFields.contains("rating") {
             let trimmed = book.rating.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -440,12 +456,13 @@ final class MetadataEditorViewModel {
                 markDirty(field: "language", for: bookId)
             }
         }
-        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty,
-            value != books[index].publicationDate
-        {
-            books[index].publicationDate = value
-            books[index].importedFields.insert("publicationDate")
-            markDirty(field: "publicationDate", for: bookId)
+        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+            let dateOnly = EditableBook.dateOnly(value) ?? value
+            if dateOnly != books[index].publicationDate {
+                books[index].publicationDate = dateOnly
+                books[index].importedFields.insert("publicationDate")
+                markDirty(field: "publicationDate", for: bookId)
+            }
         }
 
         if fields.contains("authors") && !details.authors.isEmpty {
