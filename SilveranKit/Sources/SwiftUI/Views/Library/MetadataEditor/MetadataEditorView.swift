@@ -9,6 +9,7 @@ public struct MetadataEditorView: View {
     @State private var showWarning = true
     @State private var showHardcoverImport = false
     @State private var showErrorDetail = false
+    @State private var revertBookId: String?
 
     public init(initialBookIds: [String]) {
         self.initialBookIds = initialBookIds
@@ -27,7 +28,7 @@ public struct MetadataEditorView: View {
                 MetadataEditorBookForm(
                     viewModel: viewModel
                 )
-                .frame(minWidth: 400)
+                .frame(minWidth: 850)
             }
             .navigationSplitViewStyle(.balanced)
             .toolbar(removing: .sidebarToggle)
@@ -35,7 +36,7 @@ public struct MetadataEditorView: View {
             Divider()
             bottomBar
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 1300, minHeight: 500)
         .onAppear {
             viewModel.addBooks(ids: initialBookIds, from: mediaViewModel.library)
             sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
@@ -66,6 +67,29 @@ public struct MetadataEditorView: View {
                         Task { @MainActor in await viewModel.autoImportAll(fields: fields) }
                     }
                 )
+            }
+        }
+        .alert(
+            "Revert All Changes?",
+            isPresented: Binding(
+                get: { revertBookId != nil },
+                set: { if !$0 { revertBookId = nil } }
+            )
+        ) {
+            Button("Revert", role: .destructive) {
+                if let id = revertBookId {
+                    viewModel.revertAllFields(for: id)
+                }
+                revertBookId = nil
+            }
+            Button("Cancel", role: .cancel) {
+                revertBookId = nil
+            }
+        } message: {
+            if let id = revertBookId,
+               let book = viewModel.books.first(where: { $0.id == id })
+            {
+                Text("This will discard all edits to \"\(book.displayTitle)\" and restore the original server values.")
             }
         }
     }
@@ -134,9 +158,15 @@ public struct MetadataEditorView: View {
                     }
                     Spacer()
                     if book.hasDirtyFields {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 8, height: 8)
+                        Button {
+                            revertBookId = book.id
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward.circle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Revert all changes")
                     }
                     if viewModel.saveResults[book.id] == true {
                         Image(systemName: "checkmark.circle.fill")
@@ -234,7 +264,7 @@ public struct MetadataEditorView: View {
                     .padding(.trailing, 4)
             }
 
-            Button("Download Metadata") {
+            Button("Download from Hardcover") {
                 showHardcoverImport = true
             }
             .disabled(viewModel.selectedBookId == nil)

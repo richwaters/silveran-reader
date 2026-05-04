@@ -37,7 +37,7 @@ public struct HardcoverBookDetails: Sendable {
     public let narrators: [String]
     public let creators: [(name: String, role: String)]
     public let series: [(name: String, position: Double?, featured: Bool)]
-    public let tags: [String]
+    public let tags: [(name: String, count: Int)]
     public let editions: [HardcoverEditionInfo]
 
     public init(
@@ -46,7 +46,7 @@ public struct HardcoverBookDetails: Sendable {
         authors: [String], narrators: [String],
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
-        tags: [String], editions: [HardcoverEditionInfo]
+        tags: [(name: String, count: Int)], editions: [HardcoverEditionInfo]
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -173,7 +173,8 @@ public actor HardcoverActor {
                             featured
                             series { name }
                         }
-                        taggings {
+                        taggable_counts(order_by: {count: desc}) {
+                            count
                             tag { tag }
                         }
                         default_audio_edition {
@@ -275,12 +276,13 @@ public actor HardcoverActor {
             return (name: name, position: position, featured: featured)
         }
 
-        let taggings = book["taggings"] as? [[String: Any]] ?? []
-        let tags: [String] = taggings.compactMap { tagging in
-            guard let tag = tagging["tag"] as? [String: Any],
+        let taggableCounts = book["taggable_counts"] as? [[String: Any]] ?? []
+        let tags: [(name: String, count: Int)] = taggableCounts.compactMap { tc in
+            guard let tag = tc["tag"] as? [String: Any],
                 let name = tag["tag"] as? String
             else { return nil }
-            return name
+            let count = tc["count"] as? Int ?? 0
+            return (name: name, count: count)
         }
 
         let editionsRaw = book["editions"] as? [[String: Any]] ?? []

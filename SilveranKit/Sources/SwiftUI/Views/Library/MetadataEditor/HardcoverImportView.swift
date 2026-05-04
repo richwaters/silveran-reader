@@ -181,6 +181,7 @@ struct HardcoverImportView: View {
                     .font(.callout)
                 }
             }
+
         }
         .padding(12)
     }
@@ -539,7 +540,7 @@ struct HardcoverImportView: View {
                 }.joined(separator: ", "))
         }
         if !bookDetails.tags.isEmpty {
-            row("Tags", bookDetails.tags.prefix(10).joined(separator: ", "))
+            row("Tags", bookDetails.tags.prefix(10).map(\.name).joined(separator: ", "))
         }
     }
 
@@ -654,7 +655,7 @@ struct HardcoverImportView: View {
                     }
                     if !details.tags.isEmpty {
                         LabeledContent("Tags") {
-                            Text(details.tags.prefix(10).joined(separator: ", "))
+                            Text(details.tags.prefix(10).map(\.name).joined(separator: ", "))
                         }
                     }
 

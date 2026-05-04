@@ -40,6 +40,8 @@ final class MetadataEditorViewModel {
         var dirtyFields: Set<String> = []
         var importedFields: Set<String> = []
         var importedItems: [String: Set<String>] = [:]
+        var lastImportedDetails: HardcoverBookDetails?
+        var lastImportedFields: Set<String> = []
 
         var displayTitle: String {
             title.isEmpty ? "(Untitled)" : title
@@ -122,6 +124,15 @@ final class MetadataEditorViewModel {
             default: break
             }
         }
+
+        mutating func removeFromStringList(field: String, indices: IndexSet) {
+            switch field {
+            case "authors": authors.remove(atOffsets: indices)
+            case "narrators": narrators.remove(atOffsets: indices)
+            case "tags": tags.remove(atOffsets: indices)
+            default: break
+            }
+        }
     }
 
     var books: [EditableBook] = []
@@ -191,6 +202,31 @@ final class MetadataEditorViewModel {
             isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
         case "tags":
             isChanged = book.tags != (orig.tags?.map { $0.name } ?? [])
+        case "creators":
+            let origCreators = orig.creators ?? []
+            if book.creators.count != origCreators.count {
+                isChanged = true
+            } else {
+                isChanged = zip(book.creators, origCreators).contains { edited, original in
+                    edited.name != (original.name ?? "")
+                        || edited.role != (original.role ?? "")
+                        || edited.fileAs != (original.fileAs ?? "")
+                }
+            }
+        case "series":
+            let origSeries = orig.series ?? []
+            if book.series.count != origSeries.count {
+                isChanged = true
+            } else {
+                isChanged = zip(book.series, origSeries).contains { edited, original in
+                    edited.name != original.name
+                        || edited.position != (original.position.map {
+                            $0.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int($0)) : String($0)
+                        } ?? "")
+                        || edited.featured != (original.featured == 1)
+                }
+            }
         case "collections":
             isChanged = book.collectionUuids != (orig.collections?.compactMap { $0.uuid } ?? [])
         default:
@@ -302,7 +338,7 @@ final class MetadataEditorViewModel {
             } else if trimmed.contains("T") {
                 payload.publicationDate = .value(trimmed)
             } else {
-                payload.publicationDate = .value(trimmed + "T00:00:00.000Z")
+                payload.publicationDate = .value(trimmed + "T12:00:00.000Z")
             }
         }
         if book.dirtyFields.contains("rating") {
@@ -413,6 +449,9 @@ final class MetadataEditorViewModel {
 
     func applyImport(details: HardcoverBookDetails, fields: Set<String>, for bookId: String) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+
+        books[index].lastImportedDetails = details
+        books[index].lastImportedFields.formUnion(fields)
 
         if fields.contains("title"), let value = details.title, !value.isEmpty,
             value != books[index].title
@@ -562,9 +601,10 @@ final class MetadataEditorViewModel {
         }
 
         if fields.contains("tags") && !details.tags.isEmpty {
+            let tagNames = details.tags.map(\.name)
             var seen = Set(books[index].tags.map { $0.lowercased() })
             var imported = Set<String>()
-            for tag in details.tags {
+            for tag in tagNames {
                 guard !seen.contains(tag.lowercased()) else { continue }
                 seen.insert(tag.lowercased())
                 books[index].tags.append(tag)
@@ -598,6 +638,213 @@ final class MetadataEditorViewModel {
     func isImported(field: String, value: String, for bookId: String) -> Bool {
         guard let book = books.first(where: { $0.id == bookId }) else { return false }
         return book.importedItems[field]?.contains(value) ?? false
+    }
+
+    // MARK: - Hardcover Accessors
+
+    func hasHardcoverValue(field: String, for bookId: String) -> Bool {
+        guard let book = books.first(where: { $0.id == bookId }),
+              let details = book.lastImportedDetails,
+              book.lastImportedFields.contains(field) else { return false }
+        switch field {
+        case "title": return details.title != nil && !details.title!.isEmpty
+        case "subtitle": return details.subtitle != nil && !details.subtitle!.isEmpty
+        case "description": return details.description != nil && !details.description!.isEmpty
+        case "language": return details.language != nil && !details.language!.isEmpty
+        case "publicationDate": return details.releaseDate != nil && !details.releaseDate!.isEmpty
+        case "rating": return details.rating != nil
+        case "authors": return !details.authors.isEmpty
+        case "narrators": return !details.narrators.isEmpty
+        case "creators": return !details.creators.isEmpty
+        case "series": return !details.series.isEmpty
+        case "tags": return !details.tags.isEmpty
+        default: return false
+        }
+    }
+
+    func hardcoverScalarValue(field: String, for bookId: String) -> String? {
+        guard let book = books.first(where: { $0.id == bookId }),
+              let details = book.lastImportedDetails,
+              book.lastImportedFields.contains(field) else { return nil }
+        switch field {
+        case "title": return details.title
+        case "subtitle": return details.subtitle
+        case "description": return details.description
+        case "language":
+            if let lang = details.language { return Self.languageNameToCode(lang) }
+            return nil
+        case "publicationDate":
+            if let date = details.releaseDate { return EditableBook.dateOnly(date) ?? date }
+            return nil
+        case "rating":
+            return details.rating.map { String(format: "%.2f", $0) }
+        default: return nil
+        }
+    }
+
+    func hardcoverStringList(field: String, for bookId: String) -> [String]? {
+        guard let book = books.first(where: { $0.id == bookId }),
+              let details = book.lastImportedDetails,
+              book.lastImportedFields.contains(field) else { return nil }
+        switch field {
+        case "authors": return details.authors.isEmpty ? nil : details.authors
+        case "narrators": return details.narrators.isEmpty ? nil : details.narrators
+        case "creators": return details.creators.isEmpty ? nil : details.creators.map { "\($0.name) (\($0.role))" }
+        case "tags": return details.tags.isEmpty ? nil : details.tags.map(\.name)
+        default: return nil
+        }
+    }
+
+    func revertToHardcover(field: String, for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }),
+              let details = books[index].lastImportedDetails,
+              books[index].lastImportedFields.contains(field) else { return }
+
+        switch field {
+        case "title":
+            if let value = details.title, !value.isEmpty {
+                books[index].title = value
+                books[index].importedFields.insert("title")
+                markDirty(field: "title", for: bookId)
+            }
+        case "subtitle":
+            if let value = details.subtitle, !value.isEmpty {
+                books[index].subtitle = value
+                books[index].importedFields.insert("subtitle")
+                markDirty(field: "subtitle", for: bookId)
+            }
+        case "description":
+            if let value = details.description, !value.isEmpty {
+                books[index].description = value
+                books[index].importedFields.insert("description")
+                markDirty(field: "description", for: bookId)
+            }
+        case "language":
+            if let value = details.language, !value.isEmpty {
+                books[index].language = Self.languageNameToCode(value)
+                books[index].importedFields.insert("language")
+                markDirty(field: "language", for: bookId)
+            }
+        case "publicationDate":
+            if let value = details.releaseDate, !value.isEmpty {
+                books[index].publicationDate = EditableBook.dateOnly(value) ?? value
+                books[index].importedFields.insert("publicationDate")
+                markDirty(field: "publicationDate", for: bookId)
+            }
+        case "rating":
+            if let value = details.rating {
+                books[index].rating = String(format: "%.2f", value)
+                books[index].importedFields.insert("rating")
+                markDirty(field: "rating", for: bookId)
+            }
+        case "authors":
+            books[index].authors = details.authors
+            books[index].importedFields.insert("authors")
+            books[index].importedItems["authors"] = Set(details.authors)
+            markDirty(field: "authors", for: bookId)
+        case "narrators":
+            books[index].narrators = details.narrators
+            books[index].importedFields.insert("narrators")
+            books[index].importedItems["narrators"] = Set(details.narrators)
+            markDirty(field: "narrators", for: bookId)
+        case "tags":
+            let tagNames = details.tags.map(\.name)
+            books[index].tags = tagNames
+            books[index].importedFields.insert("tags")
+            books[index].importedItems["tags"] = Set(tagNames)
+            markDirty(field: "tags", for: bookId)
+        default:
+            break
+        }
+    }
+
+    func revertAllFields(for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let orig = books[index].originalMetadata
+        books[index].title = orig.title
+        books[index].subtitle = orig.subtitle ?? ""
+        books[index].description = orig.description ?? ""
+        books[index].language = orig.language ?? ""
+        books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
+        books[index].rating = orig.rating.map { String($0) } ?? ""
+        books[index].authors = orig.authors?.compactMap { $0.name } ?? []
+        books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
+        books[index].creators = orig.creators?.map { creator in
+            EditableCreator(
+                name: creator.name ?? "",
+                fileAs: creator.fileAs ?? "",
+                role: creator.role ?? "",
+                uuid: creator.uuid
+            )
+        } ?? []
+        books[index].series = orig.series?.map { s in
+            EditableSeries(
+                name: s.name,
+                position: s.position.map {
+                    $0.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int($0)) : String($0)
+                } ?? "",
+                featured: s.featured == 1,
+                uuid: s.uuid
+            )
+        } ?? []
+        books[index].tags = orig.tags?.map { $0.name } ?? []
+        books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
+        books[index].dirtyFields.removeAll()
+        books[index].importedFields.removeAll()
+        books[index].importedItems.removeAll()
+    }
+
+    func importTags(_ tags: [String], for bookId: String, fromHardcover: Bool = false) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        var seen = Set(books[index].tags.map { $0.lowercased() })
+        var imported = Set<String>()
+        for tag in tags {
+            guard !seen.contains(tag.lowercased()) else { continue }
+            seen.insert(tag.lowercased())
+            books[index].tags.append(tag)
+            imported.insert(tag)
+        }
+        if !imported.isEmpty {
+            if fromHardcover {
+                books[index].importedItems["tags", default: []].formUnion(imported)
+            }
+            markDirty(field: "tags", for: bookId)
+        }
+    }
+
+    func hardcoverTagsWithCounts(for bookId: String) -> [(name: String, count: Int)]? {
+        guard let book = books.first(where: { $0.id == bookId }),
+              let details = book.lastImportedDetails,
+              book.lastImportedFields.contains("tags"),
+              !details.tags.isEmpty else { return nil }
+        return details.tags
+    }
+
+    func originalScalarValue(field: String, for bookId: String) -> String {
+        guard let book = books.first(where: { $0.id == bookId }) else { return "" }
+        let orig = book.originalMetadata
+        switch field {
+        case "title": return orig.title
+        case "subtitle": return orig.subtitle ?? ""
+        case "description": return orig.description ?? ""
+        case "language": return orig.language ?? ""
+        case "publicationDate":
+            return EditableBook.dateOnly(orig.publicationDate) ?? ""
+        case "rating": return orig.rating.map { String($0) } ?? ""
+        default: return ""
+        }
+    }
+
+    func originalStringList(field: String, for bookId: String) -> [String] {
+        guard let book = books.first(where: { $0.id == bookId }) else { return [] }
+        let orig = book.originalMetadata
+        switch field {
+        case "authors": return orig.authors?.compactMap { $0.name } ?? []
+        case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
+        case "tags": return orig.tags?.map { $0.name } ?? []
+        default: return []
+        }
     }
 
     // MARK: - Auto Import All
