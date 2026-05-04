@@ -642,7 +642,7 @@ export class TextFragmentResolver {
       this.#sectionBuildState.delete(sectionIndex);
       this.#sectionBuildTimers.delete(sectionIndex);
       const cacheBuildTime = performance.now() - this.#rangeCacheBuildStarted
-      debugLog( "TextFragments", `Finished range cache build for section ${sectionIndex} -- ${cacheBuildTime} ms` );
+      debugLog( "TextFragments", `Finished range cache build for section ${sectionIndex}, ${locators.length} locators -- ${cacheBuildTime} ms` );
       return;
     }
 
@@ -750,7 +750,6 @@ export class TextFragmentResolver {
     }
     return trimmed;
   }
-
 
   #eitherRangeContainsOther(rangeA, rangeB) {
     try {
