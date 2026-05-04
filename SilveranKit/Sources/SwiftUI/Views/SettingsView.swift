@@ -183,6 +183,7 @@ public struct SettingsView: View {
                     showAudioIndicator: newValue.library.showAudioIndicator,
                     tapToPlayPreferredPlayer: newValue.library.tapToPlayPreferredPlayer,
                     preferAudioOverEbook: newValue.library.preferAudioOverEbook,
+                    accentColorHex: newValue.library.accentColorHex,
                     userHighlightColor1: newValue.reading.userHighlightColor1,
                     userHighlightColor2: newValue.reading.userHighlightColor2,
                     userHighlightColor3: newValue.reading.userHighlightColor3,
@@ -533,6 +534,39 @@ private struct MacGeneralSettingsView: View {
                 .help(
                     "When the server has a newer reading position (from another device), automatically jump to that position."
                 )
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                HStack {
+                    Text("Accent Color")
+                    Spacer()
+                    ColorPicker(
+                        "",
+                        selection: Binding(
+                            get: { Color(hex: library.accentColorHex) ?? .storytellerOrange },
+                            set: { newColor in
+                                if let hex = newColor.hexString() {
+                                    library.accentColorHex = hex
+                                }
+                            }
+                        ),
+                        supportsOpacity: false
+                    )
+                    .labelsHidden()
+                    Button("System") {
+                        if let hex = Color(nsColor: NSColor.controlAccentColor).hexString() {
+                            library.accentColorHex = hex
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Button("Reset") {
+                        library.accentColorHex = kDefaultAccentColorHex
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
 
         }

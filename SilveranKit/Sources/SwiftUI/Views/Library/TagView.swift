@@ -17,7 +17,7 @@ struct TagView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -204,7 +204,7 @@ extension TagView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -331,7 +331,7 @@ extension TagView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

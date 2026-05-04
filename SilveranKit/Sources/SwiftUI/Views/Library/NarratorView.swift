@@ -17,7 +17,7 @@ struct NarratorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -207,7 +207,7 @@ extension NarratorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Narrators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Narrators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -333,7 +333,7 @@ extension NarratorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Narrators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Narrators").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

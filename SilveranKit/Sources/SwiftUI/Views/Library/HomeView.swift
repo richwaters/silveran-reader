@@ -47,17 +47,22 @@ struct HomeView: View {
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
-    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("coverSize.home") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     @AppStorage("showAudioIndicator.home") private var showAudioIndicator: Bool = true
     @AppStorage("showSourceBadge.home") private var showSourceBadge: Bool = false
     @AppStorage("showSeriesPositionBadge.home") private var showSeriesPositionBadge: Bool = false
+    @AppStorage("progressStyle.home") private var progressStyleRaw: String = ProgressIndicatorStyle.circle.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
+
+    private var progressStyle: ProgressIndicatorStyle {
+        ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle
     }
 
     private var coverSize: CGFloat {
@@ -178,7 +183,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: sectionSpacing) {
                             HStack {
                                 Text("Home")
-                                    .font(.system(size: 32, weight: .regular, design: .serif))
+                                    .font(.storytellerTitle(size: 32))
                                 Spacer()
                                 #if os(macOS)
                                 viewOptionsButton
@@ -239,6 +244,7 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
@@ -256,6 +262,7 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
                                         onNavigateToSection: { navigateToSection($0) }
@@ -909,6 +916,19 @@ struct HomeView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+
+                    Button {
+                        coverPrefRaw = CoverPreference.storytellerDouble.rawValue
+                    } label: {
+                        Image("readalong")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 18, height: 18)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(coverPreference == .storytellerDouble ? .accentColor : .secondary)
                 }
             }
 
@@ -938,16 +958,34 @@ struct HomeView: View {
                 Toggle("Audio Indicator", isOn: $showAudioIndicator)
                 Toggle("Source Badge", isOn: $showSourceBadge)
                 Toggle("Series Position", isOn: $showSeriesPositionBadge)
+
+                Text("Progress")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                HStack(spacing: 8) {
+                    ForEach(ProgressIndicatorStyle.allCases) { style in
+                        Button {
+                            progressStyleRaw = style.rawValue
+                        } label: {
+                            Image(systemName: style.iconName)
+                                .frame(width: 32, height: 28)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(progressStyle == style ? .accentColor : .secondary)
+                    }
+                }
             }
 
             Divider()
 
             Button("Reset to Defaults") {
-                coverPrefRaw = CoverPreference.preferEbook.rawValue
+                coverPrefRaw = CoverPreference.storytellerDouble.rawValue
                 coverSizeValue = CoverSizeRange.defaultValue
                 showAudioIndicator = true
                 showSourceBadge = false
                 showSeriesPositionBadge = false
+                progressStyleRaw = ProgressIndicatorStyle.circle.rawValue
             }
             .font(.subheadline)
         }
@@ -971,6 +1009,7 @@ private struct HomeSectionRow: View {
     let showSourceBadge: Bool
     let showSeriesPositionBadge: Bool
     let coverPreference: CoverPreference
+    let progressStyle: ProgressIndicatorStyle
     let coverSize: CGFloat
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
@@ -990,7 +1029,7 @@ private struct HomeSectionRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(section.title)
-                    .font(.title2.weight(.semibold))
+                    .font(.storytellerTitle(size: 22))
 
                 #if os(macOS)
                 if !section.items.isEmpty {
@@ -1030,7 +1069,7 @@ private struct HomeSectionRow: View {
                 }
                 .buttonStyle(.plain)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             }
 
             let metrics = MediaItemCardMetrics.make(
@@ -1099,6 +1138,7 @@ private struct HomeSectionRow: View {
             sourceLabel: showSourceBadge ? item.source : nil,
             seriesPositionBadge: seriesPositionBadge(for: item),
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 select(selected)
             },

@@ -136,6 +136,7 @@ struct MediaGridView: View {
     @AppStorage private var showSourceBadge: Bool
     @AppStorage private var showSeriesPositionBadge: Bool
     @AppStorage private var showAudioIndicator: Bool
+    @AppStorage private var progressStyleRaw: String
     @State private var showStickyControls: Bool = false
     @State private var showPermissionError: Bool = false
     @State private var permissionErrorMessage: String = ""
@@ -248,6 +249,11 @@ struct MediaGridView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
+    private var progressStyle: ProgressIndicatorStyle {
+        get { ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle }
+        set { progressStyleRaw = newValue.rawValue }
+    }
+
     private var coverSize: CGFloat {
         get { CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max) }
         set { coverSizeValue = Double(newValue) }
@@ -326,13 +332,15 @@ struct MediaGridView: View {
         _layoutStyleRaw = AppStorage(
             wrappedValue: LibraryLayoutStyle.grid.rawValue, "viewLayout.\(viewOptionsKey)")
         _coverPrefRaw = AppStorage(
-            wrappedValue: CoverPreference.preferEbook.rawValue, "coverPref.\(viewOptionsKey)")
+            wrappedValue: CoverPreference.storytellerDouble.rawValue, "coverPref.\(viewOptionsKey)")
         _coverSizeValue = AppStorage(
             wrappedValue: CoverSizeRange.defaultValue, "coverSize.\(viewOptionsKey)")
         _showAudioIndicator = AppStorage(wrappedValue: true, "showAudioIndicator.\(viewOptionsKey)")
         _showSourceBadge = AppStorage(wrappedValue: false, "showSourceBadge.\(viewOptionsKey)")
         _showSeriesPositionBadge = AppStorage(
             wrappedValue: seriesFilter != nil, "showSeriesPositionBadge.\(viewOptionsKey)")
+        _progressStyleRaw = AppStorage(
+            wrappedValue: ProgressIndicatorStyle.circle.rawValue, "progressStyle.\(viewOptionsKey)")
         self.title = title
         self.searchText = searchText
         self.mediaKind = mediaKind
@@ -790,7 +798,7 @@ struct MediaGridView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
                 if hasActiveFilters {
                     Text("\(cachedDisplayItems.count) books")
                         .font(.callout)
@@ -822,6 +830,10 @@ struct MediaGridView: View {
                 showAudioIndicator: $showAudioIndicator,
                 showSourceBadge: $showSourceBadge,
                 showSeriesPositionBadge: $showSeriesPositionBadge,
+                progressStyle: Binding(
+                    get: { progressStyle },
+                    set: { progressStyleRaw = $0.rawValue }
+                ),
                 availableTags: cachedAvailableTags,
                 availableSeries: cachedAvailableSeries,
                 availableAuthors: cachedAvailableAuthors,
@@ -890,6 +902,10 @@ struct MediaGridView: View {
             showAudioIndicator: $showAudioIndicator,
             showSourceBadge: $showSourceBadge,
             showSeriesPositionBadge: $showSeriesPositionBadge,
+                progressStyle: Binding(
+                    get: { progressStyle },
+                    set: { progressStyleRaw = $0.rawValue }
+                ),
             availableTags: cachedAvailableTags,
             availableSeries: cachedAvailableSeries,
             availableAuthors: cachedAvailableAuthors,
@@ -998,7 +1014,7 @@ struct MediaGridView: View {
         VStack(alignment: .leading, spacing: verticalSpacing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
 
                 contentFilterBar
             }
@@ -1211,6 +1227,7 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },
@@ -1228,6 +1245,7 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },

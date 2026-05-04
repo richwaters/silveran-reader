@@ -20,6 +20,8 @@ struct SilveranReaderApp: App {
     @State private var didOpenSecondaryWindows = false
 
     init() {
+        StorytellerFontRegistration.registerBundledFonts()
+        SidebarSelectionColor.install()
         Task {
             do {
                 if let credentials = try await AuthenticationActor.shared.loadCredentials() {

@@ -54,7 +54,7 @@ struct CategoryListSidebar<
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(sidebarTitle)
-                .font(.system(size: 32, weight: .regular, design: .serif))
+                .font(.storytellerTitle(size: 32))
                 .lineLimit(1)
                 .truncationMode(.tail)
             HStack {

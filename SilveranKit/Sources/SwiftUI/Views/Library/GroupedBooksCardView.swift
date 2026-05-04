@@ -61,10 +61,6 @@ struct GroupedBooksCardView: View {
             .padding(.horizontal, cardPadding)
             .padding(.bottom, 12)
             .frame(width: tileWidth, height: maxCardHeight, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
-            )
         }
         .buttonStyle(.plain)
         #if os(macOS)
@@ -124,7 +120,7 @@ struct GroupedBooksCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

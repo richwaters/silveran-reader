@@ -458,19 +458,22 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var tabBarSlot2: String
         public var tapToPlayPreferredPlayer: Bool
         public var preferAudioOverEbook: Bool
+        public var accentColorHex: String
 
         public init(
             showAudioIndicator: Bool = kDefaultShowAudioIndicator,
             tabBarSlot1: String = kDefaultTabBarSlot1,
             tabBarSlot2: String = kDefaultTabBarSlot2,
             tapToPlayPreferredPlayer: Bool = kDefaultTapToPlayPreferredPlayer,
-            preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook
+            preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook,
+            accentColorHex: String = kDefaultAccentColorHex
         ) {
             self.showAudioIndicator = showAudioIndicator
             self.tabBarSlot1 = tabBarSlot1
             self.tabBarSlot2 = tabBarSlot2
             self.tapToPlayPreferredPlayer = tapToPlayPreferredPlayer
             self.preferAudioOverEbook = preferAudioOverEbook
+            self.accentColorHex = accentColorHex
         }
 
         public init(from decoder: Decoder) throws {
@@ -488,11 +491,14 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             preferAudioOverEbook =
                 (try? container?.decode(Bool.self, forKey: .preferAudioOverEbook))
                 ?? kDefaultPreferAudioOverEbook
+            accentColorHex =
+                (try? container?.decode(String.self, forKey: .accentColorHex))
+                ?? kDefaultAccentColorHex
         }
 
         private enum CodingKeys: String, CodingKey {
             case showAudioIndicator, tabBarSlot1, tabBarSlot2, tapToPlayPreferredPlayer,
-                preferAudioOverEbook
+                preferAudioOverEbook, accentColorHex
         }
     }
 }
@@ -631,6 +637,7 @@ public actor SettingsActor {
         showAudioIndicator: Bool? = nil,
         tapToPlayPreferredPlayer: Bool? = nil,
         preferAudioOverEbook: Bool? = nil,
+        accentColorHex: String? = nil,
         userHighlightColor1: String? = nil,
         userHighlightColor2: String? = nil,
         userHighlightColor3: String? = nil,
@@ -724,6 +731,9 @@ public actor SettingsActor {
         }
         if let preferAudioOverEbook {
             updated.library.preferAudioOverEbook = preferAudioOverEbook
+        }
+        if let accentColorHex {
+            updated.library.accentColorHex = accentColorHex
         }
         if let tabBarSlot1 {
             updated.library.tabBarSlot1 = tabBarSlot1

@@ -17,7 +17,7 @@ struct AuthorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -216,7 +216,7 @@ extension AuthorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -343,7 +343,7 @@ extension AuthorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

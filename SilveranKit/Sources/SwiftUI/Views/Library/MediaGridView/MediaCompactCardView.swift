@@ -44,6 +44,11 @@ struct MediaCompactCardView: View {
         #endif
     }
 
+    private var isDoubleCover: Bool {
+        coverPreference == .storytellerDouble
+            && item.hasAvailableEbook && item.hasAvailableAudiobook
+    }
+
     private var cardContent: some View {
         let coverVariant = resolveCoverVariant(for: item)
         let aspectRatio = coverPreference.preferredContainerAspectRatio
@@ -52,26 +57,42 @@ struct MediaCompactCardView: View {
         let progress = mediaViewModel.progress(for: item.id)
 
         return VStack(spacing: 0) {
-            ZStack {
-                placeholderColor
-                if let image = coverState.image {
-                    image
-                        .resizable()
-                        .interpolation(.medium)
-                        .scaledToFit()
+            Group {
+                if isDoubleCover {
+                    DoubleCoverView(
+                        item: item,
+                        placeholderColor: placeholderColor,
+                        coverWidth: tileSize,
+                        containerAspectRatio: aspectRatio,
+                        cornerRadius: 6,
+                        isSwapping: .constant(false)
+                    )
+                    .frame(width: tileSize, height: tileSize / aspectRatio)
+                } else {
+                    ZStack {
+                        if coverState.image == nil {
+                            placeholderColor
+                        }
+                        if let image = coverState.image {
+                            image
+                                .resizable()
+                                .interpolation(.medium)
+                                .scaledToFit()
+                        }
+                    }
+                    .frame(width: tileSize, height: tileSize / aspectRatio)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
             }
-            .frame(width: tileSize, height: tileSize / aspectRatio)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay(alignment: .bottom) {
                 if progress > 0 {
                     GeometryReader { geometry in
                         let clamped = min(max(progress, 0), 1)
                         ZStack(alignment: .leading) {
                             Rectangle()
-                                .fill(Color.accentColor.opacity(0.3))
+                                .fill(.tint.opacity(0.3))
                             Rectangle()
-                                .fill(Color.accentColor)
+                                .fill(.tint)
                                 .frame(width: geometry.size.width * CGFloat(clamped))
                         }
                     }
@@ -208,7 +229,7 @@ struct MediaCompactCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

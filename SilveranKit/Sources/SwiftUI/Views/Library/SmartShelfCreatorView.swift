@@ -29,7 +29,7 @@ struct SmartShelfCreatorView: View {
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
     @AppStorage("coverPref.smartShelfCreator") private var coverPrefRaw: String = CoverPreference
-        .preferEbook.rawValue
+        .storytellerDouble.rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -431,7 +431,7 @@ struct SmartShelfCreatorView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook { return .standard }
                 return item.hasAvailableAudiobook ? .audioSquare : .standard
             case .preferAudiobook:

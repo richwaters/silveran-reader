@@ -18,6 +18,7 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var showAudioIndicator: Bool
     @Binding var showSourceBadge: Bool
     @Binding var showSeriesPositionBadge: Bool
+    @Binding var progressStyle: ProgressIndicatorStyle
     let availableTags: [String]
     let availableSeries: [String]
     let availableAuthors: [String]
@@ -426,7 +427,6 @@ struct MediaGridSortAndFilterBar: View {
         }
         #if os(macOS)
         .buttonStyle(.borderless)
-        .foregroundStyle(.primary)
         .popover(isPresented: $showViewOptions) {
             viewOptionsPopoverContent
         }
@@ -470,11 +470,12 @@ struct MediaGridSortAndFilterBar: View {
 
     private func resetViewOptions() {
         layoutStyle = .grid
-        coverPreference = .preferEbook
+        coverPreference = .storytellerDouble
         coverSize = CoverSizeRange.defaultValue
         showAudioIndicator = true
         showSourceBadge = false
         showSeriesPositionBadge = false
+        progressStyle = .circle
     }
 
     @ViewBuilder
@@ -512,7 +513,7 @@ struct MediaGridSortAndFilterBar: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 Button {
-                    coverPreference = .preferEbook
+                    coverPreference = .storytellerDouble
                 } label: {
                     Image(systemName: "book.fill")
                         .frame(width: 32, height: 28)
@@ -528,6 +529,19 @@ struct MediaGridSortAndFilterBar: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+
+                Button {
+                    coverPreference = .storytellerDouble
+                } label: {
+                    Image("readalong")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                        .frame(width: 32, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .tint(coverPreference == .storytellerDouble ? .accentColor : .secondary)
             }
         }
     }
@@ -563,6 +577,23 @@ struct MediaGridSortAndFilterBar: View {
             Toggle("Audio Indicator", isOn: $showAudioIndicator)
             Toggle("Source Badge", isOn: $showSourceBadge)
             Toggle("Series Position", isOn: $showSeriesPositionBadge)
+
+            Text("Progress")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            HStack(spacing: 8) {
+                ForEach(ProgressIndicatorStyle.allCases) { style in
+                    Button {
+                        progressStyle = style
+                    } label: {
+                        Image(systemName: style.iconName)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(progressStyle == style ? .accentColor : .secondary)
+                }
+            }
         }
     }
 

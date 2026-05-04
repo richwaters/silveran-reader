@@ -17,7 +17,7 @@ struct SourceView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.source") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.source") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.source") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("source.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -201,7 +201,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -322,7 +322,7 @@ extension SourceView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

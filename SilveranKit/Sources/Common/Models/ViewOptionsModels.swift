@@ -46,6 +46,7 @@ public enum CategoryListSidebarDefaults {
 public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {
     case preferEbook
     case preferAudiobook
+    case storytellerDouble
 
     public var id: String { rawValue }
 
@@ -53,13 +54,38 @@ public enum CoverPreference: String, CaseIterable, Identifiable, Sendable {
         switch self {
             case .preferEbook: "Prefer Ebook"
             case .preferAudiobook: "Prefer Audiobook"
+            case .storytellerDouble: "Storyteller"
         }
     }
 
     public var preferredContainerAspectRatio: CGFloat {
         switch self {
-            case .preferEbook: 0.67
+            case .preferEbook, .storytellerDouble: 0.67
             case .preferAudiobook: 1.0
+        }
+    }
+}
+
+public enum ProgressIndicatorStyle: String, CaseIterable, Identifiable, Sendable {
+    case line
+    case circle
+    case none
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+            case .line: "Line"
+            case .circle: "Circle"
+            case .none: "None"
+        }
+    }
+
+    public var iconName: String {
+        switch self {
+            case .line: "minus"
+            case .circle: "circle.dotted"
+            case .none: "eye.slash"
         }
     }
 }

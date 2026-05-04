@@ -34,7 +34,7 @@ struct SmartShelvesView: View {
     @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
     @AppStorage("coverPref.smartShelves") private var coverPrefRaw: String = CoverPreference
-        .preferEbook.rawValue
+        .storytellerDouble.rawValue
     @AppStorage("smartShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -365,7 +365,7 @@ extension SmartShelvesView {
     fileprivate var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Smart Shelves")
-                .font(.system(size: 32, weight: .regular, design: .serif))
+                .font(.storytellerTitle(size: 32))
 
             HStack(spacing: 12) {
                 CategoryViewOptionsMenu(
