@@ -8,6 +8,7 @@ public struct MetadataEditorView: View {
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
     @State private var showHardcoverImport = false
+    @State private var showErrorDetail = false
 
     public init(initialBookIds: [String]) {
         self.initialBookIds = initialBookIds
@@ -193,9 +194,28 @@ public struct MetadataEditorView: View {
                     .font(.callout)
                     .lineLimit(1)
             } else if let error = viewModel.saveError {
-                Label(error, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
-                    .font(.callout)
+                HStack(spacing: 4) {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                        .font(.callout)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Button {
+                        showErrorDetail = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.red)
+                            .font(.callout)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showErrorDetail) {
+                        Text(error)
+                            .font(.callout)
+                            .padding()
+                            .frame(maxWidth: 400)
+                            .textSelection(.enabled)
+                    }
+                }
             } else if !currentBookErrors.isEmpty {
                 Label(
                     currentBookErrors.map(\.message).joined(separator: "; "),

@@ -1068,6 +1068,8 @@ public actor StorytellerActor {
                 return try decoder.decode(BookMetadata.self, from: response.data)
             } catch {
                 logStorytellerError("updateBook decode", error: error)
+                let bodyPreview = String(data: response.data.prefix(500), encoding: .utf8) ?? "<binary>"
+                debugLog("[StorytellerActor] updateBook response body: \(bodyPreview)")
                 lastUpdateBookError = "Failed to decode server response"
                 return nil
             }
