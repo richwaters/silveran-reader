@@ -547,8 +547,8 @@ struct HardcoverImportView: View {
         let target = name.lowercased()
         let english = Locale(identifier: "en")
         for code in Locale.isoRegionCodes {
-            if let localized = english.localizedString(forRegionCode: code),
-                localized.lowercased() == target
+            if let localized = english.localizedString(forRegionCode: code)?.lowercased(),
+                localized == target || target.contains(localized) || localized.contains(target)
             {
                 return code
             }
