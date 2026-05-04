@@ -780,8 +780,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     }
 
     public var sortablePublicationYear: String {
-        guard let pubDate = publicationDate, pubDate.count >= 4 else { return "" }
-        return String(pubDate.prefix(4))
+        publicationDate ?? ""
     }
 }
 
