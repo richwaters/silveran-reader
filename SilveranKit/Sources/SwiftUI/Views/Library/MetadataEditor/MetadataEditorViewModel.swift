@@ -144,6 +144,8 @@ final class MetadataEditorViewModel {
     var isSaving = false
     var saveError: String?
     var saveResults: [String: Bool] = [:]
+    var itunesResults: [ITunesCoverResult] = []
+    var isSearchingItunes = false
 
     var selectedBook: EditableBook? {
         get { books.first { $0.id == selectedBookId } }
@@ -413,18 +415,18 @@ final class MetadataEditorViewModel {
         saveResults = [:]
 
         for book in books where book.hasDirtyFields {
-            let covers = coverUploads(for: book)
-            let payload = buildPayload(for: book)
-                ?? StorytellerBookUpdatePayload(uuid: book.id)
-            let result = await StorytellerActor.shared.updateBook(
-                payload, textCover: covers.text, audioCover: covers.audio)
-            if let updatedMetadata = result {
+            let result = await saveBook(book)
+            if let updatedMetadata = result.metadata {
                 saveResults[book.id] = true
                 if let index = books.firstIndex(where: { $0.id == book.id }) {
-                    books[index].dirtyFields.removeAll()
                     books[index].originalMetadata = updatedMetadata
-                    books[index].replacementEbookCover = nil
-                    books[index].replacementAudiobookCover = nil
+                    if result.metadataSaved {
+                        books[index].dirtyFields.removeAll()
+                    }
+                    if result.coversSaved {
+                        books[index].replacementEbookCover = nil
+                        books[index].replacementAudiobookCover = nil
+                    }
                 }
             } else {
                 saveResults[book.id] = false
@@ -446,18 +448,18 @@ final class MetadataEditorViewModel {
         isSaving = true
         saveError = nil
 
-        let covers = coverUploads(for: book)
-        let payload = buildPayload(for: book)
-            ?? StorytellerBookUpdatePayload(uuid: book.id)
-        let result = await StorytellerActor.shared.updateBook(
-            payload, textCover: covers.text, audioCover: covers.audio)
-        if let updatedMetadata = result {
+        let result = await saveBook(book)
+        if let updatedMetadata = result.metadata {
             saveResults[bookId] = true
             if let index = books.firstIndex(where: { $0.id == bookId }) {
-                books[index].dirtyFields.removeAll()
                 books[index].originalMetadata = updatedMetadata
-                books[index].replacementEbookCover = nil
-                books[index].replacementAudiobookCover = nil
+                if result.metadataSaved {
+                    books[index].dirtyFields.removeAll()
+                }
+                if result.coversSaved {
+                    books[index].replacementEbookCover = nil
+                    books[index].replacementAudiobookCover = nil
+                }
             }
         } else {
             saveResults[bookId] = false
@@ -468,6 +470,68 @@ final class MetadataEditorViewModel {
 
         await StorytellerActor.shared.fetchLibraryInformation()
         isSaving = false
+    }
+
+    private struct SaveBookResult {
+        let metadata: BookMetadata?
+        let metadataSaved: Bool
+        let coversSaved: Bool
+    }
+
+    private func saveBook(_ book: EditableBook) async -> SaveBookResult {
+        let covers = coverUploads(for: book)
+        let hasCovers = covers.text != nil || covers.audio != nil
+        let hasMetadataChanges = !book.dirtyFields.isEmpty
+
+        if hasMetadataChanges && hasCovers {
+            guard let payload = buildPayload(for: book) else {
+                return SaveBookResult(metadata: nil, metadataSaved: false, coversSaved: false)
+            }
+
+            guard
+                let metadataResult = await StorytellerActor.shared.updateBook(
+                    payload,
+                    textCover: nil,
+                    audioCover: nil
+                )
+            else {
+                return SaveBookResult(metadata: nil, metadataSaved: false, coversSaved: false)
+            }
+
+            // TODO: Remove this split save once Storyteller invalidates resized cover caches
+            // directly after extracted cover writes and handles concurrent metadata write-back
+            // robustly. Saving metadata first gives folder-moving updates time to settle before
+            // the cover-only request queues its cache-invalidation write worker.
+            try? await Task.sleep(for: .seconds(2))
+
+            guard
+                let coverResult = await StorytellerActor.shared.updateBook(
+                    StorytellerBookUpdatePayload(uuid: book.id),
+                    textCover: covers.text,
+                    audioCover: covers.audio
+                )
+            else {
+                return SaveBookResult(
+                    metadata: metadataResult,
+                    metadataSaved: true,
+                    coversSaved: false
+                )
+            }
+
+            return SaveBookResult(metadata: coverResult, metadataSaved: true, coversSaved: true)
+        }
+
+        let payload = buildPayload(for: book) ?? StorytellerBookUpdatePayload(uuid: book.id)
+        let result = await StorytellerActor.shared.updateBook(
+            payload,
+            textCover: covers.text,
+            audioCover: covers.audio
+        )
+        return SaveBookResult(
+            metadata: result,
+            metadataSaved: hasMetadataChanges && result != nil,
+            coversSaved: hasCovers && result != nil
+        )
     }
 
     // MARK: - Hardcover Import
@@ -866,6 +930,24 @@ final class MetadataEditorViewModel {
         case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
         case "tags": return orig.tags?.map { $0.name } ?? []
         default: return []
+        }
+    }
+
+    // MARK: - iTunes Search
+
+    func searchItunes(book: EditableBook) {
+        isSearchingItunes = true
+        itunesResults = []
+        Task {
+            defer { isSearchingItunes = false }
+            do {
+                itunesResults = try await ITunesSearchActor.search(
+                    title: book.title,
+                    author: book.authors.first
+                )
+            } catch {
+                debugLog("[MetadataEditor] iTunes search failed: \(error)")
+            }
         }
     }
 

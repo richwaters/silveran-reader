@@ -264,7 +264,7 @@ public struct MetadataEditorView: View {
                     .padding(.trailing, 4)
             }
 
-            Button("Download from Hardcover") {
+            Button("Download Metadata/Covers from Hardcover") {
                 showHardcoverImport = true
             }
             .disabled(viewModel.selectedBookId == nil)

@@ -426,6 +426,18 @@ public actor FilesystemActor {
         return try? Data(contentsOf: coverURL)
     }
 
+    public func deleteCoverImage(uuid: String, variant: String) throws {
+        let coversDir = applicationSupportBaseDirectory()
+            .appendingPathComponent("Covers", isDirectory: true)
+        let filename = "\(uuid)_\(variant).dat"
+        let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
+
+        let fm = FileManager.default
+        if fm.fileExists(atPath: coverURL.path) {
+            try fm.removeItem(at: coverURL)
+        }
+    }
+
     public func removeAllStorytellerData() throws {
         let storytellerDir = getDomainDirectory(for: .storyteller)
         let fm = FileManager.default

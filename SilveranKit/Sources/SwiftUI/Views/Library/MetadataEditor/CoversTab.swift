@@ -11,6 +11,7 @@ struct CoversTab: View {
     @State private var showEbookPicker = false
     @State private var showAudiobookPicker = false
     @State private var isLoadingHCImage = false
+    @State private var isRefreshingCoverCache = false
     @State private var infoPopoverId: Int?
     @State private var previewingCover: PreviewCover?
 
@@ -18,6 +19,10 @@ struct CoversTab: View {
     @AppStorage("hardcoverImport.filterFormat") private var editionFilterFormat: String?
     @State private var minResolution: Int?
     @State private var showFilterPopover = false
+
+    private var itunesResults: [ITunesCoverResult] {
+        viewModel.itunesResults
+    }
 
     private var book: MetadataEditorViewModel.EditableBook? {
         viewModel.books.first { $0.id == bookId }
@@ -162,14 +167,35 @@ struct CoversTab: View {
         .buttonStyle(.borderless)
     }
 
+    @ViewBuilder
+    private var refreshCacheButton: some View {
+        Button {
+            Task { await refreshCoverCache() }
+        } label: {
+            if isRefreshingCoverCache {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption2)
+            }
+        }
+        .buttonStyle(.borderless)
+        .disabled(isRefreshingCoverCache || metadata == nil)
+        .help("Clear Silveran's cached covers for this book and reload them from Storyteller")
+    }
+
     // MARK: - Server Column
 
     @ViewBuilder
     private var serverColumn: some View {
         VStack(alignment: .center, spacing: 16) {
-            Text("Storyteller Server")
-                .font(.headline)
-                .foregroundStyle(.white)
+            HStack(spacing: 6) {
+                Text("Storyteller Server")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                refreshCacheButton
+            }
 
             if let metadata {
                 referenceCover(
@@ -273,31 +299,57 @@ struct CoversTab: View {
         return covers
     }
 
+    private var rectangularEditionCovers: [EditionCover] {
+        editionCovers.filter { !isAudiobookEdition($0.edition) }
+    }
+
+    private var squareEditionCovers: [EditionCover] {
+        editionCovers.filter { isAudiobookEdition($0.edition) }
+    }
+
+    private var rectangularItunesResults: [ITunesCoverResult] {
+        itunesResults.filter { $0.mediaType != "audiobook" }
+    }
+
+    private var squareItunesResults: [ITunesCoverResult] {
+        itunesResults.filter { $0.mediaType == "audiobook" }
+    }
+
     @ViewBuilder
     private var hardcoverColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Hardcover Import")
+            ZStack(alignment: .topLeading) {
+                Text("Hardcover / iTunes Import")
                     .font(.headline)
                     .foregroundStyle(.blue)
-                Spacer()
 
-                let hasFilter = editionFilterLanguage != nil || editionFilterFormat != nil || minResolution != nil
-                Button(action: { showFilterPopover.toggle() }) {
-                    Image(systemName: hasFilter
-                        ? "line.3.horizontal.decrease.circle.fill"
-                        : "line.3.horizontal.decrease.circle")
-                    .foregroundStyle(hasFilter ? Color.accentColor : .secondary)
-                }
-                .buttonStyle(.borderless)
-                .popover(isPresented: $showFilterPopover) {
-                    editionFilterPopover
+                HStack(spacing: 8) {
+                    Spacer()
+
+                    hardcoverClearButton
+                        .controlSize(.small)
+
+                    itunesSearchButton
+                        .controlSize(.small)
+
+                    let hasFilter = editionFilterLanguage != nil || editionFilterFormat != nil || minResolution != nil
+                    Button(action: { showFilterPopover.toggle() }) {
+                        Image(systemName: hasFilter
+                            ? "line.3.horizontal.decrease.circle.fill"
+                            : "line.3.horizontal.decrease.circle")
+                        .foregroundStyle(hasFilter ? Color.accentColor : .secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .popover(isPresented: $showFilterPopover) {
+                        editionFilterPopover
+                    }
                 }
             }
             .padding(.horizontal, 4)
+            .frame(height: 28, alignment: .top)
 
             let covers = editionCovers
-            if covers.isEmpty {
+            if covers.isEmpty && itunesResults.isEmpty {
                 if book?.lastImportedDetails != nil {
                     Text("No editions match filters")
                         .font(.callout)
@@ -313,13 +365,18 @@ struct CoversTab: View {
                 }
             } else {
                 ScrollView {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 120, maximum: 180))],
-                        spacing: 16
-                    ) {
-                        ForEach(covers) { cover in
-                            hcCoverCard(cover: cover)
-                        }
+                    HStack(alignment: .top, spacing: 16) {
+                        coverResultGroup(
+                            title: "Ebook / Print",
+                            editionCovers: rectangularEditionCovers,
+                            itunesResults: rectangularItunesResults
+                        )
+
+                        coverResultGroup(
+                            title: "Audiobook",
+                            editionCovers: squareEditionCovers,
+                            itunesResults: squareItunesResults
+                        )
                     }
                     .padding(.horizontal, 4)
                 }
@@ -330,6 +387,66 @@ struct CoversTab: View {
                     .controlSize(.small)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func coverResultGroup(
+        title: String,
+        editionCovers: [EditionCover],
+        itunesResults: [ITunesCoverResult]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(minimum: 100, maximum: 180), spacing: 12),
+                    GridItem(.flexible(minimum: 100, maximum: 180), spacing: 12),
+                ],
+                spacing: 16
+            ) {
+                ForEach(editionCovers) { cover in
+                    hcCoverCard(cover: cover)
+                }
+                ForEach(itunesResults) { result in
+                    itunesCoverCard(result: result)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var hardcoverClearButton: some View {
+        if book?.lastImportedDetails != nil {
+            Button("Clear Hardcover Covers") {
+                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else {
+                    return
+                }
+                viewModel.books[index].lastImportedDetails = nil
+                viewModel.books[index].lastImportedFields = []
+            }
+            .help("Clear imported Hardcover covers")
+        }
+    }
+
+    @ViewBuilder
+    private var itunesSearchButton: some View {
+        if itunesResults.isEmpty {
+            Button("Download Covers from iTunes") {
+                guard let book else { return }
+                viewModel.searchItunes(book: book)
+            }
+            .disabled(book == nil || viewModel.isSearchingItunes)
+            .help("Download covers from iTunes")
+        } else {
+            Button("Clear iTunes Covers") {
+                viewModel.itunesResults = []
+            }
+            .help("Clear covers from iTunes")
         }
     }
 
@@ -406,6 +523,84 @@ struct CoversTab: View {
                 if metadata?.hasAvailableAudiobook == true {
                     Button("Use as Audiobook Cover") {
                         Task { await downloadAndStage(url: cover.url, audio: true) }
+                    }
+                    .controlSize(.small)
+                    .disabled(isLoadingHCImage)
+                }
+            }
+        }
+    }
+
+    // MARK: - iTunes Cover Card
+
+    @ViewBuilder
+    private func itunesCoverCard(result: ITunesCoverResult) -> some View {
+        VStack(spacing: 6) {
+            AsyncImage(url: result.thumbnailUrl) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .shadow(radius: 1)
+                case .failure:
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.quaternary)
+                        .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                        .overlay {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                case .empty:
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.quaternary)
+                        .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                        .overlay { ProgressView().controlSize(.small) }
+                @unknown default:
+                    EmptyView()
+                }
+            }
+            .frame(maxHeight: 200)
+
+            HStack(spacing: 2) {
+                Text(result.mediaType == "ebook" ? "iTunes Ebook" : "iTunes Audiobook")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+
+                magnifyButton(preview: .url(result.hiresUrl, result.title))
+            }
+
+            Text(result.title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+
+            VStack(spacing: 4) {
+                Button("Use as Ebook Cover") {
+                    Task {
+                        await downloadAndStage(
+                            urls: result.artworkUrls,
+                            audio: false,
+                            source: "iTunes ebook cover"
+                        )
+                    }
+                }
+                .controlSize(.small)
+                .disabled(isLoadingHCImage)
+
+                if metadata?.hasAvailableAudiobook == true {
+                    Button("Use as Audiobook Cover") {
+                        Task {
+                            await downloadAndStage(
+                                urls: result.artworkUrls,
+                                audio: true,
+                                source: "iTunes audiobook cover"
+                            )
+                        }
                     }
                     .controlSize(.small)
                     .disabled(isLoadingHCImage)
@@ -502,6 +697,11 @@ struct CoversTab: View {
             }
             return true
         }
+    }
+
+    private func isAudiobookEdition(_ edition: HardcoverEditionInfo) -> Bool {
+        Self.audiobookFormats.contains(normalizedFormat(edition.format))
+            || (edition.audioSeconds ?? 0) > 0
     }
 
     private static let formatNormalization: [String: String] = [
@@ -752,21 +952,103 @@ struct CoversTab: View {
         }
     }
 
+    private func refreshCoverCache() async {
+        guard let metadata else { return }
+        isRefreshingCoverCache = true
+        defer { isRefreshingCoverCache = false }
+
+        await mediaViewModel.refreshCover(for: metadata, variant: .standard)
+        if metadata.hasAvailableAudiobook {
+            await mediaViewModel.refreshCover(for: metadata, variant: .audioSquare)
+        }
+    }
+
     private func downloadAndStage(url: URL, audio: Bool) async {
+        await downloadAndStage(urls: [url], audio: audio, source: "cover")
+    }
+
+    private func downloadAndStage(urls: [URL], audio: Bool, source: String) async {
         isLoadingHCImage = true
         defer { isLoadingHCImage = false }
 
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-            let filename = url.lastPathComponent.isEmpty ? "cover.jpg" : url.lastPathComponent
-            if audio {
-                viewModel.books[index].replacementAudiobookCover = (data: data, filename: filename)
-            } else {
-                viewModel.books[index].replacementEbookCover = (data: data, filename: filename)
+        var lastFailure: String?
+
+        for url in urls {
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+
+                if let httpResponse = response as? HTTPURLResponse,
+                    !(200..<300).contains(httpResponse.statusCode)
+                {
+                    lastFailure = "HTTP \(httpResponse.statusCode)"
+                    continue
+                }
+
+                if let mimeType = response.mimeType?.lowercased(),
+                    !mimeType.hasPrefix("image/")
+                {
+                    lastFailure = "unexpected content type \(mimeType)"
+                    continue
+                }
+
+                guard !data.isEmpty else {
+                    lastFailure = "empty response"
+                    continue
+                }
+
+                guard isValidImageData(data) else {
+                    lastFailure = "response was not a valid image"
+                    continue
+                }
+
+                let filename = coverFilename(from: url, response: response)
+                stageCover(data: data, filename: filename, audio: audio)
+                viewModel.saveError = nil
+                return
+            } catch {
+                lastFailure = error.localizedDescription
             }
-        } catch {
-            viewModel.saveError = "Failed to download cover: \(error.localizedDescription)"
+        }
+
+        viewModel.saveError =
+            "Failed to download \(source): \(lastFailure ?? "no valid image variants were available")"
+    }
+
+    private func stageCover(data: Data, filename: String, audio: Bool) {
+        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+        if audio {
+            viewModel.books[index].replacementAudiobookCover = (data: data, filename: filename)
+        } else {
+            viewModel.books[index].replacementEbookCover = (data: data, filename: filename)
+        }
+    }
+
+    private func isValidImageData(_ data: Data) -> Bool {
+        #if canImport(AppKit)
+        return NSImage(data: data) != nil
+        #elseif canImport(UIKit)
+        return UIImage(data: data) != nil
+        #else
+        return !data.isEmpty
+        #endif
+    }
+
+    private func coverFilename(from url: URL, response: URLResponse) -> String {
+        let filename = url.lastPathComponent
+        let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "webp", "heic"]
+        if imageExtensions.contains(url.pathExtension.lowercased()) {
+            return filename
+        }
+
+        switch response.mimeType?.lowercased() {
+        case "image/png":
+            return "cover.png"
+        case "image/webp":
+            return "cover.webp"
+        case "image/heic", "image/heif":
+            return "cover.heic"
+        default:
+            return "cover.jpg"
         }
     }
 }

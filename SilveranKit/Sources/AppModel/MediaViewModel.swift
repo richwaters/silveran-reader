@@ -1337,6 +1337,38 @@ public final class MediaViewModel {
         }
     }
 
+    public func refreshCover(
+        for item: BookMetadata,
+        variant overrideVariant: CoverVariant? = nil
+    ) async {
+        let variant = overrideVariant ?? coverVariant(for: item)
+        let key = CoverKey(id: item.id, variant: variant)
+        coverTasks[key]?.cancel()
+        coverTasks[key] = nil
+        coverStates.removeValue(forKey: key)
+        missingCoverKeys.remove(key)
+
+        let variantString = variant == .standard ? "standard" : "audioSquare"
+        try? await FilesystemActor.shared.deleteCoverImage(
+            uuid: item.id,
+            variant: variantString
+        )
+
+        guard connectionStatus == .connected else {
+            ensureCoverLoaded(for: item, variant: variant)
+            return
+        }
+
+        let params = variant.requestParameters
+        let cover = await sta.fetchCoverImage(
+            for: item.id,
+            audio: params.audio,
+            width: params.width,
+            height: params.height
+        )
+        registerCover(cover, for: item, variant: variant)
+    }
+
     private func registerCover(_ cover: BookCover?, for item: BookMetadata, variant: CoverVariant) {
         let key = CoverKey(id: item.id, variant: variant)
         let state = coverStates[key] ?? CoverImageState()
