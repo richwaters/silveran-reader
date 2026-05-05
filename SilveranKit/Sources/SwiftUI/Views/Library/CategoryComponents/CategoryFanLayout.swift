@@ -255,6 +255,9 @@ struct CategoryFanSection<ContextMenu: View>: View {
                 coverPreference: coverPreference,
                 onSelect: { book in
                     onNavigate(group, book)
+                },
+                onInfo: { book in
+                    onNavigate(group, book)
                 }
             )
             .frame(maxWidth: stackWidth, alignment: .center)

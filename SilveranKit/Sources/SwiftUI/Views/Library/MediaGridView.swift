@@ -545,6 +545,11 @@ struct MediaGridView: View {
             }
             return .ignored
         }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
+        }
         #endif
     }
 
@@ -664,29 +669,7 @@ struct MediaGridView: View {
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
-                    onEditMetadata: { bookIds in
-                        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
-                            permissionErrorMessage = "Editing metadata for local books is not supported yet."
-                            showPermissionError = true
-                            return
-                        }
-                        Task {
-                            let result = await StorytellerActor.shared.checkBookUpdatePermission()
-                            switch result {
-                            case .allowed:
-                                openWindow(id: "MetadataEditor")
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    MetadataEditorNotification.post(bookIds: bookIds)
-                                }
-                            case .denied:
-                                permissionErrorMessage = "Your account does not have permission to edit metadata on this server."
-                                showPermissionError = true
-                            case .error(let message):
-                                permissionErrorMessage = "Could not verify server permissions: \(message)"
-                                showPermissionError = true
-                            }
-                        }
-                    }
+                    onEditMetadata: handleEditMetadata
                 )
                 .padding(.top, 8)
             }
@@ -747,11 +730,6 @@ struct MediaGridView: View {
                 }
             )
         )
-        .alert("Edit Metadata", isPresented: $showPermissionError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(permissionErrorMessage)
-        }
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
@@ -1122,7 +1100,8 @@ struct MediaGridView: View {
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler
                                 )
                             }
                         }
@@ -1145,7 +1124,8 @@ struct MediaGridView: View {
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler
                                 )
                             }
                         }
@@ -1234,7 +1214,8 @@ struct MediaGridView: View {
             },
             onInfo: { selected in
                 openSidebar(for: selected)
-            }
+            },
+            onEditMetadata: handleEditMetadata
         )
         #else
         MediaItemCardView(
@@ -1283,6 +1264,41 @@ struct MediaGridView: View {
         shouldEnsureActiveItemVisible = ensureVisible
         activeInfoItem = item
     }
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        return handleEditMetadata
+        #else
+        return nil
+        #endif
+    }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+            case .allowed:
+                openWindow(id: "MetadataEditor")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    MetadataEditorNotification.post(bookIds: bookIds)
+                }
+            case .denied:
+                permissionErrorMessage =
+                    "Your account does not have permission to edit metadata on this server."
+                showPermissionError = true
+            case .error(let message):
+                permissionErrorMessage = "Could not verify server permissions: \(message)"
+                showPermissionError = true
+            }
+        }
+    }
+    #endif
 
     private func openSidebar(for item: BookMetadata) {
         activeInfoItem = item

@@ -7,6 +7,7 @@ struct SeriesStackView: View {
     let showAudioIndicator: Bool
     let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
+    var onInfo: ((BookMetadata) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredBookID: BookMetadata.ID? = nil
@@ -158,6 +159,9 @@ struct SeriesStackView: View {
         .zIndex(isHovered ? 1000 : Double(totalCount - index))
         .onHover { hovering in
             hoveredBookID = hovering ? book.id : nil
+        }
+        .contextMenu {
+            BookContextMenuContent(item: book, onInfo: onInfo)
         }
         #else
         .zIndex(Double(totalCount - index))

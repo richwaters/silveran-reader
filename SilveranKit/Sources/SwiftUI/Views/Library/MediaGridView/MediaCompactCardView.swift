@@ -12,6 +12,7 @@ struct MediaCompactCardView: View {
     let isSelected: Bool
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
@@ -156,6 +157,13 @@ struct MediaCompactCardView: View {
         }
         .onHover { hovering in
             isHovered = hovering
+        }
+        .contextMenu {
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata
+            )
         }
         #endif
         .task(id: coverVariant) {

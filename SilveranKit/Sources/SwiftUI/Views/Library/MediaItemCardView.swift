@@ -91,9 +91,9 @@ struct MediaItemCardView: View {
     let progressStyle: ProgressIndicatorStyle
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
     @State private var isHovered = false
     @State private var doubleCoverSwapping = false
     #endif
@@ -441,62 +441,15 @@ struct MediaItemCardView: View {
             isHovered = hovering
         }
         .contextMenu {
-            cardContextMenu
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata
+            )
         }
         .zIndex(doubleCoverSwapping ? 1000 : 0)
         #endif
     }
-
-    #if os(macOS)
-    @ViewBuilder
-    private var cardContextMenu: some View {
-        let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-        let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
-        let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
-        let isServerBook = mediaViewModel.isServerBook(item.id)
-
-        if isServerBook {
-            Button {
-                openWindow(
-                    id: "ServerMediaManagement",
-                    value: ServerMediaManagementData(bookId: item.id)
-                )
-            } label: {
-                Label("Manage Server Media...", systemImage: "server.rack")
-            }
-        }
-
-        if ebookDownloaded || audioDownloaded || syncedDownloaded {
-            if isServerBook {
-                Divider()
-            }
-
-            if ebookDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .ebook)
-                } label: {
-                    Label("Local Ebook", systemImage: "trash")
-                }
-            }
-
-            if audioDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .audio)
-                } label: {
-                    Label("Local Audiobook", systemImage: "trash")
-                }
-            }
-
-            if syncedDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .synced)
-                } label: {
-                    Label("Local Readaloud", systemImage: "trash")
-                }
-            }
-        }
-    }
-    #endif
 
     private var authorRow: some View {
         HStack(spacing: 2) {

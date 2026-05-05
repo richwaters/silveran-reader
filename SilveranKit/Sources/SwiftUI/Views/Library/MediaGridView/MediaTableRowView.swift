@@ -10,6 +10,7 @@ struct MediaTableRowView: View {
     let isSelected: Bool
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredMediaType: MediaType?
@@ -153,7 +154,11 @@ struct MediaTableRowView: View {
                 }
         )
         .contextMenu {
-            contextMenu
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata
+            )
         }
         #endif
     }
@@ -432,38 +437,4 @@ struct MediaTableRowView: View {
         }
     }
 
-    #if os(macOS)
-    @ViewBuilder
-    private var contextMenu: some View {
-        let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-        let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
-        let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
-
-        if ebookDownloaded || audioDownloaded || syncedDownloaded {
-            if ebookDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .ebook)
-                } label: {
-                    Label("Local Ebook", systemImage: "trash")
-                }
-            }
-
-            if audioDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .audio)
-                } label: {
-                    Label("Local Audiobook", systemImage: "trash")
-                }
-            }
-
-            if syncedDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .synced)
-                } label: {
-                    Label("Local Readaloud", systemImage: "trash")
-                }
-            }
-        }
-    }
-    #endif
 }
