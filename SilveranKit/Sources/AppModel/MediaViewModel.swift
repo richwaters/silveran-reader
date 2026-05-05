@@ -1323,14 +1323,7 @@ public final class MediaViewModel {
                     return
                 }
 
-                let params = variant.requestParameters
-                let cover = await self.sta.fetchCoverImage(
-                    for: item.id,
-                    audio: params.audio,
-                    width: params.width,
-                    height: params.height,
-                    version: item.updatedAt
-                )
+                let cover = await self.fetchStorytellerCover(for: item, variant: variant)
                 await MainActor.run {
                     self.registerCover(cover, for: item, variant: variant)
                     self.coverTasks[key] = nil
@@ -1355,15 +1348,35 @@ public final class MediaViewModel {
             return
         }
 
+        let cover = await fetchStorytellerCover(for: item, variant: variant)
+        registerCover(cover, for: item, variant: variant)
+    }
+
+    private func fetchStorytellerCover(
+        for item: BookMetadata,
+        variant: CoverVariant
+    ) async -> BookCover? {
         let params = variant.requestParameters
-        let cover = await sta.fetchCoverImage(
+        if let cover = await sta.fetchCoverImage(
+            for: item.id,
+            audio: params.audio,
+            width: nil,
+            height: nil,
+            version: item.updatedAt
+        ) {
+            return cover
+        }
+
+        // Storyteller's resized cover cache can lag behind extracted cover writes.
+        // Prefer the raw cover endpoint, but fall back because some server versions
+        // return 404 for raw non-readaloud covers.
+        return await sta.fetchCoverImage(
             for: item.id,
             audio: params.audio,
             width: params.width,
             height: params.height,
             version: item.updatedAt
         )
-        registerCover(cover, for: item, variant: variant)
     }
 
     private func registerCover(_ cover: BookCover?, for item: BookMetadata, variant: CoverVariant) {
