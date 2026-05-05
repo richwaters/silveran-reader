@@ -268,6 +268,14 @@ export class TextFragmentResolver {
       }
     }
 
+
+    const segmenter = new Intl.Segmenter([], { granularity: "word" });
+    const wordBoundaries = new Set([0, normalized.length]);
+    for (const seg of segmenter.segment(normalized)) {
+      wordBoundaries.add(seg.index);
+      wordBoundaries.add(seg.index + seg.segment.length);
+    }
+
     debugLog("TextFragments", "buildNormalizedTextMap summary", {
       normalizedLength: normalized.length,
       entryCount: entries.length,
@@ -275,7 +283,7 @@ export class TextFragmentResolver {
       previewEnd: normalized.slice(-200),
     });
 
-    return { normalized, entries };
+    return { normalized, entries, wordBoundaries };
   }
 
   #getNormalizedTextMap(doc) {
@@ -317,7 +325,7 @@ export class TextFragmentResolver {
     return indices;
   }
 
-  findFirstMatch(docNorm, selector) {
+  findFirstMatch(docNorm, wordBoundaries, selector) {
     const hasEnd = selector.end != null;
     const hasSuffix = selector.suffix != null;
     const start = this.#collapseAndTrimEdges(selector.start, true, !(hasEnd || hasSuffix));
@@ -338,7 +346,7 @@ export class TextFragmentResolver {
 
       if (end) {
         // Check word boundary at start (only if no prefix)
-        if (!prefix && this.isWordChar(start[0]) && i > 0 && this.isWordChar(docNorm[i - 1])) {
+        if (!prefix && !wordBoundaries.has(i)) {
           pos = i + 1;
           continue;
         }
@@ -346,9 +354,7 @@ export class TextFragmentResolver {
         const startEnd = i + start.length;
 
         // Right edge of start must also be word-bounded (inner boundary)
-        if (this.isWordChar(start[start.length - 1]) &&
-            startEnd < docNorm.length &&
-            this.isWordChar(docNorm[startEnd])) {
+        if (!wordBoundaries.has(startEnd)) {
           pos = i + 1;
           continue;
         }
@@ -357,23 +363,23 @@ export class TextFragmentResolver {
 
         while (j >= 0) {
           // Left edge of end must be word-bounded (inner boundary)
-          if (this.isWordChar(end[0]) && j > 0 && this.isWordChar(docNorm[j - 1])) {
+          if (!wordBoundaries.has(j)) {
             j = docNorm.indexOf(end, j + 1);
             continue;
           }
 
           const matchEnd = j + end.length;
           // Check word boundary at end (only if no suffix)
-          if (!suffix && this.isWordChar(end[end.length - 1]) && matchEnd < docNorm.length && this.isWordChar(docNorm[matchEnd])) {
+          if (!suffix && !wordBoundaries.has(matchEnd)) {
             j = docNorm.indexOf(end, j + 1);
             continue;
           }
 
-          if (prefix && !this.#prefixMatches(docNorm, i, prefix)) {
+          if (prefix && !this.#prefixMatches(docNorm, wordBoundaries, i, prefix)) {
               break;
           }
 
-          if (suffix && !this.#suffixMatches(docNorm, matchEnd, suffix)) {
+          if (suffix && !this.#suffixMatches(docNorm, wordBoundaries, matchEnd, suffix)) {
             j = docNorm.indexOf(end, j + 1);
             continue
           }
@@ -393,22 +399,22 @@ export class TextFragmentResolver {
       const matchEnd = i + start.length;
 
       // Check word boundary at start (only if no prefix)
-      if (!prefix && this.isWordChar(start[0]) && i > 0 && this.isWordChar(docNorm[i - 1])) {
+      if (!prefix && !wordBoundaries.has(i)) {
         pos = i + 1;
         continue;
       }
       // Check word boundary at end (only if no suffix)
-      if (!suffix && this.isWordChar(start[start.length - 1]) && matchEnd < docNorm.length && this.isWordChar(docNorm[matchEnd])) {
+      if (!suffix && !wordBoundaries.has(matchEnd)) {
         pos = i + 1;
         continue;
       }
 
-      if (prefix && !this.#prefixMatches(docNorm, i, prefix)) {
+      if (prefix && !this.#prefixMatches(docNorm, wordBoundaries, i, prefix)) {
         pos = i + 1;
         continue;
       }
 
-      if (suffix && !this.#suffixMatches(docNorm, matchEnd, suffix)) {
+      if (suffix && !this.#suffixMatches(docNorm, wordBoundaries, matchEnd, suffix)) {
         pos = i + 1;
         continue
       }
@@ -487,8 +493,10 @@ export class TextFragmentResolver {
       return null;
     }
 
-    const { normalized, entries } = this.#getNormalizedTextMap(doc)
-    const match = this.findFirstMatch(normalized, selector);
+   // const { normalized, entries } = this.#getNormalizedTextMap(doc)
+   // const match = this.findFirstMatch(normalized, selector);
+    const { normalized, entries, wordBoundaries } = this.#getNormalizedTextMap(doc)
+    const match = this.findFirstMatch(normalized, wordBoundaries, selector);
     if (!match) {
       console.warn( `[TF] No match found for text fragment locator: ${locator}`);
       return null;
@@ -501,7 +509,7 @@ export class TextFragmentResolver {
     return range;
   }
 
-  #prefixMatches(docNorm, pos, prefix) {
+  #prefixMatches(docNorm, wordBoundaries, pos, prefix) {
     const before = docNorm.slice(0, pos);
     const trimmedPrefix = prefix.trimEnd();
 
@@ -516,14 +524,14 @@ export class TextFragmentResolver {
 
     const beforeTrimmed = before.trimEnd();
     const preStart = beforeTrimmed.length - trimmedPrefix.length;
-    if (preStart > 0 && this.isWordChar(trimmedPrefix[0]) && this.isWordChar(beforeTrimmed[preStart - 1])) {
+    if (!wordBoundaries.has(preStart)) {
       return false;
     }
 
     return true;
   }
 
-  #suffixMatches(docNorm, pos, suffix) {
+  #suffixMatches(docNorm, wordBoundaries, pos, suffix) {
     const after = docNorm.slice(pos);
     const trimmedSuffix = suffix.trimStart();
 
@@ -537,8 +545,8 @@ export class TextFragmentResolver {
     }
 
     const afterTrimmed = after.trimStart();
-    const sufEnd = trimmedSuffix.length;
-    if (this.isWordChar(trimmedSuffix[trimmedSuffix.length - 1]) && sufEnd < afterTrimmed.length && this.isWordChar(afterTrimmed[sufEnd])) {
+    const sufEndAbs = pos + (after.length - afterTrimmed.length) + trimmedSuffix.length;
+    if (!wordBoundaries.has(sufEndAbs)) {
       return false;
     }
 
