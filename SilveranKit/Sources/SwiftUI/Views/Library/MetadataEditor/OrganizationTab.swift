@@ -40,7 +40,7 @@ struct OrganizationTab: View {
         HStack(alignment: .top, spacing: 0) {
             // Column 1: Edited tags
             VStack(alignment: .leading, spacing: 0) {
-                Text("Edited").font(.headline)
+                Text("Metadata to save").font(.headline)
                     .padding([.horizontal, .top])
 
                 HStack(spacing: 8) {

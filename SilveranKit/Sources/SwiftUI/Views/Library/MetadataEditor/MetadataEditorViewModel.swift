@@ -42,6 +42,8 @@ final class MetadataEditorViewModel {
         var importedItems: [String: Set<String>] = [:]
         var lastImportedDetails: HardcoverBookDetails?
         var lastImportedFields: Set<String> = []
+        var replacementEbookCover: (data: Data, filename: String)?
+        var replacementAudiobookCover: (data: Data, filename: String)?
 
         var displayTitle: String {
             title.isEmpty ? "(Untitled)" : title
@@ -87,7 +89,9 @@ final class MetadataEditorViewModel {
             return isoDate
         }
 
-        var hasDirtyFields: Bool { !dirtyFields.isEmpty }
+        var hasDirtyFields: Bool {
+            !dirtyFields.isEmpty || replacementEbookCover != nil || replacementAudiobookCover != nil
+        }
 
         func stringList(for field: String) -> [String] {
             switch field {
@@ -315,6 +319,16 @@ final class MetadataEditorViewModel {
         return validationErrors(for: bookId).contains { $0.field == "series.\(index).position" }
     }
 
+    private func coverUploads(for book: EditableBook) -> (text: StorytellerCoverUpload?, audio: StorytellerCoverUpload?) {
+        let text = book.replacementEbookCover.map {
+            StorytellerCoverUpload(filename: $0.filename, data: $0.data, contentType: nil)
+        }
+        let audio = book.replacementAudiobookCover.map {
+            StorytellerCoverUpload(filename: $0.filename, data: $0.data, contentType: nil)
+        }
+        return (text, audio)
+    }
+
     func buildPayload(for book: EditableBook) -> StorytellerBookUpdatePayload? {
         guard book.hasDirtyFields else { return nil }
         var payload = StorytellerBookUpdatePayload(uuid: book.id)
@@ -399,13 +413,18 @@ final class MetadataEditorViewModel {
         saveResults = [:]
 
         for book in books where book.hasDirtyFields {
-            guard let payload = buildPayload(for: book) else { continue }
-            let result = await StorytellerActor.shared.updateBook(payload)
+            let covers = coverUploads(for: book)
+            let payload = buildPayload(for: book)
+                ?? StorytellerBookUpdatePayload(uuid: book.id)
+            let result = await StorytellerActor.shared.updateBook(
+                payload, textCover: covers.text, audioCover: covers.audio)
             if let updatedMetadata = result {
                 saveResults[book.id] = true
                 if let index = books.firstIndex(where: { $0.id == book.id }) {
                     books[index].dirtyFields.removeAll()
                     books[index].originalMetadata = updatedMetadata
+                    books[index].replacementEbookCover = nil
+                    books[index].replacementAudiobookCover = nil
                 }
             } else {
                 saveResults[book.id] = false
@@ -421,18 +440,24 @@ final class MetadataEditorViewModel {
 
     func saveSingle(_ bookId: String) async {
         guard let book = books.first(where: { $0.id == bookId }),
-            let payload = buildPayload(for: book)
+            book.hasDirtyFields
         else { return }
 
         isSaving = true
         saveError = nil
 
-        let result = await StorytellerActor.shared.updateBook(payload)
+        let covers = coverUploads(for: book)
+        let payload = buildPayload(for: book)
+            ?? StorytellerBookUpdatePayload(uuid: book.id)
+        let result = await StorytellerActor.shared.updateBook(
+            payload, textCover: covers.text, audioCover: covers.audio)
         if let updatedMetadata = result {
             saveResults[bookId] = true
             if let index = books.firstIndex(where: { $0.id == bookId }) {
                 books[index].dirtyFields.removeAll()
                 books[index].originalMetadata = updatedMetadata
+                books[index].replacementEbookCover = nil
+                books[index].replacementAudiobookCover = nil
             }
         } else {
             saveResults[bookId] = false
@@ -451,7 +476,11 @@ final class MetadataEditorViewModel {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
 
         books[index].lastImportedDetails = details
-        books[index].lastImportedFields.formUnion(fields)
+        let allFields: Set<String> = [
+            "title", "subtitle", "description", "language", "publicationDate",
+            "rating", "authors", "narrators", "creators", "series", "tags",
+        ]
+        books[index].lastImportedFields = allFields
 
         if fields.contains("title"), let value = details.title, !value.isEmpty,
             value != books[index].title
@@ -784,6 +813,8 @@ final class MetadataEditorViewModel {
         books[index].dirtyFields.removeAll()
         books[index].importedFields.removeAll()
         books[index].importedItems.removeAll()
+        books[index].replacementEbookCover = nil
+        books[index].replacementAudiobookCover = nil
     }
 
     func importTags(_ tags: [String], for bookId: String, fromHardcover: Bool = false) {

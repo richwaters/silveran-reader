@@ -8,7 +8,7 @@ struct TitleDetailsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 TwoColumnRow {
-                    Text("Edited").font(.headline)
+                    Text("Metadata to save").font(.headline)
                 } right: {
                     HStack(spacing: 0) {
                         Text("Storyteller Server")

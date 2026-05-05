@@ -149,7 +149,7 @@ struct HardcoverImportView: View {
     private var fieldsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Fields to Import")
+                Text("Fields to autopopulate")
                     .font(.headline)
                 Spacer()
                 Button("All") { viewModel.selectAllFields() }
@@ -324,6 +324,12 @@ struct HardcoverImportView: View {
     private static let physicalNormalized: Set<String> = [
         "Hardcover", "Paperback", "Mass Market Paperback",
     ]
+    private static let ebookNormalized: Set<String> = [
+        "Ebook", "Kindle",
+    ]
+    private static let audiobookNormalized: Set<String> = [
+        "Audible", "Audiobook",
+    ]
 
     private func filteredEditions(_ editions: [HardcoverEditionInfo]) -> [HardcoverEditionInfo] {
         editions.filter { edition in
@@ -337,6 +343,10 @@ struct HardcoverImportView: View {
                     guard Self.digitalNormalized.contains(normalized) else { return false }
                 case "physical":
                     guard Self.physicalNormalized.contains(normalized) else { return false }
+                case "ebook":
+                    guard Self.ebookNormalized.contains(normalized) else { return false }
+                case "audiobook":
+                    guard Self.audiobookNormalized.contains(normalized) else { return false }
                 default:
                     guard normalized == fmt else { return false }
                 }
@@ -372,6 +382,8 @@ struct HardcoverImportView: View {
                     Divider()
                     Text("Digital Only").tag(Optional("digital"))
                     Text("Physical Only").tag(Optional("physical"))
+                    Text("Ebook Only").tag(Optional("ebook"))
+                    Text("Audiobook Only").tag(Optional("audiobook"))
                     Divider()
                     ForEach(formats, id: \.self) { fmt in
                         Text(fmt).tag(Optional(fmt))
@@ -405,6 +417,19 @@ struct HardcoverImportView: View {
             ForEach(filtered) { edition in
                 HStack(spacing: 4) {
                     Spacer().frame(width: 16)
+                    if let imageUrl = edition.imageUrl, let url = URL(string: imageUrl) {
+                        AsyncImage(url: url) { phase in
+                            if case .success(let img) = phase {
+                                img.resizable().aspectRatio(contentMode: .fit)
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(width: 20, height: 28)
+                        .clipShape(RoundedRectangle(cornerRadius: 2))
+                    } else {
+                        Color.clear.frame(width: 20, height: 28)
+                    }
                     Image(systemName: editionIcon(edition.format))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -713,7 +738,7 @@ struct HardcoverImportView: View {
                     onAutoImportAll(viewModel.selectedFields)
                     dismiss()
                 }
-                .disabled(viewModel.selectedFields.isEmpty || !viewModel.hasToken)
+                .disabled(!viewModel.hasToken)
             }
 
             Button("Cancel") { dismiss() }
@@ -723,7 +748,7 @@ struct HardcoverImportView: View {
                 onImport(details, viewModel.selectedFields)
                 dismiss()
             }
-            .disabled(viewModel.fetchedDetails == nil || viewModel.selectedFields.isEmpty)
+            .disabled(viewModel.fetchedDetails == nil)
             .keyboardShortcut(.defaultAction)
         }
         .padding(12)

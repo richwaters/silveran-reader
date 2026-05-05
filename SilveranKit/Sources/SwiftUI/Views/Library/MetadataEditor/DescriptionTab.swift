@@ -25,7 +25,7 @@ struct DescriptionTab: View {
             HStack(alignment: .top, spacing: 0) {
                 // Column 1: editor
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Edited").font(.headline).padding([.horizontal, .top])
+                    Text("Metadata to save").font(.headline).padding([.horizontal, .top])
 
                     TextEditor(text: Binding(
                         get: { currentDescription },

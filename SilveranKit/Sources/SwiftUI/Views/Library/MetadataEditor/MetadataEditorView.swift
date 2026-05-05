@@ -269,7 +269,7 @@ public struct MetadataEditorView: View {
             }
             .disabled(viewModel.selectedBookId == nil)
 
-            Button("Save Selected to Server") {
+            Button("Save Selected to Storyteller") {
                 guard let bookId = viewModel.selectedBookId else { return }
                 Task { @MainActor in await viewModel.saveSingle(bookId) }
             }
@@ -280,7 +280,7 @@ public struct MetadataEditorView: View {
                     || viewModel.hasValidationErrors(for: viewModel.selectedBookId ?? "")
             )
 
-            Button("Save All to Server") {
+            Button("Save All to Storyteller") {
                 Task { @MainActor in await viewModel.saveAll() }
             }
             .disabled(

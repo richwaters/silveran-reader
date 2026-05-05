@@ -196,7 +196,10 @@ final class HardcoverImportViewModel {
                 ? bookDetails.creators : edition.otherContributors,
             series: bookDetails.series,
             tags: bookDetails.tags,
-            editions: bookDetails.editions
+            editions: bookDetails.editions,
+            imageUrl: edition.imageUrl ?? bookDetails.imageUrl,
+            imageWidth: edition.imageUrl != nil ? edition.imageWidth : bookDetails.imageWidth,
+            imageHeight: edition.imageUrl != nil ? edition.imageHeight : bookDetails.imageHeight
         )
     }
 

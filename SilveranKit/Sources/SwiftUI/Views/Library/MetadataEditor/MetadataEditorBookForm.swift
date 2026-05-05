@@ -30,7 +30,7 @@ struct MetadataEditorBookForm: View {
                 case .organization:
                     OrganizationTab(bookId: bookId, viewModel: viewModel)
                 case .covers:
-                    CoversTab()
+                    CoversTab(bookId: bookId, viewModel: viewModel)
                 }
             }
         } else {

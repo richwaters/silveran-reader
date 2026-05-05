@@ -38,7 +38,7 @@ struct StorytellerCollection: Decodable {
     }
 }
 
-public struct StorytellerCoverUpload {
+public struct StorytellerCoverUpload: Sendable {
     public let filename: String
     public let data: Data
     public let contentType: String?

@@ -24,6 +24,9 @@ public struct HardcoverEditionInfo: Sendable, Identifiable {
     public let publisher: String?
     public let narrators: [String]
     public let otherContributors: [(name: String, role: String)]
+    public let imageUrl: String?
+    public let imageWidth: Int?
+    public let imageHeight: Int?
 }
 
 public struct HardcoverBookDetails: Sendable {
@@ -39,6 +42,9 @@ public struct HardcoverBookDetails: Sendable {
     public let series: [(name: String, position: Double?, featured: Bool)]
     public let tags: [(name: String, count: Int)]
     public let editions: [HardcoverEditionInfo]
+    public let imageUrl: String?
+    public let imageWidth: Int?
+    public let imageHeight: Int?
 
     public init(
         title: String?, subtitle: String?, description: String?,
@@ -46,7 +52,8 @@ public struct HardcoverBookDetails: Sendable {
         authors: [String], narrators: [String],
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
-        tags: [(name: String, count: Int)], editions: [HardcoverEditionInfo]
+        tags: [(name: String, count: Int)], editions: [HardcoverEditionInfo],
+        imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -60,6 +67,9 @@ public struct HardcoverBookDetails: Sendable {
         self.series = series
         self.tags = tags
         self.editions = editions
+        self.imageUrl = imageUrl
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
     }
 }
 
@@ -177,6 +187,7 @@ public actor HardcoverActor {
                             count
                             tag { tag }
                         }
+                        image { url width height }
                         default_audio_edition {
                             contributions {
                                 contribution
@@ -198,6 +209,7 @@ public actor HardcoverActor {
                             language { language }
                             country { name }
                             publisher { name }
+                            image { url width height }
                             contributions {
                                 contribution
                                 author { name }
@@ -233,6 +245,10 @@ public actor HardcoverActor {
             return raw
         }()
         let rating = book["rating"] as? Double
+        let bookImage = book["image"] as? [String: Any]
+        let bookImageUrl = bookImage?["url"] as? String
+        let bookImageWidth = bookImage?["width"] as? Int
+        let bookImageHeight = bookImage?["height"] as? Int
 
         let contributions = book["contributions"] as? [[String: Any]] ?? []
         var authors: [String] = []
@@ -293,6 +309,10 @@ public actor HardcoverActor {
             let lang = (ed["language"] as? [String: Any])?["language"] as? String
             let country = (ed["country"] as? [String: Any])?["name"] as? String
             let publisher = (ed["publisher"] as? [String: Any])?["name"] as? String
+            let edImage = ed["image"] as? [String: Any]
+            let edImageUrl = edImage?["url"] as? String
+            let edImageWidth = edImage?["width"] as? Int
+            let edImageHeight = edImage?["height"] as? Int
             let edContribs = ed["contributions"] as? [[String: Any]] ?? []
             var edNarrators: [String] = []
             var edOther: [(name: String, role: String)] = []
@@ -323,7 +343,10 @@ public actor HardcoverActor {
                 country: country,
                 publisher: publisher,
                 narrators: edNarrators,
-                otherContributors: edOther
+                otherContributors: edOther,
+                imageUrl: edImageUrl,
+                imageWidth: edImageWidth,
+                imageHeight: edImageHeight
             )
         }
 
@@ -338,7 +361,10 @@ public actor HardcoverActor {
             creators: creators,
             series: series,
             tags: tags,
-            editions: editions
+            editions: editions,
+            imageUrl: bookImageUrl,
+            imageWidth: bookImageWidth,
+            imageHeight: bookImageHeight
         )
     }
 
