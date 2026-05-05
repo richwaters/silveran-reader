@@ -517,8 +517,7 @@ class EbookPlayerViewModel {
             if let metadata = bookData?.metadata {
                 if let coverData = await FilesystemActor.shared.loadCoverImage(
                     uuid: metadata.uuid,
-                    variant: "standard",
-                    version: StorytellerActor.coverVersionQueryValue(from: metadata.updatedAt)
+                    variant: "standard"
                 ) {
                     if let image = UIImage(data: coverData) {
                         await SMILPlayerActor.shared.setCoverImage(image)
@@ -679,8 +678,7 @@ class EbookPlayerViewModel {
             Task {
                 if let coverData = await FilesystemActor.shared.loadCoverImage(
                     uuid: metadata.uuid,
-                    variant: "standard",
-                    version: StorytellerActor.coverVersionQueryValue(from: metadata.updatedAt)
+                    variant: "standard"
                 ) {
                     await MainActor.run {
                         let base64 = coverData.base64EncodedString()

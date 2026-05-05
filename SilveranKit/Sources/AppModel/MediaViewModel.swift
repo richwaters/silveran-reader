@@ -113,7 +113,6 @@ public final class MediaViewModel {
     private struct CoverKey: Hashable {
         let id: String
         let variant: CoverVariant
-        let version: String?
     }
 
     @MainActor
@@ -401,6 +400,9 @@ public final class MediaViewModel {
     }
 
     private func applyLibraryMetadata(_ metadata: [BookMetadata]) {
+        let previousMetadataByID = Dictionary(uniqueKeysWithValues: library.bookMetaData.map {
+            ($0.id, $0)
+        })
         let validIDs = Set(metadata.map(\.id))
         library = BookLibrary(
             bookMetaData: metadata,
@@ -424,6 +426,25 @@ public final class MediaViewModel {
         }
         missingCoverKeys = Set(missingCoverKeys.filter { validIDs.contains($0.id) })
         pruneCoverTasks(keeping: validIDs)
+
+        let changedStorytellerBooks = metadata.filter { book in
+            guard book.source == "Storyteller",
+                let previous = previousMetadataByID[book.id],
+                previous.updatedAt != book.updatedAt
+            else { return false }
+            return true
+        }
+
+        if !changedStorytellerBooks.isEmpty {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for book in changedStorytellerBooks {
+                    for variant in coverVariantsToLoad(for: book) {
+                        await refreshCover(for: book, variant: variant)
+                    }
+                }
+            }
+        }
     }
 
     private func pruneCoverTasks(keeping validIDs: Set<String>) {
@@ -1361,8 +1382,7 @@ public final class MediaViewModel {
             for: item.id,
             audio: params.audio,
             width: nil,
-            height: nil,
-            version: item.updatedAt
+            height: nil
         ) {
             return cover
         }
@@ -1418,34 +1438,31 @@ public final class MediaViewModel {
             try? await FilesystemActor.shared.saveCoverImage(
                 uuid: item.id,
                 data: cover.data,
-                variant: variantString,
-                version: coverVersion(for: item)
+                variant: variantString
             )
         }
     }
 
     private func coverKey(for item: BookMetadata, variant: CoverVariant) -> CoverKey {
-        CoverKey(id: item.id, variant: variant, version: coverVersion(for: item))
+        CoverKey(id: item.id, variant: variant)
     }
 
-    private func coverVersion(for item: BookMetadata) -> String? {
-        StorytellerActor.coverVersionQueryValue(from: item.updatedAt)
+    private func coverVariantsToLoad(for book: BookMetadata) -> [CoverVariant] {
+        var variantsToLoad: [CoverVariant] = [coverVariant(for: book)]
+        if book.hasAvailableAudiobook && !variantsToLoad.contains(.audioSquare) {
+            variantsToLoad.append(.audioSquare)
+        }
+        return variantsToLoad
     }
 
     private func loadCachedCoversFromDisk() async {
         for book in library.bookMetaData {
-            var variantsToLoad: [CoverVariant] = [coverVariant(for: book)]
-            if book.hasAvailableAudiobook && !variantsToLoad.contains(.audioSquare) {
-                variantsToLoad.append(.audioSquare)
-            }
-
-            for variant in variantsToLoad {
+            for variant in coverVariantsToLoad(for: book) {
                 let variantString = variant == .standard ? "standard" : "audioSquare"
 
                 if let data = await FilesystemActor.shared.loadCoverImage(
                     uuid: book.id,
-                    variant: variantString,
-                    version: coverVersion(for: book)
+                    variant: variantString
                 ) {
                     let key = coverKey(for: book, variant: variant)
                     #if canImport(AppKit)
