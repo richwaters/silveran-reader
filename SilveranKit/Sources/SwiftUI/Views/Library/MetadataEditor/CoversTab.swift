@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
@@ -14,6 +19,8 @@ struct CoversTab: View {
     @State private var isRefreshingCoverCache = false
     @State private var infoPopoverId: Int?
     @State private var previewingCover: PreviewCover?
+    @State private var showBookIdPopover = false
+    @State private var didCopyBookId = false
 
     @AppStorage("hardcoverImport.filterLanguage") private var editionFilterLanguage: String?
     @AppStorage("hardcoverImport.filterFormat") private var editionFilterFormat: String?
@@ -182,7 +189,7 @@ struct CoversTab: View {
         }
         .buttonStyle(.borderless)
         .disabled(isRefreshingCoverCache || metadata == nil)
-        .help("Clear Silveran's cached covers for this book and reload them from Storyteller")
+        .help("Reload this book's covers from Storyteller")
     }
 
     // MARK: - Server Column
@@ -232,8 +239,23 @@ struct CoversTab: View {
     @ViewBuilder
     private var editedColumn: some View {
         VStack(alignment: .center, spacing: 16) {
-            Text("Covers to save")
-                .font(.headline)
+            HStack(spacing: 6) {
+                Text("Covers to save")
+                    .font(.headline)
+
+                Button {
+                    didCopyBookId = false
+                    showBookIdPopover.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Show book UUID for Storyteller image cache cleanup")
+                .popover(isPresented: $showBookIdPopover, arrowEdge: .bottom) {
+                    bookIdPopover
+                }
+            }
 
             editedCoverSlot(
                 label: "Ebook Cover",
@@ -273,6 +295,38 @@ struct CoversTab: View {
                 #endif
             }
         }
+    }
+
+    private var bookIdPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Book UUID")
+                .font(.headline)
+
+            Text(bookId)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+
+            Button {
+                copyBookIdToClipboard()
+                didCopyBookId = true
+            } label: {
+                Label(
+                    didCopyBookId ? "Copied" : "Copy UUID",
+                    systemImage: didCopyBookId ? "checkmark" : "doc.on.doc"
+                )
+            }
+        }
+        .padding()
+        .frame(width: 320, alignment: .leading)
+    }
+
+    private func copyBookIdToClipboard() {
+        #if canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(bookId, forType: .string)
+        #elseif canImport(UIKit)
+        UIPasteboard.general.string = bookId
+        #endif
     }
 
     // MARK: - Hardcover Column

@@ -402,40 +402,67 @@ public actor FilesystemActor {
         }
     }
 
-    public func saveCoverImage(uuid: String, data: Data, variant: String) throws {
+    public func saveCoverImage(uuid: String, data: Data, variant: String, version: String? = nil)
+        throws
+    {
         let coversDir = applicationSupportBaseDirectory()
             .appendingPathComponent("Covers", isDirectory: true)
         try ensureDirectoryExists(at: coversDir)
 
-        let filename = "\(uuid)_\(variant).dat"
+        let filename = coverImageFilename(uuid: uuid, variant: variant, version: version)
         let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
         try write(data: data, to: coverURL)
     }
 
-    public func loadCoverImage(uuid: String, variant: String) -> Data? {
+    public func loadCoverImage(uuid: String, variant: String, version: String? = nil) -> Data? {
         let coversDir = applicationSupportBaseDirectory()
             .appendingPathComponent("Covers", isDirectory: true)
-        let filename = "\(uuid)_\(variant).dat"
-        let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
-
         let fm = FileManager.default
-        guard fm.fileExists(atPath: coverURL.path) else {
+
+        let filename = coverImageFilename(uuid: uuid, variant: variant, version: version)
+        let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
+        if fm.fileExists(atPath: coverURL.path) {
+            return try? Data(contentsOf: coverURL)
+        }
+
+        guard version == nil,
+            let contents = try? fm.contentsOfDirectory(
+                at: coversDir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return nil
         }
 
-        return try? Data(contentsOf: coverURL)
+        let prefix = "\(uuid)_\(variant)_"
+        let latestVersionedCover =
+            contents
+            .filter { $0.lastPathComponent.hasPrefix(prefix) && $0.pathExtension == "dat" }
+            .max { lhs, rhs in
+                let lhsValues = try? lhs.resourceValues(forKeys: [.contentModificationDateKey])
+                let rhsValues = try? rhs.resourceValues(forKeys: [.contentModificationDateKey])
+                let lhsDate = lhsValues?.contentModificationDate ?? .distantPast
+                let rhsDate = rhsValues?.contentModificationDate ?? .distantPast
+                return lhsDate < rhsDate
+            }
+
+        return latestVersionedCover.flatMap { try? Data(contentsOf: $0) }
     }
 
-    public func deleteCoverImage(uuid: String, variant: String) throws {
-        let coversDir = applicationSupportBaseDirectory()
-            .appendingPathComponent("Covers", isDirectory: true)
-        let filename = "\(uuid)_\(variant).dat"
-        let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
-
-        let fm = FileManager.default
-        if fm.fileExists(atPath: coverURL.path) {
-            try fm.removeItem(at: coverURL)
+    private func coverImageFilename(uuid: String, variant: String, version: String?) -> String {
+        guard let version, !version.isEmpty else {
+            return "\(uuid)_\(variant).dat"
         }
+
+        let safeVersion =
+            version
+            .map { character -> Character in
+                character.isLetter || character.isNumber || character == "-" || character == "_"
+                    ? character : "_"
+            }
+
+        return "\(uuid)_\(variant)_\(String(safeVersion)).dat"
     }
 
     public func removeAllStorytellerData() throws {

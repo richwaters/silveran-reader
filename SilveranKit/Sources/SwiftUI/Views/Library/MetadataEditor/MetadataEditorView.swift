@@ -271,7 +271,9 @@ public struct MetadataEditorView: View {
 
             Button("Save Selected to Storyteller") {
                 guard let bookId = viewModel.selectedBookId else { return }
-                Task { @MainActor in await viewModel.saveSingle(bookId) }
+                Task { @MainActor in
+                    await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)
+                }
             }
             .disabled(
                 viewModel.isSaving || viewModel.selectedBookId == nil
@@ -281,7 +283,7 @@ public struct MetadataEditorView: View {
             )
 
             Button("Save All to Storyteller") {
-                Task { @MainActor in await viewModel.saveAll() }
+                Task { @MainActor in await viewModel.saveAll(mediaViewModel: mediaViewModel) }
             }
             .disabled(
                 viewModel.isSaving || !viewModel.hasAnyDirtyBooks

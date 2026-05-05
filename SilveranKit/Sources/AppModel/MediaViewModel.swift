@@ -113,6 +113,7 @@ public final class MediaViewModel {
     private struct CoverKey: Hashable {
         let id: String
         let variant: CoverVariant
+        let version: String?
     }
 
     @MainActor
@@ -1256,7 +1257,7 @@ public final class MediaViewModel {
         -> Image?
     {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         return coverStates[key]?.image
     }
 
@@ -1264,7 +1265,7 @@ public final class MediaViewModel {
         -> CoverImageState
     {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         if let existing = coverStates[key] { return existing }
         let state = CoverImageState()
         coverStates[key] = state
@@ -1276,7 +1277,7 @@ public final class MediaViewModel {
         variant overrideVariant: CoverVariant? = nil
     ) {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         if coverStates[key]?.image != nil || missingCoverKeys.contains(key) {
             return
         }
@@ -1327,7 +1328,8 @@ public final class MediaViewModel {
                     for: item.id,
                     audio: params.audio,
                     width: params.width,
-                    height: params.height
+                    height: params.height,
+                    version: item.updatedAt
                 )
                 await MainActor.run {
                     self.registerCover(cover, for: item, variant: variant)
@@ -1342,17 +1344,11 @@ public final class MediaViewModel {
         variant overrideVariant: CoverVariant? = nil
     ) async {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         coverTasks[key]?.cancel()
         coverTasks[key] = nil
         coverStates.removeValue(forKey: key)
         missingCoverKeys.remove(key)
-
-        let variantString = variant == .standard ? "standard" : "audioSquare"
-        try? await FilesystemActor.shared.deleteCoverImage(
-            uuid: item.id,
-            variant: variantString
-        )
 
         guard connectionStatus == .connected else {
             ensureCoverLoaded(for: item, variant: variant)
@@ -1364,13 +1360,14 @@ public final class MediaViewModel {
             for: item.id,
             audio: params.audio,
             width: params.width,
-            height: params.height
+            height: params.height,
+            version: item.updatedAt
         )
         registerCover(cover, for: item, variant: variant)
     }
 
     private func registerCover(_ cover: BookCover?, for item: BookMetadata, variant: CoverVariant) {
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         let state = coverStates[key] ?? CoverImageState()
         coverStates[key] = state
 
@@ -1408,9 +1405,18 @@ public final class MediaViewModel {
             try? await FilesystemActor.shared.saveCoverImage(
                 uuid: item.id,
                 data: cover.data,
-                variant: variantString
+                variant: variantString,
+                version: coverVersion(for: item)
             )
         }
+    }
+
+    private func coverKey(for item: BookMetadata, variant: CoverVariant) -> CoverKey {
+        CoverKey(id: item.id, variant: variant, version: coverVersion(for: item))
+    }
+
+    private func coverVersion(for item: BookMetadata) -> String? {
+        StorytellerActor.coverVersionQueryValue(from: item.updatedAt)
     }
 
     private func loadCachedCoversFromDisk() async {
@@ -1425,9 +1431,10 @@ public final class MediaViewModel {
 
                 if let data = await FilesystemActor.shared.loadCoverImage(
                     uuid: book.id,
-                    variant: variantString
+                    variant: variantString,
+                    version: coverVersion(for: book)
                 ) {
-                    let key = CoverKey(id: book.id, variant: variant)
+                    let key = coverKey(for: book, variant: variant)
                     #if canImport(AppKit)
                     if let nsImage = NSImage(data: data) {
                         let state = coverStates[key] ?? CoverImageState()

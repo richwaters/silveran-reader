@@ -409,7 +409,7 @@ final class MetadataEditorViewModel {
         return payload
     }
 
-    func saveAll() async {
+    func saveAll(mediaViewModel: MediaViewModel) async {
         isSaving = true
         saveError = nil
         saveResults = [:]
@@ -428,6 +428,11 @@ final class MetadataEditorViewModel {
                         books[index].replacementAudiobookCover = nil
                     }
                 }
+                await refreshSavedCovers(
+                    result: result,
+                    metadata: updatedMetadata,
+                    mediaViewModel: mediaViewModel
+                )
             } else {
                 saveResults[book.id] = false
                 let serverError = await StorytellerActor.shared.lastUpdateBookError
@@ -440,7 +445,7 @@ final class MetadataEditorViewModel {
         isSaving = false
     }
 
-    func saveSingle(_ bookId: String) async {
+    func saveSingle(_ bookId: String, mediaViewModel: MediaViewModel) async {
         guard let book = books.first(where: { $0.id == bookId }),
             book.hasDirtyFields
         else { return }
@@ -461,6 +466,11 @@ final class MetadataEditorViewModel {
                     books[index].replacementAudiobookCover = nil
                 }
             }
+            await refreshSavedCovers(
+                result: result,
+                metadata: updatedMetadata,
+                mediaViewModel: mediaViewModel
+            )
         } else {
             saveResults[bookId] = false
             let serverError = await StorytellerActor.shared.lastUpdateBookError
@@ -475,51 +485,17 @@ final class MetadataEditorViewModel {
     private struct SaveBookResult {
         let metadata: BookMetadata?
         let metadataSaved: Bool
-        let coversSaved: Bool
+        let textCoverSaved: Bool
+        let audioCoverSaved: Bool
+
+        var coversSaved: Bool {
+            textCoverSaved || audioCoverSaved
+        }
     }
 
     private func saveBook(_ book: EditableBook) async -> SaveBookResult {
         let covers = coverUploads(for: book)
-        let hasCovers = covers.text != nil || covers.audio != nil
         let hasMetadataChanges = !book.dirtyFields.isEmpty
-
-        if hasMetadataChanges && hasCovers {
-            guard let payload = buildPayload(for: book) else {
-                return SaveBookResult(metadata: nil, metadataSaved: false, coversSaved: false)
-            }
-
-            guard
-                let metadataResult = await StorytellerActor.shared.updateBook(
-                    payload,
-                    textCover: nil,
-                    audioCover: nil
-                )
-            else {
-                return SaveBookResult(metadata: nil, metadataSaved: false, coversSaved: false)
-            }
-
-            // TODO: Remove this split save once Storyteller invalidates resized cover caches
-            // directly after extracted cover writes and handles concurrent metadata write-back
-            // robustly. Saving metadata first gives folder-moving updates time to settle before
-            // the cover-only request queues its cache-invalidation write worker.
-            try? await Task.sleep(for: .seconds(2))
-
-            guard
-                let coverResult = await StorytellerActor.shared.updateBook(
-                    StorytellerBookUpdatePayload(uuid: book.id),
-                    textCover: covers.text,
-                    audioCover: covers.audio
-                )
-            else {
-                return SaveBookResult(
-                    metadata: metadataResult,
-                    metadataSaved: true,
-                    coversSaved: false
-                )
-            }
-
-            return SaveBookResult(metadata: coverResult, metadataSaved: true, coversSaved: true)
-        }
 
         let payload = buildPayload(for: book) ?? StorytellerBookUpdatePayload(uuid: book.id)
         let result = await StorytellerActor.shared.updateBook(
@@ -530,8 +506,24 @@ final class MetadataEditorViewModel {
         return SaveBookResult(
             metadata: result,
             metadataSaved: hasMetadataChanges && result != nil,
-            coversSaved: hasCovers && result != nil
+            textCoverSaved: covers.text != nil && result != nil,
+            audioCoverSaved: covers.audio != nil && result != nil
         )
+    }
+
+    private func refreshSavedCovers(
+        result: SaveBookResult,
+        metadata: BookMetadata,
+        mediaViewModel: MediaViewModel
+    ) async {
+        guard result.coversSaved else { return }
+
+        if metadata.hasAvailableEbook {
+            await mediaViewModel.refreshCover(for: metadata, variant: .standard)
+        }
+        if metadata.hasAvailableAudiobook {
+            await mediaViewModel.refreshCover(for: metadata, variant: .audioSquare)
+        }
     }
 
     // MARK: - Hardcover Import
