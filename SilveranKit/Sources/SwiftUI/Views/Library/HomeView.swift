@@ -7,6 +7,9 @@ struct HomeView: View {
     let searchText: String
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
     @Binding var sidebarSections: [SidebarSectionDescription]
     @Binding var selectedSidebarItem: SidebarItemDescription?
     @Binding var showSettings: Bool
@@ -44,6 +47,8 @@ struct HomeView: View {
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
     @State private var cardTapInProgress: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
@@ -265,6 +270,7 @@ struct HomeView: View {
                                         progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
+                                        onEditMetadata: handleEditMetadata,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
                                     .id(section.id)
@@ -330,6 +336,11 @@ struct HomeView: View {
                 return .handled
             }
             return .ignored
+        }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
         }
         #endif
         .onAppear {
@@ -458,6 +469,33 @@ struct HomeView: View {
         }
         #endif
     }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+            case .allowed:
+                openWindow(id: "MetadataEditor")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    MetadataEditorNotification.post(bookIds: bookIds)
+                }
+            case .denied:
+                permissionErrorMessage =
+                    "Your account does not have permission to edit metadata on this server."
+                showPermissionError = true
+            case .error(let message):
+                permissionErrorMessage = "Could not verify server permissions: \(message)"
+                showPermissionError = true
+            }
+        }
+    }
+    #endif
 
     private func firstAvailableSelection() -> Selection? {
         for (index, section) in sections.enumerated() {
@@ -1013,6 +1051,7 @@ private struct HomeSectionRow: View {
     let coverSize: CGFloat
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
+    let onEditMetadata: ([String]) -> Void
     #endif
     let onNavigateToSection: (HomeView.HomeSection) -> Void
 
@@ -1144,11 +1183,20 @@ private struct HomeSectionRow: View {
             },
             onInfo: { selected in
                 openInfo(for: selected)
-            }
+            },
+            onEditMetadata: editMetadataHandler
         )
     }
 
     @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        onEditMetadata
+        #else
+        nil
+        #endif
+    }
 
     private func isItemSelected(_ id: BookMetadata.ID) -> Bool {
         guard let selection else { return false }
