@@ -46,6 +46,7 @@ public struct MetadataEditorView: View {
             viewModel.selectedBookId = nil
             viewModel.saveResults.removeAll()
             viewModel.saveError = nil
+            viewModel.clearTransientImportState()
         }
         .onReceive(NotificationCenter.default.publisher(for: .metadataEditorAddBooks)) {
             notification in

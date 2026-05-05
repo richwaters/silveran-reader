@@ -28,7 +28,7 @@ struct CoversTab: View {
     @State private var showFilterPopover = false
 
     private var itunesResults: [ITunesCoverResult] {
-        viewModel.itunesResults
+        viewModel.itunesResults(for: bookId)
     }
 
     private var book: MetadataEditorViewModel.EditableBook? {
@@ -494,11 +494,11 @@ struct CoversTab: View {
                 guard let book else { return }
                 viewModel.searchItunes(book: book)
             }
-            .disabled(book == nil || viewModel.isSearchingItunes)
+            .disabled(book == nil || viewModel.isSearchingItunes(for: bookId))
             .help("Download covers from iTunes")
         } else {
             Button("Clear iTunes Covers") {
-                viewModel.itunesResults = []
+                viewModel.clearItunesResults(for: bookId)
             }
             .help("Clear covers from iTunes")
         }

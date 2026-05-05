@@ -144,8 +144,8 @@ final class MetadataEditorViewModel {
     var isSaving = false
     var saveError: String?
     var saveResults: [String: Bool] = [:]
-    var itunesResults: [ITunesCoverResult] = []
-    var isSearchingItunes = false
+    var itunesResultsByBookId: [String: [ITunesCoverResult]] = [:]
+    var searchingItunesBookIds: Set<String> = []
 
     var selectedBook: EditableBook? {
         get { books.first { $0.id == selectedBookId } }
@@ -178,6 +178,10 @@ final class MetadataEditorViewModel {
         guard !ids.isEmpty else { return }
         let previousSelected = selectedBookId
         books.removeAll { ids.contains($0.id) }
+        for id in ids {
+            itunesResultsByBookId[id] = nil
+            searchingItunesBookIds.remove(id)
+        }
 
         if let previousSelected, !ids.contains(previousSelected),
             books.contains(where: { $0.id == previousSelected })
@@ -186,6 +190,11 @@ final class MetadataEditorViewModel {
         } else {
             selectedBookId = books.first?.id
         }
+    }
+
+    func clearTransientImportState() {
+        itunesResultsByBookId.removeAll()
+        searchingItunesBookIds.removeAll()
     }
 
     func markDirty(field: String, for bookId: String) {
@@ -927,13 +936,26 @@ final class MetadataEditorViewModel {
 
     // MARK: - iTunes Search
 
+    func itunesResults(for bookId: String) -> [ITunesCoverResult] {
+        itunesResultsByBookId[bookId] ?? []
+    }
+
+    func isSearchingItunes(for bookId: String) -> Bool {
+        searchingItunesBookIds.contains(bookId)
+    }
+
+    func clearItunesResults(for bookId: String) {
+        itunesResultsByBookId[bookId] = nil
+    }
+
     func searchItunes(book: EditableBook) {
-        isSearchingItunes = true
-        itunesResults = []
+        let bookId = book.id
+        searchingItunesBookIds.insert(bookId)
+        itunesResultsByBookId[bookId] = []
         Task {
-            defer { isSearchingItunes = false }
+            defer { searchingItunesBookIds.remove(bookId) }
             do {
-                itunesResults = try await ITunesSearchActor.search(
+                itunesResultsByBookId[bookId] = try await ITunesSearchActor.search(
                     title: book.title,
                     author: book.authors.first
                 )
