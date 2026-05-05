@@ -596,7 +596,9 @@ export class TextFragmentResolver {
     this.#rangeCacheBuildStarted = performance.now()
     debugLog( "TextFragments",  `Starting range cache build for section: ${sectionIndex}` )
 
-    this.#sectionBuildState.set(sectionIndex, { nextIndex: 0 });
+   // this.#sectionBuildState.set(sectionIndex, { nextIndex: 0 });
+    this.#sectionBuildState.set(sectionIndex, { nextIndex: 0, prevRange: null });
+
 
     const scheduleNext = () => {
       const timer = setTimeout(() => {
@@ -631,7 +633,15 @@ export class TextFragmentResolver {
         index += 1
         continue;
       }
-      this.resolveTextFragmentRange( doc, sectionIndex, locator )
+      //this.resolveTextFragmentRange( doc, sectionIndex, locator )
+      const range = this.resolveTextFragmentRange(doc, sectionIndex, locator);
+      if (range) {
+        if (state.prevRange &&
+            range.compareBoundaryPoints(Range.START_TO_START, state.prevRange) < 0) {
+          console.warn(`[TF] Out-of-order locator at index ${index}: ${locator}`);
+        }
+        state.prevRange = range;
+      }
       built += 1
       index += 1
     }
