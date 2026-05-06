@@ -74,10 +74,10 @@ struct OrganizationTab: View {
                     .frame(height: 22, alignment: .top)
 
                 TransferColumnRow(
-                    leftCanCopy: !serverTagSelection.isEmpty,
+                    leftCanCopy: selectedServerTagsContainMissingTag,
                     leftHelp: "Copy selected server tags into current metadata",
                     leftAction: importSelectedServerTags,
-                    rightCanCopy: !hcTagSelection.isEmpty,
+                    rightCanCopy: selectedHardcoverTagsContainMissingTag,
                     rightHelp: "Copy selected Hardcover tags into current metadata",
                     rightAction: importSelectedHardcoverTags
                 ) {
@@ -314,6 +314,28 @@ struct OrganizationTab: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 30, alignment: .center)
+    }
+
+    private var selectedServerTagsContainMissingTag: Bool {
+        selectedTagsContainMissingTag(
+            serverTagSelection.compactMap { id in
+                serverTagRows.first { $0.id == id }?.value
+            }
+        )
+    }
+
+    private var selectedHardcoverTagsContainMissingTag: Bool {
+        selectedTagsContainMissingTag(
+            hcTagSelection.compactMap { id in
+                hcTagRows.first { $0.id == id }?.name
+            }
+        )
+    }
+
+    private func selectedTagsContainMissingTag(_ tags: [String]) -> Bool {
+        guard !tags.isEmpty else { return false }
+        let currentKeys = Set(currentTags.map { $0.lowercased() })
+        return tags.contains { !currentKeys.contains($0.lowercased()) }
     }
 
     private func importSelectedServerTags() {
