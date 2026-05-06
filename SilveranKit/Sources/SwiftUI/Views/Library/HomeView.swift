@@ -481,9 +481,11 @@ struct HomeView: View {
             let result = await StorytellerActor.shared.checkBookUpdatePermission()
             switch result {
             case .allowed:
-                openWindow(id: "MetadataEditor")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    MetadataEditorNotification.post(bookIds: bookIds)
+                for bookId in bookIds {
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookId: bookId)
+                    )
                 }
             case .denied:
                 permissionErrorMessage =

@@ -1,15 +1,30 @@
 import SwiftUI
 
 public struct MetadataEditorView: View {
+    private enum MetadataEditorSection: String, CaseIterable, Identifiable {
+        case general = "General"
+        case audiobook = "Audiobook"
+        case ebook = "Ebook"
+
+        var id: String { rawValue }
+
+        var systemImage: String {
+            switch self {
+            case .general: "info.circle"
+            case .audiobook: "headphones"
+            case .ebook: "book"
+            }
+        }
+    }
+
     public let initialBookIds: [String]
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var viewModel = MetadataEditorViewModel()
-    @State private var sidebarSelection: Set<String> = []
+    @State private var selectedSection: MetadataEditorSection = .general
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
     @State private var showHardcoverImport = false
     @State private var showErrorDetail = false
-    @State private var revertBookId: String?
 
     public init(initialBookIds: [String]) {
         self.initialBookIds = initialBookIds
@@ -22,13 +37,11 @@ public struct MetadataEditorView: View {
             }
 
             NavigationSplitView {
-                bookListSidebar
+                sectionSidebar
                     .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
             } detail: {
-                MetadataEditorBookForm(
-                    viewModel: viewModel
-                )
-                .frame(minWidth: 850)
+                sectionContent
+                    .frame(minWidth: 850)
             }
             .navigationSplitViewStyle(.balanced)
             .toolbar(removing: .sidebarToggle)
@@ -37,9 +50,12 @@ public struct MetadataEditorView: View {
             bottomBar
         }
         .frame(minWidth: 1300, minHeight: 500)
+        .navigationTitle(viewModel.selectedBook?.displayTitle ?? "Edit Metadata")
+        #if os(macOS)
+        .background(WindowTitleUpdater(title: windowTitle).frame(width: 0, height: 0))
+        #endif
         .onAppear {
-            viewModel.addBooks(ids: initialBookIds, from: mediaViewModel.library)
-            sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
+            viewModel.addBooks(ids: Array(initialBookIds.prefix(1)), from: mediaViewModel.library)
         }
         .onDisappear {
             viewModel.books.removeAll()
@@ -47,14 +63,6 @@ public struct MetadataEditorView: View {
             viewModel.saveResults.removeAll()
             viewModel.saveError = nil
             viewModel.clearTransientImportState()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .metadataEditorAddBooks)) {
-            notification in
-            guard let bookIds = MetadataEditorNotification.bookIds(from: notification) else {
-                return
-            }
-            viewModel.addBooks(ids: bookIds, from: mediaViewModel.library)
-            sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
         }
         .sheet(isPresented: $showHardcoverImport) {
             if let book = viewModel.selectedBook {
@@ -68,29 +76,6 @@ public struct MetadataEditorView: View {
                         Task { @MainActor in await viewModel.autoImportAll(fields: fields) }
                     }
                 )
-            }
-        }
-        .alert(
-            "Revert All Changes?",
-            isPresented: Binding(
-                get: { revertBookId != nil },
-                set: { if !$0 { revertBookId = nil } }
-            )
-        ) {
-            Button("Revert", role: .destructive) {
-                if let id = revertBookId {
-                    viewModel.revertAllFields(for: id)
-                }
-                revertBookId = nil
-            }
-            Button("Cancel", role: .cancel) {
-                revertBookId = nil
-            }
-        } message: {
-            if let id = revertBookId,
-               let book = viewModel.books.first(where: { $0.id == id })
-            {
-                Text("This will discard all edits to \"\(book.displayTitle)\" and restore the original server values.")
             }
         }
     }
@@ -139,66 +124,59 @@ public struct MetadataEditorView: View {
         )
     }
 
-    // MARK: - Book List Sidebar
+    // MARK: - Section Sidebar
 
     @ViewBuilder
-    private var bookListSidebar: some View {
-        List(selection: $sidebarSelection) {
-            ForEach(viewModel.books) { book in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(book.displayTitle)
-                            .lineLimit(1)
-                            .font(.body)
-                        if let author = book.authors.first, !author.isEmpty {
-                            Text(author)
-                                .lineLimit(1)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    if book.hasDirtyFields {
-                        Button {
-                            revertBookId = book.id
-                        } label: {
-                            Image(systemName: "arrow.uturn.backward.circle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.caption)
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Revert all changes")
-                    }
-                    if viewModel.saveResults[book.id] == true {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                            .font(.caption)
-                    } else if viewModel.saveResults[book.id] == false {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    }
-                }
-                .tag(book.id)
+    private var sectionSidebar: some View {
+        List(selection: $selectedSection) {
+            ForEach(MetadataEditorSection.allCases) { section in
+                Label(section.rawValue, systemImage: section.systemImage)
+                    .tag(section)
             }
         }
         .listStyle(.sidebar)
-        .contextMenu {
-            Button("Remove Selected") {
-                viewModel.removeBooks(ids: sidebarSelection)
-                sidebarSelection = viewModel.selectedBookId.map { [$0] } ?? []
-            }
-            .disabled(sidebarSelection.isEmpty)
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch selectedSection {
+        case .general:
+            MetadataEditorBookForm(
+                viewModel: viewModel
+            )
+        case .audiobook:
+            ContentUnavailableView("Audiobook", systemImage: "headphones")
+        case .ebook:
+            ContentUnavailableView("Ebook", systemImage: "book")
         }
-        .onChange(of: sidebarSelection) { oldValue, newValue in
-            let added = newValue.subtracting(oldValue)
-            if let newId = added.first {
-                viewModel.selectedBookId = newId
-            } else if !newValue.contains(viewModel.selectedBookId ?? "") {
-                viewModel.selectedBookId = newValue.first
+    }
+
+    // MARK: - Window Title
+
+    private var windowTitle: String {
+        guard let book = viewModel.selectedBook else { return "Edit Metadata" }
+        return "Edit Metadata - \(book.displayTitle)"
+    }
+
+    #if os(macOS)
+    private struct WindowTitleUpdater: NSViewRepresentable {
+        let title: String
+
+        func makeNSView(context: Context) -> NSView {
+            let view = NSView()
+            DispatchQueue.main.async {
+                view.window?.title = title
+            }
+            return view
+        }
+
+        func updateNSView(_ view: NSView, context: Context) {
+            DispatchQueue.main.async {
+                view.window?.title = title
             }
         }
     }
+    #endif
 
     // MARK: - Bottom Bar
 
