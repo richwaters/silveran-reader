@@ -53,12 +53,12 @@ struct DescriptionTab: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Storyteller Server")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .padding([.horizontal, .top])
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 4) {
-                            RevertButton(color: .white, help: "Revert to server value") {
+                            RevertButton(color: .secondary, help: "Revert to server value") {
                                 guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
                                 else { return }
                                 viewModel.books[index].description =
@@ -69,18 +69,18 @@ struct DescriptionTab: View {
                             if originalDescription.isEmpty {
                                 Text("(empty)")
                                     .font(.callout)
-                                    .foregroundStyle(.white.opacity(0.5))
+                                    .foregroundStyle(.secondary)
                                     .italic()
                             } else if currentDescription == originalDescription {
                                 Text(originalDescription)
                                     .font(.callout)
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(.primary)
                                     .textSelection(.enabled)
                             } else {
                                 WordDiffView(
                                     oldText: originalDescription,
                                     newText: currentDescription,
-                                    baseColor: .white
+                                    baseColor: .primary
                                 )
                             }
                         }

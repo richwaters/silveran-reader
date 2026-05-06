@@ -13,7 +13,7 @@ struct CreatorsTab: View {
                     HStack(spacing: 0) {
                         Text("Storyteller Server")
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text("Hardcover Import")
                             .font(.headline)
@@ -101,7 +101,7 @@ struct CreatorsTab: View {
                 Text("Other Creators")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(
-                        hasImports ? Color.blue : isDirty ? Color.orange : .primary)
+                        hasImports ? Color.blue : isDirty ? Color.orange : .secondary)
                 Spacer()
                 Button(action: {
                     guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
@@ -159,10 +159,9 @@ struct CreatorsTab: View {
         let hcCreators = viewModel.hardcoverStringList(field: "creators", for: bookId)
 
         VStack(alignment: .leading, spacing: 6) {
-            Text("Other Creators").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
-                    RevertButton(color: .white, help: "Revert to server value") {
+                    RevertButton(color: .secondary, help: "Revert to server value") {
                         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
                         else { return }
                         viewModel.books[index].creators =
@@ -180,7 +179,7 @@ struct CreatorsTab: View {
                     if origCreators.isEmpty {
                         Text("(empty)")
                             .font(.callout)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.secondary)
                             .italic()
                     } else {
                         ForEach(origCreators, id: \.self) { creator in
@@ -188,7 +187,7 @@ struct CreatorsTab: View {
                                 .filter { !$0.isEmpty }.joined(separator: " - ")
                             Text(display)
                                 .font(.callout)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                     }
                 }

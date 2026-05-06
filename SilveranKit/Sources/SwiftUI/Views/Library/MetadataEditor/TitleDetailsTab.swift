@@ -13,7 +13,7 @@ struct TitleDetailsTab: View {
                     HStack(spacing: 0) {
                         Text("Storyteller Server")
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text("Hardcover Import")
                             .font(.headline)
@@ -183,7 +183,7 @@ struct TitleDetailsTab: View {
             Text("Series").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
-                    RevertButton(color: .white, help: "Revert to server value") {
+                    RevertButton(color: .secondary, help: "Revert to server value") {
                         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
                         else { return }
                         viewModel.books[index].series =
@@ -204,7 +204,7 @@ struct TitleDetailsTab: View {
                     if origSeries.isEmpty {
                         Text("(empty)")
                             .font(.callout)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.secondary)
                             .italic()
                     } else {
                         ForEach(origSeries, id: \.self) { s in
@@ -214,7 +214,7 @@ struct TitleDetailsTab: View {
                             } ?? ""
                             Text("\(s.name)\(pos)")
                                 .font(.callout)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                     }
                 }

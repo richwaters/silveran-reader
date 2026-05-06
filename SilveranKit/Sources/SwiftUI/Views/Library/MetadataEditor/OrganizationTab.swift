@@ -123,7 +123,7 @@ struct OrganizationTab: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Storyteller Server")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding([.horizontal, .top])
 
                 HStack(spacing: 8) {
@@ -162,7 +162,7 @@ struct OrganizationTab: View {
                 if serverTagRows.isEmpty {
                     Text("(empty)")
                         .font(.callout)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.secondary)
                         .italic()
                         .padding()
                 } else {
@@ -170,7 +170,7 @@ struct OrganizationTab: View {
                         TableColumn("Tag") { item in
                             Text(item.value)
                                 .font(.callout)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .padding()

@@ -40,15 +40,15 @@ struct ReferenceValues: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(label).font(.callout).foregroundStyle(.tertiary)
                 HStack(spacing: 4) {
-                    RevertButton(color: .white, help: "Revert to server value", action: revertToOriginal)
+                    RevertButton(color: .secondary, help: "Revert to server value", action: revertToOriginal)
                     if !original.isEmpty {
                         Text(original)
                             .font(.callout)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                     } else {
                         Text("(empty)")
                             .font(.callout)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.secondary)
                             .italic()
                     }
                 }
@@ -90,17 +90,17 @@ struct ReferenceListValues: View {
 
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                RevertButton(color: .white, help: "Revert to server value", action: revertToOriginal)
+                RevertButton(color: .secondary, help: "Revert to server value", action: revertToOriginal)
                 if original.isEmpty {
                     Text("(empty)")
                         .font(.callout)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.secondary)
                         .italic()
                 } else {
                     ForEach(original, id: \.self) { item in
                         Text(item)
                             .font(.callout)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -329,7 +329,15 @@ struct StringListTable: View {
     }
 
     private var fieldLabelColor: Color {
-        listFieldMatchColor(field: field, bookId: bookId, viewModel: viewModel)
+        guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return .secondary }
+        let current = book.stringList(for: field)
+
+        if let hc = viewModel.hardcoverStringList(field: field, for: bookId), Set(current) == Set(hc) {
+            return .blue
+        }
+
+        let original = viewModel.originalStringList(field: field, for: bookId)
+        return Set(current) == Set(original) ? .secondary : .orange
     }
 
     private func addItem() {
