@@ -10,22 +10,46 @@ struct OrganizationTab: View {
     @State private var hcSortOrder: [KeyPathComparator<IdentifiedTagWithCount>] = [
         KeyPathComparator(\.count, order: .reverse)
     ]
+    @State private var showServerTagHelp = false
 
     private var editedTagRows: [IdentifiedString] {
-        let list = viewModel.books.first { $0.id == bookId }?.tags ?? []
+        let list = currentTags
         return list.enumerated().map { i, value in
             IdentifiedString(
                 id: i, value: value,
-                isImported: viewModel.isImported(field: "tags", value: value, for: bookId)
+                isImported: viewModel.isImported(field: "tags", value: value, for: bookId),
+                sourceIndex: i
             )
+        }.sorted {
+            $0.value.localizedCaseInsensitiveCompare($1.value) == .orderedAscending
         }
     }
 
-    private var serverTagRows: [IdentifiedString] {
-        let original = viewModel.originalStringList(field: "tags", for: bookId)
-        return original.enumerated().map { i, name in
-            IdentifiedString(id: i, value: name, isImported: false)
+    private var currentTags: [String] {
+        viewModel.books.first { $0.id == bookId }?.tags ?? []
+    }
+
+    private var serverTags: [String] {
+        viewModel.originalStringList(field: "tags", for: bookId)
+    }
+
+    private var serverTagRows: [IdentifiedServerTag] {
+        let currentKeys = Set(serverTags.map { $0.lowercased() })
+        let currentRows = serverTags.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
+        let otherRows = viewModel.libraryTagNames.filter { !currentKeys.contains($0.lowercased()) }
+
+        return (currentRows.map { (value: $0, isOnCurrentBook: true) }
+            + otherRows.map { (value: $0, isOnCurrentBook: false) })
+            .enumerated()
+            .map { i, row in
+                IdentifiedServerTag(
+                    id: i,
+                    value: row.value,
+                    isOnCurrentBook: row.isOnCurrentBook
+                )
+            }
     }
 
     private var hcTagRows: [IdentifiedTagWithCount] {
@@ -36,13 +60,62 @@ struct OrganizationTab: View {
         return rows.sorted(using: hcSortOrder)
     }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // Column 1: Edited tags
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Metadata to save").font(.headline)
-                    .padding([.horizontal, .top])
+    private var hcTagNames: [String]? {
+        guard viewModel.hardcoverTagsWithCounts(for: bookId) != nil else { return nil }
+        return hcTagRows.map(\.name)
+    }
 
+    var body: some View {
+        GeometryReader { geo in
+            let contentHeight = max(geo.size.height - 52, 100)
+
+            VStack(alignment: .leading, spacing: 2) {
+                MetadataColumnHeaders()
+                    .frame(height: 22, alignment: .top)
+
+                TransferColumnRow(
+                    leftCanCopy: !serverTagSelection.isEmpty,
+                    leftHelp: "Copy selected server tags into current metadata",
+                    leftAction: importSelectedServerTags,
+                    rightCanCopy: !hcTagSelection.isEmpty,
+                    rightHelp: "Copy selected Hardcover tags into current metadata",
+                    rightAction: importSelectedHardcoverTags
+                ) {
+                    serverTagsColumn
+                } center: {
+                    currentTagsColumn
+                } right: {
+                    hardcoverTagsColumn
+                }
+                .frame(height: contentHeight, alignment: .top)
+            }
+            .padding()
+            .frame(
+                width: geo.size.width,
+                height: max(geo.size.height - 28, 100),
+                alignment: .top
+            )
+        }
+        .onChange(of: editedTagSelection) { _, selection in
+            guard !selection.isEmpty else { return }
+            serverTagSelection.removeAll()
+            hcTagSelection.removeAll()
+        }
+        .onChange(of: serverTagSelection) { _, selection in
+            guard !selection.isEmpty else { return }
+            editedTagSelection.removeAll()
+            hcTagSelection.removeAll()
+        }
+        .onChange(of: hcTagSelection) { _, selection in
+            guard !selection.isEmpty else { return }
+            editedTagSelection.removeAll()
+            serverTagSelection.removeAll()
+        }
+    }
+
+    private var currentTagsColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
                 HStack(spacing: 8) {
                     Button("Delete All") {
                         guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
@@ -54,6 +127,14 @@ struct OrganizationTab: View {
                     .controlSize(.small)
                     .foregroundStyle(.red)
 
+                    Button("Delete Selected (\(editedTagSelection.count))") {
+                        deleteSelectedTags()
+                    }
+                    .controlSize(.small)
+                    .foregroundStyle(editedTagSelection.isEmpty ? Color.secondary : Color.red)
+                    .disabled(editedTagSelection.isEmpty)
+                    .help("Delete selected tags")
+
                     Button(action: {
                         guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
                         else { return }
@@ -63,183 +144,238 @@ struct OrganizationTab: View {
                         Label("Add", systemImage: "plus.circle")
                     }
                     .controlSize(.small)
-                    Spacer()
-                    if !editedTagSelection.isEmpty {
-                        Button("Delete Selected (\(editedTagSelection.count))") {
-                            guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
-                            else { return }
-                            viewModel.books[idx].removeFromStringList(
-                                field: "tags", indices: IndexSet(editedTagSelection))
-                            viewModel.markDirty(field: "tags", for: bookId)
-                            editedTagSelection.removeAll()
-                        }
-                        .controlSize(.small)
-                        .foregroundStyle(.red)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 30, alignment: .center)
+
+            Table(editedTagRows, selection: $editedTagSelection) {
+                TableColumn("") { item in
+                    if item.isImported {
+                        Circle().fill(.blue).frame(width: 6, height: 6)
                     }
                 }
-                .padding([.horizontal, .top], 8)
+                .width(12)
 
-                Table(editedTagRows, selection: $editedTagSelection) {
-                    TableColumn("") { item in
-                        if item.isImported {
-                            Circle().fill(.blue).frame(width: 6, height: 6)
-                        }
+                TableColumn("Tag") { item in
+                    TextField(
+                        "Tag",
+                        text: Binding(
+                            get: {
+                                let list = viewModel.books.first { $0.id == bookId }?.tags ?? []
+                                guard let sourceIndex = item.sourceIndex, sourceIndex < list.count else { return "" }
+                                return list[sourceIndex]
+                            },
+                            set: { newValue in
+                                guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
+                                else { return }
+                                guard let sourceIndex = item.sourceIndex else { return }
+                                viewModel.books[idx].updateStringList(
+                                    field: "tags", index: sourceIndex, value: newValue)
+                                viewModel.markDirty(field: "tags", for: bookId)
+                            }
+                        )
+                    )
+                    .textFieldStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        editedTagSelection = [item.id]
+                    })
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var serverTagsColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sourceToolbar {
+                Button("Use All") {
+                    importServerTags(serverTags)
+                }
+                .disabled(serverTagRows.isEmpty)
+
+                Button {
+                    showServerTagHelp = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("About Storyteller tag colors")
+                .popover(isPresented: $showServerTagHelp, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Storyteller Tags")
+                            .font(.headline)
+                        Text("Bright tags are already on this book. Dimmer tags exist on other books in your library and can be added here.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\"Use All\" will copy only the tags on this book over.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .width(12)
+                    .padding()
+                    .frame(width: 280, alignment: .leading)
+                }
+            }
 
+            if serverTagRows.isEmpty {
+                Text("(empty)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            } else {
+                Table(serverTagRows, selection: $serverTagSelection) {
                     TableColumn("Tag") { item in
                         TextField(
                             "Tag",
                             text: Binding(
-                                get: {
-                                    let list = viewModel.books.first { $0.id == bookId }?.tags ?? []
-                                    guard item.id < list.count else { return "" }
-                                    return list[item.id]
-                                },
-                                set: { newValue in
-                                    guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
-                                    else { return }
-                                    viewModel.books[idx].updateStringList(
-                                        field: "tags", index: item.id, value: newValue)
-                                    viewModel.markDirty(field: "tags", for: bookId)
-                                }
+                                get: { item.value },
+                                set: { _ in }
                             )
                         )
                         .textFieldStyle(.plain)
+                        .foregroundStyle(item.isOnCurrentBook ? .primary : .secondary)
+                        .opacity(item.isOnCurrentBook ? 1 : 0.7)
+                            .simultaneousGesture(TapGesture().onEnded {
+                                selectServerTag(item.id)
+                            })
+                            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                                serverTagSelection = [item.id]
+                                importServerTags([item.value])
+                            })
                     }
                 }
-                .border(
-                    listFieldMatchColor(field: "tags", bookId: bookId, viewModel: viewModel),
-                    width: 2
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .padding()
+                .padding(.horizontal, 8)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .frame(maxWidth: .infinity)
-
-            Divider()
-
-            // Column 2: Storyteller Server tags
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Storyteller Server")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .padding([.horizontal, .top])
-
-                HStack(spacing: 8) {
-                    if !serverTagRows.isEmpty {
-                        Button("Import All") {
-                            viewModel.importTags(serverTagRows.map(\.value), for: bookId)
-                        }
-                        .controlSize(.small)
-                    }
-                    Button(action: {
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
-                        else { return }
-                        viewModel.books[index].tags =
-                            viewModel.books[index].originalMetadata.tags?.map { $0.name } ?? []
-                        viewModel.books[index].dirtyFields.remove("tags")
-                        viewModel.books[index].importedFields.remove("tags")
-                    }) {
-                        Image(systemName: "arrow.uturn.backward.circle")
-                    }
-                    .controlSize(.small)
-                    .help("Replace edited tags with server tags")
-                    Spacer()
-                    if !serverTagSelection.isEmpty {
-                        Button("Import Selected (\(serverTagSelection.count))") {
-                            let names = serverTagSelection.compactMap { id in
-                                serverTagRows.first { $0.id == id }?.value
-                            }
-                            viewModel.importTags(names, for: bookId)
-                            serverTagSelection.removeAll()
-                        }
-                        .controlSize(.small)
-                    }
-                }
-                .padding([.horizontal, .top], 8)
-
-                if serverTagRows.isEmpty {
-                    Text("(empty)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                        .padding()
-                } else {
-                    Table(serverTagRows, selection: $serverTagSelection) {
-                        TableColumn("Tag") { item in
-                            Text(item.value)
-                                .font(.callout)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding()
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            Divider()
-
-            // Column 3: Hardcover Import tags
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Hardcover Import")
-                    .font(.headline)
-                    .foregroundStyle(.blue)
-                    .padding([.horizontal, .top])
-
-                HStack(spacing: 8) {
-                    if !hcTagRows.isEmpty {
-                        Button("Import All") {
-                            viewModel.importTags(hcTagRows.map(\.name), for: bookId, fromHardcover: true)
-                        }
-                        .controlSize(.small)
-
-                        Button(action: {
-                            viewModel.revertToHardcover(field: "tags", for: bookId)
-                        }) {
-                            Image(systemName: "arrow.uturn.backward.circle")
-                        }
-                        .controlSize(.small)
-                        .help("Replace edited tags with Hardcover tags")
-                    }
-                    Spacer()
-                    if !hcTagSelection.isEmpty {
-                        Button("Import Selected (\(hcTagSelection.count))") {
-                            let names = hcTagSelection.compactMap { id in
-                                hcTagRows.first { $0.id == id }?.name
-                            }
-                            viewModel.importTags(names, for: bookId, fromHardcover: true)
-                            hcTagSelection.removeAll()
-                        }
-                        .controlSize(.small)
-                    }
-                }
-                .padding([.horizontal, .top], 8)
-
-                if hcTagRows.isEmpty {
-                    Text("--")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                        .padding()
-                } else {
-                    Table(hcTagRows, selection: $hcTagSelection, sortOrder: $hcSortOrder) {
-                        TableColumn("Tag", value: \.name) { item in
-                            Text(item.name)
-                                .font(.callout)
-                                .foregroundStyle(.blue)
-                        }
-                        TableColumn("Pop.", value: \.count) { item in
-                            Text("\(item.count)")
-                                .font(.callout)
-                                .foregroundStyle(.blue.opacity(0.7))
-                        }
-                        .width(40)
-                    }
-                    .padding()
-                }
-            }
-            .frame(maxWidth: .infinity)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var hardcoverTagsColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sourceToolbar {
+                Button("Use All") {
+                    importHardcoverTags(hcTagNames ?? [])
+                }
+                .disabled(hcTagRows.isEmpty)
+            }
+
+            if hcTagRows.isEmpty {
+                Text("--")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Table(hcTagRows, selection: $hcTagSelection, sortOrder: $hcSortOrder) {
+                    TableColumn("Tag", value: \.name) { item in
+                        TextField(
+                            "Tag",
+                            text: Binding(
+                                get: { item.name },
+                                set: { _ in }
+                            )
+                        )
+                        .textFieldStyle(.plain)
+                            .simultaneousGesture(TapGesture().onEnded {
+                                selectHardcoverTag(item.id)
+                            })
+                            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                                hcTagSelection = [item.id]
+                                importHardcoverTags([item.name])
+                            })
+                    }
+                    TableColumn("Popularity", value: \.count) { item in
+                        Text("\(item.count)")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .width(86)
+                }
+                .padding(.horizontal, 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func sourceToolbar<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 8) {
+            Spacer()
+            content()
+                .controlSize(.small)
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 30, alignment: .center)
+    }
+
+    private func importSelectedServerTags() {
+        let names = serverTagSelection.compactMap { id in
+            serverTagRows.first { $0.id == id }?.value
+        }
+        importServerTags(names)
+        serverTagSelection.removeAll()
+    }
+
+    private func importSelectedHardcoverTags() {
+        let names = hcTagSelection.compactMap { id in
+            hcTagRows.first { $0.id == id }?.name
+        }
+        importHardcoverTags(names)
+        hcTagSelection.removeAll()
+    }
+
+    private func importServerTags(_ names: [String]) {
+        viewModel.importTags(names, for: bookId)
+    }
+
+    private func importHardcoverTags(_ names: [String]) {
+        viewModel.importTags(names, for: bookId, fromHardcover: true)
+    }
+
+    private func deleteSelectedTags() {
+        guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
+        else { return }
+        let sourceIndices = editedTagSelection.compactMap { id in
+            editedTagRows.first { $0.id == id }?.sourceIndex
+        }
+        viewModel.books[idx].removeFromStringList(
+            field: "tags", indices: IndexSet(sourceIndices))
+        viewModel.markDirty(field: "tags", for: bookId)
+        editedTagSelection.removeAll()
+    }
+
+    private func selectServerTag(_ id: Int) {
+        editedTagSelection.removeAll()
+        hcTagSelection.removeAll()
+        updateSelection(&serverTagSelection, id: id)
+    }
+
+    private func selectHardcoverTag(_ id: Int) {
+        editedTagSelection.removeAll()
+        serverTagSelection.removeAll()
+        updateSelection(&hcTagSelection, id: id)
+    }
+
+    private func updateSelection(_ selection: inout Set<Int>, id: Int) {
+        #if os(macOS)
+        if NSEvent.modifierFlags.contains(.command) {
+            if selection.contains(id) {
+                selection.remove(id)
+            } else {
+                selection.insert(id)
+            }
+            return
+        }
+        #endif
+        selection = [id]
     }
 }
 

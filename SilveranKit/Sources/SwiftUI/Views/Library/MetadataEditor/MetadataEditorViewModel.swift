@@ -146,6 +146,7 @@ final class MetadataEditorViewModel {
     var saveResults: [String: Bool] = [:]
     var itunesResultsByBookId: [String: [ITunesCoverResult]] = [:]
     var searchingItunesBookIds: Set<String> = []
+    var libraryTagNames: [String] = []
 
     var selectedBook: EditableBook? {
         get { books.first { $0.id == selectedBookId } }
@@ -158,6 +159,8 @@ final class MetadataEditorViewModel {
     }
 
     func addBooks(ids: [String], from library: BookLibrary) {
+        updateLibraryTags(from: library)
+
         for id in ids {
             guard !books.contains(where: { $0.id == id }) else { continue }
             guard let metadata = library.bookMetaData.first(where: { $0.uuid == id }) else {
@@ -167,6 +170,23 @@ final class MetadataEditorViewModel {
         }
         if selectedBookId == nil {
             selectedBookId = books.first?.id
+        }
+    }
+
+    private func updateLibraryTags(from library: BookLibrary) {
+        var tagsByKey: [String: String] = [:]
+        for book in library.bookMetaData {
+            for tag in book.tagNames {
+                let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if tagsByKey[key] == nil {
+                    tagsByKey[key] = trimmed
+                }
+            }
+        }
+        libraryTagNames = tagsByKey.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
     }
 
@@ -832,6 +852,29 @@ final class MetadataEditorViewModel {
             books[index].importedFields.insert("narrators")
             books[index].importedItems["narrators"] = Set(details.narrators)
             markDirty(field: "narrators", for: bookId)
+        case "creators":
+            books[index].creators = details.creators.map {
+                EditableCreator(name: $0.name, fileAs: "", role: $0.role, uuid: nil)
+            }
+            books[index].importedFields.insert("creators")
+            books[index].importedItems["creators"] = Set(details.creators.map(\.name))
+            markDirty(field: "creators", for: bookId)
+        case "series":
+            books[index].series = details.series.map { series in
+                let posStr = series.position.map {
+                    $0.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int($0)) : String($0)
+                } ?? ""
+                return EditableSeries(
+                    name: series.name,
+                    position: posStr,
+                    featured: series.featured,
+                    uuid: nil
+                )
+            }
+            books[index].importedFields.insert("series")
+            books[index].importedItems["series"] = Set(details.series.map(\.name))
+            markDirty(field: "series", for: bookId)
         case "tags":
             let tagNames = details.tags.map(\.name)
             books[index].tags = tagNames
@@ -841,6 +884,59 @@ final class MetadataEditorViewModel {
         default:
             break
         }
+    }
+
+    func revertFieldToOriginal(field: String, for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let orig = books[index].originalMetadata
+
+        switch field {
+        case "title":
+            books[index].title = orig.title
+        case "subtitle":
+            books[index].subtitle = orig.subtitle ?? ""
+        case "description":
+            books[index].description = orig.description ?? ""
+        case "language":
+            books[index].language = orig.language ?? ""
+        case "publicationDate":
+            books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
+        case "rating":
+            books[index].rating = orig.rating.map { String($0) } ?? ""
+        case "authors":
+            books[index].authors = orig.authors?.compactMap { $0.name } ?? []
+        case "narrators":
+            books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
+        case "creators":
+            books[index].creators = orig.creators?.map { creator in
+                EditableCreator(
+                    name: creator.name ?? "",
+                    fileAs: creator.fileAs ?? "",
+                    role: creator.role ?? "",
+                    uuid: creator.uuid
+                )
+            } ?? []
+        case "series":
+            books[index].series = orig.series?.map { s in
+                EditableSeries(
+                    name: s.name,
+                    position: s.position.map {
+                        $0.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(Int($0)) : String($0)
+                    } ?? "",
+                    featured: s.featured == 1,
+                    uuid: s.uuid
+                )
+            } ?? []
+        case "tags":
+            books[index].tags = orig.tags?.map { $0.name } ?? []
+        default:
+            break
+        }
+
+        books[index].dirtyFields.remove(field)
+        books[index].importedFields.remove(field)
+        books[index].importedItems[field] = nil
     }
 
     func revertAllFields(for bookId: String) {

@@ -7,83 +7,89 @@ struct CreatorsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                TwoColumnRow {
-                    Text("Metadata to save").font(.headline)
-                } right: {
-                    HStack(spacing: 0) {
-                        Text("Storyteller Server")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("Hardcover Import")
-                            .font(.headline)
-                            .foregroundStyle(.blue)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
+                MetadataColumnHeaders()
 
                 // Authors
-                TwoColumnRow {
-                    StringListTable(
-                        label: "Authors",
-                        field: "authors",
-                        bookId: bookId,
-                        viewModel: viewModel
-                    )
-                } right: {
-                    ReferenceListValues(
-                        field: "authors",
-                        bookId: bookId,
-                        viewModel: viewModel,
-                        revertToOriginal: {
-                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
-                            else { return }
-                            viewModel.books[index].authors =
-                                viewModel.books[index].originalMetadata.authors?
-                                .compactMap { $0.name } ?? []
-                            viewModel.books[index].dirtyFields.remove("authors")
-                            viewModel.books[index].importedFields.remove("authors")
-                        }
-                    )
-                }
+                listRow(label: "Authors", field: "authors")
 
                 Divider()
 
                 // Narrators
-                TwoColumnRow {
-                    StringListTable(
-                        label: "Narrators",
-                        field: "narrators",
-                        bookId: bookId,
-                        viewModel: viewModel
-                    )
-                } right: {
-                    ReferenceListValues(
-                        field: "narrators",
-                        bookId: bookId,
-                        viewModel: viewModel,
-                        revertToOriginal: {
-                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
-                            else { return }
-                            viewModel.books[index].narrators =
-                                viewModel.books[index].originalMetadata.narrators?
-                                .compactMap { $0.name } ?? []
-                            viewModel.books[index].dirtyFields.remove("narrators")
-                            viewModel.books[index].importedFields.remove("narrators")
-                        }
-                    )
-                }
+                listRow(label: "Narrators", field: "narrators")
 
                 Divider()
 
                 // Other Creators
-                TwoColumnRow {
+                TransferColumnRow(
+                    leftCanCopy: originalCreatorsDisplay != currentCreatorsDisplay,
+                    leftHelp: "Copy server creators into current metadata",
+                    leftAction: { viewModel.revertFieldToOriginal(field: "creators", for: bookId) },
+                    rightCanCopy: viewModel.hardcoverStringList(field: "creators", for: bookId).map { $0 != currentCreatorsDisplay } ?? false,
+                    rightHelp: "Copy Hardcover creators into current metadata",
+                    rightAction: { viewModel.revertToHardcover(field: "creators", for: bookId) }
+                ) {
+                    SourceListValues(
+                        values: originalCreatorsDisplay,
+                        currentValues: currentCreatorsDisplay
+                    )
+                } center: {
                     creatorListEditor
                 } right: {
-                    creatorsReference
+                    SourceListValues(
+                        values: viewModel.hardcoverStringList(field: "creators", for: bookId),
+                        currentValues: currentCreatorsDisplay
+                    )
                 }
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder
+    private func listRow(label: String, field: String) -> some View {
+        let current = viewModel.books.first { $0.id == bookId }?.stringList(for: field) ?? []
+
+        TransferColumnRow(
+            leftCanCopy: viewModel.originalStringList(field: field, for: bookId) != current,
+            leftHelp: "Copy server \(label.lowercased()) into current metadata",
+            leftAction: { viewModel.revertFieldToOriginal(field: field, for: bookId) },
+            rightCanCopy: viewModel.hardcoverStringList(field: field, for: bookId).map { $0 != current } ?? false,
+            rightHelp: "Copy Hardcover \(label.lowercased()) into current metadata",
+            rightAction: { viewModel.revertToHardcover(field: field, for: bookId) }
+        ) {
+            SourceListValues(
+                values: viewModel.originalStringList(field: field, for: bookId),
+                currentValues: current
+            )
+        } center: {
+            StringListTable(
+                label: label,
+                field: field,
+                bookId: bookId,
+                viewModel: viewModel
+            )
+        } right: {
+            SourceListValues(
+                values: viewModel.hardcoverStringList(field: field, for: bookId),
+                currentValues: current
+            )
+        }
+    }
+
+    private var originalCreatorsDisplay: [String] {
+        let creators = viewModel.books.first { $0.id == bookId }?
+            .originalMetadata.creators ?? []
+        return creators.map { creator in
+            [creator.name, creator.role].compactMap { $0 }
+                .filter { !$0.isEmpty }.joined(separator: " - ")
+        }
+    }
+
+    private var currentCreatorsDisplay: [String] {
+        let creators = viewModel.books.first { $0.id == bookId }?.creators ?? []
+        return creators.map { creator in
+            [creator.name, creator.role]
+                .filter { !$0.isEmpty }.joined(separator: " - ")
         }
     }
 
@@ -91,17 +97,13 @@ struct CreatorsTab: View {
 
     @ViewBuilder
     private var creatorListEditor: some View {
-        let isDirty = viewModel.isDirty(field: "creators", for: bookId)
         let creators = viewModel.books.first { $0.id == bookId }?.creators ?? []
-        let hasImports = viewModel.books.first { $0.id == bookId }?
-            .importedItems["creators"]?.isEmpty == false
 
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Other Creators")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(
-                        hasImports ? Color.blue : isDirty ? Color.orange : .secondary)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button(action: {
                     guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
@@ -146,71 +148,6 @@ struct CreatorsTab: View {
                     }
                     .buttonStyle(.borderless)
                 }
-            }
-        }
-    }
-
-    // MARK: - Creators Reference
-
-    @ViewBuilder
-    private var creatorsReference: some View {
-        let origCreators = viewModel.books.first { $0.id == bookId }?
-            .originalMetadata.creators ?? []
-        let hcCreators = viewModel.hardcoverStringList(field: "creators", for: bookId)
-
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 0) {
-                VStack(alignment: .leading, spacing: 4) {
-                    RevertButton(color: .secondary, help: "Revert to server value") {
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
-                        else { return }
-                        viewModel.books[index].creators =
-                            viewModel.books[index].originalMetadata.creators?.map { creator in
-                                MetadataEditorViewModel.EditableCreator(
-                                    name: creator.name ?? "",
-                                    fileAs: creator.fileAs ?? "",
-                                    role: creator.role ?? "",
-                                    uuid: creator.uuid
-                                )
-                            } ?? []
-                        viewModel.books[index].dirtyFields.remove("creators")
-                        viewModel.books[index].importedFields.remove("creators")
-                    }
-                    if origCreators.isEmpty {
-                        Text("(empty)")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                    } else {
-                        ForEach(origCreators, id: \.self) { creator in
-                            let display = [creator.name, creator.role].compactMap { $0 }
-                                .filter { !$0.isEmpty }.joined(separator: " - ")
-                            Text(display)
-                                .font(.callout)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Divider().padding(.horizontal, 8)
-                VStack(alignment: .leading, spacing: 4) {
-                    if let hcCreators {
-                        RevertButton(color: .blue, help: "Revert to Hardcover value") {
-                            viewModel.revertToHardcover(field: "creators", for: bookId)
-                        }
-                        ForEach(hcCreators, id: \.self) { creator in
-                            Text(creator)
-                                .font(.callout)
-                                .foregroundStyle(.blue)
-                        }
-                    } else {
-                        Text("--")
-                            .font(.callout)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }

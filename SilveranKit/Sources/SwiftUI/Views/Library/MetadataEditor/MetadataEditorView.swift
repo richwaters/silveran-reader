@@ -270,7 +270,7 @@ public struct MetadataEditorView: View {
             }
             .disabled(viewModel.selectedBookId == nil)
 
-            Button("Save Selected to Storyteller") {
+            Button("Save Current Metadata to Storyteller") {
                 guard let bookId = viewModel.selectedBookId else { return }
                 Task { @MainActor in
                     await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)

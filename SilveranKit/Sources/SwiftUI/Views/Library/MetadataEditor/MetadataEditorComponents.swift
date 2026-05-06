@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Two Column Layout
+// MARK: - Column Layouts
 
 struct TwoColumnRow<Left: View, Right: View>: View {
     let left: Left
@@ -23,107 +23,203 @@ struct TwoColumnRow<Left: View, Right: View>: View {
     }
 }
 
-// MARK: - Reference Values (right column)
+struct ThreeColumnRow<Left: View, Center: View, Right: View>: View {
+    let left: Left
+    let center: Center
+    let right: Right
 
-struct ReferenceValues: View {
-    let label: String
-    let field: String
-    let bookId: String
-    let viewModel: MetadataEditorViewModel
-    let revertToOriginal: () -> Void
+    init(
+        @ViewBuilder left: () -> Left,
+        @ViewBuilder center: () -> Center,
+        @ViewBuilder right: () -> Right
+    ) {
+        self.left = left()
+        self.center = center()
+        self.right = right()
+    }
 
     var body: some View {
-        let original = viewModel.originalScalarValue(field: field, for: bookId)
-        let hardcover = viewModel.hardcoverScalarValue(field: field, for: bookId)
-
         HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label).font(.callout).foregroundStyle(.tertiary)
-                HStack(spacing: 4) {
-                    RevertButton(color: .secondary, help: "Revert to server value", action: revertToOriginal)
-                    if !original.isEmpty {
-                        Text(original)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                    } else {
-                        Text("(empty)")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider().padding(.horizontal, 8)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label).font(.callout).foregroundStyle(.clear)
-                HStack(spacing: 4) {
-                    if let hc = hardcover {
-                        RevertButton(color: .blue, help: "Revert to Hardcover value") {
-                            viewModel.revertToHardcover(field: field, for: bookId)
-                        }
-                        Text(hc)
-                            .font(.callout)
-                            .foregroundStyle(.blue)
-                    } else {
-                        Text("--")
-                            .font(.callout)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            left
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+                .padding(.horizontal, 12)
+            center
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+                .padding(.horizontal, 12)
+            right
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
 
-struct ReferenceListValues: View {
-    let field: String
-    let bookId: String
-    let viewModel: MetadataEditorViewModel
-    let revertToOriginal: () -> Void
+struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
+    let left: Left
+    let leftCanCopy: Bool
+    let leftHelp: String
+    let leftAction: () -> Void
+    let center: Center
+    let rightCanCopy: Bool
+    let rightHelp: String
+    let rightAction: () -> Void
+    let right: Right
+
+    init(
+        leftCanCopy: Bool,
+        leftHelp: String,
+        leftAction: @escaping () -> Void,
+        rightCanCopy: Bool,
+        rightHelp: String,
+        rightAction: @escaping () -> Void,
+        @ViewBuilder left: () -> Left,
+        @ViewBuilder center: () -> Center,
+        @ViewBuilder right: () -> Right
+    ) {
+        self.left = left()
+        self.leftCanCopy = leftCanCopy
+        self.leftHelp = leftHelp
+        self.leftAction = leftAction
+        self.center = center()
+        self.rightCanCopy = rightCanCopy
+        self.rightHelp = rightHelp
+        self.rightAction = rightAction
+        self.right = right()
+    }
 
     var body: some View {
-        let original = viewModel.originalStringList(field: field, for: bookId)
-        let hardcover = viewModel.hardcoverStringList(field: field, for: bookId)
+        HStack(alignment: .top, spacing: 8) {
+            left
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                RevertButton(color: .secondary, help: "Revert to server value", action: revertToOriginal)
-                if original.isEmpty {
+            SourceCopyButton(
+                direction: .fromLeft,
+                isEnabled: leftCanCopy,
+                help: leftCanCopy ? leftHelp : "Already matches",
+                action: leftAction
+            )
+            .frame(width: 34, alignment: .center)
+            .frame(maxHeight: .infinity, alignment: .center)
+
+            center
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            SourceCopyButton(
+                direction: .fromRight,
+                isEnabled: rightCanCopy,
+                help: rightCanCopy ? rightHelp : "Already matches",
+                action: rightAction
+            )
+            .frame(width: 34, alignment: .center)
+            .frame(maxHeight: .infinity, alignment: .center)
+
+            right
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct MetadataColumnHeaders: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("Storyteller Server").font(.headline)
+                .frame(maxWidth: .infinity, alignment: .center)
+            Color.clear.frame(width: 34)
+            Text("Current Metadata").font(.headline)
+                .frame(maxWidth: .infinity, alignment: .center)
+            Color.clear.frame(width: 34)
+            Text("Hardcover Import").font(.headline)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+    }
+}
+
+// MARK: - Source Values
+
+struct SourceCopyButton: View {
+    enum Direction {
+        case fromLeft
+        case fromRight
+
+        var systemName: String {
+            switch self {
+            case .fromLeft: return "arrow.right.circle.fill"
+            case .fromRight: return "arrow.left.circle.fill"
+            }
+        }
+    }
+
+    let direction: Direction
+    let isEnabled: Bool
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: direction.systemName)
+                .font(.title.weight(.semibold))
+                .foregroundStyle(isEnabled ? Color.blue : Color.secondary.opacity(0.45))
+        }
+        .buttonStyle(.borderless)
+        .disabled(!isEnabled)
+        .help(help)
+    }
+}
+
+struct SourceScalarValue: View {
+    let label: String
+    let value: String?
+    let currentValue: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.callout).foregroundStyle(.secondary)
+            if let value {
+                if value.isEmpty {
                     Text("(empty)")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .italic()
                 } else {
-                    ForEach(original, id: \.self) { item in
+                    Text(value)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+            } else {
+                Text("--")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+struct SourceListValues: View {
+    let values: [String]?
+    let currentValues: [String]
+    var compareAsSet = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let values {
+                if values.isEmpty {
+                    Text("(empty)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                } else {
+                    ForEach(values, id: \.self) { item in
                         Text(item)
                             .font(.callout)
                             .foregroundStyle(.primary)
                     }
                 }
+            } else {
+                Text("--")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider().padding(.horizontal, 8)
-            VStack(alignment: .leading, spacing: 4) {
-                if let hc = hardcover {
-                    RevertButton(color: .blue, help: "Revert to Hardcover value") {
-                        viewModel.revertToHardcover(field: field, for: bookId)
-                    }
-                    ForEach(hc, id: \.self) { item in
-                        Text(item)
-                            .font(.callout)
-                            .foregroundStyle(.blue)
-                    }
-                } else {
-                    Text("--")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -146,60 +242,6 @@ struct RevertButton: View {
     }
 }
 
-// MARK: - Field Match Color
-
-@MainActor
-func fieldMatchColor(
-    field: String, bookId: String, viewModel: MetadataEditorViewModel
-) -> Color {
-    if viewModel.fieldHasError(field, for: bookId) { return .red }
-
-    let current: String
-    if let book = viewModel.books.first(where: { $0.id == bookId }) {
-        switch field {
-        case "title": current = book.title
-        case "subtitle": current = book.subtitle
-        case "description": current = book.description
-        case "language": current = book.language
-        case "publicationDate": current = book.publicationDate
-        case "rating": current = book.rating
-        default: current = ""
-        }
-    } else {
-        return .clear
-    }
-
-    if let hc = viewModel.hardcoverScalarValue(field: field, for: bookId), current == hc {
-        return .blue
-    }
-
-    let original = viewModel.originalScalarValue(field: field, for: bookId)
-    if current == original {
-        return .gray.opacity(0.3)
-    }
-
-    return .orange
-}
-
-@MainActor
-func listFieldMatchColor(
-    field: String, bookId: String, viewModel: MetadataEditorViewModel
-) -> Color {
-    guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return .clear }
-    let current = book.stringList(for: field)
-
-    if let hc = viewModel.hardcoverStringList(field: field, for: bookId), Set(current) == Set(hc) {
-        return .blue
-    }
-
-    let original = viewModel.originalStringList(field: field, for: bookId)
-    if Set(current) == Set(original) {
-        return .gray.opacity(0.3)
-    }
-
-    return .orange
-}
-
 // MARK: - Labeled Editable Field
 
 struct LabeledEditableField: View {
@@ -216,11 +258,6 @@ struct LabeledEditableField: View {
                 .foregroundStyle(.secondary)
             TextField("(empty)", text: value)
                 .textFieldStyle(.roundedBorder)
-                .border(
-                    fieldMatchColor(field: field, bookId: bookId, viewModel: viewModel),
-                    width: 2
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
 }
@@ -231,6 +268,13 @@ struct IdentifiedString: Identifiable {
     let id: Int
     let value: String
     let isImported: Bool
+    var sourceIndex: Int? = nil
+}
+
+struct IdentifiedServerTag: Identifiable {
+    let id: Int
+    let value: String
+    let isOnCurrentBook: Bool
 }
 
 struct IdentifiedTagWithCount: Identifiable {
@@ -265,7 +309,7 @@ struct StringListTable: View {
                 HStack {
                     Text(label)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(fieldLabelColor)
+                        .foregroundStyle(.secondary)
                     Spacer()
                     Button(action: addItem) {
                         Image(systemName: "plus.circle")
@@ -320,24 +364,7 @@ struct StringListTable: View {
             }
             .frame(height: expandToFill ? nil : min(CGFloat(max(items.count, 1)) * 28 + 28, 200))
             .frame(maxHeight: expandToFill ? .infinity : nil)
-            .border(
-                listFieldMatchColor(field: field, bookId: bookId, viewModel: viewModel),
-                width: 2
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-    }
-
-    private var fieldLabelColor: Color {
-        guard let book = viewModel.books.first(where: { $0.id == bookId }) else { return .secondary }
-        let current = book.stringList(for: field)
-
-        if let hc = viewModel.hardcoverStringList(field: field, for: bookId), Set(current) == Set(hc) {
-            return .blue
-        }
-
-        let original = viewModel.originalStringList(field: field, for: bookId)
-        return Set(current) == Set(original) ? .secondary : .orange
     }
 
     private func addItem() {
