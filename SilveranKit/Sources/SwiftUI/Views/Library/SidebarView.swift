@@ -386,6 +386,22 @@ struct SidebarView: View {
                     Button("Customize Sidebar...") {
                         showCustomizeSidebar = true
                     }
+                    Divider()
+                    Button {
+                        Task {
+                            let didDelete = await mediaViewModel.deleteLocalCoverCache()
+                            mediaViewModel.showSyncNotification(
+                                SyncNotification(
+                                    message: didDelete
+                                        ? "Local cover cache cleared"
+                                        : "Failed to clear local cover cache",
+                                    type: didDelete ? .success : .error
+                                )
+                            )
+                        }
+                    } label: {
+                        Label("Clear Local Cover Cache", systemImage: "trash")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .foregroundStyle(.secondary)

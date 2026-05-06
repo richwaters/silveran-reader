@@ -1345,6 +1345,12 @@ public final class MediaViewModel {
                 }
 
                 let cover = await self.fetchStorytellerCover(for: item, variant: variant)
+                guard !Task.isCancelled else {
+                    await MainActor.run {
+                        self.coverTasks[key] = nil
+                    }
+                    return
+                }
                 await MainActor.run {
                     self.registerCover(cover, for: item, variant: variant)
                     self.coverTasks[key] = nil
@@ -1361,16 +1367,40 @@ public final class MediaViewModel {
         let key = coverKey(for: item, variant: variant)
         coverTasks[key]?.cancel()
         coverTasks[key] = nil
-        coverStates.removeValue(forKey: key)
+        let hadExistingImage = coverStates[key]?.image != nil
         missingCoverKeys.remove(key)
 
         guard connectionStatus == .connected else {
-            ensureCoverLoaded(for: item, variant: variant)
+            if !hadExistingImage {
+                ensureCoverLoaded(for: item, variant: variant)
+            }
             return
         }
 
         let cover = await fetchStorytellerCover(for: item, variant: variant)
-        registerCover(cover, for: item, variant: variant)
+        if let cover {
+            registerCover(cover, for: item, variant: variant)
+        } else if !hadExistingImage {
+            registerCover(nil, for: item, variant: variant)
+        }
+    }
+
+    public func deleteLocalCoverCache() async -> Bool {
+        for task in coverTasks.values {
+            task.cancel()
+        }
+        coverTasks.removeAll()
+        coverStates.removeAll()
+        missingCoverKeys.removeAll()
+
+        do {
+            try await FilesystemActor.shared.removeAllCoverImages()
+            debugLog("[MediaViewModel] Deleted local cover cache.")
+            return true
+        } catch {
+            debugLog("[MediaViewModel] Failed to delete local cover cache: \(error)")
+            return false
+        }
     }
 
     private func fetchStorytellerCover(
@@ -1387,16 +1417,26 @@ public final class MediaViewModel {
             return cover
         }
 
+        debugLog(
+            "[MediaViewModel] Raw cover fetch returned nil for '\(item.title)' (\(item.id)), variant=\(variant), updatedAt=\(item.updatedAt ?? "nil"). Falling back to sized cover."
+        )
+
         // Storyteller's resized cover cache can lag behind extracted cover writes.
         // Prefer the raw cover endpoint, but fall back because some server versions
         // return 404 for raw non-readaloud covers.
-        return await sta.fetchCoverImage(
+        let cover = await sta.fetchCoverImage(
             for: item.id,
             audio: params.audio,
             width: params.width,
             height: params.height,
             version: item.updatedAt
         )
+        if cover == nil {
+            debugLog(
+                "[MediaViewModel] Sized cover fetch returned nil for '\(item.title)' (\(item.id)), variant=\(variant), size=\(params.width)x\(params.height), updatedAt=\(item.updatedAt ?? "nil")."
+            )
+        }
+        return cover
     }
 
     private func registerCover(_ cover: BookCover?, for item: BookMetadata, variant: CoverVariant) {
@@ -1405,6 +1445,9 @@ public final class MediaViewModel {
         coverStates[key] = state
 
         guard let cover else {
+            debugLog(
+                "[MediaViewModel] Registering missing cover for '\(item.title)' (\(item.id)), variant=\(variant)."
+            )
             missingCoverKeys.insert(key)
             state.image = nil
             #if canImport(AppKit)
@@ -1415,6 +1458,9 @@ public final class MediaViewModel {
 
         #if canImport(AppKit)
         guard let nsImage = NSImage(data: cover.data) else {
+            debugLog(
+                "[MediaViewModel] Failed to decode AppKit cover data for '\(item.title)' (\(item.id)), variant=\(variant), bytes=\(cover.data.count), contentType=\(cover.contentType ?? "nil")."
+            )
             missingCoverKeys.insert(key)
             state.image = nil
             state.nsImage = nil
@@ -1424,6 +1470,9 @@ public final class MediaViewModel {
         state.image = Image(nsImage: nsImage)
         #elseif canImport(UIKit)
         guard let image = Self.makeImage(from: cover.data) else {
+            debugLog(
+                "[MediaViewModel] Failed to decode UIKit cover data for '\(item.title)' (\(item.id)), variant=\(variant), bytes=\(cover.data.count), contentType=\(cover.contentType ?? "nil")."
+            )
             missingCoverKeys.insert(key)
             state.image = nil
             return

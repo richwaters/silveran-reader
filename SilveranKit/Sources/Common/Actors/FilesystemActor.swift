@@ -426,6 +426,16 @@ public actor FilesystemActor {
         return try? Data(contentsOf: coverURL)
     }
 
+    public func removeAllCoverImages() throws {
+        let coversDir = applicationSupportBaseDirectory()
+            .appendingPathComponent("Covers", isDirectory: true)
+        let fm = FileManager.default
+
+        if fm.fileExists(atPath: coversDir.path) {
+            try fm.removeItem(at: coversDir)
+        }
+    }
+
     public func removeAllStorytellerData() throws {
         let storytellerDir = getDomainDirectory(for: .storyteller)
         let fm = FileManager.default
@@ -434,11 +444,7 @@ public actor FilesystemActor {
             try fm.removeItem(at: storytellerDir)
         }
 
-        let coversDir = applicationSupportBaseDirectory()
-            .appendingPathComponent("Covers", isDirectory: true)
-        if fm.fileExists(atPath: coversDir.path) {
-            try fm.removeItem(at: coversDir)
-        }
+        try removeAllCoverImages()
     }
 
     public func getHighlightsDirectory() -> URL {
