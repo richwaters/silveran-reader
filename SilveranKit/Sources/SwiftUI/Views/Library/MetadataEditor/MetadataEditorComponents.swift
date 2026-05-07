@@ -323,7 +323,12 @@ struct ImportHardcoverDataLink: View {
 
     var body: some View {
         Button("Import Hardcover Data", action: action)
+            #if os(macOS)
             .buttonStyle(.link)
+            #else
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+            #endif
             .font(.callout.weight(.semibold))
     }
 }

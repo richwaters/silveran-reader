@@ -123,6 +123,7 @@ public struct MetadataEditorView: View {
 
     @ViewBuilder
     private var sectionSidebar: some View {
+        #if os(macOS)
         List(selection: $selectedSection) {
             ForEach(MetadataEditorSection.allCases) { section in
                 Label(section.rawValue, systemImage: section.systemImage)
@@ -130,6 +131,21 @@ public struct MetadataEditorView: View {
             }
         }
         .listStyle(.sidebar)
+        #else
+        List {
+            ForEach(MetadataEditorSection.allCases) { section in
+                Button {
+                    selectedSection = section
+                } label: {
+                    Label(section.rawValue, systemImage: section.systemImage)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(selectedSection == section ? Color.accentColor.opacity(0.18) : Color.clear)
+            }
+        }
+        .listStyle(.sidebar)
+        #endif
     }
 
     @ViewBuilder

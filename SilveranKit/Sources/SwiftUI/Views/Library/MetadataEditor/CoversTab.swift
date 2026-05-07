@@ -521,7 +521,12 @@ struct CoversTab: View {
                         guard let book else { return }
                         viewModel.searchItunes(book: book)
                     }
+                    #if os(macOS)
                     .buttonStyle(.link)
+                    #else
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.blue)
+                    #endif
                     .font(.callout.weight(.semibold))
                     .disabled(book == nil || viewModel.isSearchingItunes(for: bookId))
                 }
