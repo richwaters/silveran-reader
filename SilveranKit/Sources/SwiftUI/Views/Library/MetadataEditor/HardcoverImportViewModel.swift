@@ -174,6 +174,10 @@ final class HardcoverImportViewModel {
     func selectResult(_ result: HardcoverSearchResult) async {
         selectedResult = result
         selectedEditionId = nil
+        selectedTextEditionId = nil
+        selectedAudiobookEditionId = nil
+        selectedTextDetails = nil
+        selectedAudiobookDetails = nil
         isFetching = true
         error = nil
         fetchedDetails = nil
@@ -184,8 +188,8 @@ final class HardcoverImportViewModel {
             fetchedDetails = details
             selectedTextDetails = details
             selectedTextEditionId = nil
-            if selectedAudiobookDetails == nil,
-               let audioEdition = details.editions.first(where: Self.isAudiobookEdition)
+            if let audioEdition = details.defaultAudioEdition
+                ?? details.editions.first(where: Self.isAudiobookEdition)
             {
                 selectEdition(audioEdition, bookId: result.id, source: .audiobook)
             }
@@ -239,6 +243,7 @@ final class HardcoverImportViewModel {
                 ? bookDetails.creators : edition.otherContributors,
             series: bookDetails.series,
             tags: bookDetails.tags,
+            defaultAudioEdition: bookDetails.defaultAudioEdition,
             editions: bookDetails.editions,
             imageUrl: edition.imageUrl ?? bookDetails.imageUrl,
             imageWidth: edition.imageUrl != nil ? edition.imageWidth : bookDetails.imageWidth,

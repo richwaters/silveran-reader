@@ -48,6 +48,7 @@ public struct HardcoverBookDetails: Sendable {
     public let creators: [(name: String, role: String)]
     public let series: [(name: String, position: Double?, featured: Bool)]
     public let tags: [HardcoverTagInfo]
+    public let defaultAudioEdition: HardcoverEditionInfo?
     public let editions: [HardcoverEditionInfo]
     public let imageUrl: String?
     public let imageWidth: Int?
@@ -60,7 +61,8 @@ public struct HardcoverBookDetails: Sendable {
         authors: [String], narrators: [String],
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
-        tags: [HardcoverTagInfo], editions: [HardcoverEditionInfo],
+        tags: [HardcoverTagInfo], defaultAudioEdition: HardcoverEditionInfo? = nil,
+        editions: [HardcoverEditionInfo],
         imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil,
         rawJSON: String? = nil
     ) {
@@ -75,6 +77,7 @@ public struct HardcoverBookDetails: Sendable {
         self.creators = creators
         self.series = series
         self.tags = tags
+        self.defaultAudioEdition = defaultAudioEdition
         self.editions = editions
         self.imageUrl = imageUrl
         self.imageWidth = imageWidth
@@ -217,6 +220,41 @@ public actor HardcoverActor {
                         }
                         image { url width height }
                         default_audio_edition {
+                            id
+                            object_type
+                            source
+                            state
+                            score
+                            edition_format
+                            edition_information
+                            physical_format
+                            physical_information
+                            title
+                            subtitle
+                            isbn_13
+                            isbn_10
+                            asin
+                            pages
+                            audio_seconds
+                            release_date
+                            release_year
+                            rating
+                            cached_contributors
+                            cached_image
+                            cached_tags
+                            language { language }
+                            country { name }
+                            publisher { name }
+                            image { url width height }
+                            images { url width height }
+                            book_mappings {
+                                external_id
+                                edition_id
+                                state
+                                verified
+                                loaded
+                                platform { name url }
+                            }
                             contributions {
                                 contribution
                                 author { name }
@@ -315,20 +353,9 @@ public actor HardcoverActor {
             }
         }
 
-        var narrators: [String] = []
-        if let audioEdition = book["default_audio_edition"] as? [String: Any],
-            let audioContribs = audioEdition["contributions"] as? [[String: Any]]
-        {
-            for contrib in audioContribs {
-                guard let author = contrib["author"] as? [String: Any],
-                    let name = author["name"] as? String
-                else { continue }
-                let role = contrib["contribution"] as? String ?? ""
-                if role.lowercased() == "narrator" {
-                    narrators.append(name)
-                }
-            }
-        }
+        let defaultAudioEdition = (book["default_audio_edition"] as? [String: Any])
+            .flatMap(Self.parseEdition)
+        let narrators = defaultAudioEdition?.narrators ?? []
 
         let bookSeries = book["book_series"] as? [[String: Any]] ?? []
         let series: [(name: String, position: Double?, featured: Bool)] = bookSeries.compactMap {
@@ -352,55 +379,7 @@ public actor HardcoverActor {
         }
 
         let editionsRaw = book["editions"] as? [[String: Any]] ?? []
-        let editions: [HardcoverEditionInfo] = editionsRaw.compactMap { ed in
-            guard let format = ed["edition_format"] as? String,
-                let edId = ed["id"] as? Int
-            else { return nil }
-            let lang = (ed["language"] as? [String: Any])?["language"] as? String
-            let country = (ed["country"] as? [String: Any])?["name"] as? String
-            let publisher = (ed["publisher"] as? [String: Any])?["name"] as? String
-            let edImage = ed["image"] as? [String: Any]
-            let edImageUrl = edImage?["url"] as? String
-            let edImageWidth = edImage?["width"] as? Int
-            let edImageHeight = edImage?["height"] as? Int
-            let rawEditionJSON = Self.prettyJSONString(ed)
-            let edContribs = ed["contributions"] as? [[String: Any]] ?? []
-            var edNarrators: [String] = []
-            var edOther: [(name: String, role: String)] = []
-            for c in edContribs {
-                guard let a = c["author"] as? [String: Any],
-                    let name = a["name"] as? String
-                else { continue }
-                let role = c["contribution"] as? String ?? ""
-                if role.lowercased() == "narrator" {
-                    edNarrators.append(name)
-                } else if !role.isEmpty && role.lowercased() != "author" {
-                    edOther.append((name: name, role: role))
-                }
-            }
-            return HardcoverEditionInfo(
-                id: edId,
-                format: format,
-                editionInfo: ed["edition_information"] as? String,
-                title: ed["title"] as? String,
-                subtitle: ed["subtitle"] as? String,
-                isbn13: ed["isbn_13"] as? String,
-                isbn10: ed["isbn_10"] as? String,
-                asin: ed["asin"] as? String,
-                pages: ed["pages"] as? Int,
-                audioSeconds: ed["audio_seconds"] as? Int,
-                releaseDate: ed["release_date"] as? String,
-                language: lang,
-                country: country,
-                publisher: publisher,
-                narrators: edNarrators,
-                otherContributors: edOther,
-                imageUrl: edImageUrl,
-                imageWidth: edImageWidth,
-                imageHeight: edImageHeight,
-                rawJSON: rawEditionJSON
-            )
-        }
+        let editions: [HardcoverEditionInfo] = editionsRaw.compactMap(Self.parseEdition)
 
         return HardcoverBookDetails(
             title: title,
@@ -413,11 +392,62 @@ public actor HardcoverActor {
             creators: creators,
             series: series,
             tags: tags,
+            defaultAudioEdition: defaultAudioEdition,
             editions: editions,
             imageUrl: bookImageUrl,
             imageWidth: bookImageWidth,
             imageHeight: bookImageHeight,
             rawJSON: rawJSON
+        )
+    }
+
+    private static func parseEdition(_ ed: [String: Any]) -> HardcoverEditionInfo? {
+        guard let format = ed["edition_format"] as? String,
+              let edId = ed["id"] as? Int
+        else { return nil }
+        let lang = (ed["language"] as? [String: Any])?["language"] as? String
+        let country = (ed["country"] as? [String: Any])?["name"] as? String
+        let publisher = (ed["publisher"] as? [String: Any])?["name"] as? String
+        let edImage = ed["image"] as? [String: Any]
+        let edImageUrl = edImage?["url"] as? String
+        let edImageWidth = edImage?["width"] as? Int
+        let edImageHeight = edImage?["height"] as? Int
+        let rawEditionJSON = Self.prettyJSONString(ed)
+        let edContribs = ed["contributions"] as? [[String: Any]] ?? []
+        var edNarrators: [String] = []
+        var edOther: [(name: String, role: String)] = []
+        for c in edContribs {
+            guard let a = c["author"] as? [String: Any],
+                  let name = a["name"] as? String
+            else { continue }
+            let role = c["contribution"] as? String ?? ""
+            if role.lowercased() == "narrator" {
+                edNarrators.append(name)
+            } else if !role.isEmpty && role.lowercased() != "author" {
+                edOther.append((name: name, role: role))
+            }
+        }
+        return HardcoverEditionInfo(
+            id: edId,
+            format: format,
+            editionInfo: ed["edition_information"] as? String,
+            title: ed["title"] as? String,
+            subtitle: ed["subtitle"] as? String,
+            isbn13: ed["isbn_13"] as? String,
+            isbn10: ed["isbn_10"] as? String,
+            asin: ed["asin"] as? String,
+            pages: ed["pages"] as? Int,
+            audioSeconds: ed["audio_seconds"] as? Int,
+            releaseDate: ed["release_date"] as? String,
+            language: lang,
+            country: country,
+            publisher: publisher,
+            narrators: edNarrators,
+            otherContributors: edOther,
+            imageUrl: edImageUrl,
+            imageWidth: edImageWidth,
+            imageHeight: edImageHeight,
+            rawJSON: rawEditionJSON
         )
     }
 
