@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 public struct MetadataEditorView: View {
     public let initialBookIds: [String]
@@ -9,6 +12,7 @@ public struct MetadataEditorView: View {
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
     @State private var showHardcoverImport = false
+    @State private var showHardcoverDataDump = false
     @State private var showErrorDetail = false
 
     public init(initialBookIds: [String]) {
@@ -55,8 +59,8 @@ public struct MetadataEditorView: View {
                 HardcoverImportView(
                     bookTitle: book.title,
                     bookAuthor: book.authors.first,
-                    onImport: { details, fields in
-                        viewModel.applyImport(details: details, fields: fields, for: book.id)
+                    onImport: { imports, fields in
+                        viewModel.applyImport(imports: imports, fields: fields, for: book.id)
                     },
                     onAutoImportAll: { fields in
                         Task { @MainActor in await viewModel.autoImportAll(fields: fields) }
@@ -226,6 +230,18 @@ public struct MetadataEditorView: View {
                     .padding(.trailing, 4)
             }
 
+            Button {
+                showHardcoverDataDump = true
+            } label: {
+                Image(systemName: "info.circle")
+            }
+            .buttonStyle(.borderless)
+            .disabled(viewModel.selectedBookId == nil)
+            .help("Show raw Hardcover imported data")
+            .popover(isPresented: $showHardcoverDataDump, arrowEdge: .bottom) {
+                hardcoverDataDumpPopover
+            }
+
             Button("Download Metadata/Covers from Hardcover") {
                 showHardcoverImport = true
             }
@@ -248,6 +264,36 @@ public struct MetadataEditorView: View {
             .keyboardShortcut("s", modifiers: .command)
         }
         .padding(12)
+    }
+
+    private var hardcoverDataDumpText: String {
+        guard let bookId = viewModel.selectedBookId else { return "No book selected." }
+        return viewModel.rawHardcoverDataDump(for: bookId)
+    }
+
+    private var hardcoverDataDumpPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Hardcover Imported Data")
+                    .font(.headline)
+
+                Spacer()
+
+                #if os(macOS)
+                Button("Copy All") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(hardcoverDataDumpText, forType: .string)
+                }
+                .controlSize(.small)
+                #endif
+            }
+
+            TextEditor(text: .constant(hardcoverDataDumpText))
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(width: 720, height: 520)
+        }
+        .padding()
     }
 
     @ViewBuilder

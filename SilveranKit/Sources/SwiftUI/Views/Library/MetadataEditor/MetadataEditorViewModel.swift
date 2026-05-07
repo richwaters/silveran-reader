@@ -4,6 +4,20 @@ import SwiftUI
 @MainActor
 @Observable
 final class MetadataEditorViewModel {
+    enum HardcoverImportSource: String, CaseIterable, Identifiable {
+        case text
+        case audiobook
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .text: return "Text / Ebook"
+            case .audiobook: return "Audiobook"
+            }
+        }
+    }
+
     struct EditableCreator: Identifiable, Hashable {
         let id = UUID()
         var name: String
@@ -40,8 +54,14 @@ final class MetadataEditorViewModel {
         var dirtyFields: Set<String> = []
         var importedFields: Set<String> = []
         var importedItems: [String: Set<String>] = [:]
-        var lastImportedDetails: HardcoverBookDetails?
-        var lastImportedFields: Set<String> = []
+        var hardcoverImports: [HardcoverImportSource: HardcoverBookDetails] = [:]
+        var hardcoverImportFields: [HardcoverImportSource: Set<String>] = [:]
+        var lastImportedDetails: HardcoverBookDetails? {
+            hardcoverImports[.text] ?? hardcoverImports[.audiobook]
+        }
+        var lastImportedFields: Set<String> {
+            hardcoverImportFields[.text] ?? hardcoverImportFields[.audiobook] ?? []
+        }
         var replacementEbookCover: (data: Data, filename: String)?
         var replacementAudiobookCover: (data: Data, filename: String)?
 
@@ -685,38 +705,58 @@ final class MetadataEditorViewModel {
 
     // MARK: - Hardcover Import
 
-    func applyImport(details: HardcoverBookDetails, fields: Set<String>, for bookId: String) {
+    func applyImport(
+        imports: [HardcoverImportSource: HardcoverBookDetails],
+        fields: Set<String>,
+        for bookId: String
+    ) {
+        guard !imports.isEmpty else { return }
+        for (source, details) in imports {
+            applyImport(details: details, source: source, fields: fields, for: bookId)
+        }
+    }
+
+    func applyImport(
+        details: HardcoverBookDetails,
+        source: HardcoverImportSource = .text,
+        fields: Set<String>,
+        for bookId: String
+    ) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
 
-        books[index].lastImportedDetails = details
         let allFields: Set<String> = [
             "title", "subtitle", "description", "language", "publicationDate",
             "rating", "authors", "narrators", "creators", "series", "tags",
         ]
-        books[index].lastImportedFields = allFields
+        books[index].hardcoverImports[source] = details
+        books[index].hardcoverImportFields[source] = allFields
 
-        if fields.contains("title"), let value = details.title, !value.isEmpty,
+        let shouldApplyToCurrent = { (field: String) -> Bool in
+            fields.contains(field) && Self.defaultHardcoverSource(for: field) == source
+        }
+
+        if shouldApplyToCurrent("title"), let value = details.title, !value.isEmpty,
             value != books[index].title
         {
             books[index].title = value
             books[index].importedFields.insert("title")
             markDirty(field: "title", for: bookId)
         }
-        if fields.contains("subtitle"), let value = details.subtitle, !value.isEmpty,
+        if shouldApplyToCurrent("subtitle"), let value = details.subtitle, !value.isEmpty,
             value != books[index].subtitle
         {
             books[index].subtitle = value
             books[index].importedFields.insert("subtitle")
             markDirty(field: "subtitle", for: bookId)
         }
-        if fields.contains("description"), let value = details.description, !value.isEmpty,
+        if shouldApplyToCurrent("description"), let value = details.description, !value.isEmpty,
             value != books[index].description
         {
             books[index].description = value
             books[index].importedFields.insert("description")
             markDirty(field: "description", for: bookId)
         }
-        if fields.contains("language"), let value = details.language, !value.isEmpty {
+        if shouldApplyToCurrent("language"), let value = details.language, !value.isEmpty {
             let code = Self.languageNameToCode(value)
             if code != books[index].language {
                 books[index].language = code
@@ -724,7 +764,7 @@ final class MetadataEditorViewModel {
                 markDirty(field: "language", for: bookId)
             }
         }
-        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+        if shouldApplyToCurrent("publicationDate"), let value = details.releaseDate, !value.isEmpty {
             let dateOnly = EditableBook.dateOnly(value) ?? value
             if dateOnly != books[index].publicationDate {
                 books[index].publicationDate = dateOnly
@@ -732,7 +772,7 @@ final class MetadataEditorViewModel {
                 markDirty(field: "publicationDate", for: bookId)
             }
         }
-        if fields.contains("rating"), let value = details.rating {
+        if shouldApplyToCurrent("rating"), let value = details.rating {
             let ratingStr = String(format: "%.2f", value)
             if ratingStr != books[index].rating {
                 books[index].rating = ratingStr
@@ -741,7 +781,7 @@ final class MetadataEditorViewModel {
             }
         }
 
-        if fields.contains("authors") && !details.authors.isEmpty {
+        if shouldApplyToCurrent("authors") && !details.authors.isEmpty {
             var seen = Set(books[index].authors.map { $0.lowercased() })
             var imported = Set<String>()
             for author in details.authors {
@@ -756,7 +796,7 @@ final class MetadataEditorViewModel {
             }
         }
 
-        if fields.contains("narrators") && !details.narrators.isEmpty {
+        if shouldApplyToCurrent("narrators") && !details.narrators.isEmpty {
             var seen = Set(books[index].narrators.map { $0.lowercased() })
             var imported = Set<String>()
             for narrator in details.narrators {
@@ -771,7 +811,7 @@ final class MetadataEditorViewModel {
             }
         }
 
-        if fields.contains("creators") && !details.creators.isEmpty {
+        if shouldApplyToCurrent("creators") && !details.creators.isEmpty {
             var seenKeys = Set(
                 books[index].creators.map {
                     "\($0.name.lowercased())|\($0.role.lowercased())"
@@ -795,7 +835,7 @@ final class MetadataEditorViewModel {
             }
         }
 
-        if fields.contains("series") && !details.series.isEmpty {
+        if shouldApplyToCurrent("series") && !details.series.isEmpty {
             var seenNames = Set(
                 books[index].series.map { $0.name.lowercased() })
             var imported = Set<String>()
@@ -842,12 +882,16 @@ final class MetadataEditorViewModel {
             }
         }
 
-        if fields.contains("tags") && !details.tags.isEmpty {
+        if shouldApplyToCurrent("tags") && !details.tags.isEmpty {
             let tagNames = details.tags.map(\.name)
             books[index].tags = tagNames
             books[index].importedItems["tags"] = Set(tagNames)
             markDirty(field: "tags", for: bookId)
         }
+    }
+
+    static func defaultHardcoverSource(for field: String) -> HardcoverImportSource {
+        field == "narrators" ? .audiobook : .text
     }
 
     private static func languageNameToCode(_ name: String) -> String {
@@ -875,10 +919,26 @@ final class MetadataEditorViewModel {
 
     // MARK: - Hardcover Accessors
 
-    func hasHardcoverValue(field: String, for bookId: String) -> Bool {
+    private func hardcoverDetails(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) -> HardcoverBookDetails? {
         guard let book = books.first(where: { $0.id == bookId }),
-              let details = book.lastImportedDetails,
-              book.lastImportedFields.contains(field) else { return false }
+              let details = book.hardcoverImports[source ?? Self.defaultHardcoverSource(for: field)],
+              book.hardcoverImportFields[source ?? Self.defaultHardcoverSource(for: field)]?.contains(field) == true
+        else { return nil }
+        return details
+    }
+
+    func hasHardcoverValue(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) -> Bool {
+        guard let details = hardcoverDetails(field: field, for: bookId, source: source) else {
+            return false
+        }
         switch field {
         case "title": return details.title != nil && !details.title!.isEmpty
         case "subtitle": return details.subtitle != nil && !details.subtitle!.isEmpty
@@ -895,10 +955,14 @@ final class MetadataEditorViewModel {
         }
     }
 
-    func hardcoverScalarValue(field: String, for bookId: String) -> String? {
-        guard let book = books.first(where: { $0.id == bookId }),
-              let details = book.lastImportedDetails,
-              book.lastImportedFields.contains(field) else { return nil }
+    func hardcoverScalarValue(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) -> String? {
+        guard let details = hardcoverDetails(field: field, for: bookId, source: source) else {
+            return nil
+        }
         switch field {
         case "title": return details.title
         case "subtitle": return details.subtitle
@@ -915,10 +979,104 @@ final class MetadataEditorViewModel {
         }
     }
 
-    func hardcoverStringList(field: String, for bookId: String) -> [String]? {
-        guard let book = books.first(where: { $0.id == bookId }),
-              let details = book.lastImportedDetails,
-              book.lastImportedFields.contains(field) else { return nil }
+    func importPublicationDateFromHardcoverSource(
+        _ source: HardcoverImportSource,
+        for bookId: String
+    ) {
+        revertToHardcover(field: "publicationDate", for: bookId, source: source)
+    }
+
+    func importFirstAvailableHardcoverPublicationDate(for bookId: String) {
+        let current = books.first { $0.id == bookId }?.publicationDate ?? ""
+        for source in [HardcoverImportSource.text, .audiobook] {
+            guard let value = hardcoverScalarValue(
+                field: "publicationDate",
+                for: bookId,
+                source: source
+            ), value != current else { continue }
+            importPublicationDateFromHardcoverSource(source, for: bookId)
+            return
+        }
+    }
+
+    func rawHardcoverDataDump(for bookId: String) -> String {
+        guard let book = books.first(where: { $0.id == bookId }) else {
+            return "No book selected."
+        }
+        guard !book.hardcoverImports.isEmpty else {
+            return "No Hardcover data has been imported for this book."
+        }
+
+        var parts: [String] = []
+        parts.append("Hardcover imported data for \(book.displayTitle)")
+
+        for source in HardcoverImportSource.allCases {
+            guard let details = book.hardcoverImports[source] else { continue }
+            parts.append("\n\n=== \(source.label) ===")
+            if let rawJSON = details.rawJSON {
+                parts.append(rawJSON)
+            } else {
+                parts.append(Self.fallbackHardcoverDump(details))
+            }
+        }
+
+        return parts.joined(separator: "\n")
+    }
+
+    private static func fallbackHardcoverDump(_ details: HardcoverBookDetails) -> String {
+        var lines: [String] = []
+        func row(_ name: String, _ value: String?) {
+            guard let value, !value.isEmpty else { return }
+            lines.append("\(name): \(value)")
+        }
+        row("Title", details.title)
+        row("Subtitle", details.subtitle)
+        row("Description", details.description)
+        row("Release Date", details.releaseDate)
+        row("Language", details.language)
+        if let rating = details.rating { lines.append("Rating: \(rating)") }
+        if !details.authors.isEmpty {
+            lines.append("Authors: \(details.authors.joined(separator: ", "))")
+        }
+        if !details.narrators.isEmpty {
+            lines.append("Narrators: \(details.narrators.joined(separator: ", "))")
+        }
+        if !details.creators.isEmpty {
+            let creators = details.creators.map { "\($0.name) (\($0.role))" }
+            lines.append("Creators: \(creators.joined(separator: ", "))")
+        }
+        if !details.series.isEmpty {
+            lines.append("Series: \(details.series.map(\.name).joined(separator: ", "))")
+        }
+        if !details.tags.isEmpty {
+            let tags = details.tags.map { "\($0.name) [\($0.count)]" }
+            lines.append("Tags: \(tags.joined(separator: ", "))")
+        }
+        if !details.editions.isEmpty {
+            lines.append("\nEditions:")
+            for edition in details.editions {
+                lines.append("- \(edition.id): \(edition.title ?? "(untitled)")")
+                row("  Format", edition.format)
+                row("  Edition Info", edition.editionInfo)
+                row("  Release Date", edition.releaseDate)
+                row("  Language", edition.language)
+                row("  Publisher", edition.publisher)
+                row("  ISBN-13", edition.isbn13)
+                row("  ISBN-10", edition.isbn10)
+                row("  ASIN", edition.asin)
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    func hardcoverStringList(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) -> [String]? {
+        guard let details = hardcoverDetails(field: field, for: bookId, source: source) else {
+            return nil
+        }
         switch field {
         case "authors": return details.authors.isEmpty ? nil : details.authors
         case "narrators": return details.narrators.isEmpty ? nil : details.narrators
@@ -928,10 +1086,14 @@ final class MetadataEditorViewModel {
         }
     }
 
-    func revertToHardcover(field: String, for bookId: String) {
+    func revertToHardcover(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) {
         guard let index = books.firstIndex(where: { $0.id == bookId }),
-              let details = books[index].lastImportedDetails,
-              books[index].lastImportedFields.contains(field) else { return }
+              let details = hardcoverDetails(field: field, for: bookId, source: source)
+        else { return }
 
         switch field {
         case "title":
@@ -1124,11 +1286,13 @@ final class MetadataEditorViewModel {
         }
     }
 
-    func hardcoverTagsWithCounts(for bookId: String) -> [(name: String, count: Int)]? {
-        guard let book = books.first(where: { $0.id == bookId }),
-              let details = book.lastImportedDetails,
-              book.lastImportedFields.contains("tags"),
-              !details.tags.isEmpty else { return nil }
+    func hardcoverTagsWithCounts(
+        for bookId: String,
+        source: HardcoverImportSource = .text
+    ) -> [(name: String, count: Int)]? {
+        guard let details = hardcoverDetails(field: "tags", for: bookId, source: source),
+              !details.tags.isEmpty
+        else { return nil }
         return details.tags
     }
 

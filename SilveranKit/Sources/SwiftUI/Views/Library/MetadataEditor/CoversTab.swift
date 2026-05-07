@@ -407,7 +407,7 @@ struct CoversTab: View {
     }
 
     private var editionCovers: [EditionCover] {
-        guard let details = book?.lastImportedDetails else { return [] }
+        guard let details = book?.hardcoverImports[hardcoverSource] else { return [] }
         var covers: [EditionCover] = []
         var seenUrls: Set<URL> = []
 
@@ -419,6 +419,10 @@ struct CoversTab: View {
         }
 
         return covers
+    }
+
+    private var hardcoverSource: MetadataEditorViewModel.HardcoverImportSource {
+        scope.isAudio ? .audiobook : .text
     }
 
     private var rectangularEditionCovers: [EditionCover] {
@@ -485,7 +489,7 @@ struct CoversTab: View {
                     }
                 },
                 empty: {
-                    if book?.lastImportedDetails != nil {
+                    if book?.hardcoverImports[hardcoverSource] != nil {
                         Text("No editions match filters")
                             .font(.callout)
                             .foregroundStyle(.tertiary)
@@ -584,16 +588,16 @@ struct CoversTab: View {
 
     private var hardcoverClearButton: some View {
         Button("Clear Hardcover Covers") {
-            if book?.lastImportedDetails != nil {
+            if book?.hardcoverImports[hardcoverSource] != nil {
                 guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else {
                     return
                 }
-                viewModel.books[index].lastImportedDetails = nil
-                viewModel.books[index].lastImportedFields = []
+                viewModel.books[index].hardcoverImports[hardcoverSource] = nil
+                viewModel.books[index].hardcoverImportFields[hardcoverSource] = nil
             }
         }
-        .disabled(book?.lastImportedDetails == nil)
-        .opacity(book?.lastImportedDetails == nil ? 0 : 1)
+        .disabled(book?.hardcoverImports[hardcoverSource] == nil)
+        .opacity(book?.hardcoverImports[hardcoverSource] == nil ? 0 : 1)
         .help("Clear imported Hardcover covers")
     }
 
@@ -1144,7 +1148,7 @@ struct CoversTab: View {
     }
 
     private var availableResolutions: [Int] {
-        let editions = book?.lastImportedDetails?.editions ?? []
+        let editions = book?.hardcoverImports[hardcoverSource]?.editions ?? []
         let dims = editions.compactMap { ed -> Int? in
             guard let w = ed.imageWidth, let h = ed.imageHeight else { return nil }
             return max(w, h)
@@ -1154,7 +1158,7 @@ struct CoversTab: View {
 
     @ViewBuilder
     private var editionFilterPopover: some View {
-        let editions = book?.lastImportedDetails?.editions ?? []
+        let editions = book?.hardcoverImports[hardcoverSource]?.editions ?? []
         let languages = Array(Set(editions.compactMap(\.language))).sorted()
         let formats = Array(Set(editions.map { normalizedFormat($0.format) })).sorted()
 

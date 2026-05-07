@@ -69,6 +69,7 @@ struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
     let rightWeight: CGFloat
     let leftArrowFooter: AnyView?
     let rightArrowFooter: AnyView?
+    let arrowYOffset: CGFloat
 
     init(
         leftWeight: CGFloat = 1,
@@ -82,6 +83,7 @@ struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
         rightAction: @escaping () -> Void,
         leftArrowFooter: AnyView? = nil,
         rightArrowFooter: AnyView? = nil,
+        arrowYOffset: CGFloat = 0,
         @ViewBuilder left: () -> Left,
         @ViewBuilder center: () -> Center,
         @ViewBuilder right: () -> Right
@@ -100,6 +102,7 @@ struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
         self.rightWeight = rightWeight
         self.leftArrowFooter = leftArrowFooter
         self.rightArrowFooter = rightArrowFooter
+        self.arrowYOffset = arrowYOffset
     }
 
     var body: some View {
@@ -125,6 +128,7 @@ struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
                     )
                     .frame(width: arrowWidth, alignment: .center)
                     .frame(maxHeight: .infinity, alignment: .center)
+                    .offset(y: arrowYOffset)
 
                     center
                         .frame(width: centerWidth, alignment: .leading)
@@ -137,6 +141,7 @@ struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
                     )
                     .frame(width: arrowWidth, alignment: .center)
                     .frame(maxHeight: .infinity, alignment: .center)
+                    .offset(y: arrowYOffset)
 
                     right
                         .frame(width: rightWidth, alignment: .leading)
@@ -224,6 +229,63 @@ struct MetadataColumnHeaders: View {
                 .font(.headline)
             accessory
         }
+    }
+}
+
+struct MetadataColumnAccessoryRow: View {
+    let leftWeight: CGFloat
+    let centerWeight: CGFloat
+    let rightWeight: CGFloat
+    let leftAccessory: AnyView?
+    let centerAccessory: AnyView?
+    let rightAccessory: AnyView?
+
+    init(
+        leftWeight: CGFloat = 1,
+        centerWeight: CGFloat = 1,
+        rightWeight: CGFloat = 1,
+        leftAccessory: AnyView? = nil,
+        centerAccessory: AnyView? = nil,
+        rightAccessory: AnyView? = nil
+    ) {
+        self.leftWeight = leftWeight
+        self.centerWeight = centerWeight
+        self.rightWeight = rightWeight
+        self.leftAccessory = leftAccessory
+        self.centerAccessory = centerAccessory
+        self.rightAccessory = rightAccessory
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let spacing: CGFloat = 8
+            let arrowWidth: CGFloat = 34
+            let columnWidth = max(geo.size.width - arrowWidth * 2 - spacing * 4, 0)
+            let totalWeight = max(leftWeight + centerWeight + rightWeight, 0.1)
+            let leftWidth = columnWidth * leftWeight / totalWeight
+            let centerWidth = columnWidth * centerWeight / totalWeight
+            let rightWidth = columnWidth * rightWeight / totalWeight
+
+            HStack(alignment: .center, spacing: spacing) {
+                accessorySlot(leftAccessory)
+                    .frame(width: leftWidth)
+                Color.clear.frame(width: arrowWidth)
+                accessorySlot(centerAccessory)
+                    .frame(width: centerWidth)
+                Color.clear.frame(width: arrowWidth)
+                accessorySlot(rightAccessory)
+                    .frame(width: rightWidth)
+            }
+        }
+    }
+
+    private func accessorySlot(_ accessory: AnyView?) -> some View {
+        HStack {
+            if let accessory {
+                accessory
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 

@@ -14,16 +14,20 @@ struct DescriptionTab: View {
     }
 
     private var hardcoverDescription: String? {
-        viewModel.hardcoverScalarValue(field: "description", for: bookId)
+        viewModel.hardcoverScalarValue(
+            field: "description",
+            for: bookId
+        )
     }
 
     var body: some View {
         GeometryReader { geo in
-            let contentHeight = max(geo.size.height - 52, 100)
+            let headerHeight: CGFloat = 24
+            let contentHeight = max(geo.size.height - headerHeight - 30, 100)
 
             VStack(alignment: .leading, spacing: 2) {
                 MetadataColumnHeaders(centerTitle: "Current Description")
-                    .frame(height: 22, alignment: .top)
+                .frame(height: headerHeight, alignment: .top)
 
                 TransferColumnRow(
                     leftCanCopy: originalDescription != currentDescription,
@@ -33,7 +37,12 @@ struct DescriptionTab: View {
                     rightCanCopy: hardcoverDescription.map { $0 != currentDescription } ?? false,
                     rightHelp: hardcoverDescription.map { $0 != currentDescription } == true
                         ? "Copy Hardcover description into current metadata" : "Already matches",
-                    rightAction: { viewModel.revertToHardcover(field: "description", for: bookId) }
+                    rightAction: {
+                        viewModel.revertToHardcover(
+                            field: "description",
+                            for: bookId
+                        )
+                    }
                 ) {
                     sourceColumn(value: originalDescription)
                 } center: {
@@ -101,4 +110,5 @@ struct DescriptionTab: View {
             }
         }
     }
+
 }

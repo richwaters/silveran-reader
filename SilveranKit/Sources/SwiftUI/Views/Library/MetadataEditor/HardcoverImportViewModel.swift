@@ -127,6 +127,11 @@ final class HardcoverImportViewModel {
         error = nil
         selectedResult = nil
         fetchedDetails = nil
+        selectedEditionId = nil
+        selectedTextEditionId = nil
+        selectedAudiobookEditionId = nil
+        selectedTextDetails = nil
+        selectedAudiobookDetails = nil
 
         do {
             searchResults = try await HardcoverActor.shared.searchBooks(query: query)
@@ -148,6 +153,23 @@ final class HardcoverImportViewModel {
     }
 
     var selectedEditionId: Int?
+    var selectedTextEditionId: Int?
+    var selectedAudiobookEditionId: Int?
+    var selectedTextDetails: HardcoverBookDetails?
+    var selectedAudiobookDetails: HardcoverBookDetails?
+
+    var selectedImports: [MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails] {
+        var imports: [MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails] = [:]
+        if let selectedTextDetails {
+            imports[.text] = selectedTextDetails
+        } else if let fetchedDetails {
+            imports[.text] = fetchedDetails
+        }
+        if let selectedAudiobookDetails {
+            imports[.audiobook] = selectedAudiobookDetails
+        }
+        return imports
+    }
 
     func selectResult(_ result: HardcoverSearchResult) async {
         selectedResult = result
@@ -160,6 +182,13 @@ final class HardcoverImportViewModel {
             let details = try await HardcoverActor.shared.fetchBookDetails(id: result.id)
             infoDetails[result.id] = details
             fetchedDetails = details
+            selectedTextDetails = details
+            selectedTextEditionId = nil
+            if selectedAudiobookDetails == nil,
+               let audioEdition = details.editions.first(where: Self.isAudiobookEdition)
+            {
+                selectEdition(audioEdition, bookId: result.id, source: .audiobook)
+            }
         } catch {
             self.error = error.localizedDescription
         }
@@ -168,8 +197,22 @@ final class HardcoverImportViewModel {
     }
 
     func selectEdition(_ edition: HardcoverEditionInfo, bookId: Int) {
+        selectEdition(edition, bookId: bookId, source: .text)
+    }
+
+    func selectEdition(
+        _ edition: HardcoverEditionInfo,
+        bookId: Int,
+        source: MetadataEditorViewModel.HardcoverImportSource
+    ) {
         guard let bookDetails = infoDetails[bookId] else { return }
         selectedEditionId = edition.id
+        switch source {
+        case .text:
+            selectedTextEditionId = edition.id
+        case .audiobook:
+            selectedAudiobookEditionId = edition.id
+        }
 
         let releaseDate: String? = {
             guard let raw = edition.releaseDate else { return bookDetails.releaseDate }
@@ -183,7 +226,7 @@ final class HardcoverImportViewModel {
             return raw
         }()
 
-        fetchedDetails = HardcoverBookDetails(
+        let details = HardcoverBookDetails(
             title: edition.title ?? bookDetails.title,
             subtitle: edition.subtitle ?? bookDetails.subtitle,
             description: bookDetails.description,
@@ -199,8 +242,16 @@ final class HardcoverImportViewModel {
             editions: bookDetails.editions,
             imageUrl: edition.imageUrl ?? bookDetails.imageUrl,
             imageWidth: edition.imageUrl != nil ? edition.imageWidth : bookDetails.imageWidth,
-            imageHeight: edition.imageUrl != nil ? edition.imageHeight : bookDetails.imageHeight
+            imageHeight: edition.imageUrl != nil ? edition.imageHeight : bookDetails.imageHeight,
+            rawJSON: bookDetails.rawJSON
         )
+        fetchedDetails = details
+        switch source {
+        case .text:
+            selectedTextDetails = details
+        case .audiobook:
+            selectedAudiobookDetails = details
+        }
     }
 
     func toggleField(_ field: String) {
@@ -218,5 +269,12 @@ final class HardcoverImportViewModel {
             query += " \(author)"
         }
         searchQuery = query
+    }
+
+    private static func isAudiobookEdition(_ edition: HardcoverEditionInfo) -> Bool {
+        let format = edition.format.lowercased()
+        return format.contains("audio")
+            || format.contains("audible")
+            || (edition.audioSeconds ?? 0) > 0
     }
 }

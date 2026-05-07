@@ -54,7 +54,8 @@ struct OrganizationTab: View {
     }
 
     private var hcTagRows: [IdentifiedTagWithCount] {
-        guard let tags = viewModel.hardcoverTagsWithCounts(for: bookId) else { return [] }
+        guard let tags = viewModel.hardcoverTagsWithCounts(for: bookId)
+        else { return [] }
         let rows = tags.enumerated().map { i, tag in
             IdentifiedTagWithCount(id: i, name: tag.name, count: tag.count)
         }
@@ -62,17 +63,20 @@ struct OrganizationTab: View {
     }
 
     private var hcTagNames: [String]? {
-        guard viewModel.hardcoverTagsWithCounts(for: bookId) != nil else { return nil }
+        guard viewModel.hardcoverTagsWithCounts(for: bookId) != nil else {
+            return nil
+        }
         return hcTagRows.map(\.name)
     }
 
     var body: some View {
         GeometryReader { geo in
-            let contentHeight = max(geo.size.height - 52, 100)
+            let headerHeight: CGFloat = 24
+            let contentHeight = max(geo.size.height - headerHeight - 30, 100)
 
             VStack(alignment: .leading, spacing: 2) {
                 MetadataColumnHeaders(centerTitle: "Current Tags")
-                    .frame(height: 22, alignment: .top)
+                .frame(height: headerHeight, alignment: .top)
 
                 TransferColumnRow(
                     leftCanCopy: selectedServerTagsContainMissingTag,
@@ -408,9 +412,10 @@ struct OrganizationTab: View {
 extension MetadataEditorViewModel {
     func hardcoverSeriesList(for bookId: String) -> [String]? {
         guard let book = books.first(where: { $0.id == bookId }),
-              let details = book.lastImportedDetails,
-              book.lastImportedFields.contains("series"),
-              !details.series.isEmpty else { return nil }
+              let details = book.hardcoverImports[.text],
+              book.hardcoverImportFields[.text]?.contains("series") == true,
+              !details.series.isEmpty
+        else { return nil }
         return details.series.map { s in
             if let pos = s.position {
                 let posStr = pos.truncatingRemainder(dividingBy: 1) == 0

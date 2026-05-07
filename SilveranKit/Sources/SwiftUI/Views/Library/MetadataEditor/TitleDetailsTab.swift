@@ -4,6 +4,7 @@ struct TitleDetailsTab: View {
     let bookId: String
     @Bindable var viewModel: MetadataEditorViewModel
     let openHardcoverImport: () -> Void
+    @State private var selectedPublicationDateSource: MetadataEditorViewModel.HardcoverImportSource = .text
 
     var body: some View {
         ScrollView {
@@ -11,30 +12,56 @@ struct TitleDetailsTab: View {
                 MetadataColumnHeaders(centerTitle: "Current Details")
                     .frame(height: 22, alignment: .top)
 
-                scalarField(label: "Title", field: "title",
-                    get: { $0.title },
-                    set: { $0.title = $1 }
-                )
+                ZStack(alignment: .topLeading) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        scalarField(label: "Title", field: "title",
+                            get: { $0.title },
+                            set: { $0.title = $1 }
+                        )
 
-                scalarField(label: "Subtitle", field: "subtitle",
-                    get: { $0.subtitle },
-                    set: { $0.subtitle = $1 }
-                )
+                        scalarField(label: "Subtitle", field: "subtitle",
+                            get: { $0.subtitle },
+                            set: { $0.subtitle = $1 }
+                        )
 
-                scalarField(label: "Language", field: "language",
-                    get: { $0.language },
-                    set: { $0.language = $1 }
-                )
+                        scalarField(label: "Language", field: "language",
+                            get: { $0.language },
+                            set: { $0.language = $1 }
+                        )
 
-                publicationDateField
+                        publicationDateField
 
-                ratingField
+                        ratingField
 
-                Divider()
+                        Divider()
 
-                seriesRow
+                        seriesRow
+                    }
+
+                    if !hasHardcoverImportData {
+                        rightColumnHardcoverImportPlaceholder
+                    }
+                }
             }
             .padding()
+        }
+    }
+
+    private var hasHardcoverImportData: Bool {
+        viewModel.books.first { $0.id == bookId }?.hardcoverImports.isEmpty == false
+    }
+
+    private var rightColumnHardcoverImportPlaceholder: some View {
+        GeometryReader { geo in
+            let spacing: CGFloat = 8
+            let arrowWidth: CGFloat = 34
+            let columnWidth = max(geo.size.width - arrowWidth * 2 - spacing * 4, 0)
+            let rightWidth = columnWidth / 3
+            let rightX = columnWidth * 2 / 3 + arrowWidth * 2 + spacing * 4
+
+            ImportHardcoverDataPlaceholder(action: openHardcoverImport)
+                .frame(width: rightWidth, height: geo.size.height, alignment: .center)
+                .position(x: rightX + rightWidth / 2, y: geo.size.height / 2)
         }
     }
 
@@ -83,12 +110,14 @@ struct TitleDetailsTab: View {
                 )
             )
         } right: {
-            SourceScalarValue(
-                label: label,
-                value: viewModel.hardcoverScalarValue(field: field, for: bookId),
-                currentValue: currentValue,
-                onImportHardcover: openHardcoverImport
-            )
+            if hasHardcoverImportData {
+                SourceScalarValue(
+                    label: label,
+                    value: viewModel.hardcoverScalarValue(field: field, for: bookId),
+                    currentValue: currentValue,
+                    onImportHardcover: openHardcoverImport
+                )
+            }
         }
         .frame(height: 56, alignment: .top)
     }
@@ -113,20 +142,40 @@ struct TitleDetailsTab: View {
     private var publicationDateField: some View {
         let dateString = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
         let hasDate = !dateString.isEmpty
+        let textDate = viewModel.hardcoverScalarValue(
+            field: "publicationDate",
+            for: bookId,
+            source: .text
+        )
+        let audioDate = viewModel.hardcoverScalarValue(
+            field: "publicationDate",
+            for: bookId,
+            source: .audiobook
+        )
+        let effectivePublicationDateSource = selectedPublicationDateSource == .text && textDate == nil && audioDate != nil
+            ? MetadataEditorViewModel.HardcoverImportSource.audiobook
+            : selectedPublicationDateSource
+        let selectedHardcoverDate = effectivePublicationDateSource == .text ? textDate : audioDate
 
         TransferColumnRow(
             leftCanCopy: viewModel.originalScalarValue(field: "publicationDate", for: bookId) != dateString,
             leftHelp: "Copy server publication date into current metadata",
             leftAction: { viewModel.revertFieldToOriginal(field: "publicationDate", for: bookId) },
-            rightCanCopy: viewModel.hardcoverScalarValue(field: "publicationDate", for: bookId).map { $0 != dateString } ?? false,
+            rightCanCopy: selectedHardcoverDate.map { $0 != dateString } ?? false,
             rightHelp: "Copy Hardcover publication date into current metadata",
-            rightAction: { viewModel.revertToHardcover(field: "publicationDate", for: bookId) }
+            rightAction: {
+                viewModel.importPublicationDateFromHardcoverSource(
+                    effectivePublicationDateSource,
+                    for: bookId
+                )
+            }
         ) {
             SourceScalarValue(
                 label: "Publication Date",
                 value: viewModel.originalScalarValue(field: "publicationDate", for: bookId),
                 currentValue: dateString
             )
+            .frame(maxHeight: .infinity, alignment: .center)
         } center: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Publication Date")
@@ -170,15 +219,48 @@ struct TitleDetailsTab: View {
                     .font(.callout)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .center)
         } right: {
-            SourceScalarValue(
-                label: "Publication Date",
-                value: viewModel.hardcoverScalarValue(field: "publicationDate", for: bookId),
-                currentValue: dateString,
-                onImportHardcover: openHardcoverImport
-            )
+            if hasHardcoverImportData {
+                hardcoverPublicationDateChoices(
+                    textDate: textDate,
+                    audioDate: audioDate,
+                    currentValue: dateString,
+                    selectedSource: effectivePublicationDateSource
+                )
+                .frame(maxHeight: .infinity, alignment: .center)
+            }
         }
-        .frame(height: 60, alignment: .top)
+        .frame(height: 98, alignment: .top)
+    }
+
+    private func hardcoverPublicationDateChoices(
+        textDate: String?,
+        audioDate: String?,
+        currentValue: String,
+        selectedSource: MetadataEditorViewModel.HardcoverImportSource
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HardcoverPublicationDateChoice(
+                label: "Book Publication Date",
+                value: textDate,
+                currentValue: currentValue,
+                isSelected: selectedSource == .text,
+                onImportHardcover: openHardcoverImport
+            ) {
+                selectedPublicationDateSource = .text
+            }
+            HardcoverPublicationDateChoice(
+                label: "Audiobook Publication Date",
+                value: audioDate,
+                currentValue: currentValue,
+                isSelected: selectedSource == .audiobook,
+                onImportHardcover: openHardcoverImport
+            ) {
+                selectedPublicationDateSource = .audiobook
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .center)
     }
 
     // MARK: - Rating
@@ -237,12 +319,14 @@ struct TitleDetailsTab: View {
                 }
             }
         } right: {
-            SourceScalarValue(
-                label: "Rating",
-                value: viewModel.hardcoverScalarValue(field: "rating", for: bookId),
-                currentValue: rating,
-                onImportHardcover: openHardcoverImport
-            )
+            if hasHardcoverImportData {
+                SourceScalarValue(
+                    label: "Rating",
+                    value: viewModel.hardcoverScalarValue(field: "rating", for: bookId),
+                    currentValue: rating,
+                    onImportHardcover: openHardcoverImport
+                )
+            }
         }
         .frame(height: 60, alignment: .top)
     }
@@ -265,9 +349,11 @@ struct TitleDetailsTab: View {
         } center: {
             seriesEditor
         } right: {
-            seriesSource(
-                values: viewModel.hardcoverSeriesList(for: bookId)
-            )
+            if hasHardcoverImportData {
+                seriesSource(
+                    values: viewModel.hardcoverSeriesList(for: bookId)
+                )
+            }
         }
         .frame(height: max(CGFloat(max(currentSeriesDisplay.count, 1)) * 32 + 28, 64), alignment: .top)
     }
@@ -411,5 +497,39 @@ struct TitleDetailsTab: View {
                 viewModel.markDirty(field: "series", for: bookId)
             }
         )
+    }
+}
+
+private struct HardcoverPublicationDateChoice: View {
+    let label: String
+    let value: String?
+    let currentValue: String
+    let isSelected: Bool
+    let onImportHardcover: () -> Void
+    let selectAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            if let value, !value.isEmpty {
+                HStack(spacing: 8) {
+                    Text(value)
+                        .font(.body)
+                        .foregroundStyle(isSelected ? Color.accentColor : value == currentValue ? .secondary : .primary)
+                        .textSelection(.enabled)
+
+                    Button("Use") {
+                        selectAction()
+                    }
+                    .controlSize(.mini)
+                    .disabled(isSelected)
+                }
+            } else {
+                ImportHardcoverDataLink(action: onImportHardcover)
+            }
+        }
     }
 }

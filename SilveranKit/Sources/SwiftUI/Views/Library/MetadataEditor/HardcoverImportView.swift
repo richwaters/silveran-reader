@@ -4,12 +4,14 @@ struct HardcoverImportView: View {
     @State private var viewModel = HardcoverImportViewModel()
     let bookTitle: String
     let bookAuthor: String?
-    let onImport: (HardcoverBookDetails, Set<String>) -> Void
+    let onImport: ([MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails], Set<String>) -> Void
     let onAutoImportAll: ((Set<String>) -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
+            headerSection
+            Divider()
             tokenSection
             Divider()
 
@@ -21,7 +23,7 @@ struct HardcoverImportView: View {
             Divider()
             bottomBar
         }
-        .frame(width: 600, height: 500)
+        .frame(width: 780, height: 640)
         .task {
             viewModel.loadFieldSelection()
             await viewModel.loadToken()
@@ -30,6 +32,21 @@ struct HardcoverImportView: View {
                 await viewModel.search()
             }
         }
+    }
+
+    // MARK: - Header
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Import Hardcover Metadata")
+                .font(.title3.weight(.semibold))
+            Text("Choose which edition should supply book metadata and which edition should supply audiobook metadata. The editor will keep both sources available for copy arrows.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
     }
 
     // MARK: - Token
@@ -414,6 +431,7 @@ struct HardcoverImportView: View {
     ) -> some View {
         let filtered = filteredEditions(details.editions)
         VStack(alignment: .leading, spacing: 2) {
+            editionHeaderRow
             ForEach(filtered) { edition in
                 HStack(spacing: 4) {
                     Spacer().frame(width: 16)
@@ -463,6 +481,18 @@ struct HardcoverImportView: View {
                             .lineLimit(1)
                     }
                     Spacer()
+                    editionSourceButton(
+                        "Book",
+                        isSelected: viewModel.selectedTextEditionId == edition.id
+                    ) {
+                        viewModel.selectEdition(edition, bookId: result.id, source: .text)
+                    }
+                    editionSourceButton(
+                        "Audiobook",
+                        isSelected: viewModel.selectedAudiobookEditionId == edition.id
+                    ) {
+                        viewModel.selectEdition(edition, bookId: result.id, source: .audiobook)
+                    }
                     Button(action: {
                         editionPreviewId = editionPreviewId == edition.id ? nil : edition.id
                     }) {
@@ -493,6 +523,50 @@ struct HardcoverImportView: View {
         }
         .padding(.top, 4)
         .padding(.leading, 4)
+    }
+
+    private var editionHeaderRow: some View {
+        HStack(spacing: 4) {
+            Spacer().frame(width: 16)
+            Text("")
+                .frame(width: 20)
+            Text("")
+                .frame(width: 14)
+            Text("Format")
+                .frame(width: 80, alignment: .leading)
+            Text("Language")
+                .frame(width: 55, alignment: .leading)
+            Text("Country")
+                .frame(width: 28, alignment: .leading)
+            Text("Length")
+                .frame(width: 50, alignment: .trailing)
+            Text("ISBN")
+                .frame(width: 105, alignment: .trailing)
+            Text("Narrators")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Book")
+                .frame(width: 58)
+            Text("Audiobook")
+                .frame(width: 88)
+            Text("")
+                .frame(width: 18)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 2)
+    }
+
+    private func editionSourceButton(
+        _ title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(title, action: action)
+            .font(.caption2)
+            .controlSize(.mini)
+            .buttonStyle(.borderedProminent)
+            .tint(isSelected ? .accentColor : .secondary.opacity(0.35))
+            .frame(width: title == "Audiobook" ? 88 : 58)
     }
 
     @ViewBuilder
@@ -744,11 +818,10 @@ struct HardcoverImportView: View {
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)
             Button("Import Selected") {
-                guard let details = viewModel.fetchedDetails else { return }
-                onImport(details, viewModel.selectedFields)
+                onImport(viewModel.selectedImports, viewModel.selectedFields)
                 dismiss()
             }
-            .disabled(viewModel.fetchedDetails == nil)
+            .disabled(viewModel.selectedImports.isEmpty)
             .keyboardShortcut(.defaultAction)
         }
         .padding(12)

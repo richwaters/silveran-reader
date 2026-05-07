@@ -27,6 +27,7 @@ public struct HardcoverEditionInfo: Sendable, Identifiable {
     public let imageUrl: String?
     public let imageWidth: Int?
     public let imageHeight: Int?
+    public let rawJSON: String?
 }
 
 public struct HardcoverBookDetails: Sendable {
@@ -45,6 +46,7 @@ public struct HardcoverBookDetails: Sendable {
     public let imageUrl: String?
     public let imageWidth: Int?
     public let imageHeight: Int?
+    public let rawJSON: String?
 
     public init(
         title: String?, subtitle: String?, description: String?,
@@ -53,7 +55,8 @@ public struct HardcoverBookDetails: Sendable {
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
         tags: [(name: String, count: Int)], editions: [HardcoverEditionInfo],
-        imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil
+        imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil,
+        rawJSON: String? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -70,6 +73,7 @@ public struct HardcoverBookDetails: Sendable {
         self.imageUrl = imageUrl
         self.imageWidth = imageWidth
         self.imageHeight = imageHeight
+        self.rawJSON = rawJSON
     }
 }
 
@@ -169,11 +173,26 @@ public actor HardcoverActor {
             "query": """
                 query GetBook($id: Int!) {
                     books(where: {id: {_eq: $id}}) {
+                        id
+                        slug
                         title
                         subtitle
                         description
                         release_date
+                        release_year
                         rating
+                        cached_contributors
+                        cached_featured_series
+                        cached_image
+                        cached_tags
+                        book_mappings {
+                            external_id
+                            edition_id
+                            state
+                            verified
+                            loaded
+                            platform { name url }
+                        }
                         contributions {
                             contribution
                             author { name }
@@ -196,8 +215,14 @@ public actor HardcoverActor {
                         }
                         editions {
                             id
+                            object_type
+                            source
+                            state
+                            score
                             edition_format
                             edition_information
+                            physical_format
+                            physical_information
                             title
                             subtitle
                             isbn_13
@@ -206,10 +231,24 @@ public actor HardcoverActor {
                             pages
                             audio_seconds
                             release_date
+                            release_year
+                            rating
+                            cached_contributors
+                            cached_image
+                            cached_tags
                             language { language }
                             country { name }
                             publisher { name }
                             image { url width height }
+                            images { url width height }
+                            book_mappings {
+                                external_id
+                                edition_id
+                                state
+                                verified
+                                loaded
+                                platform { name url }
+                            }
                             contributions {
                                 contribution
                                 author { name }
@@ -230,6 +269,7 @@ public actor HardcoverActor {
             let book = books.first
         else { throw HardcoverError.bookNotFound }
 
+        let rawJSON = Self.prettyJSONString(book)
         let title = book["title"] as? String
         let subtitle = book["subtitle"] as? String
         let description = book["description"] as? String
@@ -313,6 +353,7 @@ public actor HardcoverActor {
             let edImageUrl = edImage?["url"] as? String
             let edImageWidth = edImage?["width"] as? Int
             let edImageHeight = edImage?["height"] as? Int
+            let rawEditionJSON = Self.prettyJSONString(ed)
             let edContribs = ed["contributions"] as? [[String: Any]] ?? []
             var edNarrators: [String] = []
             var edOther: [(name: String, role: String)] = []
@@ -346,7 +387,8 @@ public actor HardcoverActor {
                 otherContributors: edOther,
                 imageUrl: edImageUrl,
                 imageWidth: edImageWidth,
-                imageHeight: edImageHeight
+                imageHeight: edImageHeight,
+                rawJSON: rawEditionJSON
             )
         }
 
@@ -364,8 +406,19 @@ public actor HardcoverActor {
             editions: editions,
             imageUrl: bookImageUrl,
             imageWidth: bookImageWidth,
-            imageHeight: bookImageHeight
+            imageHeight: bookImageHeight,
+            rawJSON: rawJSON
         )
+    }
+
+    private static func prettyJSONString(_ object: Any) -> String? {
+        guard JSONSerialization.isValidJSONObject(object),
+              let data = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.prettyPrinted, .sortedKeys]
+              )
+        else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     private func postGraphQL(body: Data, token: String) async throws -> Data {

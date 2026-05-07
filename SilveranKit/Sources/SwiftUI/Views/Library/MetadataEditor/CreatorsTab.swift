@@ -393,13 +393,24 @@ struct CreatorsTab: View {
     private var hardcoverRows: [CreatorSourceRow] {
         switch scope {
         case .authors, .narrators:
-            return sourceRows(from: viewModel.hardcoverStringList(field: scope.field, for: bookId) ?? [])
+            return sourceRows(
+                from: viewModel.hardcoverStringList(
+                    field: scope.field,
+                    for: bookId,
+                    source: hardcoverSource
+                ) ?? []
+            )
         case .otherCreators:
             guard let book = viewModel.books.first(where: { $0.id == bookId }),
-                  let details = book.lastImportedDetails,
-                  book.lastImportedFields.contains("creators") else { return [] }
+                  let details = book.hardcoverImports[hardcoverSource],
+                  book.hardcoverImportFields[hardcoverSource]?.contains("creators") == true
+            else { return [] }
             return sourceRows(from: details.creators.map { (name: $0.name, role: $0.role) })
         }
+    }
+
+    private var hardcoverSource: MetadataEditorViewModel.HardcoverImportSource {
+        scope == .narrators ? .audiobook : .text
     }
 
     private func sourceRows(from values: [String]) -> [CreatorSourceRow] {
