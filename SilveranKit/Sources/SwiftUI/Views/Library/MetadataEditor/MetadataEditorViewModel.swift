@@ -1383,37 +1383,4 @@ final class MetadataEditorViewModel {
         }
     }
 
-    // MARK: - Auto Import All
-
-    var isAutoImporting = false
-    var autoImportProgress: (current: Int, total: Int) = (0, 0)
-    var autoImportError: String?
-
-    func autoImportAll(fields: Set<String>) async {
-        isAutoImporting = true
-        autoImportError = nil
-        let total = books.count
-        autoImportProgress = (0, total)
-
-        for (i, book) in books.enumerated() {
-            autoImportProgress = (i, total)
-
-            var query = book.title
-            if let author = book.authors.first, !author.isEmpty {
-                query += " \(author)"
-            }
-
-            do {
-                let results = try await HardcoverActor.shared.searchBooks(query: query)
-                guard let first = results.first else { continue }
-                let details = try await HardcoverActor.shared.fetchBookDetails(id: first.id)
-                applyImport(details: details, fields: fields, for: book.id)
-            } catch {
-                autoImportError = "\(book.displayTitle): \(error.localizedDescription)"
-            }
-        }
-
-        autoImportProgress = (total, total)
-        isAutoImporting = false
-    }
 }

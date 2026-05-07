@@ -5,7 +5,6 @@ struct HardcoverImportView: View {
     let bookTitle: String
     let bookAuthor: String?
     let onImport: ([MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails], Set<String>) -> Void
-    let onAutoImportAll: ((Set<String>) -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -806,14 +805,6 @@ struct HardcoverImportView: View {
                     .lineLimit(2)
             }
             Spacer()
-
-            if let onAutoImportAll {
-                Button("Auto Import All Books") {
-                    onAutoImportAll(viewModel.selectedFields)
-                    dismiss()
-                }
-                .disabled(!viewModel.hasToken)
-            }
 
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)

@@ -42,7 +42,15 @@ public struct MetadataEditorView: View {
         .frame(minWidth: 1300, minHeight: 500)
         .navigationTitle(viewModel.selectedBook?.displayTitle ?? "Edit Metadata")
         #if os(macOS)
-        .background(WindowTitleUpdater(title: windowTitle).frame(width: 0, height: 0))
+        .background(
+            MetadataEditorWindowController(
+                title: windowTitle,
+                shouldPromptBeforeClose: viewModel.hasAnyDirtyBooks,
+                isSaving: viewModel.isSaving,
+                onSaveBeforeClose: saveBeforeClosing
+            )
+            .frame(width: 0, height: 0)
+        )
         #endif
         .onAppear {
             viewModel.addBooks(ids: Array(initialBookIds.prefix(1)), from: mediaViewModel.library)
@@ -61,9 +69,6 @@ public struct MetadataEditorView: View {
                     bookAuthor: book.authors.first,
                     onImport: { imports, fields in
                         viewModel.applyImport(imports: imports, fields: fields, for: book.id)
-                    },
-                    onAutoImportAll: { fields in
-                        Task { @MainActor in await viewModel.autoImportAll(fields: fields) }
                     }
                 )
             }
@@ -145,20 +150,104 @@ public struct MetadataEditorView: View {
     }
 
     #if os(macOS)
-    private struct WindowTitleUpdater: NSViewRepresentable {
+    private func saveBeforeClosing() async -> Bool {
+        guard let bookId = viewModel.selectedBookId else { return true }
+        let errors = viewModel.validationErrors(for: bookId)
+        guard errors.isEmpty else {
+            viewModel.saveError = errors.map(\.message).joined(separator: "; ")
+            return false
+        }
+
+        await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)
+        return !(viewModel.books.first { $0.id == bookId }?.hasDirtyFields ?? false)
+            && viewModel.saveError == nil
+    }
+
+    private struct MetadataEditorWindowController: NSViewRepresentable {
         let title: String
+        let shouldPromptBeforeClose: Bool
+        let isSaving: Bool
+        let onSaveBeforeClose: () async -> Bool
 
         func makeNSView(context: Context) -> NSView {
             let view = NSView()
             DispatchQueue.main.async {
                 view.window?.title = title
+                view.window?.delegate = context.coordinator
+                context.coordinator.window = view.window
             }
             return view
         }
 
         func updateNSView(_ view: NSView, context: Context) {
+            context.coordinator.title = title
+            context.coordinator.shouldPromptBeforeClose = shouldPromptBeforeClose
+            context.coordinator.isSaving = isSaving
+            context.coordinator.onSaveBeforeClose = onSaveBeforeClose
             DispatchQueue.main.async {
                 view.window?.title = title
+                view.window?.delegate = context.coordinator
+                context.coordinator.window = view.window
+            }
+        }
+
+        func makeCoordinator() -> Coordinator {
+            Coordinator(
+                title: title,
+                shouldPromptBeforeClose: shouldPromptBeforeClose,
+                isSaving: isSaving,
+                onSaveBeforeClose: onSaveBeforeClose
+            )
+        }
+
+        final class Coordinator: NSObject, NSWindowDelegate {
+            var title: String
+            var shouldPromptBeforeClose: Bool
+            var isSaving: Bool
+            var onSaveBeforeClose: () async -> Bool
+            weak var window: NSWindow?
+            private var allowClose = false
+
+            init(
+                title: String,
+                shouldPromptBeforeClose: Bool,
+                isSaving: Bool,
+                onSaveBeforeClose: @escaping () async -> Bool
+            ) {
+                self.title = title
+                self.shouldPromptBeforeClose = shouldPromptBeforeClose
+                self.isSaving = isSaving
+                self.onSaveBeforeClose = onSaveBeforeClose
+            }
+
+            func windowShouldClose(_ sender: NSWindow) -> Bool {
+                guard !allowClose else { return true }
+                guard shouldPromptBeforeClose else { return true }
+                guard !isSaving else { return false }
+
+                let alert = NSAlert()
+                alert.messageText = "Save changes before closing?"
+                alert.informativeText =
+                    "The metadata editor has unsaved changes. Save them to Storyteller before closing?"
+                alert.addButton(withTitle: "Save")
+                alert.addButton(withTitle: "Don't Save")
+                alert.addButton(withTitle: "Cancel")
+
+                switch alert.runModal() {
+                case .alertFirstButtonReturn:
+                    Task { @MainActor in
+                        if await onSaveBeforeClose() {
+                            allowClose = true
+                            sender.close()
+                            allowClose = false
+                        }
+                    }
+                    return false
+                case .alertSecondButtonReturn:
+                    return true
+                default:
+                    return false
+                }
             }
         }
     }
@@ -175,22 +264,7 @@ public struct MetadataEditorView: View {
     @ViewBuilder
     private var bottomBar: some View {
         HStack {
-            if viewModel.isAutoImporting {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(
-                        "Importing \(viewModel.autoImportProgress.current + 1)/\(viewModel.autoImportProgress.total)..."
-                    )
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                }
-            } else if let error = viewModel.autoImportError {
-                Label(error, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .font(.callout)
-                    .lineLimit(1)
-            } else if let error = viewModel.saveError {
+            if let error = viewModel.saveError {
                 HStack(spacing: 4) {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.red)
@@ -255,6 +329,7 @@ public struct MetadataEditorView: View {
                     await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)
                 }
             }
+            .buttonStyle(.borderedProminent)
             .disabled(
                 viewModel.isSaving || viewModel.selectedBookId == nil
                     || !(viewModel.books.first { $0.id == viewModel.selectedBookId }?.hasDirtyFields
