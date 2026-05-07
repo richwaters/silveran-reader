@@ -212,7 +212,7 @@ struct SilveranReaderApp: App {
             MetadataEditorView(initialBookIds: data.wrappedValue?.bookIds ?? [])
                 .environment(mediaViewModel)
         }
-        .defaultSize(width: 900, height: 650)
+        .defaultSize(width: 900, height: 710)
         .disableWindowRestoration()
     }
 }

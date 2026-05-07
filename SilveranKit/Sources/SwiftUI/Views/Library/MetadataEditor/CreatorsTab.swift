@@ -186,6 +186,7 @@ struct CreatorsTab: View {
                     }
                     .width(50)
                 }
+                .metadataEditorBoundary()
                 .padding(.horizontal, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
             } else {
@@ -203,9 +204,10 @@ struct CreatorsTab: View {
                         }
                             .simultaneousGesture(TapGesture().onEnded {
                                 currentSelection = [item.id]
-                            })
+                        })
                     }
                 }
+                .metadataEditorBoundary()
                 .padding(.horizontal, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
             }
@@ -272,12 +274,14 @@ struct CreatorsTab: View {
                     }
                     .width(50)
                 }
+                .metadataEditorBoundary()
             } else {
                 Table(rows, selection: selection) {
                     TableColumn("Name") { item in
                         sourceCell(item.displayName, item: item, selection: selection, selectAction: selectAction, doubleClickAction: doubleClickAction)
                     }
                 }
+                .metadataEditorBoundary()
             }
         }
         .padding(.horizontal, 8)

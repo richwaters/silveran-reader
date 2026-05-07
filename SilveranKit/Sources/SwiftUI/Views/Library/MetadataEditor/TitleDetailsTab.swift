@@ -5,6 +5,8 @@ struct TitleDetailsTab: View {
     @Bindable var viewModel: MetadataEditorViewModel
     let openHardcoverImport: () -> Void
     @State private var selectedPublicationDateSource: MetadataEditorViewModel.HardcoverImportSource = .text
+    private let scalarRowHeight: CGFloat = 78
+    private let publicationRowHeight: CGFloat = 108
 
     var body: some View {
         ScrollView {
@@ -89,6 +91,7 @@ struct TitleDetailsTab: View {
                 value: viewModel.originalScalarValue(field: field, for: bookId),
                 currentValue: currentValue
             )
+            .frame(maxHeight: .infinity, alignment: .center)
         } center: {
             LabeledEditableField(
                 label: label,
@@ -109,6 +112,7 @@ struct TitleDetailsTab: View {
                     }
                 )
             )
+            .frame(maxHeight: .infinity, alignment: .center)
         } right: {
             if hasHardcoverImportData {
                 SourceScalarValue(
@@ -116,9 +120,10 @@ struct TitleDetailsTab: View {
                     value: viewModel.hardcoverScalarValue(field: field, for: bookId) ?? "",
                     currentValue: currentValue
                 )
+                .frame(maxHeight: .infinity, alignment: .center)
             }
         }
-        .frame(height: 56, alignment: .top)
+        .frame(height: scalarRowHeight, alignment: .center)
     }
 
     // MARK: - Publication Date
@@ -219,6 +224,7 @@ struct TitleDetailsTab: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .center)
+            .metadataEditorFieldBoundary()
         } right: {
             if hasHardcoverImportData {
                 hardcoverPublicationDateChoices(
@@ -230,7 +236,7 @@ struct TitleDetailsTab: View {
                 .frame(maxHeight: .infinity, alignment: .center)
             }
         }
-        .frame(height: 98, alignment: .top)
+        .frame(height: publicationRowHeight, alignment: .center)
     }
 
     private func hardcoverPublicationDateChoices(
@@ -258,6 +264,7 @@ struct TitleDetailsTab: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .center)
+        .metadataEditorFieldBoundary()
     }
 
     // MARK: - Rating
@@ -280,6 +287,7 @@ struct TitleDetailsTab: View {
                 value: viewModel.originalScalarValue(field: "rating", for: bookId),
                 currentValue: rating
             )
+            .frame(maxHeight: .infinity, alignment: .center)
         } center: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Rating")
@@ -315,6 +323,8 @@ struct TitleDetailsTab: View {
                     .font(.callout)
                 }
             }
+            .metadataEditorFieldBoundary()
+            .frame(maxHeight: .infinity, alignment: .center)
         } right: {
             if hasHardcoverImportData {
                 SourceScalarValue(
@@ -322,9 +332,10 @@ struct TitleDetailsTab: View {
                     value: viewModel.hardcoverScalarValue(field: "rating", for: bookId) ?? "",
                     currentValue: rating
                 )
+                .frame(maxHeight: .infinity, alignment: .center)
             }
         }
-        .frame(height: 60, alignment: .top)
+        .frame(height: scalarRowHeight, alignment: .center)
     }
 
     // MARK: - Series
@@ -439,6 +450,7 @@ struct TitleDetailsTab: View {
                 }
             }
         }
+        .metadataEditorFieldBoundary()
     }
 
     private var originalSeriesDisplay: [String] {
@@ -474,6 +486,7 @@ struct TitleDetailsTab: View {
                 onImportHardcover: onImportHardcover
             )
         }
+        .metadataEditorFieldBoundary()
     }
 
     private func seriesBinding(

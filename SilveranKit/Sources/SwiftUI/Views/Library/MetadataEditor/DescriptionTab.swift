@@ -74,6 +74,7 @@ struct DescriptionTab: View {
             ))
             .font(.body)
             .padding(8)
+            .metadataEditorBoundary()
         }
     }
 
@@ -109,6 +110,7 @@ struct DescriptionTab: View {
                 ImportHardcoverDataPlaceholder(action: openHardcoverImport)
             }
         }
+        .metadataEditorBoundary()
     }
 
 }

@@ -1,5 +1,22 @@
 import SwiftUI
 
+// MARK: - Shared Boundaries
+
+extension View {
+    func metadataEditorBoundary(cornerRadius: CGFloat = 6) -> some View {
+        overlay {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(Color.secondary.opacity(0.28), lineWidth: 0.75)
+        }
+    }
+
+    func metadataEditorFieldBoundary(cornerRadius: CGFloat = 6) -> some View {
+        padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .metadataEditorBoundary(cornerRadius: cornerRadius)
+    }
+}
+
 // MARK: - Column Layouts
 
 struct TwoColumnRow<Left: View, Right: View>: View {
@@ -383,6 +400,7 @@ struct SourceScalarValue: View {
                 }
             }
         }
+        .metadataEditorFieldBoundary()
     }
 }
 
@@ -455,6 +473,7 @@ struct LabeledEditableField: View {
             TextField("(empty)", text: value)
                 .textFieldStyle(.roundedBorder)
         }
+        .metadataEditorFieldBoundary()
     }
 }
 
@@ -557,6 +576,7 @@ struct StringListTable: View {
                     }
                 }
             }
+            .metadataEditorBoundary()
             .frame(height: expandToFill ? nil : min(CGFloat(max(items.count, 1)) * 28 + 28, 200))
             .frame(maxHeight: expandToFill ? .infinity : nil)
         }

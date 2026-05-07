@@ -198,6 +198,7 @@ struct OrganizationTab: View {
                         })
                 }
             }
+            .metadataEditorBoundary()
             .padding(.horizontal, 8)
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -269,6 +270,7 @@ struct OrganizationTab: View {
                     })
             }
         }
+        .metadataEditorBoundary()
         .padding(.horizontal, 8)
         .frame(maxHeight: .infinity, alignment: .top)
     }
@@ -309,6 +311,7 @@ struct OrganizationTab: View {
                     }
                     .width(86)
                 }
+                .metadataEditorBoundary()
                 .padding(.horizontal, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
             }

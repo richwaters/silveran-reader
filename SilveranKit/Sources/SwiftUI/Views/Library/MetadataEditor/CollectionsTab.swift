@@ -207,6 +207,7 @@ struct CollectionsTab: View {
                     })
                 }
             }
+            .metadataEditorBoundary()
         }
     }
 
@@ -240,6 +241,7 @@ struct CollectionsTab: View {
                     })
                 }
             }
+            .metadataEditorBoundary()
         }
     }
 
