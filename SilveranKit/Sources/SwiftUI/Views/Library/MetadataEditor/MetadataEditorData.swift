@@ -8,6 +8,7 @@ enum MetadataEditorSection: String, CaseIterable, Identifiable {
     case narrators = "Narrators"
     case otherCreators = "Other Creators"
     case organization = "Tags"
+    case collections = "Collections"
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum MetadataEditorSection: String, CaseIterable, Identifiable {
         case .narrators: "mic"
         case .otherCreators: "person.text.rectangle"
         case .organization: "tag"
+        case .collections: "rectangle.stack"
         }
     }
 }

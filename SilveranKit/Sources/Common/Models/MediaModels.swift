@@ -169,6 +169,24 @@ public struct BookCollectionSummary: Codable, Sendable, Hashable {
         case updatedAt
     }
 
+    public init(
+        uuid: String?,
+        name: String,
+        description: String?,
+        isPublic: Bool?,
+        importPath: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.description = description
+        self.isPublic = isPublic
+        self.importPath = importPath
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         uuid = container.decodeLenient(String.self, forKey: .uuid)

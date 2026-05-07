@@ -66,6 +66,11 @@ struct MetadataEditorBookForm: View {
                             viewModel: viewModel,
                             openHardcoverImport: openHardcoverImport
                         )
+                    case .collections:
+                        CollectionsTab(
+                            bookId: bookId,
+                            viewModel: viewModel
+                        )
                     case .covers:
                         CoversTab(
                             bookId: bookId,

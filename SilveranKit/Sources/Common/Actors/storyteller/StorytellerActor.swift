@@ -2190,7 +2190,7 @@ public actor StorytellerActor {
     /// Creates a new collection using `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (POST handler).
     /// TODO: UNTESTED
-    func createCollection(_ payload: StorytellerCollectionCreatePayload) async
+    public func createCollection(_ payload: StorytellerCollectionCreatePayload) async
         -> StorytellerCollection?
     {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
@@ -2303,7 +2303,7 @@ public actor StorytellerActor {
     /// Deletes a collection with `/api/v2/collections/{uuid}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/[uuid]/route.ts` (DELETE handler).
     /// TODO: UNTESTED
-    func deleteCollection(uuid: String) async -> Bool {
+    public func deleteCollection(uuid: String) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let collectionURL =
             baseURL

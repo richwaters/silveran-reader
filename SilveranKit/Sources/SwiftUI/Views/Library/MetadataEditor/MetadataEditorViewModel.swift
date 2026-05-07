@@ -139,6 +139,12 @@ final class MetadataEditorViewModel {
         }
     }
 
+    struct CollectionChoice: Identifiable, Hashable {
+        let id: Int
+        let uuid: String
+        let name: String
+    }
+
     var books: [EditableBook] = []
     var selectedBookId: String?
     var isSaving = false
@@ -147,6 +153,10 @@ final class MetadataEditorViewModel {
     var itunesResultsByBookId: [String: [ITunesCoverResult]] = [:]
     var searchingItunesBookIds: Set<String> = []
     var libraryTagNames: [String] = []
+    var libraryCollections: [BookCollectionSummary] = []
+    var libraryCollectionChoices: [CollectionChoice] = []
+    var libraryCollectionNamesByUuid: [String: String] = [:]
+    var deletedCollectionUuids: Set<String> = []
 
     var selectedBook: EditableBook? {
         get { books.first { $0.id == selectedBookId } }
@@ -160,6 +170,7 @@ final class MetadataEditorViewModel {
 
     func addBooks(ids: [String], from library: BookLibrary) {
         updateLibraryTags(from: library)
+        updateLibraryCollections(from: library)
 
         for id in ids {
             guard !books.contains(where: { $0.id == id }) else { continue }
@@ -187,6 +198,107 @@ final class MetadataEditorViewModel {
         }
         libraryTagNames = tagsByKey.values.sorted {
             $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func updateLibraryCollections(from library: BookLibrary) {
+        var collectionsByKey: [String: BookCollectionSummary] = [:]
+        for book in library.bookMetaData {
+            for collection in book.collections ?? [] {
+                let key = collection.uuid ?? collection.name.lowercased()
+                if collectionsByKey[key] == nil {
+                    collectionsByKey[key] = collection
+                }
+            }
+        }
+        libraryCollections = collectionsByKey.values.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        rebuildLibraryCollectionCaches()
+        deletedCollectionUuids.removeAll()
+    }
+
+    func createCollection(named name: String) async -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let created = await StorytellerActor.shared.createCollection(
+            StorytellerCollectionCreatePayload(
+                name: trimmed,
+                description: "",
+                isPublic: false,
+                users: nil
+            )
+        )
+        guard let created else { return nil }
+
+        upsertLibraryCollection(
+            uuid: created.uuid,
+            name: created.name,
+            description: created.description,
+            isPublic: created.isPublic,
+            importPath: created.importPath,
+            createdAt: created.createdAt,
+            updatedAt: created.updatedAt
+        )
+        deletedCollectionUuids.remove(created.uuid)
+        await StorytellerActor.shared.fetchLibraryInformation()
+        return created.uuid
+    }
+
+    func deleteCollection(uuid: String) async -> Bool {
+        guard await StorytellerActor.shared.deleteCollection(uuid: uuid) else { return false }
+
+        deletedCollectionUuids.insert(uuid)
+        removeLibraryCollection(uuid: uuid)
+        for index in books.indices {
+            books[index].collectionUuids.removeAll { $0 == uuid }
+        }
+        await StorytellerActor.shared.fetchLibraryInformation()
+        return true
+    }
+
+    private func upsertLibraryCollection(
+        uuid: String,
+        name: String,
+        description: String?,
+        isPublic: Bool?,
+        importPath: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
+        let summary = BookCollectionSummary(
+            uuid: uuid,
+            name: name,
+            description: description,
+            isPublic: isPublic,
+            importPath: importPath,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+        libraryCollections.removeAll { $0.uuid == uuid }
+        libraryCollections.append(summary)
+        rebuildLibraryCollectionCaches()
+    }
+
+    private func removeLibraryCollection(uuid: String) {
+        libraryCollections.removeAll { $0.uuid == uuid }
+        rebuildLibraryCollectionCaches()
+    }
+
+    private func rebuildLibraryCollectionCaches() {
+        libraryCollections.sort {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        libraryCollectionNamesByUuid = Dictionary(
+            uniqueKeysWithValues: libraryCollections.compactMap { collection in
+                guard let uuid = collection.uuid else { return nil }
+                return (uuid, collection.name)
+            }
+        )
+        libraryCollectionChoices = libraryCollections.enumerated().compactMap { index, collection in
+            guard let uuid = collection.uuid else { return nil }
+            return CollectionChoice(id: index, uuid: uuid, name: collection.name)
         }
     }
 

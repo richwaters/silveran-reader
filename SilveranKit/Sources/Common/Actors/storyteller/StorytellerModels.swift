@@ -10,21 +10,21 @@ struct AccessToken: Decodable {
     let tokenType: String
     let expiresIn: Int64?
 }
-struct StorytellerCollectionUser: Codable {
-    let id: String
-    let email: String?
-    let username: String?
+public struct StorytellerCollectionUser: Codable, Sendable {
+    public let id: String
+    public let email: String?
+    public let username: String?
 }
 
-struct StorytellerCollection: Decodable {
-    let uuid: String
-    let name: String
-    let description: String?
-    let isPublic: Bool
-    let importPath: String?
-    let createdAt: String?
-    let updatedAt: String?
-    let users: [StorytellerCollectionUser]?
+public struct StorytellerCollection: Decodable, Sendable {
+    public let uuid: String
+    public let name: String
+    public let description: String?
+    public let isPublic: Bool
+    public let importPath: String?
+    public let createdAt: String?
+    public let updatedAt: String?
+    public let users: [StorytellerCollectionUser]?
 
     private enum CodingKeys: String, CodingKey {
         case uuid
@@ -142,11 +142,18 @@ public struct StorytellerBookUpdatePayload: Sendable {
     }
 }
 
-struct StorytellerCollectionCreatePayload: Codable {
-    let name: String
-    let description: String
-    let isPublic: Bool
-    let users: [String]?
+public struct StorytellerCollectionCreatePayload: Codable {
+    public let name: String
+    public let description: String
+    public let isPublic: Bool
+    public let users: [String]?
+
+    public init(name: String, description: String, isPublic: Bool, users: [String]?) {
+        self.name = name
+        self.description = description
+        self.isPublic = isPublic
+        self.users = users
+    }
 
     private enum CodingKeys: String, CodingKey {
         case name
