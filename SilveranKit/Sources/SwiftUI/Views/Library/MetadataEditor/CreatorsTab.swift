@@ -87,7 +87,6 @@ struct CreatorsTab: View {
                     sourceColumn(
                         rows: serverRows,
                         selection: $serverSelection,
-                        emptyText: nil,
                         useAllAction: { importRows(serverRows) },
                         selectAction: selectServerRow,
                         doubleClickAction: { row in importRows([row]) }
@@ -98,7 +97,7 @@ struct CreatorsTab: View {
                     sourceColumn(
                         rows: hardcoverRows,
                         selection: $hardcoverSelection,
-                        emptyText: "Import Hardcover Data",
+                        showImportPlaceholder: !hasHardcoverImport,
                         useAllAction: { importRows(hardcoverRows, fromHardcover: true) },
                         selectAction: selectHardcoverRow,
                         doubleClickAction: { row in importRows([row], fromHardcover: true) }
@@ -217,7 +216,7 @@ struct CreatorsTab: View {
     private func sourceColumn(
         rows: [CreatorSourceRow],
         selection: Binding<Set<Int>>,
-        emptyText: String?,
+        showImportPlaceholder: Bool = false,
         useAllAction: @escaping () -> Void,
         selectAction: @escaping (Int) -> Void,
         doubleClickAction: @escaping (CreatorSourceRow) -> Void
@@ -229,17 +228,11 @@ struct CreatorsTab: View {
             }
 
             if rows.isEmpty {
-                if let emptyText {
-                    Group {
-                        if emptyText == "Import Hardcover Data" {
-                            ImportHardcoverDataPlaceholder(action: openHardcoverImport)
-                        } else {
-                            EmptyTablePlaceholder(text: emptyText)
-                        }
-                    }
+                if showImportPlaceholder {
+                    ImportHardcoverDataPlaceholder(action: openHardcoverImport)
                     .padding(.horizontal, 8)
                     .frame(maxHeight: .infinity, alignment: .center)
-                    .offset(y: emptyText == "Import Hardcover Data" ? -15 : 0)
+                    .offset(y: -15)
                 } else {
                     sourceRowsTable(
                         rows: rows,
@@ -411,6 +404,14 @@ struct CreatorsTab: View {
 
     private var hardcoverSource: MetadataEditorViewModel.HardcoverImportSource {
         scope == .narrators ? .audiobook : .text
+    }
+
+    private var hasHardcoverImport: Bool {
+        viewModel.hasHardcoverImport(
+            field: scope.field,
+            for: bookId,
+            source: hardcoverSource
+        )
     }
 
     private func sourceRows(from values: [String]) -> [CreatorSourceRow] {

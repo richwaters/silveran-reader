@@ -278,7 +278,7 @@ struct OrganizationTab: View {
         VStack(alignment: .leading, spacing: 0) {
             hardcoverToolbar
 
-            if viewModel.hardcoverTagsWithCounts(for: bookId) == nil {
+            if !viewModel.hasHardcoverImport(field: "tags", for: bookId, source: .text) {
                 ImportHardcoverDataPlaceholder(action: openHardcoverImport)
                     .padding(.horizontal, 8)
                     .frame(maxHeight: .infinity, alignment: .center)

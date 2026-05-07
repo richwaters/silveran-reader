@@ -919,6 +919,17 @@ final class MetadataEditorViewModel {
 
     // MARK: - Hardcover Accessors
 
+    func hasHardcoverImport(
+        field: String,
+        for bookId: String,
+        source: HardcoverImportSource? = nil
+    ) -> Bool {
+        guard let book = books.first(where: { $0.id == bookId }) else { return false }
+        let resolvedSource = source ?? Self.defaultHardcoverSource(for: field)
+        return book.hardcoverImports[resolvedSource] != nil
+            && book.hardcoverImportFields[resolvedSource]?.contains(field) == true
+    }
+
     private func hardcoverDetails(
         field: String,
         for bookId: String,
