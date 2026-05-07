@@ -1,26 +1,11 @@
 import SwiftUI
 
 public struct MetadataEditorView: View {
-    private enum MetadataEditorSection: String, CaseIterable, Identifiable {
-        case general = "General"
-        case audiobook = "Audiobook"
-        case ebook = "Ebook"
-
-        var id: String { rawValue }
-
-        var systemImage: String {
-            switch self {
-            case .general: "info.circle"
-            case .audiobook: "headphones"
-            case .ebook: "book"
-            }
-        }
-    }
-
     public let initialBookIds: [String]
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var viewModel = MetadataEditorViewModel()
-    @State private var selectedSection: MetadataEditorSection = .general
+    @State private var selectedSection: MetadataEditorSection = .covers
+    @State private var selectedCoverScope: CoversTab.CoverScope = .audiobook
     @AppStorage("metadataEditor.hideWarning") private var hideWarning = false
     @State private var showWarning = true
     @State private var showHardcoverImport = false
@@ -42,6 +27,7 @@ public struct MetadataEditorView: View {
             } detail: {
                 sectionContent
                     .frame(minWidth: 850)
+                    .clipped()
             }
             .navigationSplitViewStyle(.balanced)
             .toolbar(removing: .sidebarToggle)
@@ -139,16 +125,12 @@ public struct MetadataEditorView: View {
 
     @ViewBuilder
     private var sectionContent: some View {
-        switch selectedSection {
-        case .general:
-            MetadataEditorBookForm(
-                viewModel: viewModel
-            )
-        case .audiobook:
-            ContentUnavailableView("Audiobook", systemImage: "headphones")
-        case .ebook:
-            ContentUnavailableView("Ebook", systemImage: "book")
-        }
+        MetadataEditorBookForm(
+            viewModel: viewModel,
+            selectedSection: $selectedSection,
+            selectedCoverScope: $selectedCoverScope,
+            openHardcoverImport: { showHardcoverImport = true }
+        )
     }
 
     // MARK: - Window Title
@@ -176,6 +158,7 @@ public struct MetadataEditorView: View {
             }
         }
     }
+
     #endif
 
     // MARK: - Bottom Bar
@@ -248,7 +231,9 @@ public struct MetadataEditorView: View {
             }
             .disabled(viewModel.selectedBookId == nil)
 
-            Button("Save Current Metadata to Storyteller") {
+            itunesCoversButton
+
+            Button("Save Current to Storyteller") {
                 guard let bookId = viewModel.selectedBookId else { return }
                 Task { @MainActor in
                     await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)
@@ -260,15 +245,21 @@ public struct MetadataEditorView: View {
                         ?? false)
                     || viewModel.hasValidationErrors(for: viewModel.selectedBookId ?? "")
             )
-
-            Button("Save All to Storyteller") {
-                Task { @MainActor in await viewModel.saveAll(mediaViewModel: mediaViewModel) }
-            }
-            .disabled(
-                viewModel.isSaving || !viewModel.hasAnyDirtyBooks
-                    || viewModel.hasAnyValidationErrors)
             .keyboardShortcut("s", modifiers: .command)
         }
         .padding(12)
+    }
+
+    @ViewBuilder
+    private var itunesCoversButton: some View {
+        Button("Download Covers from iTunes") {
+            guard let book = viewModel.selectedBook else { return }
+            viewModel.searchItunes(book: book)
+        }
+        .disabled(
+            viewModel.selectedBook == nil
+                || viewModel.selectedBookId.map { viewModel.isSearchingItunes(for: $0) } ?? false
+        )
+        .help("Download covers from iTunes")
     }
 }

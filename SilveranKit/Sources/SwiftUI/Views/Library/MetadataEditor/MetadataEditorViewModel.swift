@@ -404,24 +404,40 @@ final class MetadataEditorViewModel {
             payload.narrators = book.narrators.filter {
                 !$0.trimmingCharacters(in: .whitespaces).isEmpty
             }
+            var originalCreatorNamesByUuid: [String: String] = [:]
+            for creator in book.originalMetadata.creators ?? [] {
+                guard let uuid = creator.uuid else { continue }
+                originalCreatorNamesByUuid[uuid] = creator.name ?? ""
+            }
             payload.creators = book.creators.compactMap { creator in
                 let name = creator.name.trimmingCharacters(in: .whitespaces)
                 guard !name.isEmpty else { return nil }
+                let role = creator.role.trimmingCharacters(in: .whitespaces)
+                guard !role.isEmpty && role != "Role" else { return nil }
+                let originalName = creator.uuid.flatMap { originalCreatorNamesByUuid[$0] } ?? ""
+                let uuid = originalName == name ? creator.uuid : nil
                 return StorytellerCreatorRelationUpdate(
-                    uuid: creator.uuid,
+                    uuid: uuid,
                     id: nil,
                     name: name,
                     fileAs: creator.fileAs.isEmpty ? name : creator.fileAs,
-                    role: creator.role.isEmpty ? nil : creator.role
+                    role: role
                 )
             }
         }
         if book.dirtyFields.contains("series") {
+            var originalSeriesNamesByUuid: [String: String] = [:]
+            for series in book.originalMetadata.series ?? [] {
+                guard let uuid = series.uuid else { continue }
+                originalSeriesNamesByUuid[uuid] = series.name
+            }
             payload.series = book.series.compactMap { s in
                 let name = s.name.trimmingCharacters(in: .whitespaces)
                 guard !name.isEmpty else { return nil }
+                let originalName = s.uuid.flatMap { originalSeriesNamesByUuid[$0] } ?? ""
+                let uuid = originalName == name ? s.uuid : nil
                 return StorytellerSeriesRelationUpdate(
-                    uuid: s.uuid,
+                    uuid: uuid,
                     name: name,
                     featured: s.featured,
                     position: Double(s.position)

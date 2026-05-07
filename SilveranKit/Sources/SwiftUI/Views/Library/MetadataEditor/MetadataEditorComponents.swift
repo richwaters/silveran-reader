@@ -56,81 +56,205 @@ struct ThreeColumnRow<Left: View, Center: View, Right: View>: View {
 
 struct TransferColumnRow<Left: View, Center: View, Right: View>: View {
     let left: Left
+    let leftWeight: CGFloat
     let leftCanCopy: Bool
     let leftHelp: String
     let leftAction: () -> Void
     let center: Center
+    let centerWeight: CGFloat
     let rightCanCopy: Bool
     let rightHelp: String
     let rightAction: () -> Void
     let right: Right
+    let rightWeight: CGFloat
+    let leftArrowFooter: AnyView?
+    let rightArrowFooter: AnyView?
 
     init(
+        leftWeight: CGFloat = 1,
+        centerWeight: CGFloat = 1,
+        rightWeight: CGFloat = 1,
         leftCanCopy: Bool,
         leftHelp: String,
         leftAction: @escaping () -> Void,
         rightCanCopy: Bool,
         rightHelp: String,
         rightAction: @escaping () -> Void,
+        leftArrowFooter: AnyView? = nil,
+        rightArrowFooter: AnyView? = nil,
         @ViewBuilder left: () -> Left,
         @ViewBuilder center: () -> Center,
         @ViewBuilder right: () -> Right
     ) {
         self.left = left()
+        self.leftWeight = leftWeight
         self.leftCanCopy = leftCanCopy
         self.leftHelp = leftHelp
         self.leftAction = leftAction
         self.center = center()
+        self.centerWeight = centerWeight
         self.rightCanCopy = rightCanCopy
         self.rightHelp = rightHelp
         self.rightAction = rightAction
         self.right = right()
+        self.rightWeight = rightWeight
+        self.leftArrowFooter = leftArrowFooter
+        self.rightArrowFooter = rightArrowFooter
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            left
-                .frame(maxWidth: .infinity, alignment: .leading)
+        GeometryReader { geo in
+            let spacing: CGFloat = 8
+            let arrowWidth: CGFloat = 34
+            let columnWidth = max(geo.size.width - arrowWidth * 2 - spacing * 4, 0)
+            let totalWeight = max(leftWeight + centerWeight + rightWeight, 0.1)
+            let leftWidth = columnWidth * leftWeight / totalWeight
+            let centerWidth = columnWidth * centerWeight / totalWeight
+            let rightWidth = columnWidth * rightWeight / totalWeight
 
-            SourceCopyButton(
-                direction: .fromLeft,
-                isEnabled: leftCanCopy,
-                help: leftCanCopy ? leftHelp : "Already matches",
-                action: leftAction
-            )
-            .frame(width: 34, alignment: .center)
-            .frame(maxHeight: .infinity, alignment: .center)
+            ZStack(alignment: .topLeading) {
+                HStack(alignment: .top, spacing: spacing) {
+                    left
+                        .frame(width: leftWidth, alignment: .leading)
 
-            center
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    SourceCopyButton(
+                        direction: .fromLeft,
+                        isEnabled: leftCanCopy,
+                        help: leftCanCopy ? leftHelp : "Already matches",
+                        action: leftAction
+                    )
+                    .frame(width: arrowWidth, alignment: .center)
+                    .frame(maxHeight: .infinity, alignment: .center)
 
-            SourceCopyButton(
-                direction: .fromRight,
-                isEnabled: rightCanCopy,
-                help: rightCanCopy ? rightHelp : "Already matches",
-                action: rightAction
-            )
-            .frame(width: 34, alignment: .center)
-            .frame(maxHeight: .infinity, alignment: .center)
+                    center
+                        .frame(width: centerWidth, alignment: .leading)
 
-            right
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    SourceCopyButton(
+                        direction: .fromRight,
+                        isEnabled: rightCanCopy,
+                        help: rightCanCopy ? rightHelp : "Already matches",
+                        action: rightAction
+                    )
+                    .frame(width: arrowWidth, alignment: .center)
+                    .frame(maxHeight: .infinity, alignment: .center)
+
+                    right
+                        .frame(width: rightWidth, alignment: .leading)
+                }
+
+                if let leftArrowFooter {
+                    leftArrowFooter
+                        .position(
+                            x: leftWidth + spacing + arrowWidth / 2,
+                            y: geo.size.height - 18
+                        )
+                }
+
+                if let rightArrowFooter {
+                    rightArrowFooter
+                        .position(
+                            x: leftWidth + arrowWidth + centerWidth + spacing * 3 + arrowWidth / 2,
+                            y: geo.size.height - 18
+                        )
+                }
+            }
         }
     }
 }
 
 struct MetadataColumnHeaders: View {
+    let leftWeight: CGFloat
+    let centerWeight: CGFloat
+    let rightWeight: CGFloat
+    let leftTitle: String
+    let centerTitle: String
+    let rightTitle: String
+    let leftAccessory: AnyView?
+    let centerAccessory: AnyView?
+    let rightAccessory: AnyView?
+
+    init(
+        leftWeight: CGFloat = 1,
+        centerWeight: CGFloat = 1,
+        rightWeight: CGFloat = 1,
+        leftTitle: String = "Storyteller Server",
+        centerTitle: String = "Current Metadata",
+        rightTitle: String = "Hardcover Import",
+        leftAccessory: AnyView? = nil,
+        centerAccessory: AnyView? = nil,
+        rightAccessory: AnyView? = nil
+    ) {
+        self.leftWeight = leftWeight
+        self.centerWeight = centerWeight
+        self.rightWeight = rightWeight
+        self.leftTitle = leftTitle
+        self.centerTitle = centerTitle
+        self.rightTitle = rightTitle
+        self.leftAccessory = leftAccessory
+        self.centerAccessory = centerAccessory
+        self.rightAccessory = rightAccessory
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("Storyteller Server").font(.headline)
-                .frame(maxWidth: .infinity, alignment: .center)
-            Color.clear.frame(width: 34)
-            Text("Current Metadata").font(.headline)
-                .frame(maxWidth: .infinity, alignment: .center)
-            Color.clear.frame(width: 34)
-            Text("Hardcover Import").font(.headline)
-                .frame(maxWidth: .infinity, alignment: .center)
+        GeometryReader { geo in
+            let spacing: CGFloat = 8
+            let arrowWidth: CGFloat = 34
+            let columnWidth = max(geo.size.width - arrowWidth * 2 - spacing * 4, 0)
+            let totalWeight = max(leftWeight + centerWeight + rightWeight, 0.1)
+            let leftWidth = columnWidth * leftWeight / totalWeight
+            let centerWidth = columnWidth * centerWeight / totalWeight
+            let rightWidth = columnWidth * rightWeight / totalWeight
+
+            HStack(alignment: .top, spacing: spacing) {
+                header(title: leftTitle, accessory: leftAccessory)
+                    .frame(width: leftWidth, alignment: .center)
+                Color.clear.frame(width: arrowWidth)
+                header(title: centerTitle, accessory: centerAccessory)
+                    .frame(width: centerWidth, alignment: .center)
+                Color.clear.frame(width: arrowWidth)
+                header(title: rightTitle, accessory: rightAccessory)
+                    .frame(width: rightWidth, alignment: .center)
+            }
         }
+    }
+
+    private func header(title: String, accessory: AnyView?) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.headline)
+            accessory
+        }
+    }
+}
+
+struct EmptyTablePlaceholder: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+}
+
+struct ImportHardcoverDataLink: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button("Import Hardcover Data", action: action)
+            .buttonStyle(.link)
+            .font(.callout.weight(.semibold))
+    }
+}
+
+struct ImportHardcoverDataPlaceholder: View {
+    let action: () -> Void
+
+    var body: some View {
+        ImportHardcoverDataLink(action: action)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
@@ -170,6 +294,7 @@ struct SourceScalarValue: View {
     let label: String
     let value: String?
     let currentValue: String
+    var onImportHardcover: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -187,9 +312,13 @@ struct SourceScalarValue: View {
                         .textSelection(.enabled)
                 }
             } else {
-                Text("--")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
+                if let onImportHardcover {
+                    ImportHardcoverDataLink(action: onImportHardcover)
+                } else {
+                    Text("--")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
     }
@@ -199,6 +328,7 @@ struct SourceListValues: View {
     let values: [String]?
     let currentValues: [String]
     var compareAsSet = false
+    var onImportHardcover: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -216,9 +346,13 @@ struct SourceListValues: View {
                     }
                 }
             } else {
-                Text("--")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
+                if let onImportHardcover {
+                    ImportHardcoverDataLink(action: onImportHardcover)
+                } else {
+                    Text("--")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
     }
@@ -330,36 +464,34 @@ struct StringListTable: View {
             }
 
             Table(items, selection: $selection) {
-                TableColumn("") { item in
-                    if item.isImported {
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: 6, height: 6)
-                    }
-                }
-                .width(12)
-
                 TableColumn("Value") { item in
-                    TextField(
-                        label,
-                        text: Binding(
-                            get: {
-                                let list = viewModel.books.first { $0.id == bookId }?
-                                    .stringList(for: field) ?? []
-                                guard item.id < list.count else { return "" }
-                                return list[item.id]
-                            },
-                            set: { newValue in
-                                guard let bookIndex = viewModel.books.firstIndex(where: {
-                                    $0.id == bookId
-                                }) else { return }
-                                viewModel.books[bookIndex].updateStringList(
-                                    field: field, index: item.id, value: newValue)
-                                viewModel.markDirty(field: field, for: bookId)
-                            }
+                    HStack(spacing: 6) {
+                        if item.isImported {
+                            Circle()
+                                .fill(.blue)
+                                .frame(width: 6, height: 6)
+                        }
+                        TextField(
+                            label,
+                            text: Binding(
+                                get: {
+                                    let list = viewModel.books.first { $0.id == bookId }?
+                                        .stringList(for: field) ?? []
+                                    guard item.id < list.count else { return "" }
+                                    return list[item.id]
+                                },
+                                set: { newValue in
+                                    guard let bookIndex = viewModel.books.firstIndex(where: {
+                                        $0.id == bookId
+                                    }) else { return }
+                                    viewModel.books[bookIndex].updateStringList(
+                                        field: field, index: item.id, value: newValue)
+                                    viewModel.markDirty(field: field, for: bookId)
+                                }
+                            )
                         )
-                    )
-                    .textFieldStyle(.plain)
+                        .textFieldStyle(.plain)
+                    }
                 }
             }
             .frame(height: expandToFill ? nil : min(CGFloat(max(items.count, 1)) * 28 + 28, 200))

@@ -3,9 +3,11 @@ import Foundation
 enum MetadataEditorTab: String, CaseIterable, Identifiable {
     case titleDetails = "Title & Details"
     case description = "Description"
-    case creators = "Creators"
+    case authors = "Authors"
+    case narrators = "Narrators"
+    case otherCreators = "Other Creators"
     case organization = "Tags"
-    case covers = "Covers"
+    case covers = "Cover"
 
     var id: String { rawValue }
 }

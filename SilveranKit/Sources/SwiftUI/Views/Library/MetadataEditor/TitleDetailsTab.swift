@@ -3,11 +3,13 @@ import SwiftUI
 struct TitleDetailsTab: View {
     let bookId: String
     @Bindable var viewModel: MetadataEditorViewModel
+    let openHardcoverImport: () -> Void
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                MetadataColumnHeaders()
+            VStack(alignment: .leading, spacing: 10) {
+                MetadataColumnHeaders(centerTitle: "Current Details")
+                    .frame(height: 22, alignment: .top)
 
                 scalarField(label: "Title", field: "title",
                     get: { $0.title },
@@ -30,24 +32,7 @@ struct TitleDetailsTab: View {
 
                 Divider()
 
-                TransferColumnRow(
-                    leftCanCopy: originalSeriesDisplay != currentSeriesDisplay,
-                    leftHelp: "Copy server series into current metadata",
-                    leftAction: { viewModel.revertFieldToOriginal(field: "series", for: bookId) },
-                    rightCanCopy: viewModel.hardcoverSeriesList(for: bookId).map { $0 != currentSeriesDisplay } ?? false,
-                    rightHelp: "Copy Hardcover series into current metadata",
-                    rightAction: { viewModel.revertToHardcover(field: "series", for: bookId) }
-                ) {
-                    seriesSource(
-                        values: originalSeriesDisplay
-                    )
-                } center: {
-                    seriesEditor
-                } right: {
-                    seriesSource(
-                        values: viewModel.hardcoverSeriesList(for: bookId)
-                    )
-                }
+                seriesRow
             }
             .padding()
         }
@@ -101,9 +86,11 @@ struct TitleDetailsTab: View {
             SourceScalarValue(
                 label: label,
                 value: viewModel.hardcoverScalarValue(field: field, for: bookId),
-                currentValue: currentValue
+                currentValue: currentValue,
+                onImportHardcover: openHardcoverImport
             )
         }
+        .frame(height: 56, alignment: .top)
     }
 
     // MARK: - Publication Date
@@ -187,9 +174,11 @@ struct TitleDetailsTab: View {
             SourceScalarValue(
                 label: "Publication Date",
                 value: viewModel.hardcoverScalarValue(field: "publicationDate", for: bookId),
-                currentValue: dateString
+                currentValue: dateString,
+                onImportHardcover: openHardcoverImport
             )
         }
+        .frame(height: 60, alignment: .top)
     }
 
     // MARK: - Rating
@@ -251,12 +240,37 @@ struct TitleDetailsTab: View {
             SourceScalarValue(
                 label: "Rating",
                 value: viewModel.hardcoverScalarValue(field: "rating", for: bookId),
-                currentValue: rating
+                currentValue: rating,
+                onImportHardcover: openHardcoverImport
             )
         }
+        .frame(height: 60, alignment: .top)
     }
 
     // MARK: - Series
+
+    @ViewBuilder
+    private var seriesRow: some View {
+        TransferColumnRow(
+            leftCanCopy: originalSeriesDisplay != currentSeriesDisplay,
+            leftHelp: "Copy server series into current metadata",
+            leftAction: { viewModel.revertFieldToOriginal(field: "series", for: bookId) },
+            rightCanCopy: viewModel.hardcoverSeriesList(for: bookId).map { $0 != currentSeriesDisplay } ?? false,
+            rightHelp: "Copy Hardcover series into current metadata",
+            rightAction: { viewModel.revertToHardcover(field: "series", for: bookId) }
+        ) {
+            seriesSource(
+                values: originalSeriesDisplay
+            )
+        } center: {
+            seriesEditor
+        } right: {
+            seriesSource(
+                values: viewModel.hardcoverSeriesList(for: bookId)
+            )
+        }
+        .frame(height: max(CGFloat(max(currentSeriesDisplay.count, 1)) * 32 + 28, 64), alignment: .top)
+    }
 
     @ViewBuilder
     private var seriesEditor: some View {
@@ -372,7 +386,8 @@ struct TitleDetailsTab: View {
             Text("Series").font(.callout).foregroundStyle(.secondary)
             SourceListValues(
                 values: values,
-                currentValues: currentSeriesDisplay
+                currentValues: currentSeriesDisplay,
+                onImportHardcover: openHardcoverImport
             )
         }
     }

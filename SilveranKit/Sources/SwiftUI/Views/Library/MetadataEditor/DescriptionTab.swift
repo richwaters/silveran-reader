@@ -3,6 +3,7 @@ import SwiftUI
 struct DescriptionTab: View {
     let bookId: String
     @Bindable var viewModel: MetadataEditorViewModel
+    let openHardcoverImport: () -> Void
 
     private var currentDescription: String {
         viewModel.books.first { $0.id == bookId }?.description ?? ""
@@ -18,52 +19,41 @@ struct DescriptionTab: View {
 
     var body: some View {
         GeometryReader { geo in
-            let gutterWidth: CGFloat = 42
-            let columnWidth = (geo.size.width - gutterWidth * 2) / 3
+            let contentHeight = max(geo.size.height - 52, 100)
 
-            HStack(alignment: .top, spacing: 8) {
-                sourceColumn(
-                    title: "Storyteller Server",
-                    value: originalDescription
-                )
-                .frame(width: columnWidth)
+            VStack(alignment: .leading, spacing: 2) {
+                MetadataColumnHeaders(centerTitle: "Current Description")
+                    .frame(height: 22, alignment: .top)
 
-                SourceCopyButton(
-                    direction: .fromLeft,
-                    isEnabled: originalDescription != currentDescription,
-                    help: originalDescription != currentDescription
+                TransferColumnRow(
+                    leftCanCopy: originalDescription != currentDescription,
+                    leftHelp: originalDescription != currentDescription
                         ? "Copy server description into current metadata" : "Already matches",
-                    action: { viewModel.revertFieldToOriginal(field: "description", for: bookId) }
-                )
-                .frame(width: gutterWidth)
-                .padding(.top, 52)
-
-                currentColumn
-                    .frame(width: columnWidth)
-
-                SourceCopyButton(
-                    direction: .fromRight,
-                    isEnabled: hardcoverDescription.map { $0 != currentDescription } ?? false,
-                    help: hardcoverDescription.map { $0 != currentDescription } == true
+                    leftAction: { viewModel.revertFieldToOriginal(field: "description", for: bookId) },
+                    rightCanCopy: hardcoverDescription.map { $0 != currentDescription } ?? false,
+                    rightHelp: hardcoverDescription.map { $0 != currentDescription } == true
                         ? "Copy Hardcover description into current metadata" : "Already matches",
-                    action: { viewModel.revertToHardcover(field: "description", for: bookId) }
-                )
-                .frame(width: gutterWidth)
-                .padding(.top, 52)
-
-                sourceColumn(
-                    title: "Hardcover Import",
-                    value: hardcoverDescription
-                )
-                .frame(width: columnWidth)
+                    rightAction: { viewModel.revertToHardcover(field: "description", for: bookId) }
+                ) {
+                    sourceColumn(value: originalDescription)
+                } center: {
+                    currentColumn
+                } right: {
+                    sourceColumn(value: hardcoverDescription)
+                }
+                .frame(height: contentHeight, alignment: .top)
             }
+            .padding()
+            .frame(
+                width: geo.size.width,
+                height: max(geo.size.height - 28, 100),
+                alignment: .top
+            )
         }
     }
 
     private var currentColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Current Metadata").font(.headline).padding([.horizontal, .top])
-
             TextEditor(text: Binding(
                 get: { currentDescription },
                 set: { newValue in
@@ -75,23 +65,17 @@ struct DescriptionTab: View {
             ))
             .font(.body)
             .padding(8)
-            .padding()
         }
     }
 
     @ViewBuilder
     private func sourceColumn(
-        title: String,
         value: String?
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.headline)
-                .padding([.horizontal, .top])
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let value {
+            if let value {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
                         if value.isEmpty {
                             Text("(empty)")
                                 .font(.callout)
@@ -109,13 +93,11 @@ struct DescriptionTab: View {
                                 baseColor: .primary
                             )
                         }
-                    } else {
-                        Text("--")
-                            .font(.callout)
-                            .foregroundStyle(.tertiary)
                     }
+                    .padding()
                 }
-                .padding()
+            } else {
+                ImportHardcoverDataPlaceholder(action: openHardcoverImport)
             }
         }
     }

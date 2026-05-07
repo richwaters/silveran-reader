@@ -3,6 +3,7 @@ import SwiftUI
 struct OrganizationTab: View {
     let bookId: String
     @Bindable var viewModel: MetadataEditorViewModel
+    let openHardcoverImport: () -> Void
 
     @State private var editedTagSelection: Set<Int> = []
     @State private var serverTagSelection: Set<Int> = []
@@ -70,7 +71,7 @@ struct OrganizationTab: View {
             let contentHeight = max(geo.size.height - 52, 100)
 
             VStack(alignment: .leading, spacing: 2) {
-                MetadataColumnHeaders()
+                MetadataColumnHeaders(centerTitle: "Current Tags")
                     .frame(height: 22, alignment: .top)
 
                 TransferColumnRow(
@@ -125,7 +126,8 @@ struct OrganizationTab: View {
                         editedTagSelection.removeAll()
                     }
                     .controlSize(.small)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(currentTags.isEmpty ? Color.secondary : Color.red)
+                    .disabled(currentTags.isEmpty)
 
                     Button("Delete Selected (\(editedTagSelection.count))") {
                         deleteSelectedTags()
@@ -150,36 +152,34 @@ struct OrganizationTab: View {
             .frame(height: 30, alignment: .center)
 
             Table(editedTagRows, selection: $editedTagSelection) {
-                TableColumn("") { item in
-                    if item.isImported {
-                        Circle().fill(.blue).frame(width: 6, height: 6)
-                    }
-                }
-                .width(12)
-
                 TableColumn("Tag") { item in
-                    TextField(
-                        "Tag",
-                        text: Binding(
-                            get: {
-                                let list = viewModel.books.first { $0.id == bookId }?.tags ?? []
-                                guard let sourceIndex = item.sourceIndex, sourceIndex < list.count else { return "" }
-                                return list[sourceIndex]
-                            },
-                            set: { newValue in
-                                guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
-                                else { return }
-                                guard let sourceIndex = item.sourceIndex else { return }
-                                viewModel.books[idx].updateStringList(
-                                    field: "tags", index: sourceIndex, value: newValue)
-                                viewModel.markDirty(field: "tags", for: bookId)
-                            }
+                    HStack(spacing: 6) {
+                        if item.isImported {
+                            Circle().fill(.blue).frame(width: 6, height: 6)
+                        }
+                        TextField(
+                            "Tag",
+                            text: Binding(
+                                get: {
+                                    let list = viewModel.books.first { $0.id == bookId }?.tags ?? []
+                                    guard let sourceIndex = item.sourceIndex, sourceIndex < list.count else { return "" }
+                                    return list[sourceIndex]
+                                },
+                                set: { newValue in
+                                    guard let idx = viewModel.books.firstIndex(where: { $0.id == bookId })
+                                    else { return }
+                                    guard let sourceIndex = item.sourceIndex else { return }
+                                    viewModel.books[idx].updateStringList(
+                                        field: "tags", index: sourceIndex, value: newValue)
+                                    viewModel.markDirty(field: "tags", for: bookId)
+                                }
+                            )
                         )
-                    )
-                    .textFieldStyle(.plain)
-                    .simultaneousGesture(TapGesture().onEnded {
-                        editedTagSelection = [item.id]
-                    })
+                        .textFieldStyle(.plain)
+                    }
+                        .simultaneousGesture(TapGesture().onEnded {
+                            editedTagSelection = [item.id]
+                        })
                 }
             }
             .padding(.horizontal, 8)
@@ -195,7 +195,7 @@ struct OrganizationTab: View {
                 Button("Use All") {
                     importServerTags(serverTags)
                 }
-                .disabled(serverTagRows.isEmpty)
+                .disabled(!selectedTagsContainMissingTag(serverTags))
 
                 Button {
                     showServerTagHelp = true
@@ -223,36 +223,37 @@ struct OrganizationTab: View {
             }
 
             if serverTagRows.isEmpty {
-                Text("(empty)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .italic()
+                serverTagsTable
             } else {
-                Table(serverTagRows, selection: $serverTagSelection) {
-                    TableColumn("Tag") { item in
-                        TextField(
-                            "Tag",
-                            text: Binding(
-                                get: { item.value },
-                                set: { _ in }
-                            )
-                        )
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(item.isOnCurrentBook ? .primary : .secondary)
-                        .opacity(item.isOnCurrentBook ? 1 : 0.7)
-                            .simultaneousGesture(TapGesture().onEnded {
-                                selectServerTag(item.id)
-                            })
-                            .simultaneousGesture(TapGesture(count: 2).onEnded {
-                                serverTagSelection = [item.id]
-                                importServerTags([item.value])
-                            })
-                    }
-                }
-                .padding(.horizontal, 8)
-                .frame(maxHeight: .infinity, alignment: .top)
+                serverTagsTable
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var serverTagsTable: some View {
+        Table(serverTagRows, selection: $serverTagSelection) {
+            TableColumn("Tag") { item in
+                TextField(
+                    "Tag",
+                    text: Binding(
+                        get: { item.value },
+                        set: { _ in }
+                    )
+                )
+                .textFieldStyle(.plain)
+                .foregroundStyle(item.isOnCurrentBook ? .primary : .secondary)
+                .opacity(item.isOnCurrentBook ? 1 : 0.7)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        selectServerTag(item.id)
+                    })
+                    .simultaneousGesture(TapGesture(count: 2).onEnded {
+                        serverTagSelection = [item.id]
+                        importServerTags([item.value])
+                    })
+            }
+        }
+        .padding(.horizontal, 8)
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
@@ -263,13 +264,14 @@ struct OrganizationTab: View {
                 Button("Use All") {
                     importHardcoverTags(hcTagNames ?? [])
                 }
-                .disabled(hcTagRows.isEmpty)
+                .disabled(!selectedTagsContainMissingTag(hcTagNames ?? []))
             }
 
             if hcTagRows.isEmpty {
-                Text("--")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
+                ImportHardcoverDataPlaceholder(action: openHardcoverImport)
+                    .padding(.horizontal, 8)
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    .offset(y: -15)
             } else {
                 Table(hcTagRows, selection: $hcTagSelection, sortOrder: $hcSortOrder) {
                     TableColumn("Tag", value: \.name) { item in
