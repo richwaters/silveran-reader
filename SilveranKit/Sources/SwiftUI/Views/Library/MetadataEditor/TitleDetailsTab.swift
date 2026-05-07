@@ -113,9 +113,8 @@ struct TitleDetailsTab: View {
             if hasHardcoverImportData {
                 SourceScalarValue(
                     label: label,
-                    value: viewModel.hardcoverScalarValue(field: field, for: bookId),
-                    currentValue: currentValue,
-                    onImportHardcover: openHardcoverImport
+                    value: viewModel.hardcoverScalarValue(field: field, for: bookId) ?? "",
+                    currentValue: currentValue
                 )
             }
         }
@@ -245,8 +244,7 @@ struct TitleDetailsTab: View {
                 label: "Book Publication Date",
                 value: textDate,
                 currentValue: currentValue,
-                isSelected: selectedSource == .text,
-                onImportHardcover: openHardcoverImport
+                isSelected: selectedSource == .text
             ) {
                 selectedPublicationDateSource = .text
             }
@@ -254,8 +252,7 @@ struct TitleDetailsTab: View {
                 label: "Audiobook Publication Date",
                 value: audioDate,
                 currentValue: currentValue,
-                isSelected: selectedSource == .audiobook,
-                onImportHardcover: openHardcoverImport
+                isSelected: selectedSource == .audiobook
             ) {
                 selectedPublicationDateSource = .audiobook
             }
@@ -322,9 +319,8 @@ struct TitleDetailsTab: View {
             if hasHardcoverImportData {
                 SourceScalarValue(
                     label: "Rating",
-                    value: viewModel.hardcoverScalarValue(field: "rating", for: bookId),
-                    currentValue: rating,
-                    onImportHardcover: openHardcoverImport
+                    value: viewModel.hardcoverScalarValue(field: "rating", for: bookId) ?? "",
+                    currentValue: rating
                 )
             }
         }
@@ -351,7 +347,8 @@ struct TitleDetailsTab: View {
         } right: {
             if hasHardcoverImportData {
                 seriesSource(
-                    values: viewModel.hardcoverSeriesList(for: bookId)
+                    values: viewModel.hardcoverSeriesList(for: bookId) ?? [],
+                    onImportHardcover: nil
                 )
             }
         }
@@ -466,14 +463,15 @@ struct TitleDetailsTab: View {
 
     @ViewBuilder
     private func seriesSource(
-        values: [String]?
+        values: [String]?,
+        onImportHardcover: (() -> Void)? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Series").font(.callout).foregroundStyle(.secondary)
             SourceListValues(
                 values: values,
                 currentValues: currentSeriesDisplay,
-                onImportHardcover: openHardcoverImport
+                onImportHardcover: onImportHardcover
             )
         }
     }
@@ -505,7 +503,6 @@ private struct HardcoverPublicationDateChoice: View {
     let value: String?
     let currentValue: String
     let isSelected: Bool
-    let onImportHardcover: () -> Void
     let selectAction: () -> Void
 
     var body: some View {
@@ -528,7 +525,10 @@ private struct HardcoverPublicationDateChoice: View {
                     .disabled(isSelected)
                 }
             } else {
-                ImportHardcoverDataLink(action: onImportHardcover)
+                Text("(empty)")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .italic()
             }
         }
     }
