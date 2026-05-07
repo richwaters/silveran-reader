@@ -238,6 +238,25 @@ final class MetadataEditorViewModel {
         deletedCollectionUuids.removeAll()
     }
 
+    func refreshLibraryCollectionsFromServer() async {
+        guard let collections = await StorytellerActor.shared.fetchCollections() else { return }
+
+        libraryCollections = collections
+            .filter { !deletedCollectionUuids.contains($0.uuid) }
+            .map {
+                BookCollectionSummary(
+                    uuid: $0.uuid,
+                    name: $0.name,
+                    description: $0.description,
+                    isPublic: $0.isPublic,
+                    importPath: $0.importPath,
+                    createdAt: $0.createdAt,
+                    updatedAt: $0.updatedAt
+                )
+            }
+        rebuildLibraryCollectionCaches()
+    }
+
     func createCollection(named name: String) async -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }

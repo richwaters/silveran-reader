@@ -2107,7 +2107,7 @@ public actor StorytellerActor {
 
     /// Lists collections visible to the user via `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (GET handler).
-    func fetchCollections() async -> [StorytellerCollection]? {
+    public func fetchCollections() async -> [StorytellerCollection]? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
         let collectionsURL = baseURL.appendingPathComponent("collections")
 

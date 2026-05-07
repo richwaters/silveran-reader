@@ -77,7 +77,8 @@ struct CollectionsTab: View {
             VStack(alignment: .leading, spacing: 2) {
                 MetadataColumnHeaders(
                     centerTitle: "Current Collections",
-                    rightTitle: "Available Collections"
+                    rightTitle: "Available Collections",
+                    rightAccessory: AnyView(refreshCollectionsButton)
                 )
                 .frame(height: 22, alignment: .top)
 
@@ -159,6 +160,20 @@ struct CollectionsTab: View {
                 Text("The selected collection will be deleted from the Storyteller server.")
             }
         }
+        .task {
+            await viewModel.refreshLibraryCollectionsFromServer()
+        }
+    }
+
+    private var refreshCollectionsButton: some View {
+        Button {
+            Task { await viewModel.refreshLibraryCollectionsFromServer() }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .help("Refresh collections from Storyteller")
     }
 
     private var currentColumn: some View {
