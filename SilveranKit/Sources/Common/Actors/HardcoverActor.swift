@@ -30,6 +30,12 @@ public struct HardcoverEditionInfo: Sendable, Identifiable {
     public let rawJSON: String?
 }
 
+public struct HardcoverTagInfo: Sendable {
+    public let name: String
+    public let count: Int
+    public let category: String?
+}
+
 public struct HardcoverBookDetails: Sendable {
     public let title: String?
     public let subtitle: String?
@@ -41,7 +47,7 @@ public struct HardcoverBookDetails: Sendable {
     public let narrators: [String]
     public let creators: [(name: String, role: String)]
     public let series: [(name: String, position: Double?, featured: Bool)]
-    public let tags: [(name: String, count: Int)]
+    public let tags: [HardcoverTagInfo]
     public let editions: [HardcoverEditionInfo]
     public let imageUrl: String?
     public let imageWidth: Int?
@@ -54,7 +60,7 @@ public struct HardcoverBookDetails: Sendable {
         authors: [String], narrators: [String],
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
-        tags: [(name: String, count: Int)], editions: [HardcoverEditionInfo],
+        tags: [HardcoverTagInfo], editions: [HardcoverEditionInfo],
         imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil,
         rawJSON: String? = nil
     ) {
@@ -204,7 +210,10 @@ public actor HardcoverActor {
                         }
                         taggable_counts(order_by: {count: desc}) {
                             count
-                            tag { tag }
+                            tag {
+                                tag
+                                tag_category { category slug }
+                            }
                         }
                         image { url width height }
                         default_audio_edition {
@@ -333,12 +342,13 @@ public actor HardcoverActor {
         }
 
         let taggableCounts = book["taggable_counts"] as? [[String: Any]] ?? []
-        let tags: [(name: String, count: Int)] = taggableCounts.compactMap { tc in
+        let tags: [HardcoverTagInfo] = taggableCounts.compactMap { tc in
             guard let tag = tc["tag"] as? [String: Any],
                 let name = tag["tag"] as? String
             else { return nil }
             let count = tc["count"] as? Int ?? 0
-            return (name: name, count: count)
+            let category = (tag["tag_category"] as? [String: Any])?["category"] as? String
+            return HardcoverTagInfo(name: name, count: count, category: category)
         }
 
         let editionsRaw = book["editions"] as? [[String: Any]] ?? []

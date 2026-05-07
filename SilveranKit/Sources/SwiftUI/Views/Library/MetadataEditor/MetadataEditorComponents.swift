@@ -477,6 +477,7 @@ struct IdentifiedTagWithCount: Identifiable {
     let id: Int
     let name: String
     let count: Int
+    let category: String?
 }
 
 struct StringListTable: View {

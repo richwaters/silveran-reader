@@ -11,6 +11,7 @@ struct OrganizationTab: View {
     @State private var hcSortOrder: [KeyPathComparator<IdentifiedTagWithCount>] = [
         KeyPathComparator(\.count, order: .reverse)
     ]
+    @State private var hcTagGroup: HardcoverTagGroup = .genre
     @State private var showServerTagHelp = false
 
     private var editedTagRows: [IdentifiedString] {
@@ -56,9 +57,17 @@ struct OrganizationTab: View {
     private var hcTagRows: [IdentifiedTagWithCount] {
         guard let tags = viewModel.hardcoverTagsWithCounts(for: bookId)
         else { return [] }
-        let rows = tags.enumerated().map { i, tag in
-            IdentifiedTagWithCount(id: i, name: tag.name, count: tag.count)
-        }
+        let rows = tags
+            .filter { hcTagGroup.includes($0) }
+            .enumerated()
+            .map { i, tag in
+                IdentifiedTagWithCount(
+                    id: i,
+                    name: tag.name,
+                    count: tag.count,
+                    category: tag.category
+                )
+            }
         return rows.sorted(using: hcSortOrder)
     }
 
@@ -115,6 +124,9 @@ struct OrganizationTab: View {
             guard !selection.isEmpty else { return }
             editedTagSelection.removeAll()
             serverTagSelection.removeAll()
+        }
+        .onChange(of: hcTagGroup) {
+            hcTagSelection.removeAll()
         }
     }
 
@@ -264,14 +276,9 @@ struct OrganizationTab: View {
     @ViewBuilder
     private var hardcoverTagsColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sourceToolbar {
-                Button("Use All") {
-                    importHardcoverTags(hcTagNames ?? [])
-                }
-                .disabled(!selectedTagsContainMissingTag(hcTagNames ?? []))
-            }
+            hardcoverToolbar
 
-            if hcTagRows.isEmpty {
+            if viewModel.hardcoverTagsWithCounts(for: bookId) == nil {
                 ImportHardcoverDataPlaceholder(action: openHardcoverImport)
                     .padding(.horizontal, 8)
                     .frame(maxHeight: .infinity, alignment: .center)
@@ -307,6 +314,39 @@ struct OrganizationTab: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var hardcoverToolbar: some View {
+        ZStack {
+            HStack {
+                Spacer()
+
+                Menu {
+                    ForEach(HardcoverTagGroup.allCases) { group in
+                        Button(group.label) {
+                            hcTagGroup = group
+                        }
+                    }
+                } label: {
+                    Text(hcTagGroup.label)
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .controlSize(.small)
+                .help("Filter Hardcover tags")
+            }
+
+            HStack {
+                Button("Use All") {
+                    importHardcoverTags(hcTagNames ?? [])
+                }
+                .disabled(!selectedTagsContainMissingTag(hcTagNames ?? []))
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 30, alignment: .center)
     }
 
     private func sourceToolbar<Content: View>(
@@ -404,6 +444,39 @@ struct OrganizationTab: View {
         }
         #endif
         selection = [id]
+    }
+}
+
+private enum HardcoverTagGroup: String, CaseIterable, Identifiable {
+    case all
+    case genre
+    case mood
+    case other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: "All"
+        case .genre: "Genre"
+        case .mood: "Mood"
+        case .other: "Other"
+        }
+    }
+
+    func includes(_ tag: HardcoverTagInfo) -> Bool {
+        let category = tag.category?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch self {
+        case .all:
+            return true
+        case .genre:
+            return category?.localizedCaseInsensitiveCompare("Genre") == .orderedSame
+        case .mood:
+            return category?.localizedCaseInsensitiveCompare("Mood") == .orderedSame
+        case .other:
+            return category?.localizedCaseInsensitiveCompare("Genre") != .orderedSame
+                && category?.localizedCaseInsensitiveCompare("Mood") != .orderedSame
+        }
     }
 }
 

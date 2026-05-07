@@ -1289,7 +1289,7 @@ final class MetadataEditorViewModel {
     func hardcoverTagsWithCounts(
         for bookId: String,
         source: HardcoverImportSource = .text
-    ) -> [(name: String, count: Int)]? {
+    ) -> [HardcoverTagInfo]? {
         guard let details = hardcoverDetails(field: "tags", for: bookId, source: source),
               !details.tags.isEmpty
         else { return nil }
