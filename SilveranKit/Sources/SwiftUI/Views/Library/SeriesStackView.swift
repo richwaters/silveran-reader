@@ -133,7 +133,7 @@ struct SeriesStackView: View {
                 if let image = coverState.image {
                     image
                         .resizable()
-                        .interpolation(.medium)
+                        .interpolation(.high)
                         .scaledToFill()
                         .frame(width: coverWidth, height: coverHeight)
                         .clipped()
@@ -141,6 +141,7 @@ struct SeriesStackView: View {
             }
             .frame(width: coverWidth, height: coverHeight)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .stableCoverRendering()
             .overlay(alignment: .bottomTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: book, coverVariant: coverVariant)

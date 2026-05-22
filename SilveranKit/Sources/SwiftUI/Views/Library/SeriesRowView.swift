@@ -78,12 +78,13 @@ struct SeriesRowView: View {
                     if let image = coverState.image {
                         image
                             .resizable()
-                            .interpolation(.medium)
+                            .interpolation(.high)
                             .scaledToFill()
                     }
                 }
                 .frame(width: coverSize * aspectRatio, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .stableCoverRendering()
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                 .offset(x: offset)
                 .zIndex(Double(index))

@@ -1,5 +1,21 @@
 import SwiftUI
 
+private struct StableCoverRenderingModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .compositingGroup()
+            #if os(macOS)
+            .drawingGroup(opaque: false, colorMode: .linear)
+            #endif
+    }
+}
+
+extension View {
+    func stableCoverRendering() -> some View {
+        modifier(StableCoverRenderingModifier())
+    }
+}
+
 enum MediaGridViewUtilities {
     #if os(macOS)
     static func nextSelectableItem(

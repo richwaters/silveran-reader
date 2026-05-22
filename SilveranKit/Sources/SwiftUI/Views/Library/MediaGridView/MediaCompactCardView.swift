@@ -78,14 +78,16 @@ struct MediaCompactCardView: View {
                         if let image = coverState.image {
                             image
                                 .resizable()
-                                .interpolation(.medium)
+                                .interpolation(.high)
                                 .scaledToFit()
                         }
                     }
                     .frame(width: tileSize, height: tileSize / aspectRatio)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .stableCoverRendering()
                 }
             }
+            .stableCoverRendering()
             .overlay(alignment: .bottom) {
                 if progressStyle == .line && progress > 0 {
                     GeometryReader { geometry in

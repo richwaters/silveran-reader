@@ -100,12 +100,13 @@ struct GroupedBooksCardView: View {
                         if let image = coverState.image {
                             image
                                 .resizable()
-                                .interpolation(.medium)
+                                .interpolation(.high)
                                 .scaledToFill()
                         }
                     }
                     .frame(width: singleCoverWidth, height: singleCoverHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .stableCoverRendering()
                     .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 2)
                     .rotationEffect(.degrees(rotation))
                     .offset(x: xOffset)

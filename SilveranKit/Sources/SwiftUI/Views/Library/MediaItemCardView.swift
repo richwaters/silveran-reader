@@ -343,6 +343,7 @@ struct MediaItemCardView: View {
                                 style: .continuous
                             )
                         )
+                        .stableCoverRendering()
                     }
                     Spacer(minLength: 0)
                 }
@@ -531,7 +532,7 @@ private struct MediaItemCoverImage: View {
             if let image = coverState.image {
                 image
                     .resizable()
-                    .interpolation(.medium)
+                    .interpolation(.high)
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity.combined(with: .scale))
@@ -640,6 +641,7 @@ struct DoubleCoverView: View {
             coverImage(state: audioState)
                 .frame(width: audioSize, height: audioSize)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+                .stableCoverRendering()
                 .scaleEffect(audioScale)
                 .offset(x: audioXOffset)
                 .zIndex(audioZ)
@@ -667,6 +669,7 @@ struct DoubleCoverView: View {
             coverImage(state: ebookState)
                 .frame(width: scaledWidth, height: ebookHeight)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+                .stableCoverRendering()
                 .offset(x: ebookXOffset)
                 .zIndex(ebookZ)
         }
@@ -697,7 +700,7 @@ struct DoubleCoverView: View {
         if let image = state.image {
             image
                 .resizable()
-                .interpolation(.medium)
+                .interpolation(.high)
                 .scaledToFill()
         } else {
             placeholderColor
