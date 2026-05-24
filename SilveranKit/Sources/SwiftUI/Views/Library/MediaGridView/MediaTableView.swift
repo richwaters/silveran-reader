@@ -126,10 +126,10 @@ private final class ImmediateSelectTableView: NSTableView {
                         return
                     }
                     if let titleCell = cellView as? TitleAuthorCellView,
-                        let target = titleCell.authorLinkTarget
+                        let target = titleCell.secondaryLinkTarget
                     {
                         let pointInCell = cellView.convert(point, from: self)
-                        if titleCell.authorLabelContainsPoint(pointInCell) {
+                        if titleCell.secondaryLabelContainsPoint(pointInCell) {
                             onLinkClicked?(target)
                             super.mouseDown(with: event)
                             return
@@ -352,15 +352,6 @@ struct MediaTableView: NSViewRepresentable {
         "cover", "title", "subtitle", "author", "series", "progress", "narrator",
         "language", "collections", "publicationYear", "status", "added", "lastRead",
         "tags", "source", "media", "allCreators", "alignedAt", "alignedByVersion", "alignedWith",
-    ]
-
-    static let curatedCreatorRoles: [(code: String, label: String)] = [
-        ("trl", "Translator"),
-        ("edt", "Editor"),
-        ("ill", "Illustrator"),
-        ("clr", "Colorist"),
-        ("aui", "Author of Introduction"),
-        ("ctb", "Contributor"),
     ]
 
     static func creatorColumnID(for roleCode: String) -> String {
@@ -1247,10 +1238,15 @@ struct MediaTableView: NSViewRepresentable {
                 withIdentifier: NSUserInterfaceItemIdentifier("cover")
             )
             let showAuthor = !(coverColumn?.isHidden ?? false)
+            let subtitle = item.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let secondaryText = subtitle?.isEmpty == false ? subtitle : item.authors?.first?.name
+            let secondaryLinkTarget =
+                subtitle?.isEmpty == false ? nil : item.authors?.first?.name.map(MetadataLinkTarget.author)
             cell.configure(
                 title: item.title,
-                author: item.authors?.first?.name,
-                showAuthor: showAuthor
+                secondaryText: secondaryText,
+                secondaryLinkTarget: secondaryLinkTarget,
+                showSecondary: showAuthor
             )
             return cell
         }
@@ -1529,9 +1525,9 @@ private final class LinkTextCellView: NSTableCellView {
 
 private final class TitleAuthorCellView: NSTableCellView {
     private let titleLabel = NSTextField(labelWithString: "")
-    private let authorLabel = NSTextField(labelWithString: "")
+    private let secondaryLabel = NSTextField(labelWithString: "")
     private let stackView = NSStackView()
-    var authorLinkTarget: MetadataLinkTarget?
+    var secondaryLinkTarget: MetadataLinkTarget?
     private var trackingArea: NSTrackingArea?
 
     init(identifier: NSUserInterfaceItemIdentifier) {
@@ -1550,10 +1546,10 @@ private final class TitleAuthorCellView: NSTableCellView {
         titleLabel.font = .systemFont(ofSize: 13)
         titleLabel.textColor = .labelColor
 
-        authorLabel.lineBreakMode = .byTruncatingTail
-        authorLabel.maximumNumberOfLines = 1
-        authorLabel.font = .systemFont(ofSize: 11)
-        authorLabel.textColor = .secondaryLabelColor
+        secondaryLabel.lineBreakMode = .byTruncatingTail
+        secondaryLabel.maximumNumberOfLines = 1
+        secondaryLabel.font = .systemFont(ofSize: 11)
+        secondaryLabel.textColor = .secondaryLabelColor
 
         stackView.orientation = .vertical
         stackView.alignment = .leading
@@ -1561,7 +1557,7 @@ private final class TitleAuthorCellView: NSTableCellView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
         stackView.addArrangedSubview(titleLabel)
-        stackView.addArrangedSubview(authorLabel)
+        stackView.addArrangedSubview(secondaryLabel)
         addSubview(stackView)
 
         NSLayoutConstraint.activate([
@@ -1571,15 +1567,16 @@ private final class TitleAuthorCellView: NSTableCellView {
         ])
     }
 
-    func configure(title: String, author: String?, showAuthor: Bool = true) {
+    func configure(
+        title: String,
+        secondaryText: String?,
+        secondaryLinkTarget: MetadataLinkTarget?,
+        showSecondary: Bool = true
+    ) {
         titleLabel.stringValue = title
-        authorLabel.stringValue = author ?? ""
-        authorLabel.isHidden = !showAuthor || (author?.isEmpty ?? true)
-        if let author, !author.isEmpty {
-            authorLinkTarget = .author(author)
-        } else {
-            authorLinkTarget = nil
-        }
+        secondaryLabel.stringValue = secondaryText ?? ""
+        secondaryLabel.isHidden = !showSecondary || (secondaryText?.isEmpty ?? true)
+        self.secondaryLinkTarget = secondaryLabel.isHidden ? nil : secondaryLinkTarget
         updateTextColors()
     }
 
@@ -1590,17 +1587,17 @@ private final class TitleAuthorCellView: NSTableCellView {
     private func updateTextColors() {
         if backgroundStyle == .emphasized {
             titleLabel.textColor = .white
-            authorLabel.textColor = .white.withAlphaComponent(0.8)
+            secondaryLabel.textColor = .white.withAlphaComponent(0.8)
         } else {
             titleLabel.textColor = .labelColor
-            authorLabel.textColor = .secondaryLabelColor
+            secondaryLabel.textColor = .secondaryLabelColor
         }
     }
 
-    func authorLabelContainsPoint(_ pointInCell: NSPoint) -> Bool {
-        guard !authorLabel.isHidden, authorLinkTarget != nil else { return false }
+    func secondaryLabelContainsPoint(_ pointInCell: NSPoint) -> Bool {
+        guard !secondaryLabel.isHidden, secondaryLinkTarget != nil else { return false }
         let pointInStack = stackView.convert(pointInCell, from: self)
-        return authorLabel.frame.contains(pointInStack)
+        return secondaryLabel.frame.contains(pointInStack)
     }
 
     override func updateTrackingAreas() {
@@ -1620,7 +1617,7 @@ private final class TitleAuthorCellView: NSTableCellView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if authorLabelContainsPoint(point) {
+        if secondaryLabelContainsPoint(point) {
             NSCursor.pointingHand.set()
         } else {
             NSCursor.arrow.set()
@@ -2586,12 +2583,6 @@ private struct MediaIndicatorCellContent: View {
 private final class DateFormatterCache {
     static let shared = DateFormatterCache()
 
-    enum DateStyle {
-        case full
-        case monthYear
-        case yearOnly
-    }
-
     private let isoWithFractional: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -2618,48 +2609,6 @@ private final class DateFormatterCache {
         formatter.dateFormat = "EEE MMM dd yyyy HH:mm:ss 'GMT'xx"
         return formatter
     }()
-    private let displayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter
-    }()
-    private let monthYearFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM yyyy"
-        return formatter
-    }()
-    private let yearFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        return formatter
-    }()
-    private var cache: [String: String] = [:]
-    private var monthYearCache: [String: String] = [:]
-    private var yearCache: [String: String] = [:]
-
-    func format(_ dateString: String, style: DateStyle = .full) -> String {
-        switch style {
-            case .full:
-                if let cached = cache[dateString] { return cached }
-                let parsedDate = parseDate(dateString)
-                let formatted = parsedDate.map { displayFormatter.string(from: $0) } ?? dateString
-                cache[dateString] = formatted
-                return formatted
-            case .monthYear:
-                if let cached = monthYearCache[dateString] { return cached }
-                let parsedDate = parseDate(dateString)
-                let formatted = parsedDate.map { monthYearFormatter.string(from: $0) } ?? dateString
-                monthYearCache[dateString] = formatted
-                return formatted
-            case .yearOnly:
-                if let cached = yearCache[dateString] { return cached }
-                let parsedDate = parseDate(dateString)
-                let formatted = parsedDate.map { yearFormatter.string(from: $0) } ?? dateString
-                yearCache[dateString] = formatted
-                return formatted
-        }
-    }
 
     func parseDate(_ dateString: String) -> Date? {
         isoWithFractional.date(from: dateString)

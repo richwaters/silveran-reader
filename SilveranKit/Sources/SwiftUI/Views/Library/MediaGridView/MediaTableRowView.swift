@@ -200,7 +200,14 @@ struct MediaTableRowView: View {
                     .lineLimit(1)
             }
 
-            if let authorName = item.authors?.first?.name {
+            if let subtitle = item.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !subtitle.isEmpty
+            {
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if let authorName = item.authors?.first?.name {
                 Text(authorName)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)

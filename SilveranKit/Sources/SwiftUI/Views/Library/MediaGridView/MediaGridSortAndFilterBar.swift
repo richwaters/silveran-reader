@@ -598,10 +598,6 @@ struct MediaGridSortAndFilterBar: View {
     }
 
     #if os(macOS)
-    private var isListLayout: Bool {
-        layoutStyle == .table
-    }
-
     @ViewBuilder
     private var columnsMenu: some View {
         Menu {
@@ -614,6 +610,7 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "narrator", label: "Narrator")
             columnToggle(id: "language", label: "Language")
             columnToggle(id: "collections", label: "Collections")
+            columnToggle(id: "publicationYear", label: "Publication Date")
             columnToggle(id: "status", label: "Status")
             columnToggle(id: "added", label: "Added")
             columnToggle(id: "lastRead", label: "Last Read")
@@ -646,16 +643,12 @@ struct MediaGridSortAndFilterBar: View {
     }
 
     private var mergedCreatorRoles: [(code: String, label: String)] {
-        let curated = MediaTableView.curatedCreatorRoles
-        let curatedCodes = Set(curated.map(\.code))
-        let extraRoles = availableCreatorRoles
-            .filter { !curatedCodes.contains($0) && $0 != "aut" && $0 != "nrt" }
+        availableCreatorRoles
+            .filter { $0 != "aut" && $0 != "nrt" }
             .sorted()
             .map { code in
                 (code: code, label: MediaTableView.labelForRole(code))
             }
-        let filteredCurated = curated.filter { $0.code != "aut" && $0.code != "nrt" }
-        return filteredCurated + extraRoles
     }
 
     @ViewBuilder
