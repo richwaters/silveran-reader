@@ -336,6 +336,20 @@ public struct BookStatus: Codable, Sendable, Hashable {
     public let createdAt: String?
     public let updatedAt: String?
 
+    public init(
+        uuid: String?,
+        name: String,
+        isDefault: Bool? = nil,
+        createdAt: String? = nil,
+        updatedAt: String? = nil
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.isDefault = isDefault
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         uuid = container.decodeLenient(String.self, forKey: .uuid)

@@ -258,8 +258,8 @@ struct WorkMetadataLayout: View {
     private func statusField() -> some View {
         editableFieldShell(label: "Status", field: "status") {
             Picker("", selection: statusBinding) {
-                ForEach(statusOptions, id: \.self) { status in
-                    Text(status.isEmpty ? "(none)" : status).tag(status)
+                ForEach(statusOptions, id: \.uuid) { status in
+                    Text(status.name).tag(status.uuid ?? "")
                 }
             }
             .labelsHidden()
@@ -270,15 +270,20 @@ struct WorkMetadataLayout: View {
         }
     }
 
-    private var statusOptions: [String] {
+    private var statusOptions: [BookStatus] {
         var statuses = viewModel.availableStatuses
-            .map(\.name)
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        let current = viewModel.books.first { $0.id == bookId }?.status ?? ""
-        if !current.isEmpty && !statuses.contains(current) {
-            statuses.insert(current, at: 0)
+            .filter {
+                !($0.uuid ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        guard let current = viewModel.books.first(where: { $0.id == bookId }),
+            !current.statusUuid.isEmpty,
+            !statuses.contains(where: { $0.uuid == current.statusUuid })
+        else {
+            return statuses
         }
+        statuses.insert(current.originalMetadata.status ?? BookStatus(uuid: current.statusUuid, name: current.status), at: 0)
         return statuses
     }
 
@@ -344,10 +349,13 @@ struct WorkMetadataLayout: View {
 
     private var statusBinding: Binding<String> {
         Binding(
-            get: { viewModel.books.first { $0.id == bookId }?.status ?? "" },
+            get: { viewModel.books.first { $0.id == bookId }?.statusUuid ?? "" },
             set: { newValue in
                 guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                viewModel.books[index].status = newValue
+                viewModel.books[index].statusUuid = newValue
+                if let status = viewModel.availableStatuses.first(where: { $0.uuid == newValue }) {
+                    viewModel.books[index].status = status.name
+                }
                 viewModel.markDirty(field: "status", for: bookId)
             }
         )

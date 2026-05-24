@@ -45,6 +45,7 @@ final class MetadataEditorViewModel {
         var publicationDate: String
         var rating: String
         var status: String
+        var statusUuid: String
         var authors: [String]
         var narrators: [String]
         var creators: [EditableCreator]
@@ -71,6 +72,7 @@ final class MetadataEditorViewModel {
             self.publicationDate = Self.dateOnly(metadata.publicationDate) ?? ""
             self.rating = metadata.rating.map { String($0) } ?? ""
             self.status = metadata.status?.name ?? ""
+            self.statusUuid = metadata.status?.uuid ?? ""
             self.authors = metadata.authors?.compactMap { $0.name } ?? []
             self.narrators = metadata.narrators?.compactMap { $0.name } ?? []
             self.creators = metadata.creators?.map { creator in
@@ -401,7 +403,7 @@ final class MetadataEditorViewModel {
         case "publicationDate":
             isChanged = book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
         case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
-        case "status": isChanged = book.status != (orig.status?.name ?? "")
+        case "status": isChanged = book.statusUuid != (orig.status?.uuid ?? "")
         case "authors":
             isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
         case "narrators":
@@ -624,6 +626,17 @@ final class MetadataEditorViewModel {
             errors.append(ValidationError(field: "rating", message: "Invalid rating"))
         }
 
+        if book.dirtyFields.contains("status") {
+            let statusUuid = book.statusUuid.trimmingCharacters(in: .whitespacesAndNewlines)
+            let validStatusUuids = Set(availableStatuses.compactMap(\.uuid))
+            if statusUuid.isEmpty || !validStatusUuids.contains(statusUuid) {
+                errors.append(ValidationError(
+                    field: "status",
+                    message: "Select a valid Storyteller status"
+                ))
+            }
+        }
+
         if book.dirtyFields.contains("publicationDate") {
             let pubDate = book.publicationDate.trimmingCharacters(in: .whitespacesAndNewlines)
             if !pubDate.isEmpty {
@@ -711,7 +724,7 @@ final class MetadataEditorViewModel {
             }
         }
         if book.dirtyFields.contains("status") {
-            payload.status = book.status
+            payload.status = book.statusUuid
         }
         let anyCreatorFieldDirty = !book.dirtyFields.isDisjoint(
             with: ["authors", "narrators", "creators"])
@@ -1192,6 +1205,7 @@ final class MetadataEditorViewModel {
             books[index].rating = orig.rating.map { String($0) } ?? ""
         case "status":
             books[index].status = orig.status?.name ?? ""
+            books[index].statusUuid = orig.status?.uuid ?? ""
         case "authors":
             books[index].authors = orig.authors?.compactMap { $0.name } ?? []
         case "narrators":
@@ -1238,6 +1252,7 @@ final class MetadataEditorViewModel {
         books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
         books[index].rating = orig.rating.map { String($0) } ?? ""
         books[index].status = orig.status?.name ?? ""
+        books[index].statusUuid = orig.status?.uuid ?? ""
         books[index].authors = orig.authors?.compactMap { $0.name } ?? []
         books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
         books[index].creators = orig.creators?.map { creator in
