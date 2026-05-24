@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 #endif
@@ -15,17 +16,17 @@ enum MetadataEditorScope: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .work: return "General"
-        case .audiobook: return "Audiobook Edition"
-        case .ebook: return "Ebook Edition"
+            case .work: return "General"
+            case .audiobook: return "Audiobook Edition"
+            case .ebook: return "Ebook Edition"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .work: return "books.vertical"
-        case .audiobook: return "headphones"
-        case .ebook: return "book"
+            case .work: return "books.vertical"
+            case .audiobook: return "headphones"
+            case .ebook: return "book"
         }
     }
 }
@@ -54,17 +55,29 @@ struct WorkMetadataLayout: View {
                     VStack(alignment: .leading, spacing: 18) {
                         fieldGroup("Work Details") {
                             scalarField("Title", field: "title", text: scalarBinding(\.title))
-                            scalarField("Subtitle", field: "subtitle", text: scalarBinding(\.subtitle))
+                            scalarField(
+                                "Subtitle",
+                                field: "subtitle",
+                                text: scalarBinding(\.subtitle),
+                            )
                             expandedStringListField(
                                 "Author",
                                 field: "authors",
-                                suggestions: viewModel.libraryAuthorNames
+                                suggestions: viewModel.libraryAuthorNames,
                             )
                             creatorsField()
                             publicationDateField()
-                            scalarField("Language", field: "language", text: scalarBinding(\.language))
+                            scalarField(
+                                "Language",
+                                field: "language",
+                                text: scalarBinding(\.language),
+                            )
                             seriesField()
-                            textAreaField("Description", field: "description", text: scalarBinding(\.description))
+                            textAreaField(
+                                "Description",
+                                field: "description",
+                                text: scalarBinding(\.description),
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -73,7 +86,11 @@ struct WorkMetadataLayout: View {
                         fieldGroup("Community") {
                             hardcoverSlugField()
                             scalarField("Rating", field: "rating", text: scalarBinding(\.rating))
-                            expandedStringListField("Tags", field: "tags", suggestions: viewModel.libraryTagNames)
+                            expandedStringListField(
+                                "Tags",
+                                field: "tags",
+                                suggestions: viewModel.libraryTagNames,
+                            )
                         }
 
                         fieldGroup("Personal") {
@@ -81,24 +98,27 @@ struct WorkMetadataLayout: View {
                             readOnlyField(
                                 "Date Last Read",
                                 value: book?.originalMetadata.position?.updatedAt ?? "",
-                                isPlaceholder: true
+                                isPlaceholder: true,
                             )
                             readOnlyField(
                                 "Personal Rating",
                                 value: "Not exposed by Storyteller yet",
-                                isPlaceholder: true
+                                isPlaceholder: true,
                             )
                             readOnlyField(
                                 "Static Shelves",
                                 value: "Not exposed by Storyteller yet",
-                                isPlaceholder: true
+                                isPlaceholder: true,
                             )
                             smartShelvesField()
                         }
 
                         fieldGroup("Library") {
                             collectionsField()
-                            readOnlyTextArea("Note", value: "Library notes are not exposed by Storyteller yet.")
+                            readOnlyTextArea(
+                                "Note",
+                                value: "Library notes are not exposed by Storyteller yet.",
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -155,7 +175,9 @@ struct WorkMetadataLayout: View {
         return formatter
     }()
 
-    private func fieldGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func fieldGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content)
+        -> some View
+    {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
                 .font(.title3.weight(.semibold))
@@ -164,15 +186,19 @@ struct WorkMetadataLayout: View {
         }
     }
 
-    private func scalarBinding(_ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableBook, String>) -> Binding<String> {
+    private func scalarBinding(
+        _ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableBook, String>
+    ) -> Binding<String> {
         Binding(
             get: {
                 viewModel.books.first { $0.id == bookId }?[keyPath: keyPath] ?? ""
             },
             set: { newValue in
-                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else {
+                    return
+                }
                 viewModel.books[index][keyPath: keyPath] = newValue
-            }
+            },
         )
     }
 
@@ -183,7 +209,7 @@ struct WorkMetadataLayout: View {
                 set: { newValue in
                     text.wrappedValue = newValue
                     viewModel.markDirty(field: field, for: bookId)
-                }
+                },
             )
             TextField("(empty)", text: binding)
                 .textFieldStyle(.roundedBorder)
@@ -199,17 +225,22 @@ struct WorkMetadataLayout: View {
                 MetadataEditorDatePicker(
                     selection: Binding(
                         get: {
-                            if let date = Self.dateToNoonUTC.date(from: "\(dateString)T12:00:00.000Z") {
+                            if let date = Self.dateToNoonUTC.date(
+                                from: "\(dateString)T12:00:00.000Z"
+                            ) {
                                 return date
                             }
                             let today = Self.dateFromNoonUTC.string(from: Date())
                             return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
                         },
                         set: { newDate in
-                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                            viewModel.books[index].publicationDate = Self.dateFromNoonUTC.string(from: newDate)
+                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                            else { return }
+                            viewModel.books[index].publicationDate = Self.dateFromNoonUTC.string(
+                                from: newDate
+                            )
                             viewModel.markDirty(field: "publicationDate", for: bookId)
-                        }
+                        },
                     )
                 )
                 .frame(width: 156)
@@ -219,33 +250,42 @@ struct WorkMetadataLayout: View {
                     "",
                     selection: Binding(
                         get: {
-                            if let date = Self.dateToNoonUTC.date(from: "\(dateString)T12:00:00.000Z") {
+                            if let date = Self.dateToNoonUTC.date(
+                                from: "\(dateString)T12:00:00.000Z"
+                            ) {
                                 return date
                             }
                             let today = Self.dateFromNoonUTC.string(from: Date())
                             return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
                         },
                         set: { newDate in
-                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                            viewModel.books[index].publicationDate = Self.dateFromNoonUTC.string(from: newDate)
+                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                            else { return }
+                            viewModel.books[index].publicationDate = Self.dateFromNoonUTC.string(
+                                from: newDate
+                            )
                             viewModel.markDirty(field: "publicationDate", for: bookId)
-                        }
+                        },
                     ),
-                    displayedComponents: .date
+                    displayedComponents: .date,
                 )
                 .labelsHidden()
                 .disabled(!hasDate)
                 #endif
 
-                Toggle("No date", isOn: Binding(
-                    get: { !hasDate },
-                    set: { noDate in
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                        viewModel.books[index].publicationDate =
-                            noDate ? "" : Self.dateFromNoonUTC.string(from: Date())
-                        viewModel.markDirty(field: "publicationDate", for: bookId)
-                    }
-                ))
+                Toggle(
+                    "No date",
+                    isOn: Binding(
+                        get: { !hasDate },
+                        set: { noDate in
+                            guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                            else { return }
+                            viewModel.books[index].publicationDate =
+                                noDate ? "" : Self.dateFromNoonUTC.string(from: Date())
+                            viewModel.markDirty(field: "publicationDate", for: bookId)
+                        },
+                    ),
+                )
                 #if os(macOS)
                 .toggleStyle(.checkbox)
                 #endif
@@ -283,7 +323,11 @@ struct WorkMetadataLayout: View {
         else {
             return statuses
         }
-        statuses.insert(current.originalMetadata.status ?? BookStatus(uuid: current.statusUuid, name: current.status), at: 0)
+        statuses.insert(
+            current.originalMetadata.status
+                ?? BookStatus(uuid: current.statusUuid, name: current.status),
+            at: 0,
+        )
         return statuses
     }
 
@@ -326,7 +370,9 @@ struct WorkMetadataLayout: View {
     }
 
     private var matchingSmartShelfNames: [String] {
-        guard let libraryBook = mediaViewModel.library.bookMetaData.first(where: { $0.id == bookId }) else {
+        guard
+            let libraryBook = mediaViewModel.library.bookMetaData.first(where: { $0.id == bookId })
+        else {
             return []
         }
 
@@ -338,7 +384,7 @@ struct WorkMetadataLayout: View {
             || mediaViewModel.isCategoryDownloaded(.synced, for: libraryBook)
         let locationInfo = ShelfLocationInfo(
             isDownloaded: hasDownloadedContent && !isLocal,
-            isLocalStandalone: isLocal
+            isLocalStandalone: isLocal,
         )
 
         return mediaViewModel.smartShelves
@@ -351,25 +397,29 @@ struct WorkMetadataLayout: View {
         Binding(
             get: { viewModel.books.first { $0.id == bookId }?.statusUuid ?? "" },
             set: { newValue in
-                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else {
+                    return
+                }
                 viewModel.books[index].statusUuid = newValue
                 if let status = viewModel.availableStatuses.first(where: { $0.uuid == newValue }) {
                     viewModel.books[index].status = status.name
                 }
                 viewModel.markDirty(field: "status", for: bookId)
-            }
+            },
         )
     }
 
     private func textAreaField(_ label: String, field: String, text: Binding<String>) -> some View {
         editableFieldShell(label: label, field: field, labelAlignment: .top) {
-            TextEditor(text: Binding(
-                get: { text.wrappedValue },
-                set: { newValue in
-                    text.wrappedValue = newValue
-                    viewModel.markDirty(field: field, for: bookId)
-                }
-            ))
+            TextEditor(
+                text: Binding(
+                    get: { text.wrappedValue },
+                    set: { newValue in
+                        text.wrappedValue = newValue
+                        viewModel.markDirty(field: field, for: bookId)
+                    },
+                )
+            )
             .font(.body)
             .scrollContentBackground(.hidden)
             .frame(minHeight: 280)
@@ -377,7 +427,9 @@ struct WorkMetadataLayout: View {
         }
     }
 
-    private func readOnlyField(_ label: String, value: String, isPlaceholder: Bool = false) -> some View {
+    private func readOnlyField(_ label: String, value: String, isPlaceholder: Bool = false)
+        -> some View
+    {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             fieldLabel(label)
             Text(value.isEmpty ? "(empty)" : value)
@@ -438,7 +490,7 @@ struct WorkMetadataLayout: View {
         field: String,
         labelAlignment: VerticalAlignment = .firstTextBaseline,
         labelTopPadding: CGFloat = 0,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: () -> Content,
     ) -> some View {
         HStack(alignment: labelAlignment, spacing: 10) {
             editableFieldLabel(label: label, field: field)
@@ -455,7 +507,7 @@ struct WorkMetadataLayout: View {
             diff: viewModel.fieldDiffDisplay(field: field, for: bookId),
             revertAction: {
                 viewModel.revertFieldToOriginal(field: field, for: bookId)
-            }
+            },
         )
         .frame(width: 132, alignment: .trailing)
     }
@@ -466,7 +518,11 @@ struct WorkMetadataLayout: View {
             .foregroundStyle(.primary)
     }
 
-    private func expandedStringListField(_ label: String, field: String, suggestions: [String] = []) -> some View {
+    private func expandedStringListField(
+        _ label: String,
+        field: String,
+        suggestions: [String] = [],
+    ) -> some View {
         editableFieldShell(label: label, field: field, labelAlignment: .top, labelTopPadding: 8) {
             let values = stringListBinding(field: field)
             VStack(alignment: .leading, spacing: 5) {
@@ -474,7 +530,7 @@ struct WorkMetadataLayout: View {
                     values: values,
                     placeholder: label,
                     suggestions: suggestions,
-                    onChange: { viewModel.markDirty(field: field, for: bookId) }
+                    onChange: { viewModel.markDirty(field: field, for: bookId) },
                 )
 
                 if field == "tags", !values.wrappedValue.isEmpty {
@@ -495,57 +551,77 @@ struct WorkMetadataLayout: View {
         Binding(
             get: { viewModel.books.first { $0.id == bookId }?.stringList(for: field) ?? [] },
             set: { newValue in
-                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                switch field {
-                case "authors": viewModel.books[index].authors = newValue
-                case "narrators": viewModel.books[index].narrators = newValue
-                case "tags": viewModel.books[index].tags = newValue
-                default: break
+                guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else {
+                    return
                 }
-            }
+                switch field {
+                    case "authors": viewModel.books[index].authors = newValue
+                    case "narrators": viewModel.books[index].narrators = newValue
+                    case "tags": viewModel.books[index].tags = newValue
+                    default: break
+                }
+            },
         )
     }
 
     private func creatorsField() -> some View {
-        editableFieldShell(label: "Other Creators", field: "creators", labelAlignment: .top, labelTopPadding: 8) {
+        editableFieldShell(
+            label: "Other Creators",
+            field: "creators",
+            labelAlignment: .top,
+            labelTopPadding: 8,
+        ) {
             CreatorsExpandedEditor(
                 creators: Binding(
                     get: { viewModel.books.first { $0.id == bookId }?.creators ?? [] },
                     set: { newValue in
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
                         viewModel.books[index].creators = newValue
-                    }
+                    },
                 ),
-                onChange: { viewModel.markDirty(field: "creators", for: bookId) }
+                onChange: { viewModel.markDirty(field: "creators", for: bookId) },
             )
         }
     }
 
     private func seriesField() -> some View {
-        editableFieldShell(label: "Series", field: "series", labelAlignment: .top, labelTopPadding: 8) {
+        editableFieldShell(
+            label: "Series",
+            field: "series",
+            labelAlignment: .top,
+            labelTopPadding: 8,
+        ) {
             SeriesExpandedEditor(
                 series: Binding(
                     get: { viewModel.books.first { $0.id == bookId }?.series ?? [] },
                     set: { newValue in
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
                         viewModel.books[index].series = newValue
-                    }
+                    },
                 ),
                 suggestions: librarySeriesNames,
-                onChange: { viewModel.markDirty(field: "series", for: bookId) }
+                onChange: { viewModel.markDirty(field: "series", for: bookId) },
             )
         }
     }
 
     private func collectionsField() -> some View {
-        editableFieldShell(label: "Collections", field: "collections", labelAlignment: .top, labelTopPadding: 8) {
+        editableFieldShell(
+            label: "Collections",
+            field: "collections",
+            labelAlignment: .top,
+            labelTopPadding: 8,
+        ) {
             CollectionsExpandedEditor(
                 collectionUuids: Binding(
                     get: { book?.collectionUuids ?? [] },
                     set: { newValue in
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
                         viewModel.books[index].collectionUuids = newValue
-                    }
+                    },
                 ),
                 choices: viewModel.libraryCollectionChoices,
                 namesByUuid: viewModel.libraryCollectionNamesByUuid,
@@ -558,7 +634,7 @@ struct WorkMetadataLayout: View {
                 refreshCollections: {
                     await viewModel.refreshLibraryCollectionsFromServer()
                 },
-                onChange: { viewModel.markDirty(field: "collections", for: bookId) }
+                onChange: { viewModel.markDirty(field: "collections", for: bookId) },
             )
         }
     }
@@ -572,15 +648,15 @@ struct EditionMetadataLayout: View {
 
         var title: String {
             switch self {
-            case .audiobook: return "Audiobook Edition"
-            case .ebook: return "Ebook Edition"
+                case .audiobook: return "Audiobook Edition"
+                case .ebook: return "Ebook Edition"
             }
         }
 
         var coverScope: MetadataCoverScope {
             switch self {
-            case .audiobook: return .audiobook
-            case .ebook: return .ebook
+                case .audiobook: return .audiobook
+                case .ebook: return .ebook
             }
         }
     }
@@ -634,7 +710,7 @@ struct EditionMetadataLayout: View {
         .fileImporter(
             isPresented: $showCoverPicker,
             allowedContentTypes: [.png, .jpeg, .webP, .heic],
-            onCompletion: handleCoverPick
+            onCompletion: handleCoverPick,
         )
         #endif
     }
@@ -649,13 +725,15 @@ struct EditionMetadataLayout: View {
 
     private var replacementCover: (data: Data, filename: String)? {
         switch scope {
-        case .audiobook: return book?.replacementAudiobookCover
-        case .ebook: return book?.replacementEbookCover
+            case .audiobook: return book?.replacementAudiobookCover
+            case .ebook: return book?.replacementEbookCover
         }
     }
 
     private var currentServerCover: Image? {
-        originalMetadata.flatMap { mediaViewModel.coverImage(for: $0, variant: scope.coverScope.variant) }
+        originalMetadata.flatMap {
+            mediaViewModel.coverImage(for: $0, variant: scope.coverScope.variant)
+        }
     }
 
     private var coverResolution: String? {
@@ -666,7 +744,9 @@ struct EditionMetadataLayout: View {
         guard let metadata = originalMetadata else { return nil }
         #if canImport(AppKit)
         let state = mediaViewModel.coverState(for: metadata, variant: scope.coverScope.variant)
-        guard let nsImage = state.nsImage, let rep = nsImage.representations.first else { return nil }
+        guard let nsImage = state.nsImage, let rep = nsImage.representations.first else {
+            return nil
+        }
         return "\(rep.pixelsWide) x \(rep.pixelsHigh)"
         #else
         return nil
@@ -676,10 +756,10 @@ struct EditionMetadataLayout: View {
     private var editionDetailsColumn: some View {
         editionGroup(scope.title) {
             switch scope {
-            case .audiobook:
-                audiobookFields
-            case .ebook:
-                ebookFields
+                case .audiobook:
+                    audiobookFields
+                case .ebook:
+                    ebookFields
             }
         }
     }
@@ -689,25 +769,41 @@ struct EditionMetadataLayout: View {
             unsupportedEditionField(
                 "Edition Title",
                 value: "Audiobook Edition",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
             unsupportedEditionField(
                 "Edition Subtitle",
                 value: book?.subtitle ?? "",
                 placeholder: "unique subtitle for this release if desired",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
-            unsupportedEditionField("Edition Nickname", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Edition Nickname",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
             editionChipList("Narrator(s)", field: "narrators")
-            unsupportedEditionField("Additional Creators", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Additional Creators",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
             editionPublicationDateField()
-            unsupportedEditionField("Publisher", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Publisher",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
             unsupportedEditionField(
                 "Language",
                 value: book?.language ?? "",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
-            unsupportedEditionField("Identifier(s)", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Identifier(s)",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
         }
     }
 
@@ -716,24 +812,40 @@ struct EditionMetadataLayout: View {
             unsupportedEditionField(
                 "Edition Title",
                 value: "Ebook Edition",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
             unsupportedEditionField(
                 "Edition Subtitle",
                 value: book?.subtitle ?? "",
                 placeholder: "unique subtitle for this release if desired",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
-            unsupportedEditionField("Edition Nickname", value: "Not exposed by Storyteller yet", isPlaceholder: true)
-            unsupportedEditionField("Additional Creators", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Edition Nickname",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
+            unsupportedEditionField(
+                "Additional Creators",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
             editionPublicationDateField()
-            unsupportedEditionField("Publisher", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Publisher",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
             unsupportedEditionField(
                 "Language",
                 value: book?.language ?? "",
-                note: "(not editable by Storyteller yet)"
+                note: "(not editable by Storyteller yet)",
             )
-            unsupportedEditionField("Identifier(s)", value: "Not exposed by Storyteller yet", isPlaceholder: true)
+            unsupportedEditionField(
+                "Identifier(s)",
+                value: "Not exposed by Storyteller yet",
+                isPlaceholder: true,
+            )
         }
     }
 
@@ -760,7 +872,8 @@ struct EditionMetadataLayout: View {
                 }
 
                 if originalMetadata?.hasAvailableEbook == true,
-                   originalMetadata?.hasAvailableAudiobook == true {
+                    originalMetadata?.hasAvailableAudiobook == true
+                {
                     Divider()
                         .padding(.vertical, 1)
                     VStack(spacing: 5) {
@@ -777,7 +890,7 @@ struct EditionMetadataLayout: View {
                                 containerAspectRatio: CoverPreference.storytellerDouble
                                     .preferredContainerAspectRatio,
                                 cornerRadius: 6,
-                                mediaViewModel: mediaViewModel
+                                mediaViewModel: mediaViewModel,
                             )
                             .frame(maxWidth: .infinity, alignment: .center)
                         }
@@ -847,7 +960,11 @@ struct EditionMetadataLayout: View {
 
             HStack(alignment: .top, spacing: 14) {
                 coverDiffImage(title: "Original", data: nil, image: currentServerCover)
-                coverDiffImage(title: "Current", data: replacementCover?.data, image: currentServerCover)
+                coverDiffImage(
+                    title: "Current",
+                    data: replacementCover?.data,
+                    image: currentServerCover,
+                )
             }
         }
         .padding()
@@ -885,7 +1002,9 @@ struct EditionMetadataLayout: View {
         }
     }
 
-    private func editionGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func editionGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content)
+        -> some View
+    {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
                 .font(.title3.weight(.semibold))
@@ -924,42 +1043,46 @@ struct EditionMetadataLayout: View {
         }
         .frame(
             width: primaryCoverSize.width,
-            height: primaryCoverSize.height
+            height: primaryCoverSize.height,
         )
         .metadataEditorBoundary(cornerRadius: 8)
     }
 
     private var primaryCoverSize: CGSize {
         switch scope {
-        case .audiobook:
-            return CGSize(width: 205, height: 205)
-        case .ebook:
-            return CGSize(width: 150, height: 225)
+            case .audiobook:
+                return CGSize(width: 205, height: 205)
+            case .ebook:
+                return CGSize(width: 150, height: 225)
         }
     }
 
     private var classicPreviewWidth: CGFloat {
         switch scope {
-        case .audiobook: return 96
-        case .ebook: return 84
+            case .audiobook: return 96
+            case .ebook: return 84
         }
     }
 
     private func editionScalar(
         _ label: String,
         field: String,
-        keyPath: WritableKeyPath<MetadataEditorViewModel.EditableBook, String>
+        keyPath: WritableKeyPath<MetadataEditorViewModel.EditableBook, String>,
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             editionFieldLabel(label: label, field: field)
-            TextField("(empty)", text: Binding(
-                get: { viewModel.books.first { $0.id == bookId }?[keyPath: keyPath] ?? "" },
-                set: { newValue in
-                    guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-                    viewModel.books[index][keyPath: keyPath] = newValue
-                    viewModel.markDirty(field: field, for: bookId)
-                }
-            ))
+            TextField(
+                "(empty)",
+                text: Binding(
+                    get: { viewModel.books.first { $0.id == bookId }?[keyPath: keyPath] ?? "" },
+                    set: { newValue in
+                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
+                        viewModel.books[index][keyPath: keyPath] = newValue
+                        viewModel.markDirty(field: field, for: bookId)
+                    },
+                ),
+            )
             .textFieldStyle(.roundedBorder)
         }
     }
@@ -974,13 +1097,15 @@ struct EditionMetadataLayout: View {
                 MetadataEditorDatePicker(
                     selection: Binding(
                         get: {
-                            if let date = Self.dateToNoonUTC.date(from: "\(dateString)T12:00:00.000Z") {
+                            if let date = Self.dateToNoonUTC.date(
+                                from: "\(dateString)T12:00:00.000Z"
+                            ) {
                                 return date
                             }
                             let today = Self.dateFromNoonUTC.string(from: Date())
                             return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
                         },
-                        set: { _ in }
+                        set: { _ in },
                     )
                 )
                 .frame(width: 156)
@@ -989,23 +1114,25 @@ struct EditionMetadataLayout: View {
                     "",
                     selection: Binding(
                         get: {
-                            if let date = Self.dateToNoonUTC.date(from: "\(dateString)T12:00:00.000Z") {
+                            if let date = Self.dateToNoonUTC.date(
+                                from: "\(dateString)T12:00:00.000Z"
+                            ) {
                                 return date
                             }
                             let today = Self.dateFromNoonUTC.string(from: Date())
                             return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
                         },
-                        set: { _ in }
+                        set: { _ in },
                     ),
-                    displayedComponents: .date
+                    displayedComponents: .date,
                 )
                 .labelsHidden()
                 #endif
 
                 Toggle("No date", isOn: .constant(!hasDate))
-                #if os(macOS)
+                    #if os(macOS)
                 .toggleStyle(.checkbox)
-                #endif
+                    #endif
 
                 Text("(not editable by Storyteller yet)")
                     .font(.caption)
@@ -1023,18 +1150,21 @@ struct EditionMetadataLayout: View {
             editionFieldLabel(label: label, field: field)
             ExpandedStringListEditor(
                 values: Binding(
-                    get: { viewModel.books.first { $0.id == bookId }?.stringList(for: field) ?? [] },
+                    get: {
+                        viewModel.books.first { $0.id == bookId }?.stringList(for: field) ?? []
+                    },
                     set: { newValue in
-                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
+                        guard let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+                        else { return }
                         switch field {
-                        case "narrators": viewModel.books[index].narrators = newValue
-                        default: break
+                            case "narrators": viewModel.books[index].narrators = newValue
+                            default: break
                         }
-                    }
+                    },
                 ),
                 placeholder: label,
                 suggestions: [],
-                onChange: { viewModel.markDirty(field: field, for: bookId) }
+                onChange: { viewModel.markDirty(field: field, for: bookId) },
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -1045,7 +1175,7 @@ struct EditionMetadataLayout: View {
         value: String,
         placeholder: String? = nil,
         isPlaceholder: Bool = false,
-        note: String? = nil
+        note: String? = nil,
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             editionFieldLabel(label: label, field: "", isEditable: false)
@@ -1068,7 +1198,9 @@ struct EditionMetadataLayout: View {
         }
     }
 
-    private func editionFieldLabel(label: String, field: String, isEditable: Bool = true) -> some View {
+    private func editionFieldLabel(label: String, field: String, isEditable: Bool = true)
+        -> some View
+    {
         HStack(spacing: 4) {
             Spacer(minLength: 0)
             if isEditable, viewModel.isDirty(field: field, for: bookId) {
@@ -1103,24 +1235,28 @@ struct EditionMetadataLayout: View {
         defer { url.stopAccessingSecurityScopedResource() }
 
         guard let data = try? Data(contentsOf: url),
-              let index = viewModel.books.firstIndex(where: { $0.id == bookId })
+            let index = viewModel.books.firstIndex(where: { $0.id == bookId })
         else { return }
 
         switch scope {
-        case .audiobook:
-            viewModel.books[index].replacementAudiobookCover = (data: data, filename: url.lastPathComponent)
-        case .ebook:
-            viewModel.books[index].replacementEbookCover = (data: data, filename: url.lastPathComponent)
+            case .audiobook:
+                viewModel.books[index].replacementAudiobookCover = (
+                    data: data, filename: url.lastPathComponent,
+                )
+            case .ebook:
+                viewModel.books[index].replacementEbookCover = (
+                    data: data, filename: url.lastPathComponent,
+                )
         }
     }
 
     private func clearReplacementCover() {
         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
         switch scope {
-        case .audiobook:
-            viewModel.books[index].replacementAudiobookCover = nil
-        case .ebook:
-            viewModel.books[index].replacementEbookCover = nil
+            case .audiobook:
+                viewModel.books[index].replacementAudiobookCover = nil
+            case .ebook:
+                viewModel.books[index].replacementEbookCover = nil
         }
     }
 
@@ -1140,7 +1276,7 @@ struct EditionMetadataLayout: View {
     private func resolutionString(from data: Data) -> String? {
         #if canImport(AppKit)
         guard let image = NSImage(data: data),
-              let rep = image.representations.first
+            let rep = image.representations.first
         else { return nil }
         return "\(rep.pixelsWide) x \(rep.pixelsHigh)"
         #elseif canImport(UIKit)
@@ -1171,19 +1307,25 @@ private struct StagedDoubleCoverPreview: View {
         let xShift = coverWidth * 0.10
 
         ZStack {
-            coverImage(data: audiobookReplacement, fallback: mediaViewModel.coverImage(for: item, variant: .audioSquare))
-                .frame(width: audioSize, height: audioSize)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
-                .stableCoverRendering()
-                .offset(x: xShift)
-                .zIndex(10)
+            coverImage(
+                data: audiobookReplacement,
+                fallback: mediaViewModel.coverImage(for: item, variant: .audioSquare),
+            )
+            .frame(width: audioSize, height: audioSize)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+            .stableCoverRendering()
+            .offset(x: xShift)
+            .zIndex(10)
 
-            coverImage(data: ebookReplacement, fallback: mediaViewModel.coverImage(for: item, variant: .standard))
-                .frame(width: scaledWidth, height: ebookHeight)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
-                .stableCoverRendering()
-                .offset(x: -xShift)
-                .zIndex(20)
+            coverImage(
+                data: ebookReplacement,
+                fallback: mediaViewModel.coverImage(for: item, variant: .standard),
+            )
+            .frame(width: scaledWidth, height: ebookHeight)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+            .stableCoverRendering()
+            .offset(x: -xShift)
+            .zIndex(20)
         }
         .frame(width: coverWidth, height: containerHeight)
         .task {
@@ -1241,14 +1383,24 @@ private struct DirtyFieldHeading: View {
                         .foregroundStyle(metadataEditorChangeColor(for: colorScheme))
                 }
                 .buttonStyle(.borderless)
-                .help(showsDiff ? "Revert \(label.lowercased())" : "Show \(label.lowercased()) changes")
+                .help(
+                    showsDiff
+                        ? "Revert \(label.lowercased())" : "Show \(label.lowercased()) changes"
+                )
             }
 
             Text(label + ":")
-                .foregroundStyle(isDirty ? metadataEditorChangeColor(for: colorScheme) : Color.primary)
+                .foregroundStyle(
+                    isDirty ? metadataEditorChangeColor(for: colorScheme) : Color.primary
+                )
                 .contentShape(Rectangle())
                 .onTapGesture(perform: handleDirtyClick)
-                .help(isDirty ? (showsDiff ? "Revert \(label.lowercased())" : "Show \(label.lowercased()) changes") : "")
+                .help(
+                    isDirty
+                        ? (showsDiff
+                            ? "Revert \(label.lowercased())" : "Show \(label.lowercased()) changes")
+                        : ""
+                )
         }
         .popover(isPresented: $showsDiff, arrowEdge: .trailing) {
             FieldDiffPopover(label: label, diff: diff) {
@@ -1371,7 +1523,7 @@ struct ExpandedStringListEditor: View {
                             systemImage: "text.badge.plus",
                             values: availableSuggestions,
                             help: "Choose existing \(placeholder.lowercased())",
-                            onSelect: append
+                            onSelect: append,
                         )
                     }
 
@@ -1466,7 +1618,7 @@ struct CreatorsExpandedEditor: View {
                 name: name,
                 fileAs: "",
                 role: draftRole.trimmingCharacters(in: .whitespacesAndNewlines),
-                uuid: nil
+                uuid: nil,
             )
         )
         draftName = ""
@@ -1476,7 +1628,7 @@ struct CreatorsExpandedEditor: View {
 
     private func creatorBinding(
         _ id: UUID,
-        _ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableCreator, String>
+        _ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableCreator, String>,
     ) -> Binding<String> {
         Binding(
             get: {
@@ -1486,7 +1638,7 @@ struct CreatorsExpandedEditor: View {
                 guard let index = creators.firstIndex(where: { $0.id == id }) else { return }
                 creators[index][keyPath: keyPath] = newValue
                 onChange()
-            }
+            },
         )
     }
 }
@@ -1535,10 +1687,12 @@ struct SeriesExpandedEditor: View {
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showsFeaturedHelp, arrowEdge: .bottom) {
-                        Text("Marks this as the primary series relationship for display when a book belongs to more than one series.")
-                            .font(.callout)
-                            .padding(10)
-                            .frame(width: 260, alignment: .leading)
+                        Text(
+                            "Marks this as the primary series relationship for display when a book belongs to more than one series."
+                        )
+                        .font(.callout)
+                        .padding(10)
+                        .frame(width: 260, alignment: .leading)
                     }
                 }
                 .frame(width: 82, alignment: .leading)
@@ -1562,7 +1716,7 @@ struct SeriesExpandedEditor: View {
                                 systemImage: "text.badge.plus",
                                 values: availableSuggestions,
                                 help: "Choose existing series",
-                                onSelect: { setSeriesName(item.id, $0) }
+                                onSelect: { setSeriesName(item.id, $0) },
                             )
                         }
                     }
@@ -1572,14 +1726,18 @@ struct SeriesExpandedEditor: View {
                         .textFieldStyle(.plain)
                         .frame(width: 86, alignment: .leading)
 
-                    Toggle("", isOn: Binding(
-                        get: { series.first { $0.id == item.id }?.featured ?? false },
-                        set: { newValue in
-                            guard let index = series.firstIndex(where: { $0.id == item.id }) else { return }
-                            series[index].featured = newValue
-                            onChange()
-                        }
-                    ))
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { series.first { $0.id == item.id }?.featured ?? false },
+                            set: { newValue in
+                                guard let index = series.firstIndex(where: { $0.id == item.id })
+                                else { return }
+                                series[index].featured = newValue
+                                onChange()
+                            },
+                        ),
+                    )
                     .frame(width: 82, alignment: .leading)
                     #if os(macOS)
                     .toggleStyle(.checkbox)
@@ -1605,7 +1763,7 @@ struct SeriesExpandedEditor: View {
                             name: "",
                             position: "",
                             featured: false,
-                            uuid: nil
+                            uuid: nil,
                         )
                     )
                     onChange()
@@ -1626,11 +1784,11 @@ struct SeriesExpandedEditor: View {
                                     name: suggestion,
                                     position: "",
                                     featured: false,
-                                    uuid: nil
+                                    uuid: nil,
                                 )
                             )
                             onChange()
-                        }
+                        },
                     )
                     .controlSize(.small)
                 }
@@ -1642,7 +1800,7 @@ struct SeriesExpandedEditor: View {
 
     private func seriesBinding(
         _ id: UUID,
-        _ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableSeries, String>
+        _ keyPath: WritableKeyPath<MetadataEditorViewModel.EditableSeries, String>,
     ) -> Binding<String> {
         Binding(
             get: {
@@ -1652,7 +1810,7 @@ struct SeriesExpandedEditor: View {
                 guard let index = series.firstIndex(where: { $0.id == id }) else { return }
                 series[index][keyPath: keyPath] = newValue
                 onChange()
-            }
+            },
         )
     }
 
@@ -1702,7 +1860,7 @@ struct CollectionsExpandedEditor: View {
                 onSelect: { choice in
                     collectionUuids.append(choice.uuid)
                     onChange()
-                }
+                },
             )
             .disabled(availableChoices.isEmpty)
 
@@ -1710,7 +1868,7 @@ struct CollectionsExpandedEditor: View {
                 choices: choices,
                 createCollection: createCollection,
                 deleteCollection: deleteCollection,
-                refreshCollections: refreshCollections
+                refreshCollections: refreshCollections,
             )
             .help("Manage collections on the Storyteller server")
         }
@@ -1792,7 +1950,9 @@ private struct ManageCollectionsButton: View {
                             await refreshCollections()
                         }
                     }
-                    .disabled(newCollectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        newCollectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
                 }
             }
             .padding(10)
@@ -1810,7 +1970,9 @@ private struct ManageCollectionsButton: View {
                 }
             } message: {
                 if let choice = pendingDeleteChoice {
-                    Text("This will permanently delete \"\(choice.name)\" from the Storyteller server.")
+                    Text(
+                        "This will permanently delete \"\(choice.name)\" from the Storyteller server."
+                    )
                 } else {
                     Text("This will permanently delete the collection from the Storyteller server.")
                 }
@@ -2118,7 +2280,7 @@ private struct MetadataEditorFlowLayout: Layout {
     func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
-        cache: inout ()
+        cache: inout (),
     ) -> CGSize {
         arrangeSubviews(in: proposal.width ?? .infinity, subviews: subviews).size
     }
@@ -2127,13 +2289,13 @@ private struct MetadataEditorFlowLayout: Layout {
         in bounds: CGRect,
         proposal: ProposedViewSize,
         subviews: Subviews,
-        cache: inout ()
+        cache: inout (),
     ) {
         let arrangement = arrangeSubviews(in: bounds.width, subviews: subviews)
         for item in arrangement.items {
             subviews[item.index].place(
                 at: CGPoint(x: bounds.minX + item.origin.x, y: bounds.minY + item.origin.y),
-                proposal: ProposedViewSize(item.size)
+                proposal: ProposedViewSize(item.size),
             )
         }
     }
@@ -2172,13 +2334,13 @@ private struct MetadataEditorFlowLayout: Layout {
 
         return Arrangement(
             items: items,
-            size: CGSize(width: min(usedWidth, availableWidth), height: origin.y + rowHeight)
+            size: CGSize(width: min(usedWidth, availableWidth), height: origin.y + rowHeight),
         )
     }
 }
 
-private extension View {
-    func fullTextPill() -> some View {
+extension View {
+    fileprivate func fullTextPill() -> some View {
         self
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

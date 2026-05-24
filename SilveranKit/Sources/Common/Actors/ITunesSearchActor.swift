@@ -29,7 +29,7 @@ public enum ITunesSearchActor {
 
     public static func search(
         title: String,
-        author: String?
+        author: String?,
     ) async throws -> [ITunesCoverResult] {
         let query = [title, author].compactMap { $0 }.joined(separator: " ")
         guard !query.isEmpty else { return [] }
@@ -44,7 +44,7 @@ public enum ITunesSearchActor {
 
     private static func fetchResults(
         query: String,
-        entity: String
+        entity: String,
     ) async throws -> [ITunesCoverResult] {
         let response = try await httpGet(
             "https://itunes.apple.com/search",
@@ -53,7 +53,7 @@ public enum ITunesSearchActor {
                 "country": "us",
                 "entity": entity,
                 "limit": "25",
-            ]
+            ],
         )
 
         let decoded = try JSONDecoder().decode(SearchResponse.self, from: response.data)
@@ -73,7 +73,7 @@ public enum ITunesSearchActor {
                 artist: artist,
                 mediaType: entity,
                 thumbnailUrl: thumbnailUrl,
-                artworkUrls: artworkUrls
+                artworkUrls: artworkUrls,
             )
         }
     }
@@ -84,10 +84,13 @@ public enum ITunesSearchActor {
         var urls: [URL] = []
 
         for size in sizes {
-            let candidate = artworkUrl100
+            let candidate =
+                artworkUrl100
                 .replacingOccurrences(of: "100x100bb", with: size)
                 .replacingOccurrences(of: "100x100", with: String(size.dropLast(2)))
-            guard seen.insert(candidate).inserted, let url = URL(string: candidate) else { continue }
+            guard seen.insert(candidate).inserted, let url = URL(string: candidate) else {
+                continue
+            }
             urls.append(url)
         }
 

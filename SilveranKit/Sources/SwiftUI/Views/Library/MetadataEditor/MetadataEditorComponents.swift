@@ -33,15 +33,15 @@ struct WordDiffView: View {
         let attributed = chunks.reduce(into: AttributedString()) { result, chunk in
             var part = AttributedString(chunk.text)
             switch chunk.kind {
-            case .same:
-                part.foregroundColor = baseColor
-            case .added:
-                part.foregroundColor = .green
-                part.backgroundColor = .green.opacity(0.15)
-            case .removed:
-                part.foregroundColor = .red
-                part.strikethroughStyle = .single
-                part.backgroundColor = .red.opacity(0.15)
+                case .same:
+                    part.foregroundColor = baseColor
+                case .added:
+                    part.foregroundColor = .green
+                    part.backgroundColor = .green.opacity(0.15)
+                case .removed:
+                    part.foregroundColor = .red
+                    part.strikethroughStyle = .single
+                    part.backgroundColor = .red.opacity(0.15)
             }
             result.append(part)
         }
@@ -51,7 +51,10 @@ struct WordDiffView: View {
     }
 
     enum ChunkKind { case same, added, removed }
-    struct Chunk { let text: String; let kind: ChunkKind }
+    struct Chunk {
+        let text: String
+        let kind: ChunkKind
+    }
 
     private func computeWordDiff(old: String, new: String) -> [Chunk] {
         let oldWords = tokenize(old)

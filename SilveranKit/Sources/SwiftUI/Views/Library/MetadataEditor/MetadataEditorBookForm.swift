@@ -64,28 +64,28 @@ struct MetadataEditorBookForm: View {
     @ViewBuilder
     private func scopeContent(bookId: String) -> some View {
         switch selectedScope {
-        case .work:
-            WorkMetadataLayout(
-                bookId: bookId,
-                viewModel: viewModel,
-                openHardcoverImport: openHardcoverImport
-            )
-        case .audiobook:
-            EditionMetadataLayout(
-                bookId: bookId,
-                viewModel: viewModel,
-                scope: .audiobook,
-                selectedCoverScope: $selectedCoverScope,
-                openHardcoverImport: openHardcoverImport
-            )
-        case .ebook:
-            EditionMetadataLayout(
-                bookId: bookId,
-                viewModel: viewModel,
-                scope: .ebook,
-                selectedCoverScope: $selectedCoverScope,
-                openHardcoverImport: openHardcoverImport
-            )
+            case .work:
+                WorkMetadataLayout(
+                    bookId: bookId,
+                    viewModel: viewModel,
+                    openHardcoverImport: openHardcoverImport,
+                )
+            case .audiobook:
+                EditionMetadataLayout(
+                    bookId: bookId,
+                    viewModel: viewModel,
+                    scope: .audiobook,
+                    selectedCoverScope: $selectedCoverScope,
+                    openHardcoverImport: openHardcoverImport,
+                )
+            case .ebook:
+                EditionMetadataLayout(
+                    bookId: bookId,
+                    viewModel: viewModel,
+                    scope: .ebook,
+                    selectedCoverScope: $selectedCoverScope,
+                    openHardcoverImport: openHardcoverImport,
+                )
         }
     }
 }

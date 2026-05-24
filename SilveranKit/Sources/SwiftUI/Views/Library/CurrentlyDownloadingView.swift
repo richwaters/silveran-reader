@@ -13,7 +13,7 @@ struct CurrentlyDownloadingView: View {
                     systemImage: "arrow.down.circle",
                     description: Text(
                         "Downloads that are in progress, paused, or failed will appear here."
-                    )
+                    ),
                 )
             } else {
                 #if os(macOS)
@@ -89,7 +89,7 @@ struct CurrentlyDownloadingView: View {
                             Task {
                                 await DownloadManager.shared.resumeDownload(
                                     for: record.bookId,
-                                    category: record.category
+                                    category: record.category,
                                 )
                             }
                         } label: {
@@ -112,7 +112,7 @@ struct CurrentlyDownloadingView: View {
                         Task {
                             await DownloadManager.shared.cancelDownload(
                                 for: record.bookId,
-                                category: record.category
+                                category: record.category,
                             )
                         }
                     } label: {
@@ -282,7 +282,7 @@ private struct DownloadRecordRow: View {
                         Task {
                             await DownloadManager.shared.resumeDownload(
                                 for: record.bookId,
-                                category: record.category
+                                category: record.category,
                             )
                         }
                     } label: {
@@ -308,7 +308,7 @@ private struct DownloadRecordRow: View {
                 Task {
                     await DownloadManager.shared.cancelDownload(
                         for: record.bookId,
-                        category: record.category
+                        category: record.category,
                     )
                 }
             } label: {

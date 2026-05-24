@@ -28,7 +28,7 @@ struct MediaGridInfoSidebar: View {
         onReadNow: @escaping () -> Void,
         onRename: @escaping () -> Void,
         onDelete: @escaping () -> Void,
-        onSeriesSelected: ((String) -> Void)? = nil
+        onSeriesSelected: ((String) -> Void)? = nil,
     ) {
         self.item = item
         self.mediaKind = mediaKind
@@ -341,7 +341,7 @@ struct MediaGridInfoSidebar: View {
             let nsAttributedString = try? NSAttributedString(
                 data: data,
                 options: options,
-                documentAttributes: nil
+                documentAttributes: nil,
             )
         {
             return AttributedString(nsAttributedString)

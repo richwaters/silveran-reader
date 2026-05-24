@@ -11,8 +11,16 @@ extension Font {
 }
 
 extension Color {
-    static let storytellerOrange = Color(red: 235.0 / 255.0, green: 114.0 / 255.0, blue: 47.0 / 255.0)
-    static let storytellerOrangeDark = Color(red: 239.0 / 255.0, green: 127.0 / 255.0, blue: 62.0 / 255.0)
+    static let storytellerOrange = Color(
+        red: 235.0 / 255.0,
+        green: 114.0 / 255.0,
+        blue: 47.0 / 255.0,
+    )
+    static let storytellerOrangeDark = Color(
+        red: 239.0 / 255.0,
+        green: 127.0 / 255.0,
+        blue: 62.0 / 255.0,
+    )
 }
 
 #if canImport(CoreText)
@@ -28,7 +36,8 @@ public enum StorytellerFontRegistration {
         }
 
         let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(at: fontsURL, includingPropertiesForKeys: nil)
+        guard
+            let files = try? fm.contentsOfDirectory(at: fontsURL, includingPropertiesForKeys: nil)
         else { return }
 
         for file in files where file.pathExtension == "ttf" || file.pathExtension == "otf" {
@@ -49,8 +58,14 @@ public enum SidebarSelectionColor {
         guard !installed else { return }
         installed = true
 
-        let original = class_getInstanceMethod(NSTableRowView.self, #selector(NSTableRowView.drawSelection(in:)))!
-        let swizzled = class_getInstanceMethod(NSTableRowView.self, #selector(NSTableRowView.st_drawSelection(in:)))!
+        let original = class_getInstanceMethod(
+            NSTableRowView.self,
+            #selector(NSTableRowView.drawSelection(in:)),
+        )!
+        let swizzled = class_getInstanceMethod(
+            NSTableRowView.self,
+            #selector(NSTableRowView.st_drawSelection(in:)),
+        )!
         method_exchangeImplementations(original, swizzled)
     }
 

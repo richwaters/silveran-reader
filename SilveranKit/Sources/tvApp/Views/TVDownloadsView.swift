@@ -52,14 +52,14 @@ struct TVDownloadsView: View {
                 columns: [
                     GridItem(.adaptive(minimum: 260, maximum: 320), spacing: 30)
                 ],
-                spacing: 30
+                spacing: 30,
             ) {
                 ForEach(sorted, id: \.uuid) { book in
                     NavigationLink(value: book) {
                         TVBookCardView(
                             book: book,
                             isDownloaded: true,
-                            downloadProgress: nil
+                            downloadProgress: nil,
                         )
                     }
                     .buttonStyle(.card)

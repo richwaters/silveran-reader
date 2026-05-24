@@ -69,7 +69,7 @@ struct MarqueeText: View {
             with: CGSize(width: containerWidth, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: testFont],
-            context: nil
+            context: nil,
         )
 
         let lineHeight = testFont.lineHeight

@@ -48,7 +48,7 @@ struct SeriesStackView: View {
                         for: book,
                         index: index,
                         layout: layout,
-                        totalCount: displayBooks.count
+                        totalCount: displayBooks.count,
                     )
                 }
             }
@@ -171,7 +171,7 @@ struct SeriesStackView: View {
             .degrees(exitRotationY),
             axis: (x: 0, y: 1, z: 0),
             anchor: .center,
-            perspective: 0.4
+            perspective: 0.4,
         )
         .offset(x: layout.offset(for: index) + exitXOffset)
         .task {

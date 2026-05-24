@@ -70,7 +70,7 @@ public final class TVSettingsViewModel {
         let success = await StorytellerActor.shared.setLogin(
             baseURL: serverURL,
             username: username,
-            password: password
+            password: password,
         )
 
         if success {
@@ -88,7 +88,7 @@ public final class TVSettingsViewModel {
             try await AuthenticationActor.shared.saveCredentials(
                 url: serverURL,
                 username: username,
-                password: password
+                password: password,
             )
             debugLog("[TVSettingsViewModel] Credentials saved")
         } catch {

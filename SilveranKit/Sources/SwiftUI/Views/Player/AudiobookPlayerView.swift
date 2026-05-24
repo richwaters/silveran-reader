@@ -59,7 +59,7 @@ public struct AudiobookPlayerView: View {
             }
             .alert(
                 "Server Has Newer Position",
-                isPresented: $showServerPositionDialog
+                isPresented: $showServerPositionDialog,
             ) {
                 Button("Go to New Position") {
                     acceptServerPosition()
@@ -167,7 +167,7 @@ public struct AudiobookPlayerView: View {
                 isPlaying: isPlaying,
                 sleepTimerActive: sleepTimerActive,
                 sleepTimerRemaining: sleepTimerRemaining,
-                sleepTimerType: sleepTimerType
+                sleepTimerType: sleepTimerType,
             ),
             mode: .audiobook,
             chapterProgress: $chapterProgress,
@@ -181,7 +181,7 @@ public struct AudiobookPlayerView: View {
                     chapterTotalSecondsAudio: msg.chapterTotalSecondsAudio,
                     bookCurrentSecondsAudio: msg.bookCurrentSecondsAudio,
                     bookTotalSecondsAudio: msg.bookTotalSecondsAudio,
-                    bookCurrentFraction: msg.bookCurrentFraction
+                    bookCurrentFraction: msg.bookCurrentFraction,
                 )
             },
             onChapterSelected: { chapter in
@@ -238,7 +238,7 @@ public struct AudiobookPlayerView: View {
                     }
                 }
             },
-            seekWhileDragging: false
+            seekWhileDragging: false,
         )
     }
 
@@ -265,7 +265,7 @@ public struct AudiobookPlayerView: View {
                     id: chapter.href,
                     label: chapter.title,
                     href: chapter.href,
-                    level: 0
+                    level: 0,
                 )
             }
 
@@ -346,7 +346,7 @@ public struct AudiobookPlayerView: View {
                 bookCurrentSecondsAudio: currentTime,
                 bookTotalSecondsAudio: totalDuration,
                 bookCurrentFraction: totalDuration > 0 ? currentTime / totalDuration : 0,
-                generatedAt: Date().timeIntervalSince1970
+                generatedAt: Date().timeIntervalSince1970,
             )
         } else {
             currentChapterTitle = "Unknown Chapter"
@@ -363,7 +363,7 @@ public struct AudiobookPlayerView: View {
                 bookCurrentSecondsAudio: currentTime,
                 bookTotalSecondsAudio: totalDuration,
                 bookCurrentFraction: totalDuration > 0 ? currentTime / totalDuration : 0,
-                generatedAt: Date().timeIntervalSince1970
+                generatedAt: Date().timeIntervalSince1970,
             )
         }
 
@@ -518,9 +518,9 @@ public struct AudiobookPlayerView: View {
                 totalProgression: currentProgress,
                 cssSelector: nil,
                 partialCfi: nil,
-                domRange: nil
+                domRange: nil,
             ),
-            text: nil
+            text: nil,
         )
 
         debugLog(
@@ -537,7 +537,7 @@ public struct AudiobookPlayerView: View {
             timestamp: timestamp,
             reason: reason,
             sourceIdentifier: "Audiobook Player",
-            locationDescription: locationDescription
+            locationDescription: locationDescription,
         )
 
         switch result {

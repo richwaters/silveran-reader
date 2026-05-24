@@ -50,7 +50,7 @@ public struct AudiobookMetadata: Sendable {
         chapters: [AudiobookChapter],
         totalDuration: TimeInterval,
         title: String?,
-        author: String?
+        author: String?,
     ) {
         self.chapters = chapters
         self.totalDuration = totalDuration
@@ -73,7 +73,7 @@ public struct AudiobookPlaybackState: Sendable {
         duration: TimeInterval,
         currentChapterIndex: Int?,
         playbackRate: Float,
-        volume: Float
+        volume: Float,
     ) {
         self.isPlaying = isPlaying
         self.currentTime = currentTime
@@ -150,7 +150,7 @@ public actor AudiobookActor {
             chapters: chapters,
             totalDuration: totalDuration,
             title: title,
-            author: author
+            author: author,
         )
 
         self.metadata = metadata
@@ -168,7 +168,7 @@ public actor AudiobookActor {
                     title: "Full Book",
                     startTime: 0,
                     duration: totalDuration,
-                    href: "chapter-0"
+                    href: "chapter-0",
                 )
             ]
         }
@@ -182,7 +182,7 @@ public actor AudiobookActor {
                     title: "Full Book",
                     startTime: 0,
                     duration: totalDuration,
-                    href: "chapter-0"
+                    href: "chapter-0",
                 )
             ]
         }
@@ -193,14 +193,14 @@ public actor AudiobookActor {
                     title: "Full Book",
                     startTime: 0,
                     duration: totalDuration,
-                    href: "chapter-0"
+                    href: "chapter-0",
                 )
             ]
         }
 
         let chapterMetadataGroups = try await urlAsset.loadChapterMetadataGroups(
             withTitleLocale: languages[0],
-            containingItemsWithCommonKeys: [.commonKeyTitle]
+            containingItemsWithCommonKeys: [.commonKeyTitle],
         )
 
         var chapters: [AudiobookChapter] = []
@@ -230,7 +230,7 @@ public actor AudiobookActor {
                     title: chapterTitle,
                     startTime: startTime,
                     duration: duration,
-                    href: "chapter-\(index)"
+                    href: "chapter-\(index)",
                 )
             )
         }
@@ -241,7 +241,7 @@ public actor AudiobookActor {
                     title: "Full Book",
                     startTime: 0,
                     duration: totalDuration,
-                    href: "chapter-0"
+                    href: "chapter-0",
                 )
             )
         }
@@ -374,13 +374,13 @@ public actor AudiobookActor {
             duration: player.duration,
             currentChapterIndex: await getCurrentChapterIndex(),
             playbackRate: player.rate,
-            volume: player.volume
+            volume: player.volume,
         )
     }
 
     public func addStateObserver(
         id: UUID = UUID(),
-        observer: @escaping @Sendable @MainActor (AudiobookPlaybackState) -> Void
+        observer: @escaping @Sendable @MainActor (AudiobookPlaybackState) -> Void,
     ) async -> UUID {
         debugLog("[AudiobookActor] addStateObserver called, id=\(id)")
         stateObservers[id] = observer
@@ -532,7 +532,7 @@ public actor AudiobookActor {
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: session,
-            queue: nil
+            queue: nil,
         ) { [weak self] notification in
             self?.handleAudioSessionInterruption(notification)
         }
@@ -540,7 +540,7 @@ public actor AudiobookActor {
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: session,
-            queue: nil
+            queue: nil,
         ) { [weak self] notification in
             self?.handleAudioRouteChange(notification)
         }
@@ -621,12 +621,12 @@ public actor AudiobookActor {
         NotificationCenter.default.removeObserver(
             self,
             name: AVAudioSession.interruptionNotification,
-            object: nil
+            object: nil,
         )
         NotificationCenter.default.removeObserver(
             self,
             name: AVAudioSession.routeChangeNotification,
-            object: nil
+            object: nil,
         )
         audioSessionObserversConfigured = false
         debugLog("[AudiobookActor] Audio session observers removed")
@@ -787,7 +787,7 @@ public actor AudiobookActor {
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false,
-                options: .notifyOthersOnDeactivation
+                options: .notifyOthersOnDeactivation,
             )
         } catch {
             debugLog("[AudiobookActor] Failed to deactivate audio session: \(error)")

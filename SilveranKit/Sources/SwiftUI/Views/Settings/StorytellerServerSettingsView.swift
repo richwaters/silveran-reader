@@ -198,7 +198,7 @@ public struct StorytellerServerSettingsView: View {
         .confirmationDialog(
             "Remove this server?",
             isPresented: $showRemoveDataConfirmation,
-            titleVisibility: .visible
+            titleVisibility: .visible,
         ) {
             Button("Remove Server", role: .destructive) {
                 Task {
@@ -257,7 +257,7 @@ public struct StorytellerServerSettingsView: View {
         let success = await StorytellerActor.shared.setLogin(
             baseURL: serverURL,
             username: username,
-            password: password
+            password: password,
         )
 
         if success {
@@ -265,7 +265,7 @@ public struct StorytellerServerSettingsView: View {
                 try await AuthenticationActor.shared.saveCredentials(
                     url: serverURL,
                     username: username,
-                    password: password
+                    password: password,
                 )
                 await MainActor.run {
                     hasSavedCredentials = true

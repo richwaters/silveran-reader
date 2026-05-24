@@ -51,7 +51,7 @@ struct iOSBookDetailView: View {
                 item: item,
                 selectedStatusName: $selectedStatusName,
                 isUpdatingStatus: $isUpdatingStatus,
-                showOfflineError: $showOfflineError
+                showOfflineError: $showOfflineError,
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
@@ -88,7 +88,7 @@ struct iOSBookDetailView: View {
                 columnBreakpoints: [
                     MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                 ],
-                initialNarrationFilterOption: .both
+                initialNarrationFilterOption: .both,
             )
             .navigationTitle(series.name)
         }
@@ -135,7 +135,7 @@ struct iOSBookDetailView: View {
 
         let success = await StorytellerActor.shared.updateStatus(
             forBooks: [item.uuid],
-            toStatusNamed: statusName
+            toStatusNamed: statusName,
         )
 
         if success {
@@ -144,7 +144,7 @@ struct iOSBookDetailView: View {
             }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
-                    status: newStatus
+                    status: newStatus,
                 )
             }
         } else {
@@ -697,7 +697,7 @@ private struct iOSMediaButton: View {
             localMediaPath: path,
             category: option.category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
 }
@@ -798,7 +798,7 @@ private struct iOSCreateReadaloudButton: View {
                     isStartingAlignment = true
                     _ = await StorytellerActor.shared.startAlignment(
                         for: item.uuid,
-                        restart: isErrorOrStopped ? .full : .none
+                        restart: isErrorOrStopped ? .full : .none,
                     )
                     await StorytellerActor.shared.fetchLibraryInformation()
                     isStartingAlignment = false
@@ -969,7 +969,7 @@ private struct CompactStatusPicker: View {
 
         let success = await StorytellerActor.shared.updateStatus(
             forBooks: [item.uuid],
-            toStatusNamed: statusName
+            toStatusNamed: statusName,
         )
 
         if success {
@@ -978,7 +978,7 @@ private struct CompactStatusPicker: View {
             }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
-                    status: newStatus
+                    status: newStatus,
                 )
             }
         } else {
@@ -1013,7 +1013,7 @@ private struct BookOptionsSheet: View {
                         item: item,
                         selectedStatusName: $selectedStatusName,
                         isUpdatingStatus: $isUpdatingStatus,
-                        showOfflineError: $showOfflineError
+                        showOfflineError: $showOfflineError,
                     )
                 } label: {
                     HStack {
@@ -1097,7 +1097,7 @@ private struct StatusPickerView: View {
 
         let success = await StorytellerActor.shared.updateStatus(
             forBooks: [item.uuid],
-            toStatusNamed: statusName
+            toStatusNamed: statusName,
         )
 
         if success {
@@ -1106,7 +1106,7 @@ private struct StatusPickerView: View {
             }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
-                    status: newStatus
+                    status: newStatus,
                 )
                 selectedStatusName = statusName
             }

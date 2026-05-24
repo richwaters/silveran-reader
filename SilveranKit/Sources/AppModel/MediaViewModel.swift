@@ -130,7 +130,7 @@ public final class MediaViewModel {
     @ObservationIgnored private var coverTasks: [CoverKey: Task<Void, Never>] = [:]
 
     public init(
-        injectLibrary: BookLibrary? = nil,
+        injectLibrary: BookLibrary? = nil
     ) {
         if let injectLibrary = injectLibrary {
             self.library = injectLibrary
@@ -138,7 +138,7 @@ public final class MediaViewModel {
             self.library = BookLibrary(
                 bookMetaData: [],
                 ebookCoverCache: [:],
-                audiobookCoverCache: [:]
+                audiobookCoverCache: [:],
             )
             Task { [weak self] in
                 await ProgressSyncActor.shared.registerSyncNotificationCallback {
@@ -156,14 +156,15 @@ public final class MediaViewModel {
                         let bookNames = failedBookIds.compactMap { bookId in
                             self.library.bookMetaData.first(where: { $0.uuid == bookId })?.title
                         }
-                        let message = bookNames.isEmpty
+                        let message =
+                            bookNames.isEmpty
                             ? "Failed to sync \(failedBookIds.count) book(s)"
                             : "Failed to sync: \(bookNames.joined(separator: ", "))"
                         self.showSyncNotification(
                             SyncNotification(
                                 message: message,
                                 type: .error,
-                                failedBookIds: failedBookIds
+                                failedBookIds: failedBookIds,
                             )
                         )
                     }
@@ -266,15 +267,17 @@ public final class MediaViewModel {
 
         let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
         let standaloneMetadata = await LocalMediaActor.shared.localStandaloneMetadata
-        let metadata = storytellerMetadata.map {
-            var book = $0
-            book.source = "Storyteller"
-            return book
-        } + standaloneMetadata.map {
-            var book = $0
-            book.source = "Local File"
-            return book
-        }
+        let metadata =
+            storytellerMetadata.map {
+                var book = $0
+                book.source = "Storyteller"
+                return book
+            }
+            + standaloneMetadata.map {
+                var book = $0
+                book.source = "Local File"
+                return book
+            }
         debugLog(
             "[MediaViewModel] refreshMetadata: Using LMA metadata (\(storytellerMetadata.count) storyteller + \(standaloneMetadata.count) standalone = \(metadata.count) books)"
         )
@@ -322,7 +325,7 @@ public final class MediaViewModel {
                 // progress sync data comes from metadata fetches
                 let refreshInterval = min(
                     config.sync.metadataRefreshIntervalSeconds,
-                    config.sync.progressSyncIntervalSeconds
+                    config.sync.progressSyncIntervalSeconds,
                 )
 
                 if config.sync.isMetadataRefreshDisabled {
@@ -400,14 +403,16 @@ public final class MediaViewModel {
     }
 
     private func applyLibraryMetadata(_ metadata: [BookMetadata]) {
-        let previousMetadataByID = Dictionary(uniqueKeysWithValues: library.bookMetaData.map {
-            ($0.id, $0)
-        })
+        let previousMetadataByID = Dictionary(
+            uniqueKeysWithValues: library.bookMetaData.map {
+                ($0.id, $0)
+            }
+        )
         let validIDs = Set(metadata.map(\.id))
         library = BookLibrary(
             bookMetaData: metadata,
             ebookCoverCache: [:],
-            audiobookCoverCache: [:]
+            audiobookCoverCache: [:],
         )
         libraryVersion += 1
         debugLog("[MediaViewModel] Updated library (version \(libraryVersion))")
@@ -959,14 +964,14 @@ public final class MediaViewModel {
                 var base = items(
                     for: config.mediaKind,
                     narrationFilter: .both,
-                    tagFilter: config.tagFilter
+                    tagFilter: config.tagFilter,
                 )
 
                 if shouldIncludeAudiobookOnlyItems(for: config.narrationFilter) {
                     let audioOnlyItems = items(
                         for: .audiobook,
                         narrationFilter: .both,
-                        tagFilter: config.tagFilter
+                        tagFilter: config.tagFilter,
                     )
                     base = mergeItems(base, with: audioOnlyItems)
                 }
@@ -1187,27 +1192,27 @@ public final class MediaViewModel {
             locator: locator,
             timestamp: bp.timestamp,
             createdAt: nil,
-            updatedAt: nil
+            updatedAt: nil,
         )
     }
 
     public func downloadProgressFraction(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Double? {
         downloadStatuses[item.id]?.categories[category]?.progressFraction
     }
 
     public func isCategoryDownloadInProgress(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Bool {
         downloadStatuses[item.id]?.categories[category]?.isActive ?? false
     }
 
     public func isCategoryDownloadFailed(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Bool {
         downloadStatuses[item.id]?.categories[category]?.isFailed ?? false
     }
@@ -1218,7 +1223,7 @@ public final class MediaViewModel {
             guard
                 let directory = await LocalMediaActor.shared.mediaDirectory(
                     for: item.id,
-                    category: category
+                    category: category,
                 )
             else { return }
             await MainActor.run {
@@ -1295,7 +1300,7 @@ public final class MediaViewModel {
 
     public func ensureCoverLoaded(
         for item: BookMetadata,
-        variant overrideVariant: CoverVariant? = nil
+        variant overrideVariant: CoverVariant? = nil,
     ) {
         let variant = overrideVariant ?? coverVariant(for: item)
         let key = coverKey(for: item, variant: variant)
@@ -1325,7 +1330,7 @@ public final class MediaViewModel {
                             etag: nil,
                             lastModified: nil,
                             cacheControl: nil,
-                            contentDisposition: nil
+                            contentDisposition: nil,
                         )
                         self.registerCover(cover, for: item, variant: variant)
                     } else {
@@ -1361,7 +1366,7 @@ public final class MediaViewModel {
 
     public func refreshCover(
         for item: BookMetadata,
-        variant overrideVariant: CoverVariant? = nil
+        variant overrideVariant: CoverVariant? = nil,
     ) async {
         let variant = overrideVariant ?? coverVariant(for: item)
         let key = coverKey(for: item, variant: variant)
@@ -1405,14 +1410,14 @@ public final class MediaViewModel {
 
     private func fetchStorytellerCover(
         for item: BookMetadata,
-        variant: CoverVariant
+        variant: CoverVariant,
     ) async -> BookCover? {
         let params = variant.requestParameters
         if let cover = await sta.fetchCoverImage(
             for: item.id,
             audio: params.audio,
             width: nil,
-            height: nil
+            height: nil,
         ) {
             return cover
         }
@@ -1429,7 +1434,7 @@ public final class MediaViewModel {
             audio: params.audio,
             width: params.width,
             height: params.height,
-            version: item.updatedAt
+            version: item.updatedAt,
         )
         if cover == nil {
             debugLog(
@@ -1487,7 +1492,7 @@ public final class MediaViewModel {
             try? await FilesystemActor.shared.saveCoverImage(
                 uuid: item.id,
                 data: cover.data,
-                variant: variantString
+                variant: variantString,
             )
         }
     }
@@ -1511,7 +1516,7 @@ public final class MediaViewModel {
 
                 if let data = await FilesystemActor.shared.loadCoverImage(
                     uuid: book.id,
-                    variant: variantString
+                    variant: variantString,
                 ) {
                     let key = coverKey(for: book, variant: variant)
                     #if canImport(AppKit)
@@ -1589,7 +1594,7 @@ public final class MediaViewModel {
                 || isCategoryDownloaded(.synced, for: book)
             let locationInfo = ShelfLocationInfo(
                 isDownloaded: hasDownloadedContent && !isLocal,
-                isLocalStandalone: isLocal
+                isLocalStandalone: isLocal,
             )
             return shelf.matchesAll(book, progress: prog, locationInfo: locationInfo)
         }.sorted {

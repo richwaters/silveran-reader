@@ -114,7 +114,7 @@ struct MediaTableRowView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
     #endif
@@ -157,7 +157,7 @@ struct MediaTableRowView: View {
             BookContextMenuContent(
                 item: item,
                 onInfo: onInfo,
-                onEditMetadata: onEditMetadata
+                onEditMetadata: onEditMetadata,
             )
         }
         #endif
@@ -291,7 +291,10 @@ struct MediaTableRowView: View {
         available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
     ) {
         let category = type.category
-        let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let downloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category,
+        )
         let downloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let progress =
             downloading
@@ -384,7 +387,7 @@ struct MediaTableRowView: View {
         for type: MediaType,
         status: (
             available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
-        )
+        ),
     ) {
         let category = type.category
 
@@ -423,7 +426,7 @@ struct MediaTableRowView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
     }

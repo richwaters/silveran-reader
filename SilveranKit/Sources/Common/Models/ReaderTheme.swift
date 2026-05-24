@@ -54,7 +54,7 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         userHighlightLabel5: String = kDefaultUserHighlightLabel5,
         userHighlightLabel6: String = kDefaultUserHighlightLabel6,
         userHighlightMode: String = kDefaultUserHighlightMode,
-        customCSS: String? = nil
+        customCSS: String? = nil,
     ) {
         self.id = id
         self.name = name
@@ -98,21 +98,33 @@ public struct ReaderTheme: Codable, Equatable, Sendable, Identifiable {
         userHighlightColor4 = try container.decode(String.self, forKey: .userHighlightColor4)
         userHighlightColor5 = try container.decode(String.self, forKey: .userHighlightColor5)
         userHighlightColor6 = try container.decode(String.self, forKey: .userHighlightColor6)
-        userHighlightLabel1 = (try? container.decode(String.self, forKey: .userHighlightLabel1)) ?? kDefaultUserHighlightLabel1
-        userHighlightLabel2 = (try? container.decode(String.self, forKey: .userHighlightLabel2)) ?? kDefaultUserHighlightLabel2
-        userHighlightLabel3 = (try? container.decode(String.self, forKey: .userHighlightLabel3)) ?? kDefaultUserHighlightLabel3
-        userHighlightLabel4 = (try? container.decode(String.self, forKey: .userHighlightLabel4)) ?? kDefaultUserHighlightLabel4
-        userHighlightLabel5 = (try? container.decode(String.self, forKey: .userHighlightLabel5)) ?? kDefaultUserHighlightLabel5
-        userHighlightLabel6 = (try? container.decode(String.self, forKey: .userHighlightLabel6)) ?? kDefaultUserHighlightLabel6
+        userHighlightLabel1 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel1))
+            ?? kDefaultUserHighlightLabel1
+        userHighlightLabel2 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel2))
+            ?? kDefaultUserHighlightLabel2
+        userHighlightLabel3 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel3))
+            ?? kDefaultUserHighlightLabel3
+        userHighlightLabel4 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel4))
+            ?? kDefaultUserHighlightLabel4
+        userHighlightLabel5 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel5))
+            ?? kDefaultUserHighlightLabel5
+        userHighlightLabel6 =
+            (try? container.decode(String.self, forKey: .userHighlightLabel6))
+            ?? kDefaultUserHighlightLabel6
         userHighlightMode = try container.decode(String.self, forKey: .userHighlightMode)
         customCSS = try? container.decode(String.self, forKey: .customCSS)
     }
 
     public func availableFor(colorScheme: String) -> Bool {
         switch appearance {
-        case .any: return true
-        case .light: return colorScheme == "light"
-        case .dark: return colorScheme == "dark"
+            case .any: return true
+            case .light: return colorScheme == "light"
+            case .dark: return colorScheme == "dark"
         }
     }
 }
@@ -126,7 +138,7 @@ extension ReaderTheme {
         backgroundColor: kDefaultBackgroundColorLight,
         foregroundColor: kDefaultForegroundColorLight,
         highlightColor: "#254DF4",
-        readaloudHighlightMode: "text"
+        readaloudHighlightMode: "text",
     )
 
     public static let builtInDark = ReaderTheme(
@@ -137,7 +149,7 @@ extension ReaderTheme {
         backgroundColor: kDefaultBackgroundColorDark,
         foregroundColor: kDefaultForegroundColorDark,
         highlightColor: "#65A8EE",
-        readaloudHighlightMode: "text"
+        readaloudHighlightMode: "text",
     )
 
     public static let allBuiltIn: [ReaderTheme] = [

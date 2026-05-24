@@ -232,29 +232,29 @@ final class HardcoverImportViewModel {
     func selectEdition(
         _ edition: HardcoverEditionInfo,
         bookId: Int,
-        source: MetadataEditorViewModel.HardcoverImportSource
+        source: MetadataEditorViewModel.HardcoverImportSource,
     ) {
         guard let details = detailsForEdition(edition, bookId: bookId) else { return }
         selectedEditionId = edition.id
         switch source {
-        case .text:
-            selectedTextEditionId = edition.id
-        case .audiobook:
-            selectedAudiobookEditionId = edition.id
+            case .text:
+                selectedTextEditionId = edition.id
+            case .audiobook:
+                selectedAudiobookEditionId = edition.id
         }
 
         fetchedDetails = details
         switch source {
-        case .text:
-            selectedTextDetails = details
-        case .audiobook:
-            selectedAudiobookDetails = details
+            case .text:
+                selectedTextDetails = details
+            case .audiobook:
+                selectedAudiobookDetails = details
         }
     }
 
     func detailsForEdition(
         _ edition: HardcoverEditionInfo,
-        bookId: Int
+        bookId: Int,
     ) -> HardcoverBookDetails? {
         guard let bookDetails = infoDetails[bookId] else { return nil }
 
@@ -290,7 +290,7 @@ final class HardcoverImportViewModel {
             imageUrl: edition.imageUrl ?? bookDetails.imageUrl,
             imageWidth: edition.imageUrl != nil ? edition.imageWidth : bookDetails.imageWidth,
             imageHeight: edition.imageUrl != nil ? edition.imageHeight : bookDetails.imageHeight,
-            rawJSON: bookDetails.rawJSON
+            rawJSON: bookDetails.rawJSON,
         )
         return details
     }

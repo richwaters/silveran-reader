@@ -50,7 +50,7 @@ struct ConditionEditorSheet: View {
 
     init(
         conditionType: ShelfConditionType,
-        onAdd: @escaping ([ShelfCondition]) -> Void
+        onAdd: @escaping ([ShelfCondition]) -> Void,
     ) {
         self.conditionType = conditionType
         self.onAdd = onAdd
@@ -136,16 +136,22 @@ struct ConditionEditorSheet: View {
         .frame(minWidth: 400, minHeight: 450)
         .onAppear {
             debugLog("[ConditionEditorSheet] opened for \(conditionType.label)")
-            debugLog("[ConditionEditorSheet] vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)")
+            debugLog(
+                "[ConditionEditorSheet] vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)"
+            )
 
             let books = mediaViewModel.library.bookMetaData
             let booksWithAuthors = books.filter { !($0.authors?.isEmpty ?? true) }.count
             let booksWithNarrators = books.filter { !($0.narrators?.isEmpty ?? true) }.count
             let booksWithTags = books.filter { !$0.tagNames.isEmpty }.count
-            debugLog("[ConditionEditorSheet] books with metadata: authors=\(booksWithAuthors), narrators=\(booksWithNarrators), tags=\(booksWithTags)")
+            debugLog(
+                "[ConditionEditorSheet] books with metadata: authors=\(booksWithAuthors), narrators=\(booksWithNarrators), tags=\(booksWithTags)"
+            )
 
             let values = availableValues
-            debugLog("[ConditionEditorSheet] computed values: authors=\(values[.author]?.count ?? 0), narrators=\(values[.narrator]?.count ?? 0), tags=\(values[.tag]?.count ?? 0), series=\(values[.series]?.count ?? 0)")
+            debugLog(
+                "[ConditionEditorSheet] computed values: authors=\(values[.author]?.count ?? 0), narrators=\(values[.narrator]?.count ?? 0), tags=\(values[.tag]?.count ?? 0), series=\(values[.series]?.count ?? 0)"
+            )
 
             if conditionType == .publicationYear {
                 let years = (values[.publicationYear] ?? []).compactMap { Int($0) }.sorted()
@@ -166,25 +172,25 @@ struct ConditionEditorSheet: View {
                 multiSelectEditor(
                     items: basicFormats.map(\.label),
                     itemLabel: "Formats",
-                    searchable: false
+                    searchable: false,
                 )
             case .status:
                 multiSelectEditor(
                     items: availableStatuses,
                     itemLabel: "Statuses",
-                    searchable: availableStatuses.count > 5
+                    searchable: availableStatuses.count > 5,
                 )
             case .location:
                 multiSelectEditor(
                     items: LocationCondition.allCases.map(\.label),
                     itemLabel: "Locations",
-                    searchable: false
+                    searchable: false,
                 )
             case .progress:
                 multiSelectEditor(
                     items: ProgressCondition.allCases.map(\.label),
                     itemLabel: "Progress States",
-                    searchable: false
+                    searchable: false,
                 )
             case .rating:
                 ratingEditor
@@ -194,31 +200,31 @@ struct ConditionEditorSheet: View {
                 multiSelectEditor(
                     items: availableValues[.tag] ?? [],
                     itemLabel: "Tags",
-                    supportsPresence: true
+                    supportsPresence: true,
                 )
             case .series:
                 multiSelectEditor(
                     items: availableValues[.series] ?? [],
                     itemLabel: "Series",
-                    supportsPresence: true
+                    supportsPresence: true,
                 )
             case .author:
                 multiSelectEditor(
                     items: availableValues[.author] ?? [],
                     itemLabel: "Authors",
-                    supportsPresence: true
+                    supportsPresence: true,
                 )
             case .narrator:
                 multiSelectEditor(
                     items: availableValues[.narrator] ?? [],
                     itemLabel: "Narrators",
-                    supportsPresence: true
+                    supportsPresence: true,
                 )
             case .translator:
                 multiSelectEditor(
                     items: availableValues[.translator] ?? [],
                     itemLabel: "Translators",
-                    supportsPresence: true
+                    supportsPresence: true,
                 )
             case .boolean:
                 EmptyView()
@@ -514,7 +520,7 @@ struct ConditionEditorSheet: View {
         items: [String],
         itemLabel: String,
         supportsPresence: Bool = false,
-        searchable: Bool = true
+        searchable: Bool = true,
     ) -> some View {
         VStack(spacing: 0) {
             if supportsPresence {
@@ -566,7 +572,7 @@ struct ConditionEditorSheet: View {
                     searchableList(
                         items: items,
                         prompt: "Filter \(itemLabel.lowercased())",
-                        searchable: searchable
+                        searchable: searchable,
                     )
                 }
             }
@@ -704,15 +710,18 @@ struct ConditionEditorSheet: View {
                         return [
                             .publicationYearComparison(
                                 comparison: yearComparison,
-                                value: selectedYear
+                                value: selectedYear,
                             )
                         ]
                     }
                     return [
-                        .publicationYearComparison(comparison: .newerThan, value: yearRangeLow - 1),
+                        .publicationYearComparison(
+                            comparison: .newerThan,
+                            value: yearRangeLow - 1,
+                        ),
                         .publicationYearComparison(
                             comparison: .olderThan,
-                            value: yearRangeHigh + 1
+                            value: yearRangeHigh + 1,
                         ),
                     ]
                 }

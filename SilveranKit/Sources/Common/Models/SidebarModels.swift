@@ -26,7 +26,7 @@ public struct SidebarItemDescription: Identifiable, Hashable, Sendable {
         systemImage: String,
         badge: Int32,
         children: [SidebarItemDescription]? = nil,
-        content: SidebarContentKind
+        content: SidebarContentKind,
     ) {
         self.id = id ?? content.stableIdentifier
         self.name = name
@@ -164,7 +164,7 @@ public struct MediaGridConfiguration: Hashable, Sendable {
         publicationYearFilter: String? = nil,
         ratingFilter: String? = nil,
         statusFilter: String? = nil,
-        defaultSort: String? = nil
+        defaultSort: String? = nil,
     ) {
         self.title = title
         self.mediaKind = mediaKind
@@ -196,7 +196,7 @@ public enum LibrarySidebarDefaults {
                         name: "Dashboard",
                         systemImage: "house",
                         badge: 0,
-                        content: .home
+                        content: .home,
                     ),
                     SidebarItemDescription(
                         name: "All Books",
@@ -207,11 +207,11 @@ public enum LibrarySidebarDefaults {
                                 title: "All Books",
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
-                                minimumTileWidth: 50
+                                minimumTileWidth: 50,
                             )
-                        )
+                        ),
                     ),
-                ]
+                ],
             ),
             SidebarSectionDescription(
                 id: "section.library",
@@ -221,57 +221,57 @@ public enum LibrarySidebarDefaults {
                         name: "Series",
                         systemImage: "books.vertical",
                         badge: -1,
-                        content: .seriesView(.ebook)
+                        content: .seriesView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Author",
                         systemImage: "person.2",
                         badge: -1,
-                        content: .authorView(.ebook)
+                        content: .authorView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Narrator",
                         systemImage: "mic",
                         badge: -1,
-                        content: .narratorView(.ebook)
+                        content: .narratorView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Translator",
                         systemImage: "character.book.closed.fill",
                         badge: -1,
-                        content: .translatorView(.ebook)
+                        content: .translatorView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Tag",
                         systemImage: "tag",
                         badge: -1,
-                        content: .tagView(.ebook)
+                        content: .tagView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Pub Year",
                         systemImage: "calendar",
                         badge: -1,
-                        content: .publicationYearView(.ebook)
+                        content: .publicationYearView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Rating",
                         systemImage: "star",
                         badge: -1,
-                        content: .ratingView(.ebook)
+                        content: .ratingView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Status",
                         systemImage: "arrow.right.circle",
                         badge: -1,
-                        content: .statusView(.ebook)
+                        content: .statusView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Source",
                         systemImage: "externaldrive",
                         badge: -1,
-                        content: .sourceView(.ebook)
+                        content: .sourceView(.ebook),
                     ),
-                ]
+                ],
             ),
             SidebarSectionDescription(
                 id: "section.collections",
@@ -281,15 +281,15 @@ public enum LibrarySidebarDefaults {
                         name: "Server Collections",
                         systemImage: "rectangle.stack",
                         badge: -1,
-                        content: .collectionsView(.ebook)
+                        content: .collectionsView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Smart Shelves",
                         systemImage: "sparkles.rectangle.stack",
                         badge: -1,
-                        content: .smartShelves
+                        content: .smartShelves,
                     ),
-                ]
+                ],
             ),
             SidebarSectionDescription(
                 id: "section.mediaSources",
@@ -299,27 +299,27 @@ public enum LibrarySidebarDefaults {
                         name: "Storyteller Server",
                         systemImage: "server.rack",
                         badge: -1,
-                        content: .storytellerServer
+                        content: .storytellerServer,
                     ),
                     SidebarItemDescription(
                         name: "Local Files",
                         systemImage: "folder",
                         badge: -1,
-                        content: .importLocalFile
+                        content: .importLocalFile,
                     ),
                     SidebarItemDescription(
                         name: "Downloaded",
                         systemImage: "arrow.down.circle",
                         badge: -1,
-                        content: .downloaded
+                        content: .downloaded,
                     ),
                     SidebarItemDescription(
                         name: "Currently Downloading",
                         systemImage: "arrow.down.circle.dotted",
                         badge: -1,
-                        content: .currentlyDownloading
+                        content: .currentlyDownloading,
                     ),
-                ]
+                ],
             ),
         ]
     }

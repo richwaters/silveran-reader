@@ -35,7 +35,7 @@ struct MediaGridDownloadSection: View {
                     Button("Manage Server Media...") {
                         openWindow(
                             id: "ServerMediaManagement",
-                            value: ServerMediaManagementData(bookId: item.id)
+                            value: ServerMediaManagementData(bookId: item.id),
                         )
                     }
                     .font(.callout)

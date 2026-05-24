@@ -109,7 +109,7 @@ struct SidebarView: View {
             name: shelf.name,
             systemImage: "sparkles.rectangle.stack",
             badge: -1,
-            content: .smartShelfDetail(uuid)
+            content: .smartShelfDetail(uuid),
         )
     }
 
@@ -136,9 +136,9 @@ struct SidebarView: View {
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
                         seriesFilter: name,
-                        defaultSort: "seriesPosition"
+                        defaultSort: "seriesPosition",
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.collection:") {
@@ -154,9 +154,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        collectionFilter: name
+                        collectionFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.author:") {
@@ -172,9 +172,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        authorFilter: name
+                        authorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.narrator:") {
@@ -190,9 +190,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        narratorFilter: name
+                        narratorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.translator:") {
@@ -208,9 +208,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        translatorFilter: name
+                        translatorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.tag:") {
@@ -226,9 +226,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        tagFilter: name
+                        tagFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.year:") {
@@ -244,9 +244,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        publicationYearFilter: year
+                        publicationYearFilter: year,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.rating:") {
@@ -263,9 +263,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        ratingFilter: rating
+                        ratingFilter: rating,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.status:") {
@@ -289,9 +289,9 @@ struct SidebarView: View {
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
                         statusFilter: status,
-                        defaultSort: "recentlyRead"
+                        defaultSort: "recentlyRead",
                     )
-                )
+                ),
             )
         }
         return nil
@@ -375,7 +375,7 @@ struct SidebarView: View {
             text: $searchText,
             isPresented: $isSearchFocused,
             placement: .sidebar,
-            prompt: "Search"
+            prompt: "Search",
         )
         #endif
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
@@ -395,7 +395,7 @@ struct SidebarView: View {
                                     message: didDelete
                                         ? "Local cover cache cleared"
                                         : "Failed to clear local cover cache",
-                                    type: didDelete ? .success : .error
+                                    type: didDelete ? .success : .error,
                                 )
                             )
                         }
@@ -404,7 +404,7 @@ struct SidebarView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondary)
                 }
             }
         }
@@ -473,7 +473,7 @@ struct SidebarView: View {
             get: {
                 sidebarConfig.first(where: { $0.id == groupId })?.expanded ?? true
             },
-            set: { _ in toggleExpanded(groupId) }
+            set: { _ in toggleExpanded(groupId) },
         )
     }
 
@@ -627,7 +627,7 @@ struct SidebarView: View {
                 withTransaction(t) {
                     binding.wrappedValue = newValue
                 }
-            }
+            },
         )
     }
 

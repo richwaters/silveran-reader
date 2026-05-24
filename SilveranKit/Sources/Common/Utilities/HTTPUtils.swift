@@ -29,7 +29,7 @@ func httpGet(
     queryParameters: [String: String] = [:],
     session: URLSession = .shared,
     debug: Bool = false,
-    allowedStatusCodes: Set<Int>? = nil
+    allowedStatusCodes: Set<Int>? = nil,
 ) async throws -> HTTPResponse {
     try await httpRequest(
         method: "GET",
@@ -39,7 +39,7 @@ func httpGet(
         body: nil,
         session: session,
         debug: debug,
-        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes)
+        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes),
     )
 }
 
@@ -51,7 +51,7 @@ func httpPost(
     body: Data? = nil,
     session: URLSession = .shared,
     debug: Bool = false,
-    allowedStatusCodes: Set<Int>? = nil
+    allowedStatusCodes: Set<Int>? = nil,
 ) async throws -> HTTPResponse {
     if body != nil && !formParameters.isEmpty {
         assertionFailure("Provide either body or formParameters when calling httpPost.")
@@ -78,7 +78,7 @@ func httpPost(
         body: payload,
         session: session,
         debug: debug,
-        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes)
+        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes),
     )
 }
 
@@ -89,7 +89,7 @@ func httpPut(
     body: Data? = nil,
     session: URLSession = .shared,
     debug: Bool = false,
-    allowedStatusCodes: Set<Int>? = nil
+    allowedStatusCodes: Set<Int>? = nil,
 ) async throws -> HTTPResponse {
     try await httpRequest(
         method: "PUT",
@@ -99,7 +99,7 @@ func httpPut(
         body: body,
         session: session,
         debug: debug,
-        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes)
+        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes),
     )
 }
 
@@ -110,7 +110,7 @@ func httpPatch(
     body: Data? = nil,
     session: URLSession = .shared,
     debug: Bool = false,
-    allowedStatusCodes: Set<Int>? = nil
+    allowedStatusCodes: Set<Int>? = nil,
 ) async throws -> HTTPResponse {
     try await httpRequest(
         method: "PATCH",
@@ -120,7 +120,7 @@ func httpPatch(
         body: body,
         session: session,
         debug: debug,
-        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes)
+        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes),
     )
 }
 
@@ -131,7 +131,7 @@ func httpDelete(
     body: Data? = nil,
     session: URLSession = .shared,
     debug: Bool = false,
-    allowedStatusCodes: Set<Int>? = nil
+    allowedStatusCodes: Set<Int>? = nil,
 ) async throws -> HTTPResponse {
     try await httpRequest(
         method: "DELETE",
@@ -141,17 +141,17 @@ func httpDelete(
         body: body,
         session: session,
         debug: debug,
-        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes)
+        allowedStatusCodes: resolvedAllowedStatusCodes(allowedStatusCodes),
     )
 }
 
 func urlWithQueryParameters(
     _ url: URL,
-    queryParameters: [String: String]
+    queryParameters: [String: String],
 ) throws -> URL {
     let resolvedString = try resolveURLString(
         url.absoluteString,
-        adding: queryParameters
+        adding: queryParameters,
     )
 
     guard let resolvedURL = URL(string: resolvedString) else {
@@ -168,7 +168,7 @@ private func httpRequest(
     body: Data?,
     session: URLSession,
     debug: Bool,
-    allowedStatusCodes: Set<Int>
+    allowedStatusCodes: Set<Int>,
 ) async throws -> HTTPResponse {
     let resolvedURLString = try resolveURLString(urlString, adding: queryParameters)
     guard let url = URL(string: resolvedURLString) else {
@@ -195,7 +195,7 @@ private func httpRequest(
             method: method,
             url: httpResponse.url ?? url,
             statusCode: httpResponse.statusCode,
-            data: data
+            data: data,
         )
         switch httpResponse.statusCode {
             case 401, 403:
@@ -211,7 +211,7 @@ private func httpRequest(
 
 private func resolveURLString(
     _ urlString: String,
-    adding queryParameters: [String: String]
+    adding queryParameters: [String: String],
 ) throws -> String {
     guard !queryParameters.isEmpty else {
         return urlString
@@ -275,7 +275,7 @@ func postFormData(url: String, formFields: [String: String]) async -> Data? {
 
     request.setValue(
         "multipart/form-data; boundary=\(boundary)",
-        forHTTPHeaderField: "Content-Type"
+        forHTTPHeaderField: "Content-Type",
     )
     request.httpBody = bodyData
 

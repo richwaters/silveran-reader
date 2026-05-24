@@ -17,7 +17,8 @@ struct NarratorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.narrators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference.storytellerDouble
+    @AppStorage("coverPref.narrators") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("narrators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -59,7 +60,8 @@ struct NarratorView: View {
                 id: name,
                 name: name,
                 books: group.books,
-                pinId: group.narrator?.name != nil ? SidebarPinHelper.pinId(forNarrator: name) : nil
+                pinId: group.narrator?.name != nil
+                    ? SidebarPinHelper.pinId(forNarrator: name) : nil,
             )
         }
     }
@@ -136,22 +138,22 @@ extension NarratorView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: NarratorDetailNavigation.self) { nav in
                 narratorDetailView(
                     for: nav.narratorName,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 )
                 .iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -173,7 +175,7 @@ extension NarratorView {
                                 iconName: "mic.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -192,7 +194,7 @@ extension NarratorView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -200,7 +202,7 @@ extension NarratorView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
@@ -212,13 +214,13 @@ extension NarratorView {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -257,7 +259,7 @@ extension NarratorView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -272,22 +274,22 @@ extension NarratorView {
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -295,7 +297,7 @@ extension NarratorView {
             .navigationDestination(for: NarratorDetailNavigation.self) { nav in
                 narratorDetailView(
                     for: nav.narratorName,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 )
             }
         }
@@ -309,7 +311,7 @@ extension NarratorView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
@@ -322,7 +324,7 @@ extension NarratorView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
@@ -345,9 +347,9 @@ extension NarratorView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
@@ -358,7 +360,7 @@ extension NarratorView {
 extension NarratorView {
     @ViewBuilder fileprivate func narratorDetailView(
         for narratorName: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         #if os(iOS)
         MediaGridView(
@@ -373,7 +375,7 @@ extension NarratorView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(narratorName)
         #else
         MediaGridView(
@@ -387,7 +389,7 @@ extension NarratorView {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(narratorName)
         #endif
     }

@@ -45,7 +45,7 @@ struct TVSettingsView: View {
                         } label: {
                             Label(
                                 isConnected ? "Reconnect" : "Connect",
-                                systemImage: "network"
+                                systemImage: "network",
                             )
                         }
                     }
@@ -89,8 +89,8 @@ struct TVSettingsView: View {
                                 Task {
                                     await settingsViewModel.updateFontFamily(newValue)
                                 }
-                            }
-                        )
+                            },
+                        ),
                     ) {
                         Text("System Default").tag("System Default")
                         Text("Serif").tag("serif")
@@ -113,8 +113,8 @@ struct TVSettingsView: View {
                                 Task {
                                     await settingsViewModel.updateSubtitleFontSize(newValue)
                                 }
-                            }
-                        )
+                            },
+                        ),
                     ) {
                         Text("Small").tag(36.0)
                         Text("Medium").tag(48.0)

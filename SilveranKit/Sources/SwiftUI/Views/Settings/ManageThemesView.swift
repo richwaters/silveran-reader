@@ -86,10 +86,13 @@ struct ManageThemesView: View {
         #if os(macOS)
         .listStyle(.inset(alternatesRowBackgrounds: true))
         #endif
-        .alert("Delete Theme?", isPresented: Binding(
-            get: { deleteConfirmThemeId != nil },
-            set: { if !$0 { deleteConfirmThemeId = nil } }
-        )) {
+        .alert(
+            "Delete Theme?",
+            isPresented: Binding(
+                get: { deleteConfirmThemeId != nil },
+                set: { if !$0 { deleteConfirmThemeId = nil } },
+            ),
+        ) {
             Button("Cancel", role: .cancel) { deleteConfirmThemeId = nil }
             Button("Delete", role: .destructive) {
                 if let id = deleteConfirmThemeId {
@@ -236,9 +239,9 @@ struct ManageThemesView: View {
 
     private func appearanceLabel(_ appearance: ThemeAppearance) -> String {
         switch appearance {
-        case .light: return "Light only"
-        case .dark: return "Dark only"
-        case .any: return "Both"
+            case .light: return "Light only"
+            case .dark: return "Dark only"
+            case .any: return "Both"
         }
     }
 

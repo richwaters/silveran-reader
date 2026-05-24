@@ -60,7 +60,7 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         expandLeft: Bool,
         rightAmount: CGFloat,
         leftAmount: CGFloat,
-        savedWidthKey: String? = nil
+        savedWidthKey: String? = nil,
     ) {
         self.expandRight = expandRight
         self.expandLeft = expandLeft
@@ -188,7 +188,7 @@ struct WindowFrameAdjuster: NSViewRepresentable {
         c.resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEndLiveResizeNotification,
             object: window,
-            queue: .main
+            queue: .main,
         ) { [weak c] _ in
             MainActor.assumeIsolated {
                 guard c != nil else { return }

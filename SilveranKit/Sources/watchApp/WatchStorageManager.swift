@@ -49,7 +49,7 @@ public final class WatchStorageManager: Sendable {
             var manifest = loadOrCreateManifest(
                 uuid: metadata.uuid,
                 category: metadata.category,
-                metadata: metadata
+                metadata: metadata,
             )
             manifest.receivedChunks.insert(metadata.chunkIndex)
             saveManifest(manifest, uuid: metadata.uuid, category: metadata.category)
@@ -73,7 +73,7 @@ public final class WatchStorageManager: Sendable {
     private func loadOrCreateManifest(
         uuid: String,
         category: String,
-        metadata: ChunkTransferMetadata
+        metadata: ChunkTransferMetadata,
     ) -> TransferManifest {
         let manifestURL = getChunkManifestURL(uuid: uuid, category: category)
 
@@ -96,7 +96,7 @@ public final class WatchStorageManager: Sendable {
             totalFileSize: metadata.totalFileSize,
             fileExtension: metadata.fileExtension,
             receivedChunks: [],
-            bookMetadata: metadata.bookMetadata
+            bookMetadata: metadata.bookMetadata,
         )
     }
 

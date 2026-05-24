@@ -65,7 +65,7 @@ public struct Highlight: Codable, Sendable, Hashable, Identifiable {
         text: String,
         color: HighlightColor?,
         note: String? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
     ) {
         self.id = id
         self.bookId = bookId

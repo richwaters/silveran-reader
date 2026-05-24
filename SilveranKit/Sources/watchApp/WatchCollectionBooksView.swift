@@ -109,7 +109,7 @@ struct WatchCollectionBooksView: View {
                         Task {
                             await DownloadManager.shared.startDownload(
                                 for: book,
-                                category: category
+                                category: category,
                             )
                         }
                         showDownloads = true

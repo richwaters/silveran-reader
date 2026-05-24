@@ -27,7 +27,7 @@ public struct PlaybackRateButton: View {
         buttonSize: CGFloat = 38,
         showBackground: Bool = true,
         compactLabel: Bool = false,
-        iconFont: Font = .callout.weight(.semibold)
+        iconFont: Font = .callout.weight(.semibold),
     ) {
         self.currentRate = currentRate
         self.onRateChange = onRateChange
@@ -123,7 +123,7 @@ public struct PlaybackRateButton: View {
             Slider(
                 value: $sliderValue,
                 in: 1.0...3.0,
-                step: 0.05
+                step: 0.05,
             )
             .onChange(of: sliderValue) { _, newValue in
                 let snapped = snapToIncrement(newValue)

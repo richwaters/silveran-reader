@@ -52,13 +52,15 @@ struct HomeView: View {
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
-    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.storytellerDouble
+    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("coverSize.home") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     @AppStorage("showAudioIndicator.home") private var showAudioIndicator: Bool = true
     @AppStorage("showSourceBadge.home") private var showSourceBadge: Bool = false
     @AppStorage("showSeriesPositionBadge.home") private var showSeriesPositionBadge: Bool = false
-    @AppStorage("progressStyle.home") private var progressStyleRaw: String = ProgressIndicatorStyle.circle.rawValue
+    @AppStorage("progressStyle.home") private var progressStyleRaw: String = ProgressIndicatorStyle
+        .circle.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
@@ -137,20 +139,20 @@ struct HomeView: View {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: SectionFilter.self) { filter in
                 sectionFilterView(for: filter)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: .ebook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
@@ -218,7 +220,7 @@ struct HomeView: View {
                                                 return .handled
                                             }
                                             return .systemAction
-                                        }
+                                        },
                                     )
                                     #else
                                     Text(
@@ -251,7 +253,7 @@ struct HomeView: View {
                                         coverPreference: coverPreference,
                                         progressStyle: progressStyle,
                                         coverSize: coverSize,
-                                        onNavigateToSection: { navigateToSection($0) }
+                                        onNavigateToSection: { navigateToSection($0) },
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -271,7 +273,7 @@ struct HomeView: View {
                                         coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
                                         onEditMetadata: handleEditMetadata,
-                                        onNavigateToSection: { navigateToSection($0) }
+                                        onNavigateToSection: { navigateToSection($0) },
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -314,7 +316,7 @@ struct HomeView: View {
                             onSeriesSelected: { seriesName in
                                 dismissSidebar()
                                 navigationPath.append(SeriesNavIdentifier(name: seriesName))
-                            }
+                            },
                         )
                         .frame(width: sidebarWidth)
                     }
@@ -392,7 +394,7 @@ struct HomeView: View {
                     statusName: "Reading",
                     sortBy: .recentPositionUpdate,
                     limit: 12,
-                    destination: "Currently Reading"
+                    destination: "Currently Reading",
                 )
             },
             "startReading": {
@@ -401,14 +403,14 @@ struct HomeView: View {
                     statusName: "To read",
                     sortBy: .recentlyAdded,
                     limit: 12,
-                    destination: "Start Reading"
+                    destination: "Start Reading",
                 )
             },
             "recentlyAdded": {
                 makeRecentlyAddedSection(
                     title: "Recently Added",
                     limit: 12,
-                    destination: "Recently Added"
+                    destination: "Recently Added",
                 )
             },
             "completed": {
@@ -417,7 +419,7 @@ struct HomeView: View {
                     statusName: "Read",
                     sortBy: .recentPositionUpdate,
                     limit: 12,
-                    destination: "Completed"
+                    destination: "Completed",
                 )
             },
         ]
@@ -480,21 +482,21 @@ struct HomeView: View {
         Task {
             let result = await StorytellerActor.shared.checkBookUpdatePermission()
             switch result {
-            case .allowed:
-                if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
-                    return
-                }
-                openWindow(
-                    id: "MetadataEditor",
-                    value: MetadataEditorData(bookIds: bookIds)
-                )
-            case .denied:
-                permissionErrorMessage =
-                    "Your account does not have permission to edit metadata on this server."
-                showPermissionError = true
-            case .error(let message):
-                permissionErrorMessage = "Could not verify server permissions: \(message)"
-                showPermissionError = true
+                case .allowed:
+                    if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                        return
+                    }
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookIds: bookIds),
+                    )
+                case .denied:
+                    permissionErrorMessage =
+                        "Your account does not have permission to edit metadata on this server."
+                    showPermissionError = true
+                case .error(let message):
+                    permissionErrorMessage = "Could not verify server permissions: \(message)"
+                    showPermissionError = true
             }
         }
     }
@@ -531,7 +533,7 @@ struct HomeView: View {
         guard let currentSelection = selection,
             let currentItemIndex = indexOfItem(
                 in: currentSelection.sectionIndex,
-                id: currentSelection.itemID
+                id: currentSelection.itemID,
             )
         else {
             return
@@ -590,12 +592,12 @@ struct HomeView: View {
         mediaKind: MediaKind,
         tagFilter: String?,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.items(
             for: mediaKind,
             narrationFilter: .both,
-            tagFilter: tagFilter
+            tagFilter: tagFilter,
         )
         let filtered = baseItems.filter { matchesSearchText($0) }
         let limited = Array(filtered.prefix(limit))
@@ -606,7 +608,7 @@ struct HomeView: View {
             destination: destination,
             tagFilter: tagFilter,
             statusFilter: nil,
-            sortOrder: nil
+            sortOrder: nil,
         )
     }
 
@@ -615,7 +617,7 @@ struct HomeView: View {
         statusName: String,
         sortBy: MediaViewModel.StatusSortOrder,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.itemsByStatus(statusName, sortBy: sortBy, limit: limit)
         let filtered = baseItems.filter { matchesSearchText($0) }
@@ -626,14 +628,14 @@ struct HomeView: View {
             destination: destination,
             tagFilter: nil,
             statusFilter: statusName,
-            sortOrder: sortBy
+            sortOrder: sortBy,
         )
     }
 
     private func makeRecentlyAddedSection(
         title: String,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.recentlyAddedItems(limit: limit)
         let filtered = baseItems.filter { matchesSearchText($0) }
@@ -644,7 +646,7 @@ struct HomeView: View {
             destination: destination,
             tagFilter: nil,
             statusFilter: nil,
-            sortOrder: .recentlyAdded
+            sortOrder: .recentlyAdded,
         )
     }
 
@@ -699,36 +701,36 @@ struct HomeView: View {
             guard let item = SidebarConfigHelper.defaultItemLookup[stableId] else { return nil }
             title = item.name
             switch item.content {
-            case .mediaGrid(let config):
-                matched = allBooks
-                if let tag = config.tagFilter {
-                    matched = matched.filter { $0.matchesTag(tag) }
-                }
-                if let series = config.seriesFilter {
-                    matched = matched.filter { $0.matchesSeries(series) }
-                }
-                if let author = config.authorFilter {
-                    matched = matched.filter { $0.matchesAuthor(author) }
-                }
-                if let narrator = config.narratorFilter {
-                    matched = matched.filter { $0.matchesNarrator(narrator) }
-                }
-                if let status = config.statusFilter {
-                    matched = matched.filter { $0.matchesStatus(status) }
-                }
-                if config.locationFilter == .downloaded {
-                    matched = matched.filter {
+                case .mediaGrid(let config):
+                    matched = allBooks
+                    if let tag = config.tagFilter {
+                        matched = matched.filter { $0.matchesTag(tag) }
+                    }
+                    if let series = config.seriesFilter {
+                        matched = matched.filter { $0.matchesSeries(series) }
+                    }
+                    if let author = config.authorFilter {
+                        matched = matched.filter { $0.matchesAuthor(author) }
+                    }
+                    if let narrator = config.narratorFilter {
+                        matched = matched.filter { $0.matchesNarrator(narrator) }
+                    }
+                    if let status = config.statusFilter {
+                        matched = matched.filter { $0.matchesStatus(status) }
+                    }
+                    if config.locationFilter == .downloaded {
+                        matched = matched.filter {
+                            mediaViewModel.isCategoryDownloaded(.synced, for: $0)
+                                || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
+                        }
+                    }
+                case .downloaded:
+                    matched = allBooks.filter {
                         mediaViewModel.isCategoryDownloaded(.synced, for: $0)
                             || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
                     }
-                }
-            case .downloaded:
-                matched = allBooks.filter {
-                    mediaViewModel.isCategoryDownloaded(.synced, for: $0)
-                        || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
-                }
-            default:
-                matched = allBooks
+                default:
+                    matched = allBooks
             }
         } else {
             return nil
@@ -743,7 +745,7 @@ struct HomeView: View {
             destination: pinId,
             tagFilter: nil,
             statusFilter: nil,
-            sortOrder: nil
+            sortOrder: nil,
         )
     }
 
@@ -774,7 +776,7 @@ struct HomeView: View {
             mediaKind: section.mediaKind,
             tagFilter: section.tagFilter,
             statusFilter: section.statusFilter,
-            sortOrder: section.sortOrder
+            sortOrder: section.sortOrder,
         )
         navigationPath.append(filter)
     }
@@ -797,7 +799,7 @@ struct HomeView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
         )
         .navigationTitle(filter.title)
         #else
@@ -813,7 +815,7 @@ struct HomeView: View {
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
         )
         .navigationTitle(filter.title)
         #endif
@@ -857,7 +859,7 @@ struct HomeView: View {
             columnBreakpoints: [
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .background(Color(uiColor: .systemBackground))
     }
@@ -876,7 +878,7 @@ struct HomeView: View {
             defaultSort: "titleAZ",
             preferredTileWidth: 120,
             minimumTileWidth: 50,
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .background(Color(nsColor: .windowBackgroundColor))
     }
@@ -897,7 +899,7 @@ struct HomeView: View {
             onSeriesSelected: { newSeriesName in
                 navigationPath.append(SeriesNavIdentifier(name: newSeriesName))
             },
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .navigationTitle(seriesName)
     }
@@ -984,7 +986,7 @@ struct HomeView: View {
                     Slider(
                         value: $coverSizeValue,
                         in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
-                        step: 5
+                        step: 5,
                     )
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 14))
@@ -1117,7 +1119,7 @@ private struct HomeSectionRow: View {
             let metrics = MediaItemCardMetrics.make(
                 for: tileWidth,
                 mediaKind: section.mediaKind,
-                coverPreference: coverPreference
+                coverPreference: coverPreference,
             )
 
             if section.items.isEmpty {
@@ -1187,7 +1189,7 @@ private struct HomeSectionRow: View {
             onInfo: { selected in
                 openInfo(for: selected)
             },
-            onEditMetadata: editMetadataHandler
+            onEditMetadata: editMetadataHandler,
         )
     }
 
@@ -1267,14 +1269,14 @@ private struct StatePreviewWrapper: View {
             searchText: $searchText,
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
-            showSettings: $showSettings
+            showSettings: $showSettings,
         )
         #else
         HomeView(
             searchText: "",
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
-            showSettings: $showSettings
+            showSettings: $showSettings,
         )
         #endif
     }

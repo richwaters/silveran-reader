@@ -53,7 +53,10 @@ struct BookContextMenuContent: View {
         } else if status == "ALIGNED" {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: .sync)
+                    _ = await StorytellerActor.shared.startAlignment(
+                        for: item.uuid,
+                        restart: .sync,
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                 }
             } label: {
@@ -63,7 +66,9 @@ struct BookContextMenuContent: View {
             Button {
                 Task {
                     _ = await StorytellerActor.shared.startAlignment(
-                        for: item.uuid, restart: .transcription)
+                        for: item.uuid,
+                        restart: .transcription,
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                 }
             } label: {
@@ -72,7 +77,10 @@ struct BookContextMenuContent: View {
 
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: .full)
+                    _ = await StorytellerActor.shared.startAlignment(
+                        for: item.uuid,
+                        restart: .full,
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                 }
             } label: {
@@ -81,7 +89,10 @@ struct BookContextMenuContent: View {
         } else if status == "ERROR" || status == "STOPPED" {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: .full)
+                    _ = await StorytellerActor.shared.startAlignment(
+                        for: item.uuid,
+                        restart: .full,
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                 }
             } label: {
@@ -90,7 +101,10 @@ struct BookContextMenuContent: View {
 
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: .sync)
+                    _ = await StorytellerActor.shared.startAlignment(
+                        for: item.uuid,
+                        restart: .sync,
+                    )
                     await StorytellerActor.shared.fetchLibraryInformation()
                 }
             } label: {
@@ -165,7 +179,7 @@ struct BookContextMenuContent: View {
             Button {
                 openWindow(
                     id: "ServerMediaManagement",
-                    value: ServerMediaManagementData(bookId: item.id)
+                    value: ServerMediaManagementData(bookId: item.id),
                 )
             } label: {
                 Label("Manage Server Media...", systemImage: "server.rack")

@@ -26,7 +26,7 @@ public actor DownloadManager {
         return URLSession(
             configuration: config,
             delegate: delegate,
-            delegateQueue: nil
+            delegateQueue: nil,
         )
     }()
 
@@ -146,7 +146,7 @@ public actor DownloadManager {
             bookId: book.id,
             category: category,
             bookTitle: book.title,
-            format: format
+            format: format,
         )
 
         downloads[record.id] = record
@@ -320,7 +320,7 @@ public actor DownloadManager {
         downloadId: String,
         receivedBytes: Int64,
         expectedBytes: Int64?,
-        progress: Double
+        progress: Double,
     ) {
         guard var record = downloads[downloadId] else { return }
         record.state = .downloading(progress: progress)
@@ -366,7 +366,7 @@ public actor DownloadManager {
                 from: tempURL,
                 metadata: book,
                 category: record.category,
-                filename: filename
+                filename: filename,
             )
 
             record.state = .completed
@@ -481,7 +481,7 @@ public actor DownloadManager {
             guard
                 let request = await StorytellerActor.shared.createAuthenticatedDownloadRequest(
                     for: record.bookId,
-                    format: record.format
+                    format: record.format,
                 )
             else {
                 debugLog("[DownloadManager] Failed to create request for \(record.bookTitle)")

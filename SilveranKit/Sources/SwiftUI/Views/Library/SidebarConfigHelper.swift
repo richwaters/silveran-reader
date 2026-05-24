@@ -81,7 +81,7 @@ enum SidebarConfigHelper {
                 items: [
                     SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true)
                 ],
-                expanded: true
+                expanded: true,
             )
         )
 
@@ -156,17 +156,21 @@ enum SidebarConfigHelper {
                             id: $0.id,
                             alias: $0.alias,
                             visible: $0.visible,
-                            permanent: false
+                            permanent: false,
                         )
                     }
                     configItems.append(
-                        SidebarConfigItem(id: newPinLocationMarker, visible: false, permanent: true)
+                        SidebarConfigItem(
+                            id: newPinLocationMarker,
+                            visible: false,
+                            permanent: true,
+                        )
                     )
                     let newGroup = SidebarConfigGroup(
                         id: oldGroup.id,
                         name: oldGroup.name,
                         items: configItems,
-                        expanded: oldGroup.expanded
+                        expanded: oldGroup.expanded,
                     )
                     groups.insert(newGroup, at: insertIndex)
                     insertIndex += 1

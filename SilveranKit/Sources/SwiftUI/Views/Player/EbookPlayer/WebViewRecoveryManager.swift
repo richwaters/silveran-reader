@@ -56,7 +56,7 @@ final class WebViewRecoveryManager {
             {
                 try? await bridge?.sendJsGoToFractionInSectionCommand(
                     sectionIndex: chapterId,
-                    fraction: savedFraction
+                    fraction: savedFraction,
                 )
             }
 

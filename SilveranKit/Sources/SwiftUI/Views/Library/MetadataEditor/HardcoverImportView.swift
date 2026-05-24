@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 #endif
@@ -12,25 +13,25 @@ private enum HardcoverImportTarget: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "General"
-        case .audiobook: return "Audiobook Edition"
-        case .ebook: return "Ebook Edition"
+            case .general: return "General"
+            case .audiobook: return "Audiobook Edition"
+            case .ebook: return "Ebook Edition"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .general: return "books.vertical"
-        case .audiobook: return "headphones"
-        case .ebook: return "book"
+            case .general: return "books.vertical"
+            case .audiobook: return "headphones"
+            case .ebook: return "book"
         }
     }
 
     var help: String {
         switch self {
-        case .general: return "Import work-level metadata"
-        case .audiobook: return "Import audiobook edition metadata"
-        case .ebook: return "Import ebook edition metadata"
+            case .general: return "Import work-level metadata"
+            case .audiobook: return "Import audiobook edition metadata"
+            case .ebook: return "Import ebook edition metadata"
         }
     }
 }
@@ -44,16 +45,19 @@ private struct ReviewTagFlowLayout: Layout {
     }
 
     func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout (),
     ) {
         let arrangement = arrangeSubviews(
             proposal: ProposedViewSize(width: bounds.width, height: proposal.height),
-            subviews: subviews
+            subviews: subviews,
         )
         for item in arrangement.items {
             subviews[item.index].place(
                 at: CGPoint(x: bounds.minX + item.origin.x, y: bounds.minY + item.origin.y),
-                proposal: ProposedViewSize(item.size)
+                proposal: ProposedViewSize(item.size),
             )
         }
     }
@@ -69,7 +73,7 @@ private struct ReviewTagFlowLayout: Layout {
             let idealSize = subviews[index].sizeThatFits(.unspecified)
             let size = CGSize(
                 width: maxWidth > 0 ? min(idealSize.width, maxWidth) : idealSize.width,
-                height: idealSize.height
+                height: idealSize.height,
             )
             if origin.x > 0, maxWidth > 0, origin.x + size.width > maxWidth {
                 origin.x = 0
@@ -84,7 +88,7 @@ private struct ReviewTagFlowLayout: Layout {
 
         return Arrangement(
             items: items,
-            size: CGSize(width: maxWidth > 0 ? maxWidth : usedWidth, height: origin.y + rowHeight)
+            size: CGSize(width: maxWidth > 0 ? maxWidth : usedWidth, height: origin.y + rowHeight),
         )
     }
 
@@ -100,8 +104,8 @@ private struct ReviewTagFlowLayout: Layout {
     }
 }
 
-private extension View {
-    func reviewTagPill(isSelected: Bool = false) -> some View {
+extension View {
+    fileprivate func reviewTagPill(isSelected: Bool = false) -> some View {
         self
             .font(.callout)
             .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -109,13 +113,15 @@ private extension View {
             .padding(.vertical, 6)
             .background {
                 Capsule()
-                    .fill(isSelected ? Color.accentColor.opacity(0.86) : Color.secondary.opacity(0.08))
+                    .fill(
+                        isSelected ? Color.accentColor.opacity(0.86) : Color.secondary.opacity(0.08)
+                    )
             }
             .overlay {
                 Capsule()
                     .stroke(
                         isSelected ? Color.white.opacity(0.35) : Color.secondary.opacity(0.28),
-                        lineWidth: isSelected ? 1.0 : 0.75
+                        lineWidth: isSelected ? 1.0 : 0.75,
                     )
             }
     }
@@ -131,19 +137,19 @@ private enum HardcoverImportUseDestination: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .none: return "None"
-        case .general: return "General"
-        case .audiobook: return "Audiobook Edition"
-        case .ebook: return "Ebook Edition"
+            case .none: return "None"
+            case .general: return "General"
+            case .audiobook: return "Audiobook Edition"
+            case .ebook: return "Ebook Edition"
         }
     }
 
     var target: HardcoverImportTarget? {
         switch self {
-        case .none: return nil
-        case .general: return .general
-        case .audiobook: return .audiobook
-        case .ebook: return .ebook
+            case .none: return nil
+            case .general: return .general
+            case .audiobook: return .audiobook
+            case .ebook: return .ebook
         }
     }
 }
@@ -157,9 +163,9 @@ private enum HardcoverEditionUseDestination: String, CaseIterable, Identifiable,
 
     var title: String {
         switch self {
-        case .none: return "None"
-        case .audiobook: return "Audiobook Edition"
-        case .ebook: return "Ebook Edition"
+            case .none: return "None"
+            case .audiobook: return "Audiobook Edition"
+            case .ebook: return "Ebook Edition"
         }
     }
 }
@@ -178,9 +184,9 @@ private enum HardcoverReviewTagCategory: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .genre: return "Genre"
-        case .mood: return "Mood"
-        case .contentWarning: return "Content Warning"
+            case .genre: return "Genre"
+            case .mood: return "Mood"
+            case .contentWarning: return "Content Warning"
         }
     }
 
@@ -189,13 +195,13 @@ private enum HardcoverReviewTagCategory: String, CaseIterable, Identifiable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         switch self {
-        case .genre:
-            return normalized == "genre" || normalized == "genres"
-        case .mood:
-            return normalized == "mood" || normalized == "moods"
-        case .contentWarning:
-            return normalized == "content warning" || normalized == "content warnings"
-                || normalized == "content_warning" || normalized == "content-warnings"
+            case .genre:
+                return normalized == "genre" || normalized == "genres"
+            case .mood:
+                return normalized == "mood" || normalized == "moods"
+            case .contentWarning:
+                return normalized == "content warning" || normalized == "content warnings"
+                    || normalized == "content_warning" || normalized == "content-warnings"
         }
     }
 }
@@ -230,7 +236,8 @@ struct HardcoverImportView: View {
     let bookTitle: String
     let bookAuthor: String?
     let currentBook: MetadataEditorViewModel.EditableBook
-    let onImport: ([MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails], Set<String>) -> Void
+    let onImport:
+        ([MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails], Set<String>) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -275,9 +282,9 @@ struct HardcoverImportView: View {
                     ? "Choose which Hardcover result to use for General details or for an edition."
                     : "Click the arrows for incoming Hardcover values you want to copy into the editor."
             )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -342,7 +349,8 @@ struct HardcoverImportView: View {
                     Task { await viewModel.saveToken() }
                 }
                 .disabled(
-                    viewModel.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    viewModel.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
                 if viewModel.hasToken {
                     Button("Cancel") {
                         viewModel.isEditingToken = false
@@ -374,11 +382,16 @@ struct HardcoverImportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hardcover API Token")
                     .font(.headline)
-                Text("Create or copy a token from your Hardcover account API settings, then paste the token here. You can paste either the raw token or a Bearer token.")
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Link("Open Hardcover API settings", destination: URL(string: "https://hardcover.app/account/api")!)
-                    .font(.callout)
+                Text(
+                    "Create or copy a token from your Hardcover account API settings, then paste the token here. You can paste either the raw token or a Bearer token."
+                )
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+                Link(
+                    "Open Hardcover API settings",
+                    destination: URL(string: "https://hardcover.app/account/api")!,
+                )
+                .font(.callout)
             }
             .padding()
             .frame(width: 320)
@@ -400,7 +413,8 @@ struct HardcoverImportView: View {
             }
             .disabled(
                 viewModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    || viewModel.isSearching || !viewModel.hasToken)
+                    || viewModel.isSearching || !viewModel.hasToken
+            )
             if viewModel.isSearching {
                 ProgressView()
                     .controlSize(.small)
@@ -432,19 +446,19 @@ struct HardcoverImportView: View {
                     ContentUnavailableView(
                         "Enter API Token",
                         systemImage: "key",
-                        description: Text("Enter your Hardcover API token above to search")
+                        description: Text("Enter your Hardcover API token above to search"),
                     )
                 } else if !viewModel.hasSearched {
                     ContentUnavailableView(
                         "Search Hardcover",
                         systemImage: "magnifyingglass",
-                        description: Text("Press Search or Enter to find books")
+                        description: Text("Press Search or Enter to find books"),
                     )
                 } else {
                     ContentUnavailableView(
                         "No Results",
                         systemImage: "book.closed",
-                        description: Text("Try a different search term")
+                        description: Text("Try a different search term"),
                     )
                 }
             }
@@ -473,15 +487,17 @@ struct HardcoverImportView: View {
                 columns: [
                     GridItem(.flexible()), GridItem(.flexible()),
                     GridItem(.flexible()),
-                ], alignment: .leading, spacing: 6
+                ],
+                alignment: .leading,
+                spacing: 6,
             ) {
                 ForEach(HardcoverImportViewModel.allFields, id: \.key) { field in
                     Toggle(
                         field.label,
                         isOn: Binding(
                             get: { viewModel.selectedFields.contains(field.key) },
-                            set: { _ in viewModel.toggleField(field.key) }
-                        )
+                            set: { _ in viewModel.toggleField(field.key) },
+                        ),
                     )
                     #if os(macOS)
                     .toggleStyle(.checkbox)
@@ -591,10 +607,12 @@ struct HardcoverImportView: View {
                 .foregroundStyle(hasFilter ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
-            .popover(isPresented: Binding(
-                get: { filterPopoverId == result.id },
-                set: { if !$0 { filterPopoverId = nil } }
-            )) {
+            .popover(
+                isPresented: Binding(
+                    get: { filterPopoverId == result.id },
+                    set: { if !$0 { filterPopoverId = nil } },
+                )
+            ) {
                 editionFilterPopover(for: result.id)
             }
         }
@@ -607,10 +625,12 @@ struct HardcoverImportView: View {
                 .foregroundStyle(.secondary)
         }
         .buttonStyle(.borderless)
-        .popover(isPresented: Binding(
-            get: { infoPopoverId == result.id },
-            set: { if !$0 { infoPopoverId = nil } }
-        )) {
+        .popover(
+            isPresented: Binding(
+                get: { infoPopoverId == result.id },
+                set: { if !$0 { infoPopoverId = nil } },
+            )
+        ) {
             bookInfoPopover(for: result.id)
         }
 
@@ -643,16 +663,16 @@ struct HardcoverImportView: View {
             if let fmt = editionFilterFormat {
                 let normalized = normalizedFormat(edition.format)
                 switch fmt {
-                case "digital":
-                    guard Self.digitalNormalized.contains(normalized) else { return false }
-                case "physical":
-                    guard Self.physicalNormalized.contains(normalized) else { return false }
-                case "ebook":
-                    guard Self.ebookNormalized.contains(normalized) else { return false }
-                case "audiobook":
-                    guard Self.audiobookNormalized.contains(normalized) else { return false }
-                default:
-                    guard normalized == fmt else { return false }
+                    case "digital":
+                        guard Self.digitalNormalized.contains(normalized) else { return false }
+                    case "physical":
+                        guard Self.physicalNormalized.contains(normalized) else { return false }
+                    case "ebook":
+                        guard Self.ebookNormalized.contains(normalized) else { return false }
+                    case "audiobook":
+                        guard Self.audiobookNormalized.contains(normalized) else { return false }
+                    default:
+                        guard normalized == fmt else { return false }
                 }
             }
             return true
@@ -714,7 +734,8 @@ struct HardcoverImportView: View {
 
     @ViewBuilder
     private func editionsList(
-        details: HardcoverBookDetails, result: HardcoverSearchResult
+        details: HardcoverBookDetails,
+        result: HardcoverSearchResult,
     ) -> some View {
         let filtered = filteredEditions(details.editions)
         VStack(alignment: .leading, spacing: 2) {
@@ -783,10 +804,10 @@ struct HardcoverImportView: View {
                                     edition,
                                     bookId: result.id,
                                     parentDetails: details,
-                                    to: destination
+                                    to: destination,
                                 )
-                            }
-                        )
+                            },
+                        ),
                     ) {
                         ForEach(HardcoverEditionUseDestination.allCases) { destination in
                             Text(destination.title).tag(destination)
@@ -804,12 +825,16 @@ struct HardcoverImportView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.borderless)
-                    .popover(isPresented: Binding(
-                        get: { editionPreviewId == edition.id },
-                        set: { if !$0 { editionPreviewId = nil } }
-                    )) {
+                    .popover(
+                        isPresented: Binding(
+                            get: { editionPreviewId == edition.id },
+                            set: { if !$0 { editionPreviewId = nil } },
+                        )
+                    ) {
                         editionPreviewPopover(
-                            edition: edition, bookDetails: details)
+                            edition: edition,
+                            bookDetails: details,
+                        )
                     }
                 }
                 .padding(.vertical, 2)
@@ -868,7 +893,9 @@ struct HardcoverImportView: View {
             .frame(width: 9)
     }
 
-    private func editionDestination(_ edition: HardcoverEditionInfo) -> HardcoverEditionUseDestination {
+    private func editionDestination(_ edition: HardcoverEditionInfo)
+        -> HardcoverEditionUseDestination
+    {
         if viewModel.selectedAudiobookEditionId == edition.id {
             return .audiobook
         }
@@ -884,7 +911,7 @@ struct HardcoverImportView: View {
 
     private func assignResult(
         _ result: HardcoverSearchResult,
-        to destination: HardcoverImportUseDestination
+        to destination: HardcoverImportUseDestination,
     ) async {
         guard let target = destination.target else {
             if generalAssignment?.resultId == result.id && generalAssignment?.editionId == nil {
@@ -894,27 +921,27 @@ struct HardcoverImportView: View {
         }
         selectedTarget = target
         switch target {
-        case .general:
-            await viewModel.fetchInfo(for: result)
-            if let details = viewModel.infoDetails[result.id] {
-                generalAssignment = HardcoverImportAssignment(
-                    resultId: result.id,
-                    editionId: nil,
-                    details: details
-                )
-            }
-        case .ebook:
-            await viewModel.fetchInfo(for: result)
-            if let details = viewModel.infoDetails[result.id] {
-                ebookAssignment = HardcoverImportAssignment(
-                    resultId: result.id,
-                    editionId: nil,
-                    details: details
-                )
-            }
-        case .audiobook:
-            await viewModel.selectResult(result)
-            viewModel.useFetchedDetailsForAudiobook()
+            case .general:
+                await viewModel.fetchInfo(for: result)
+                if let details = viewModel.infoDetails[result.id] {
+                    generalAssignment = HardcoverImportAssignment(
+                        resultId: result.id,
+                        editionId: nil,
+                        details: details,
+                    )
+                }
+            case .ebook:
+                await viewModel.fetchInfo(for: result)
+                if let details = viewModel.infoDetails[result.id] {
+                    ebookAssignment = HardcoverImportAssignment(
+                        resultId: result.id,
+                        editionId: nil,
+                        details: details,
+                    )
+                }
+            case .audiobook:
+                await viewModel.selectResult(result)
+                viewModel.useFetchedDetailsForAudiobook()
         }
     }
 
@@ -922,34 +949,34 @@ struct HardcoverImportView: View {
         _ edition: HardcoverEditionInfo,
         bookId: Int,
         parentDetails: HardcoverBookDetails,
-        to destination: HardcoverEditionUseDestination
+        to destination: HardcoverEditionUseDestination,
     ) {
         viewModel.infoDetails[bookId] = parentDetails
         highlightedEditionId = edition.id
         switch destination {
-        case .none:
-            if generalAssignment?.editionId == edition.id {
-                generalAssignment = nil
-            }
-            if ebookAssignment?.editionId == edition.id {
-                ebookAssignment = nil
-            }
-            if viewModel.selectedAudiobookEditionId == edition.id {
-                viewModel.clearAudiobookSelection()
-            }
-            return
-        case .ebook:
-            selectedTarget = .ebook
-            if let details = viewModel.detailsForEdition(edition, bookId: bookId) {
-                ebookAssignment = HardcoverImportAssignment(
-                    resultId: bookId,
-                    editionId: edition.id,
-                    details: details
-                )
-            }
-        case .audiobook:
-            selectedTarget = .audiobook
-            viewModel.selectEdition(edition, bookId: bookId, source: .audiobook)
+            case .none:
+                if generalAssignment?.editionId == edition.id {
+                    generalAssignment = nil
+                }
+                if ebookAssignment?.editionId == edition.id {
+                    ebookAssignment = nil
+                }
+                if viewModel.selectedAudiobookEditionId == edition.id {
+                    viewModel.clearAudiobookSelection()
+                }
+                return
+            case .ebook:
+                selectedTarget = .ebook
+                if let details = viewModel.detailsForEdition(edition, bookId: bookId) {
+                    ebookAssignment = HardcoverImportAssignment(
+                        resultId: bookId,
+                        editionId: edition.id,
+                        details: details,
+                    )
+                }
+            case .audiobook:
+                selectedTarget = .audiobook
+                viewModel.selectEdition(edition, bookId: bookId, source: .audiobook)
         }
     }
 
@@ -958,7 +985,7 @@ struct HardcoverImportView: View {
         generalAssignment = HardcoverImportAssignment(
             resultId: bookId,
             editionId: nil,
-            details: details
+            details: details,
         )
         selectedTarget = .general
     }
@@ -967,24 +994,31 @@ struct HardcoverImportView: View {
         _ edition: HardcoverEditionInfo,
         bookId: Int,
         parentDetails: HardcoverBookDetails,
-        to destination: HardcoverEditionUseDestination
+        to destination: HardcoverEditionUseDestination,
     ) {
         switch destination {
-        case .none:
-            assignEdition(edition, bookId: bookId, parentDetails: parentDetails, to: .none)
-        case .ebook:
-            assignEdition(edition, bookId: bookId, parentDetails: parentDetails, to: .ebook)
-        case .audiobook:
-            assignEdition(edition, bookId: bookId, parentDetails: parentDetails, to: .audiobook)
+            case .none:
+                assignEdition(edition, bookId: bookId, parentDetails: parentDetails, to: .none)
+            case .ebook:
+                assignEdition(edition, bookId: bookId, parentDetails: parentDetails, to: .ebook)
+            case .audiobook:
+                assignEdition(
+                    edition,
+                    bookId: bookId,
+                    parentDetails: parentDetails,
+                    to: .audiobook,
+                )
         }
     }
 
     @ViewBuilder
     private func editionPreviewPopover(
-        edition: HardcoverEditionInfo, bookDetails: HardcoverBookDetails
+        edition: HardcoverEditionInfo,
+        bookDetails: HardcoverBookDetails,
     ) -> some View {
         let narrators = edition.narrators.isEmpty ? bookDetails.narrators : edition.narrators
-        let creators = edition.otherContributors.isEmpty
+        let creators =
+            edition.otherContributors.isEmpty
             ? bookDetails.creators : edition.otherContributors
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
@@ -992,7 +1026,10 @@ struct HardcoverImportView: View {
 
                 editionPreviewFields(edition: edition, bookDetails: bookDetails)
                 editionPreviewPeople(
-                    bookDetails: bookDetails, narrators: narrators, creators: creators)
+                    bookDetails: bookDetails,
+                    narrators: narrators,
+                    creators: creators,
+                )
                 editionPreviewCollections(bookDetails: bookDetails)
             }
             .padding()
@@ -1002,7 +1039,8 @@ struct HardcoverImportView: View {
 
     @ViewBuilder
     private func editionPreviewFields(
-        edition: HardcoverEditionInfo, bookDetails: HardcoverBookDetails
+        edition: HardcoverEditionInfo,
+        bookDetails: HardcoverBookDetails,
     ) -> some View {
         row("Title", edition.title ?? bookDetails.title)
         row("Subtitle", edition.subtitle ?? bookDetails.subtitle)
@@ -1023,8 +1061,9 @@ struct HardcoverImportView: View {
 
     @ViewBuilder
     private func editionPreviewPeople(
-        bookDetails: HardcoverBookDetails, narrators: [String],
-        creators: [(name: String, role: String)]
+        bookDetails: HardcoverBookDetails,
+        narrators: [String],
+        creators: [(name: String, role: String)],
     ) -> some View {
         if !bookDetails.authors.isEmpty {
             row("Authors", bookDetails.authors.joined(separator: ", "))
@@ -1035,7 +1074,8 @@ struct HardcoverImportView: View {
         if !creators.isEmpty {
             row(
                 "Creators",
-                creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))
+                creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", "),
+            )
         }
     }
 
@@ -1046,7 +1086,8 @@ struct HardcoverImportView: View {
                 "Series",
                 bookDetails.series.map { s in
                     s.position != nil ? "\(s.name) #\(s.position!.formatted())" : s.name
-                }.joined(separator: ", "))
+                }.joined(separator: ", "),
+            )
         }
         if !bookDetails.tags.isEmpty {
             row("Tags", bookDetails.tags.prefix(10).map(\.name).joined(separator: ", "))
@@ -1118,11 +1159,11 @@ struct HardcoverImportView: View {
 
     private func editionIcon(_ format: String) -> String {
         switch format.lowercased() {
-        case "audiobook", "audio": return "headphones"
-        case "ebook", "kindle", "digital": return "tablet.landscape"
-        case "hardcover": return "book.closed.fill"
-        case "paperback": return "book.closed"
-        default: return "book"
+            case "audiobook", "audio": return "headphones"
+            case "ebook", "kindle", "digital": return "tablet.landscape"
+            case "hardcover": return "book.closed.fill"
+            case "paperback": return "book.closed"
+            default: return "book"
         }
     }
 
@@ -1190,7 +1231,8 @@ struct HardcoverImportView: View {
                                     Text(
                                         s.position != nil
                                             ? "\(s.name) #\(s.position!.formatted())"
-                                            : s.name)
+                                            : s.name
+                                    )
                                 }
                             }
                         }
@@ -1307,7 +1349,9 @@ struct HardcoverImportView: View {
             ContentUnavailableView(
                 "No Import Selection",
                 systemImage: "book.closed",
-                description: Text("Go back and select a Hardcover result for \(selectedTarget.title).")
+                description: Text(
+                    "Go back and select a Hardcover result for \(selectedTarget.title)."
+                ),
             )
         }
     }
@@ -1321,7 +1365,7 @@ struct HardcoverImportView: View {
                 value: row.current,
                 isExpanded: isExpanded,
                 help: isExpanded ? "Collapse \(row.label)" : "Show full \(row.label)",
-                showsExpansionControl: row.id == "description"
+                showsExpansionControl: row.id == "description",
             ) {
                 expandedReviewRowId = isExpanded ? nil : row.id
             }
@@ -1346,11 +1390,16 @@ struct HardcoverImportView: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(row.differs ? Color.accentColor : Color.secondary.opacity(0.45))
-            .help(row.differs ? "Copy Hardcover \(row.label) into current metadata" : "Already matches")
-            .popover(isPresented: Binding(
-                get: { noChangePopoverRowId == row.id },
-                set: { if !$0 { noChangePopoverRowId = nil } }
-            )) {
+            .help(
+                row.differs
+                    ? "Copy Hardcover \(row.label) into current metadata" : "Already matches"
+            )
+            .popover(
+                isPresented: Binding(
+                    get: { noChangePopoverRowId == row.id },
+                    set: { if !$0 { noChangePopoverRowId = nil } },
+                )
+            ) {
                 Text("No changes")
                     .font(.callout)
                     .padding()
@@ -1362,7 +1411,7 @@ struct HardcoverImportView: View {
                 value: row.incoming,
                 isExpanded: isExpanded,
                 help: isExpanded ? "Collapse \(row.label)" : "Show full \(row.label)",
-                showsExpansionControl: row.id == "description"
+                showsExpansionControl: row.id == "description",
             ) {
                 expandedReviewRowId = isExpanded ? nil : row.id
             }
@@ -1382,7 +1431,8 @@ struct HardcoverImportView: View {
     private func reviewTagsRow(row: ReviewRow) -> some View {
         let isExpanded = expandedReviewRowId == row.id
         let incomingTags = sortedReviewTags(
-            row.details.tags.filter { selectedReviewTagCategory.contains($0.category) })
+            row.details.tags.filter { selectedReviewTagCategory.contains($0.category) }
+        )
         let selectedTagCount = selectedReviewTagCount
         let hasSelectedTags = selectedTagCount > 0
         let importableTagIds = reviewImportableTagIds(for: row.details)
@@ -1395,7 +1445,7 @@ struct HardcoverImportView: View {
                     isExpanded: isExpanded,
                     showsSortControls: false,
                     showsExpansionControl: true,
-                    selectedCount: nil
+                    selectedCount: nil,
                 )
                 reviewCurrentTagPills(isExpanded: isExpanded)
             }
@@ -1421,10 +1471,12 @@ struct HardcoverImportView: View {
             .buttonStyle(.borderless)
             .foregroundStyle(hasImportableTags ? Color.accentColor : Color.secondary.opacity(0.45))
             .help(hasImportableTags ? "Import all available Hardcover tags" : "No tag changes")
-            .popover(isPresented: Binding(
-                get: { noChangePopoverRowId == row.id },
-                set: { if !$0 { noChangePopoverRowId = nil } }
-            )) {
+            .popover(
+                isPresented: Binding(
+                    get: { noChangePopoverRowId == row.id },
+                    set: { if !$0 { noChangePopoverRowId = nil } },
+                )
+            ) {
                 Text("No tag changes")
                     .font(.callout)
                     .padding()
@@ -1437,7 +1489,7 @@ struct HardcoverImportView: View {
                     isExpanded: isExpanded,
                     showsSortControls: true,
                     showsExpansionControl: true,
-                    selectedCount: selectedTagCount
+                    selectedCount: selectedTagCount,
                 )
                 Picker("", selection: $selectedReviewTagCategory) {
                     ForEach(HardcoverReviewTagCategory.allCases) { category in
@@ -1454,7 +1506,7 @@ struct HardcoverImportView: View {
                         .frame(
                             maxWidth: .infinity,
                             minHeight: isExpanded ? 0 : collapsedReviewTagAreaHeight,
-                            alignment: .topLeading
+                            alignment: .topLeading,
                         )
                 } else {
                     reviewIncomingTagPills(tags: incomingTags, isExpanded: isExpanded)
@@ -1478,7 +1530,7 @@ struct HardcoverImportView: View {
         isExpanded: Bool,
         showsSortControls: Bool,
         showsExpansionControl: Bool,
-        selectedCount: Int?
+        selectedCount: Int?,
     ) -> some View {
         HStack(spacing: 6) {
             Text(title)
@@ -1539,8 +1591,9 @@ struct HardcoverImportView: View {
                 .foregroundStyle(.secondary)
         } else {
             ReviewTagFlowLayout(horizontalSpacing: 6, verticalSpacing: 6) {
-                ForEach(tags.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
-                    id: \.self
+                ForEach(
+                    tags.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
+                    id: \.self,
                 ) { tag in
                     Text(tag)
                         .reviewTagPill()
@@ -1549,7 +1602,7 @@ struct HardcoverImportView: View {
             .frame(
                 minHeight: isExpanded ? 0 : collapsedReviewTagAreaHeight,
                 maxHeight: isExpanded ? nil : collapsedReviewTagAreaHeight,
-                alignment: .top
+                alignment: .top,
             )
             .clipped()
         }
@@ -1564,7 +1617,7 @@ struct HardcoverImportView: View {
         .frame(
             minHeight: isExpanded ? 0 : collapsedReviewTagAreaHeight,
             maxHeight: isExpanded ? nil : collapsedReviewTagAreaHeight,
-            alignment: .top
+            alignment: .top,
         )
         .clipped()
     }
@@ -1581,7 +1634,9 @@ struct HardcoverImportView: View {
             Image(systemName: isSelected ? "arrow.left.circle.fill" : "arrow.left.circle")
                 .font(.callout)
                 .foregroundStyle(
-                    isAlreadyCurrent ? Color.secondary.opacity(0.45) : (isSelected ? Color.white : Color.accentColor)
+                    isAlreadyCurrent
+                        ? Color.secondary.opacity(0.45)
+                        : (isSelected ? Color.white : Color.accentColor)
                 )
         }
         .reviewTagPill(isSelected: isSelected)
@@ -1590,10 +1645,12 @@ struct HardcoverImportView: View {
             toggleReviewTag(fieldId: fieldId, isAlreadyCurrent: isAlreadyCurrent)
         }
         .help(isAlreadyCurrent ? "Already in current tags" : "Import this tag")
-        .popover(isPresented: Binding(
-            get: { noChangePopoverRowId == fieldId },
-            set: { if !$0 { noChangePopoverRowId = nil } }
-        )) {
+        .popover(
+            isPresented: Binding(
+                get: { noChangePopoverRowId == fieldId },
+                set: { if !$0 { noChangePopoverRowId = nil } },
+            )
+        ) {
             Text("Already in current tags")
                 .font(.callout)
                 .padding()
@@ -1618,7 +1675,7 @@ struct HardcoverImportView: View {
         isExpanded: Bool,
         help: String,
         showsExpansionControl: Bool = false,
-        toggleExpansion: @escaping () -> Void
+        toggleExpansion: @escaping () -> Void,
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
@@ -1679,7 +1736,7 @@ struct HardcoverImportView: View {
                 title: section.title,
                 rows: rows.sorted { lhs, rhs in
                     Self.reviewFieldOrder(lhs.id) < Self.reviewFieldOrder(rhs.id)
-                }
+                },
             )
         }
     }
@@ -1695,18 +1752,20 @@ struct HardcoverImportView: View {
             incoming: incoming,
             currentComparison: comparisonValue(field: field, value: currentValue(field: field)),
             incomingComparison: comparisonValue(field: field, value: incoming),
-            details: details
+            details: details,
         )
     }
 
     private func reviewFieldSections(fallbackDetails: HardcoverBookDetails) -> [(
         id: String, title: String, fields: [String], details: HardcoverBookDetails
     )] {
-        var sections: [(id: String, title: String, fields: [String], details: HardcoverBookDetails)] = []
+        var sections:
+            [(id: String, title: String, fields: [String], details: HardcoverBookDetails)] = []
         if let audiobookDetails = viewModel.selectedImports[.audiobook] {
             sections.append(("audiobook", "Audiobook Edition", ["narrators"], audiobookDetails))
         }
-        let generalDetails = generalAssignment?.details ?? ebookAssignment?.details ?? fallbackDetails
+        let generalDetails =
+            generalAssignment?.details ?? ebookAssignment?.details ?? fallbackDetails
         sections.append(("general", "General", Self.generalReviewFields, generalDetails))
         return sections
     }
@@ -1739,50 +1798,52 @@ struct HardcoverImportView: View {
 
     private func currentValue(field: String) -> String {
         switch field {
-        case "title": return currentBook.title
-        case "subtitle": return currentBook.subtitle
-        case "description": return currentBook.description
-        case "language": return currentBook.language
-        case "publicationDate": return currentBook.publicationDate
-        case "rating": return currentBook.rating
-        case "authors": return currentBook.authors.joined(separator: ", ")
-        case "narrators": return currentBook.narrators.joined(separator: ", ")
-        case "creators":
-            return currentBook.creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", ")
-        case "series":
-            return currentBook.series.map { series in
-                series.position.isEmpty ? series.name : "\(series.name) #\(series.position)"
-            }.joined(separator: ", ")
-        case "tags": return currentBook.tags.joined(separator: ", ")
-        default: return ""
+            case "title": return currentBook.title
+            case "subtitle": return currentBook.subtitle
+            case "description": return currentBook.description
+            case "language": return currentBook.language
+            case "publicationDate": return currentBook.publicationDate
+            case "rating": return currentBook.rating
+            case "authors": return currentBook.authors.joined(separator: ", ")
+            case "narrators": return currentBook.narrators.joined(separator: ", ")
+            case "creators":
+                return currentBook.creators.map { "\($0.name) (\($0.role))" }.joined(
+                    separator: ", "
+                )
+            case "series":
+                return currentBook.series.map { series in
+                    series.position.isEmpty ? series.name : "\(series.name) #\(series.position)"
+                }.joined(separator: ", ")
+            case "tags": return currentBook.tags.joined(separator: ", ")
+            default: return ""
         }
     }
 
     private func incomingValue(field: String, details: HardcoverBookDetails) -> String {
         switch field {
-        case "title": return details.title ?? ""
-        case "subtitle": return details.subtitle ?? ""
-        case "description": return details.description ?? ""
-        case "language": return details.language ?? ""
-        case "publicationDate":
-            guard let value = details.releaseDate else { return "" }
-            return MetadataEditorViewModel.EditableBook.dateOnly(value) ?? value
-        case "rating":
-            guard let rating = details.rating else { return "" }
-            return String(format: "%.2f", rating)
-        case "authors": return details.authors.joined(separator: ", ")
-        case "narrators": return details.narrators.joined(separator: ", ")
-        case "creators":
-            return details.creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", ")
-        case "series":
-            return details.series.map { series in
-                if let position = series.position {
-                    return "\(series.name) #\(position.formatted())"
-                }
-                return series.name
-            }.joined(separator: ", ")
-        case "tags": return details.tags.map(\.name).joined(separator: ", ")
-        default: return ""
+            case "title": return details.title ?? ""
+            case "subtitle": return details.subtitle ?? ""
+            case "description": return details.description ?? ""
+            case "language": return details.language ?? ""
+            case "publicationDate":
+                guard let value = details.releaseDate else { return "" }
+                return MetadataEditorViewModel.EditableBook.dateOnly(value) ?? value
+            case "rating":
+                guard let rating = details.rating else { return "" }
+                return String(format: "%.2f", rating)
+            case "authors": return details.authors.joined(separator: ", ")
+            case "narrators": return details.narrators.joined(separator: ", ")
+            case "creators":
+                return details.creators.map { "\($0.name) (\($0.role))" }.joined(separator: ", ")
+            case "series":
+                return details.series.map { series in
+                    if let position = series.position {
+                        return "\(series.name) #\(position.formatted())"
+                    }
+                    return series.name
+                }.joined(separator: ", ")
+            case "tags": return details.tags.map(\.name).joined(separator: ", ")
+            default: return ""
         }
     }
 
@@ -1797,7 +1858,10 @@ struct HardcoverImportView: View {
     private func reviewImportableTagIds(for details: HardcoverBookDetails) -> Set<String> {
         Set(
             details.tags.compactMap { tag in
-                guard HardcoverReviewTagCategory.allCases.contains(where: { $0.contains(tag.category) }),
+                guard
+                    HardcoverReviewTagCategory.allCases.contains(where: {
+                        $0.contains(tag.category)
+                    }),
                     !currentTagKeys.contains(Self.normalizedTagKey(tag.name))
                 else { return nil }
                 return tagFieldId(tag.name)
@@ -1807,17 +1871,17 @@ struct HardcoverImportView: View {
 
     private func sortedReviewTags(_ tags: [HardcoverTagInfo]) -> [HardcoverTagInfo] {
         switch reviewTagSort {
-        case .popularity:
-            return tags.sorted {
-                if $0.count != $1.count {
-                    return $0.count > $1.count
+            case .popularity:
+                return tags.sorted {
+                    if $0.count != $1.count {
+                        return $0.count > $1.count
+                    }
+                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
                 }
-                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
-        case .alphabetical:
-            return tags.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
+            case .alphabetical:
+                return tags.sorted {
+                    $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
         }
     }
 
@@ -1832,14 +1896,14 @@ struct HardcoverImportView: View {
     private func comparisonValue(field: String, value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         switch field {
-        case "publicationDate":
-            return MetadataEditorViewModel.EditableBook.dateOnly(trimmed) ?? trimmed
-        case "language":
-            return Self.normalizedLanguage(trimmed)
-        case "tags":
-            return Self.normalizedList(trimmed)
-        default:
-            return trimmed
+            case "publicationDate":
+                return MetadataEditorViewModel.EditableBook.dateOnly(trimmed) ?? trimmed
+            case "language":
+                return Self.normalizedLanguage(trimmed)
+            case "tags":
+                return Self.normalizedList(trimmed)
+            default:
+                return trimmed
         }
     }
 
@@ -1932,7 +1996,9 @@ struct HardcoverImportView: View {
     }
 
     private func allReviewFieldIds(for details: HardcoverBookDetails) -> Set<String> {
-        var fields = Set(reviewRows(for: details).filter { $0.id != "tags" && $0.differs }.map(\.id))
+        var fields = Set(
+            reviewRows(for: details).filter { $0.id != "tags" && $0.differs }.map(\.id)
+        )
         fields.formUnion(reviewImportableTagIds(for: details))
         return fields
     }

@@ -97,7 +97,7 @@ public struct SettingsView: View {
         }
         .alert(
             "Reset All Settings to Default?",
-            isPresented: $showResetConfirmation
+            isPresented: $showResetConfirmation,
         ) {
             Button("Cancel", role: .cancel) {}
             Button("Reset All", role: .destructive) {
@@ -202,7 +202,7 @@ public struct SettingsView: View {
                     tabBarSlot2: newValue.library.tabBarSlot2,
                     selectedLightThemeId: newValue.themes.selectedLightThemeId,
                     selectedDarkThemeId: newValue.themes.selectedDarkThemeId,
-                    customThemes: newValue.themes.customThemes
+                    customThemes: newValue.themes.customThemes,
                 )
             } catch {
                 await MainActor.run {
@@ -228,11 +228,15 @@ extension SettingsView {
                     }
                     .tag(SettingsTab.general)
 
-                MacReaderSettingsView(reading: $config.reading, playback: $config.playback, themes: $config.themes)
-                    .tabItem {
-                        Label("Reader Settings", systemImage: "textformat")
-                    }
-                    .tag(SettingsTab.readerSettings)
+                MacReaderSettingsView(
+                    reading: $config.reading,
+                    playback: $config.playback,
+                    themes: $config.themes,
+                )
+                .tabItem {
+                    Label("Reader Settings", systemImage: "textformat")
+                }
+                .tag(SettingsTab.readerSettings)
 
                 MacReadingBarSettingsView(readingBar: $config.readingBar)
                     .tabItem {
@@ -328,7 +332,7 @@ extension SettingsView {
                     if config.library.tapToPlayPreferredPlayer {
                         Picker(
                             "When Both Available",
-                            selection: $config.library.preferAudioOverEbook
+                            selection: $config.library.preferAudioOverEbook,
                         ) {
                             Text("Prefer Ebook").tag(false)
                             Text("Prefer Audiobook").tag(true)
@@ -479,10 +483,10 @@ private struct MacGeneralSettingsView: View {
                                             "[SettingsView] Progress Sync SET - index: \(newIndex) -> value: \(newValue)s"
                                         )
                                         sync.progressSyncIntervalSeconds = newValue
-                                    }
+                                    },
                                 ),
                                 in: 0...Double(syncIntervals.count - 1),
-                                step: 1
+                                step: 1,
                             )
                             .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
                             Text(formatInterval(sync.progressSyncIntervalSeconds))
@@ -510,10 +514,10 @@ private struct MacGeneralSettingsView: View {
                                             "[SettingsView] Metadata Refresh SET - index: \(newIndex) -> value: \(newValue)s"
                                         )
                                         sync.metadataRefreshIntervalSeconds = newValue
-                                    }
+                                    },
                                 ),
                                 in: 0...Double(syncIntervals.count - 1),
-                                step: 1
+                                step: 1,
                             )
                             .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
                             Text(formatInterval(sync.metadataRefreshIntervalSeconds))
@@ -529,7 +533,7 @@ private struct MacGeneralSettingsView: View {
 
                 Toggle(
                     "Auto-navigate to server position",
-                    isOn: $sync.autoSyncToNewerServerPosition
+                    isOn: $sync.autoSyncToNewerServerPosition,
                 )
                 .help(
                     "When the server has a newer reading position (from another device), automatically jump to that position."
@@ -549,9 +553,9 @@ private struct MacGeneralSettingsView: View {
                                 if let hex = newColor.hexString() {
                                     library.accentColorHex = hex
                                 }
-                            }
+                            },
                         ),
-                        supportsOpacity: false
+                        supportsOpacity: false,
                     )
                     .labelsHidden()
                     Button("System") {
@@ -684,7 +688,7 @@ private struct MacReaderSettingsView: View {
                             .popover(isPresented: $showFontManager) {
                                 CustomFontManagerView(
                                     customFamilies: $customFamilies,
-                                    selectedFont: $reading.fontFamily
+                                    selectedFont: $reading.fontFamily,
                                 )
                             }
                         }
@@ -697,7 +701,7 @@ private struct MacReaderSettingsView: View {
                         value: $reading.marginLeftRight,
                         range: 0...30,
                         step: 1,
-                        formatter: { String(format: "%.0f%%", $0) }
+                        formatter: { String(format: "%.0f%%", $0) },
                     )
                 }
 
@@ -707,7 +711,7 @@ private struct MacReaderSettingsView: View {
                         value: $reading.marginTopBottom,
                         range: 0...30,
                         step: 1,
-                        formatter: { String(format: "%.0f%%", $0) }
+                        formatter: { String(format: "%.0f%%", $0) },
                     )
                 }
 
@@ -717,7 +721,7 @@ private struct MacReaderSettingsView: View {
                         value: $reading.wordSpacing,
                         range: -0.5...2.0,
                         step: 0.1,
-                        formatter: { String(format: "%.1fem", $0) }
+                        formatter: { String(format: "%.1fem", $0) },
                     )
                 }
 
@@ -727,7 +731,7 @@ private struct MacReaderSettingsView: View {
                         value: $reading.letterSpacing,
                         range: -0.1...0.5,
                         step: 0.01,
-                        formatter: { String(format: "%.2fem", $0) }
+                        formatter: { String(format: "%.2fem", $0) },
                     )
                 }
 
@@ -737,7 +741,7 @@ private struct MacReaderSettingsView: View {
                         value: $playback.defaultPlaybackSpeed,
                         range: 0.5...3.0,
                         step: 0.05,
-                        formatter: { String(format: "%.2fx", $0) }
+                        formatter: { String(format: "%.2fx", $0) },
                     )
                 }
             }
@@ -755,7 +759,9 @@ private struct MacReaderSettingsView: View {
                             label("Light Mode Theme")
                             themePickerView(
                                 selection: $themes.selectedLightThemeId,
-                                themes: ReaderTheme.themesForLightMode(customThemes: themes.customThemes)
+                                themes: ReaderTheme.themesForLightMode(
+                                    customThemes: themes.customThemes
+                                ),
                             )
                             .onChange(of: themes.selectedLightThemeId) { _, _ in
                                 applyActiveThemeToReading()
@@ -766,7 +772,9 @@ private struct MacReaderSettingsView: View {
                             label("Dark Mode Theme")
                             themePickerView(
                                 selection: $themes.selectedDarkThemeId,
-                                themes: ReaderTheme.themesForDarkMode(customThemes: themes.customThemes)
+                                themes: ReaderTheme.themesForDarkMode(
+                                    customThemes: themes.customThemes
+                                ),
                             )
                             .onChange(of: themes.selectedDarkThemeId) { _, _ in
                                 applyActiveThemeToReading()
@@ -794,9 +802,11 @@ private struct MacReaderSettingsView: View {
 
                     Toggle(
                         "Enable margin click to turn pages",
-                        isOn: $reading.enableMarginClickNavigation
+                        isOn: $reading.enableMarginClickNavigation,
                     )
-                    .help("Click on the left or right margins of the page to navigate between pages")
+                    .help(
+                        "Click on the left or right margins of the page to navigate between pages"
+                    )
                 }
             }
         }
@@ -814,7 +824,7 @@ private struct MacReaderSettingsView: View {
     @ViewBuilder
     private func themePickerView(
         selection: Binding<String>,
-        themes: [ReaderTheme]
+        themes: [ReaderTheme],
     ) -> some View {
         Picker("", selection: selection) {
             ForEach(themes) { theme in
@@ -826,10 +836,12 @@ private struct MacReaderSettingsView: View {
     }
 
     private func applyActiveThemeToReading() {
-        let activeId = colorScheme == .dark
+        let activeId =
+            colorScheme == .dark
             ? themes.selectedDarkThemeId
             : themes.selectedLightThemeId
-        guard let theme = ReaderTheme.resolve(id: activeId, customThemes: themes.customThemes) else {
+        guard let theme = ReaderTheme.resolve(id: activeId, customThemes: themes.customThemes)
+        else {
             return
         }
         reading.backgroundColor = theme.backgroundColor
@@ -1001,12 +1013,16 @@ private struct MacManageThemesView: View {
 
             Menu {
                 if theme.availableFor(colorScheme: "light") {
-                    Button { themes.selectedLightThemeId = theme.id } label: {
+                    Button {
+                        themes.selectedLightThemeId = theme.id
+                    } label: {
                         Label("Use for Light Mode", systemImage: "sun.max")
                     }
                 }
                 if theme.availableFor(colorScheme: "dark") {
-                    Button { themes.selectedDarkThemeId = theme.id } label: {
+                    Button {
+                        themes.selectedDarkThemeId = theme.id
+                    } label: {
                         Label("Use for Dark Mode", systemImage: "moon")
                     }
                 }
@@ -1065,7 +1081,7 @@ private struct MacManageThemesView: View {
             userHighlightLabel5: source.userHighlightLabel5,
             userHighlightLabel6: source.userHighlightLabel6,
             userHighlightMode: source.userHighlightMode,
-            customCSS: source.customCSS
+            customCSS: source.customCSS,
         )
         themes.customThemes.append(newTheme)
         return newTheme
@@ -1091,9 +1107,9 @@ private struct MacManageThemesView: View {
 
     private func appearanceLabel(_ appearance: ThemeAppearance) -> String {
         switch appearance {
-        case .light: return "Light only"
-        case .dark: return "Dark only"
-        case .any: return "Both"
+            case .light: return "Light only"
+            case .dark: return "Dark only"
+            case .any: return "Both"
         }
     }
 
@@ -1118,7 +1134,11 @@ private struct MacThemeEditorSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var draft: ReaderTheme
 
-    init(theme: ReaderTheme, themes: Binding<SilveranGlobalConfig.Themes>, reading: Binding<SilveranGlobalConfig.Reading>) {
+    init(
+        theme: ReaderTheme,
+        themes: Binding<SilveranGlobalConfig.Themes>,
+        reading: Binding<SilveranGlobalConfig.Reading>,
+    ) {
         self.theme = theme
         self._themes = themes
         self._reading = reading
@@ -1198,12 +1218,30 @@ private struct MacThemeEditorSheet: View {
                         .frame(maxWidth: 300)
                         .labelsHidden()
 
-                        macLabeledColorRow(label: $draft.userHighlightLabel1, hex: $draft.userHighlightColor1)
-                        macLabeledColorRow(label: $draft.userHighlightLabel2, hex: $draft.userHighlightColor2)
-                        macLabeledColorRow(label: $draft.userHighlightLabel3, hex: $draft.userHighlightColor3)
-                        macLabeledColorRow(label: $draft.userHighlightLabel4, hex: $draft.userHighlightColor4)
-                        macLabeledColorRow(label: $draft.userHighlightLabel5, hex: $draft.userHighlightColor5)
-                        macLabeledColorRow(label: $draft.userHighlightLabel6, hex: $draft.userHighlightColor6)
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel1,
+                            hex: $draft.userHighlightColor1,
+                        )
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel2,
+                            hex: $draft.userHighlightColor2,
+                        )
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel3,
+                            hex: $draft.userHighlightColor3,
+                        )
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel4,
+                            hex: $draft.userHighlightColor4,
+                        )
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel5,
+                            hex: $draft.userHighlightColor5,
+                        )
+                        macLabeledColorRow(
+                            label: $draft.userHighlightLabel6,
+                            hex: $draft.userHighlightColor6,
+                        )
                     }
 
                     Divider()
@@ -1213,7 +1251,7 @@ private struct MacThemeEditorSheet: View {
                         TextEditor(
                             text: Binding(
                                 get: { draft.customCSS ?? "" },
-                                set: { draft.customCSS = $0.isEmpty ? nil : $0 }
+                                set: { draft.customCSS = $0.isEmpty ? nil : $0 },
                             )
                         )
                         .font(.system(.body, design: .monospaced))
@@ -1245,14 +1283,18 @@ private struct MacThemeEditorSheet: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 120, alignment: .trailing)
 
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: hex.wrappedValue) ?? .gray },
-                set: { newColor in
-                    if let newHex = newColor.hexString() {
-                        hex.wrappedValue = newHex
-                    }
-                }
-            ), supportsOpacity: false)
+            ColorPicker(
+                "",
+                selection: Binding(
+                    get: { Color(hex: hex.wrappedValue) ?? .gray },
+                    set: { newColor in
+                        if let newHex = newColor.hexString() {
+                            hex.wrappedValue = newHex
+                        }
+                    },
+                ),
+                supportsOpacity: false,
+            )
             .labelsHidden()
             .frame(width: 48, height: 28)
 
@@ -1270,14 +1312,18 @@ private struct MacThemeEditorSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
 
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: hex.wrappedValue) ?? .gray },
-                set: { newColor in
-                    if let newHex = newColor.hexString() {
-                        hex.wrappedValue = newHex
-                    }
-                }
-            ), supportsOpacity: false)
+            ColorPicker(
+                "",
+                selection: Binding(
+                    get: { Color(hex: hex.wrappedValue) ?? .gray },
+                    set: { newColor in
+                        if let newHex = newColor.hexString() {
+                            hex.wrappedValue = newHex
+                        }
+                    },
+                ),
+                supportsOpacity: false,
+            )
             .labelsHidden()
             .frame(width: 48, height: 28)
 
@@ -1298,7 +1344,8 @@ private struct MacThemeEditorSheet: View {
         if !draft.availableFor(colorScheme: "dark") && themes.selectedDarkThemeId == draft.id {
             themes.selectedDarkThemeId = "builtin-dark"
         }
-        let activeId = colorScheme == .dark
+        let activeId =
+            colorScheme == .dark
             ? themes.selectedDarkThemeId
             : themes.selectedLightThemeId
         if activeId == draft.id {
@@ -1446,7 +1493,10 @@ private struct MacReadingBarSettingsView: View {
                         "Show Time Remaining in Chapter",
                         isOn: $readingBar.showTimeRemainingInChapter,
                     )
-                    Toggle("Show Time Remaining in Book", isOn: $readingBar.showTimeRemainingInBook)
+                    Toggle(
+                        "Show Time Remaining in Book",
+                        isOn: $readingBar.showTimeRemainingInBook,
+                    )
                 }
                 .disabled(!readingBar.enabled)
                 .opacity(readingBar.enabled ? 1.0 : 0.5)
@@ -1557,7 +1607,7 @@ private struct ReadingSettingsFields: View {
             value: $reading.marginLeftRight,
             range: 0...30,
             step: 1,
-            formatter: { String(format: "%.0f%%", $0) }
+            formatter: { String(format: "%.0f%%", $0) },
         )
 
         DebouncedSettingsSlider(
@@ -1565,7 +1615,7 @@ private struct ReadingSettingsFields: View {
             value: $reading.marginTopBottom,
             range: 0...30,
             step: 1,
-            formatter: { String(format: "%.0f%%", $0) }
+            formatter: { String(format: "%.0f%%", $0) },
         )
 
         DebouncedSettingsSlider(
@@ -1573,7 +1623,7 @@ private struct ReadingSettingsFields: View {
             value: $reading.wordSpacing,
             range: -0.5...2.0,
             step: 0.1,
-            formatter: { String(format: "%.1fem", $0) }
+            formatter: { String(format: "%.1fem", $0) },
         )
 
         DebouncedSettingsSlider(
@@ -1581,7 +1631,7 @@ private struct ReadingSettingsFields: View {
             value: $reading.letterSpacing,
             range: -0.1...0.5,
             step: 0.01,
-            formatter: { String(format: "%.2fem", $0) }
+            formatter: { String(format: "%.2fem", $0) },
         )
 
         highlightColorRow
@@ -1591,7 +1641,7 @@ private struct ReadingSettingsFields: View {
             value: $playback.defaultPlaybackSpeed,
             range: 0.5...3.0,
             step: 0.05,
-            formatter: { String(format: "%.2fx", $0) }
+            formatter: { String(format: "%.2fx", $0) },
         )
         #endif
     }
@@ -1605,7 +1655,7 @@ private struct ReadingSettingsFields: View {
                 hex: $reading.highlightColor,
                 isRequired: false,
                 defaultLightColor: "#CCCCCC",
-                defaultDarkColor: "#333333"
+                defaultDarkColor: "#333333",
             )
         }
     }
@@ -1673,8 +1723,8 @@ private struct GeneralSettingsFields: View {
                     "",
                     selection: Binding(
                         get: { sync.progressSyncIntervalSeconds },
-                        set: { sync.progressSyncIntervalSeconds = $0 }
-                    )
+                        set: { sync.progressSyncIntervalSeconds = $0 },
+                    ),
                 ) {
                     ForEach(syncIntervals, id: \.self) { interval in
                         Text(formatInterval(interval)).tag(interval)
@@ -1694,8 +1744,8 @@ private struct GeneralSettingsFields: View {
                     "",
                     selection: Binding(
                         get: { sync.metadataRefreshIntervalSeconds },
-                        set: { sync.metadataRefreshIntervalSeconds = $0 }
-                    )
+                        set: { sync.metadataRefreshIntervalSeconds = $0 },
+                    ),
                 ) {
                     ForEach(syncIntervals, id: \.self) { interval in
                         Text(formatInterval(interval)).tag(interval)
@@ -1712,7 +1762,7 @@ private struct GeneralSettingsFields: View {
         Section {
             Toggle(
                 "Auto-navigate to server position",
-                isOn: $sync.autoSyncToNewerServerPosition
+                isOn: $sync.autoSyncToNewerServerPosition,
             )
         } footer: {
             Text(
@@ -1792,7 +1842,7 @@ private struct UserHighlightColorControl: View {
             ColorPicker(
                 "",
                 selection: $localColor,
-                supportsOpacity: false
+                supportsOpacity: false,
             )
             .labelsHidden()
             .frame(width: 48, height: 28)
@@ -1846,7 +1896,7 @@ private struct AppearanceColorControl: View {
         hex: Binding<String?>,
         isRequired: Bool,
         defaultLightColor: String? = nil,
-        defaultDarkColor: String? = nil
+        defaultDarkColor: String? = nil,
     ) {
         self.hex = hex
         self.isRequired = isRequired
@@ -1857,7 +1907,7 @@ private struct AppearanceColorControl: View {
     init(hex: Binding<String>, isRequired: Bool) {
         self.hex = Binding(
             get: { hex.wrappedValue },
-            set: { hex.wrappedValue = $0 ?? "#333333" }
+            set: { hex.wrappedValue = $0 ?? "#333333" },
         )
         self.isRequired = isRequired
         self.defaultLightColor = nil
@@ -1871,7 +1921,7 @@ private struct AppearanceColorControl: View {
     private var textBinding: Binding<String> {
         Binding(
             get: { hex.wrappedValue ?? "" },
-            set: { hex.wrappedValue = $0.isEmpty ? nil : $0 }
+            set: { hex.wrappedValue = $0.isEmpty ? nil : $0 },
         )
     }
 
@@ -1898,7 +1948,7 @@ private struct AppearanceColorControl: View {
             ColorPicker(
                 "",
                 selection: $localColor,
-                supportsOpacity: false
+                supportsOpacity: false,
             )
             .labelsHidden()
             .frame(width: 48, height: 28)

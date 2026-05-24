@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 #endif
@@ -56,7 +57,7 @@ public struct MetadataEditorView: View {
                 onWindowWillClose: resetEditorSession,
                 onWindowAvailable: { window in
                     MetadataEditorWindowRegistry.updateWindow(window)
-                }
+                },
             )
             .frame(width: 0, height: 0)
         )
@@ -92,7 +93,7 @@ public struct MetadataEditorView: View {
                     currentBook: book,
                     onImport: { imports, fields in
                         viewModel.applyImport(imports: imports, fields: fields, for: book.id)
-                    }
+                    },
                 )
             }
         }
@@ -112,7 +113,9 @@ public struct MetadataEditorView: View {
                 pendingRevertBookId = nil
             }
         } message: {
-            Text("This restores the book to the Storyteller metadata loaded when the editor opened.")
+            Text(
+                "This restores the book to the Storyteller metadata loaded when the editor opened."
+            )
         }
         .background {
             Button("Select All Sidebar Books") {
@@ -132,7 +135,7 @@ public struct MetadataEditorView: View {
                 if !isPresented {
                     pendingRevertBookId = nil
                 }
-            }
+            },
         )
     }
 
@@ -159,7 +162,7 @@ public struct MetadataEditorView: View {
 
             Toggle("Don't show again", isOn: $hideWarning)
                 #if os(macOS)
-                .toggleStyle(.checkbox)
+            .toggleStyle(.checkbox)
                 #endif
                 .font(.callout)
 
@@ -176,7 +179,7 @@ public struct MetadataEditorView: View {
             Rectangle()
                 .frame(height: 1)
                 .foregroundStyle(.yellow.opacity(0.3)),
-            alignment: .bottom
+            alignment: .bottom,
         )
     }
 
@@ -199,7 +202,7 @@ public struct MetadataEditorView: View {
                             },
                             removeAction: {
                                 removeSidebarBook(id: book.id)
-                            }
+                            },
                         )
                     }
                 }
@@ -208,6 +211,7 @@ public struct MetadataEditorView: View {
             }
         }
         .focusable()
+        .focusEffectDisabled(true)
         .focused($isSidebarFocused)
     }
 
@@ -255,7 +259,9 @@ public struct MetadataEditorView: View {
 
     private func sidebarBookIdRange(from anchorId: String?, to id: String) -> Set<String>? {
         let ids = viewModel.books.map(\.id)
-        guard let anchorId, let start = ids.firstIndex(of: anchorId), let end = ids.firstIndex(of: id) else {
+        guard let anchorId, let start = ids.firstIndex(of: anchorId),
+            let end = ids.firstIndex(of: id)
+        else {
             return nil
         }
         let range = start <= end ? start...end : end...start
@@ -287,7 +293,7 @@ public struct MetadataEditorView: View {
             openHardcoverImport: { showHardcoverImportSheet = true },
             revertCurrentBook: {
                 pendingRevertBookId = viewModel.selectedBookId
-            }
+            },
         )
     }
 
@@ -370,7 +376,7 @@ public struct MetadataEditorView: View {
                 isSaving: isSaving,
                 onSaveBeforeClose: onSaveBeforeClose,
                 onWindowWillClose: onWindowWillClose,
-                onWindowAvailable: onWindowAvailable
+                onWindowAvailable: onWindowAvailable,
             )
         }
 
@@ -391,7 +397,7 @@ public struct MetadataEditorView: View {
                 isSaving: Bool,
                 onSaveBeforeClose: @escaping () async -> Bool,
                 onWindowWillClose: @escaping () -> Void,
-                onWindowAvailable: @escaping (NSWindow?) -> Void
+                onWindowAvailable: @escaping (NSWindow?) -> Void,
             ) {
                 self.title = title
                 self.shouldPromptBeforeClose = shouldPromptBeforeClose
@@ -415,19 +421,19 @@ public struct MetadataEditorView: View {
                 alert.addButton(withTitle: "Cancel")
 
                 switch alert.runModal() {
-                case .alertFirstButtonReturn:
-                    Task { @MainActor in
-                        if await onSaveBeforeClose() {
-                            allowClose = true
-                            sender.close()
-                            allowClose = false
+                    case .alertFirstButtonReturn:
+                        Task { @MainActor in
+                            if await onSaveBeforeClose() {
+                                allowClose = true
+                                sender.close()
+                                allowClose = false
+                            }
                         }
-                    }
-                    return false
-                case .alertSecondButtonReturn:
-                    return true
-                default:
-                    return false
+                        return false
+                    case .alertSecondButtonReturn:
+                        return true
+                    default:
+                        return false
                 }
             }
 
@@ -477,7 +483,7 @@ public struct MetadataEditorView: View {
             } else if !currentBookErrors.isEmpty {
                 Label(
                     currentBookErrors.map(\.message).joined(separator: "; "),
-                    systemImage: "exclamationmark.triangle"
+                    systemImage: "exclamationmark.triangle",
                 )
                 .foregroundStyle(.red)
                 .font(.callout)
@@ -538,7 +544,10 @@ public struct MetadataEditorView: View {
                     await viewModel.saveAll(mediaViewModel: mediaViewModel)
                 }
             }
-            .disabled(viewModel.isSaving || !viewModel.hasAnyDirtyBooks || viewModel.hasAnyValidationErrors)
+            .disabled(
+                viewModel.isSaving || !viewModel.hasAnyDirtyBooks
+                    || viewModel.hasAnyValidationErrors
+            )
         }
         .padding(12)
     }
@@ -594,18 +603,18 @@ private struct MetadataEditorBookRailItem: View {
                     removeAction()
                 }
             }
-        .background {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
-        }
-        .overlay(alignment: .leading) {
-            if isSelected {
-                Capsule()
-                    .fill(Color.accentColor)
-                    .frame(width: 4)
-                    .padding(.vertical, 8)
+            .background {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
             }
-        }
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(width: 4)
+                        .padding(.vertical, 8)
+                }
+            }
     }
 
     @ViewBuilder

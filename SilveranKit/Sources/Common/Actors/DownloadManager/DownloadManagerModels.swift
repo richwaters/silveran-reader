@@ -27,7 +27,7 @@ public struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
         bookId: String,
         category: LocalMediaCategory,
         bookTitle: String,
-        format: StorytellerBookFormat
+        format: StorytellerBookFormat,
     ) {
         self.id = "\(bookId)-\(category.rawValue)"
         self.bookId = bookId

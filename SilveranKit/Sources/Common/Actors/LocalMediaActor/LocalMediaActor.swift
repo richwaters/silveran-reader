@@ -18,7 +18,7 @@ public enum LocalMediaImportEvent: Sendable {
         book: BookMetadata,
         category: LocalMediaCategory,
         receivedBytes: Int64,
-        expectedBytes: Int64?
+        expectedBytes: Int64?,
     )
     case finished(book: BookMetadata, category: LocalMediaCategory, destination: URL)
     case skipped(book: BookMetadata, category: LocalMediaCategory)
@@ -48,7 +48,7 @@ public actor LocalMediaActor: GlobalActor {
 
     public init(
         filesystem: FilesystemActor = .shared,
-        localLibrary: LocalLibraryManager = LocalLibraryManager()
+        localLibrary: LocalLibraryManager = LocalLibraryManager(),
     ) {
         self.filesystem = filesystem
         self.localLibrary = localLibrary
@@ -131,7 +131,7 @@ public actor LocalMediaActor: GlobalActor {
                     locator: locator,
                     timestamp: timestamp,
                     createdAt: existing.position?.createdAt,
-                    updatedAt: updatedAtString
+                    updatedAt: updatedAtString,
                 )
                 let updatedMetadata = BookMetadata(
                     uuid: existing.uuid,
@@ -153,7 +153,7 @@ public actor LocalMediaActor: GlobalActor {
                     readaloud: existing.readaloud,
                     status: existing.status,
                     position: newPosition,
-                    rating: existing.rating
+                    rating: existing.rating,
                 )
                 localStorytellerMetadata[index] = updatedMetadata
                 debugLog("[LocalMediaActor] updateBookProgress: updated storyteller metadata")
@@ -174,7 +174,7 @@ public actor LocalMediaActor: GlobalActor {
                     locator: locator,
                     timestamp: timestamp,
                     createdAt: existing.position?.createdAt,
-                    updatedAt: updatedAtString
+                    updatedAt: updatedAtString,
                 )
                 let updatedMetadata = BookMetadata(
                     uuid: existing.uuid,
@@ -196,7 +196,7 @@ public actor LocalMediaActor: GlobalActor {
                     readaloud: existing.readaloud,
                     status: existing.status,
                     position: newPosition,
-                    rating: existing.rating
+                    rating: existing.rating,
                 )
                 localStandaloneMetadata[index] = updatedMetadata
                 debugLog("[LocalMediaActor] updateBookProgress: updated standalone metadata")
@@ -239,7 +239,7 @@ public actor LocalMediaActor: GlobalActor {
             readaloud: existing.readaloud,
             status: status,
             position: existing.position,
-            rating: existing.rating
+            rating: existing.rating,
         )
         localStorytellerMetadata[index] = updatedMetadata
         await notifyObservers()
@@ -315,7 +315,7 @@ public actor LocalMediaActor: GlobalActor {
                             filepath: asset.filepath,
                             missing: asset.missing,
                             createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt
+                            updatedAt: asset.updatedAt,
                         )
                     },
                     audiobook: scanned.audiobook.map { asset in
@@ -324,7 +324,7 @@ public actor LocalMediaActor: GlobalActor {
                             filepath: asset.filepath,
                             missing: asset.missing,
                             createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt
+                            updatedAt: asset.updatedAt,
                         )
                     },
                     readaloud: scanned.readaloud.map { asset in
@@ -338,12 +338,12 @@ public actor LocalMediaActor: GlobalActor {
                             queuePosition: asset.queuePosition,
                             restartPending: asset.restartPending,
                             createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt
+                            updatedAt: asset.updatedAt,
                         )
                     },
                     status: saved.status,
                     position: saved.position,
-                    rating: saved.rating
+                    rating: saved.rating,
                 )
                 mergedMetadata.append(merged)
 
@@ -395,7 +395,7 @@ public actor LocalMediaActor: GlobalActor {
                 let categoryDir = await filesystem.mediaDirectory(
                     for: uuid,
                     category: category,
-                    in: domain
+                    in: domain,
                 )
             else {
                 continue
@@ -405,7 +405,7 @@ public actor LocalMediaActor: GlobalActor {
                 let contents = try? fm.contentsOfDirectory(
                     at: categoryDir,
                     includingPropertiesForKeys: [.isDirectoryKey],
-                    options: [.skipsHiddenFiles]
+                    options: [.skipsHiddenFiles],
                 )
             else {
                 continue
@@ -488,7 +488,7 @@ public actor LocalMediaActor: GlobalActor {
         try await filesystem.deleteMedia(
             for: uuid,
             category: category,
-            in: .storyteller
+            in: .storyteller,
         )
 
         let updatedPaths = await scanBookPaths(for: uuid, domain: .storyteller)
@@ -544,13 +544,13 @@ public actor LocalMediaActor: GlobalActor {
         domain: LocalMediaDomain,
         category: LocalMediaCategory,
         bookName: String,
-        uuidIdentifier: String? = nil
+        uuidIdentifier: String? = nil,
     ) async -> URL {
         await filesystem.getMediaDirectory(
             domain: domain,
             category: category,
             bookName: bookName,
-            uuidIdentifier: uuidIdentifier
+            uuidIdentifier: uuidIdentifier,
         )
     }
 
@@ -600,7 +600,7 @@ public actor LocalMediaActor: GlobalActor {
         from sourceFileURL: URL,
         domain: LocalMediaDomain,
         category: LocalMediaCategory,
-        bookName: String
+        bookName: String,
     ) async throws -> URL {
         let shouldStopAccessing = sourceFileURL.startAccessingSecurityScopedResource()
         defer { if shouldStopAccessing { sourceFileURL.stopAccessingSecurityScopedResource() } }
@@ -611,7 +611,7 @@ public actor LocalMediaActor: GlobalActor {
         if domain == .local {
             let metadata = try await localLibrary.extractMetadata(
                 from: sourceFileURL,
-                category: category
+                category: category,
             )
 
             // Use the correct category based on actual content type
@@ -628,7 +628,7 @@ public actor LocalMediaActor: GlobalActor {
                 domain: domain,
                 category: effectiveCategory,
                 bookName: metadata.title,
-                uuidIdentifier: metadata.uuid
+                uuidIdentifier: metadata.uuid,
             )
             let bookRoot = destinationDirectory.deletingLastPathComponent()
             try await filesystem.ensureDirectoryExists(at: bookRoot)
@@ -658,7 +658,7 @@ public actor LocalMediaActor: GlobalActor {
                 domain: domain,
                 category: category,
                 bookName: bookName,
-                uuidIdentifier: nil
+                uuidIdentifier: nil,
             )
             let bookRoot = destinationDirectory.deletingLastPathComponent()
             try await filesystem.ensureDirectoryExists(at: bookRoot)
@@ -681,7 +681,7 @@ public actor LocalMediaActor: GlobalActor {
 
     public func importMedia(
         for metadata: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> AsyncThrowingStream<LocalMediaImportEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { [self] in
@@ -689,7 +689,7 @@ public actor LocalMediaActor: GlobalActor {
                     try await self.streamStorytellerImport(
                         metadata: metadata,
                         category: category,
-                        continuation: continuation
+                        continuation: continuation,
                     )
                     continuation.finish()
                 } catch {
@@ -705,7 +705,7 @@ public actor LocalMediaActor: GlobalActor {
     private func streamStorytellerImport(
         metadata: BookMetadata,
         category: LocalMediaCategory,
-        continuation: AsyncThrowingStream<LocalMediaImportEvent, Error>.Continuation
+        continuation: AsyncThrowingStream<LocalMediaImportEvent, Error>.Continuation,
     ) async throws {
         try await filesystem.ensureLocalStorageDirectories()
 
@@ -713,7 +713,7 @@ public actor LocalMediaActor: GlobalActor {
             domain: .storyteller,
             category: category,
             bookName: metadata.title,
-            uuidIdentifier: metadata.uuid
+            uuidIdentifier: metadata.uuid,
         )
         let bookRoot = destinationDirectory.deletingLastPathComponent()
         try await filesystem.ensureDirectoryExists(at: bookRoot)
@@ -729,7 +729,7 @@ public actor LocalMediaActor: GlobalActor {
         guard
             let download = await StorytellerActor.shared.fetchBook(
                 for: metadata.uuid,
-                format: assetInfo.format
+                format: assetInfo.format,
             )
         else {
             continuation.yield(.skipped(book: metadata, category: category))
@@ -756,7 +756,7 @@ public actor LocalMediaActor: GlobalActor {
                                 .started(
                                     book: metadata,
                                     category: category,
-                                    expectedBytes: expectedBytes
+                                    expectedBytes: expectedBytes,
                                 )
                             )
                         }
@@ -768,7 +768,7 @@ public actor LocalMediaActor: GlobalActor {
                                 .started(
                                     book: metadata,
                                     category: category,
-                                    expectedBytes: expectedBytes
+                                    expectedBytes: expectedBytes,
                                 )
                             )
                         }
@@ -780,7 +780,7 @@ public actor LocalMediaActor: GlobalActor {
                                 book: metadata,
                                 category: category,
                                 receivedBytes: receivedBytes,
-                                expectedBytes: expectedBytes
+                                expectedBytes: expectedBytes,
                             )
                         )
                     case .finished(let tempURL):
@@ -790,7 +790,7 @@ public actor LocalMediaActor: GlobalActor {
                                 .started(
                                     book: metadata,
                                     category: category,
-                                    expectedBytes: expectedBytes
+                                    expectedBytes: expectedBytes,
                                 )
                             )
                         }
@@ -820,7 +820,7 @@ public actor LocalMediaActor: GlobalActor {
                             .finished(
                                 book: metadata,
                                 category: category,
-                                destination: destinationURL
+                                destination: destinationURL,
                             )
                         )
 
@@ -852,7 +852,7 @@ public actor LocalMediaActor: GlobalActor {
         from tempURL: URL,
         metadata: BookMetadata,
         category: LocalMediaCategory,
-        filename: String
+        filename: String,
     ) async throws {
         try await filesystem.ensureLocalStorageDirectories()
 
@@ -860,7 +860,7 @@ public actor LocalMediaActor: GlobalActor {
             domain: .storyteller,
             category: category,
             bookName: metadata.title,
-            uuidIdentifier: metadata.uuid
+            uuidIdentifier: metadata.uuid,
         )
         let bookRoot = destinationDirectory.deletingLastPathComponent()
         try await filesystem.ensureDirectoryExists(at: bookRoot)
@@ -891,7 +891,7 @@ public actor LocalMediaActor: GlobalActor {
 
     private func storytellerAssetInfo(
         for metadata: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> (available: Bool, format: StorytellerBookFormat) {
         switch category {
             case .ebook:

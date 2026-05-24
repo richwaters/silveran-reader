@@ -89,7 +89,7 @@ struct TVBookDetailView: View {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: book)
         let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
             for: book,
-            category: .synced
+            category: .synced,
         )
         let progress = mediaViewModel.downloadProgressFraction(for: book, category: .synced)
 

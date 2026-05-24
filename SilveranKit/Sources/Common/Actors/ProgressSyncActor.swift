@@ -36,7 +36,7 @@ public struct BookProgress: Sendable {
         bookId: String,
         locator: BookLocator?,
         timestamp: Double?,
-        source: ProgressSource
+        source: ProgressSource,
     ) {
         self.bookId = bookId
         self.locator = locator
@@ -111,7 +111,7 @@ public actor ProgressSyncActor {
         timestamp: Double,
         reason: SyncReason,
         sourceIdentifier: String = "Unknown",
-        locationDescription: String = ""
+        locationDescription: String = "",
     ) async -> SyncResult {
         debugLog(
             "[PSA] syncProgress: bookId=\(bookId), reason=\(reason.rawValue), timestamp=\(timestamp), source=\(sourceIdentifier)"
@@ -126,7 +126,7 @@ public actor ProgressSyncActor {
             await updateLocalMetadataProgress(
                 bookId: bookId,
                 locator: locator,
-                timestamp: timestamp
+                timestamp: timestamp,
             )
             await addHistoryEntry(
                 bookId: bookId,
@@ -136,7 +136,7 @@ public actor ProgressSyncActor {
                 reason: reason,
                 result: .queued,
                 locatorSummary: locatorSummary,
-                locator: locator
+                locator: locator,
             )
             return .success
         }
@@ -145,7 +145,7 @@ public actor ProgressSyncActor {
             bookId: bookId,
             locator: locator,
             timestamp: timestamp,
-            syncedToStoryteller: false
+            syncedToStoryteller: false,
         )
 
         switch queueResult {
@@ -160,7 +160,7 @@ public actor ProgressSyncActor {
                     reason: reason,
                     result: .rejectedAsOlder,
                     locatorSummary: "\(locatorSummary)\n\(rejectionNote)",
-                    locator: locator
+                    locator: locator,
                 )
                 debugLog("[PSA] syncProgress: rejected as older than server")
                 return .success
@@ -175,7 +175,7 @@ public actor ProgressSyncActor {
         await updateLocalMetadataProgress(
             bookId: bookId,
             locator: locator,
-            timestamp: timestamp
+            timestamp: timestamp,
         )
 
         await addHistoryEntry(
@@ -186,7 +186,7 @@ public actor ProgressSyncActor {
             reason: reason,
             result: .queued,
             locatorSummary: locatorSummary,
-            locator: locator
+            locator: locator,
         )
 
         let storytellerStatus = await StorytellerActor.shared.connectionStatus
@@ -196,7 +196,7 @@ public actor ProgressSyncActor {
             let result = await StorytellerActor.shared.sendProgressToServer(
                 bookId: bookId,
                 locator: locator,
-                timestamp: timestamp
+                timestamp: timestamp,
             )
             if result == .success {
                 debugLog("[PSA] syncProgress: synced to server")
@@ -205,7 +205,7 @@ public actor ProgressSyncActor {
                 await updateHistoryResult(
                     bookId: bookId,
                     timestamp: timestamp,
-                    result: .sent
+                    result: .sent,
                 )
                 await notifyObservers()
                 return .success
@@ -266,14 +266,14 @@ public actor ProgressSyncActor {
                 let result = await StorytellerActor.shared.sendProgressToServer(
                     bookId: pending.bookId,
                     locator: pending.locator,
-                    timestamp: pending.timestamp
+                    timestamp: pending.timestamp,
                 )
                 if result == .success {
                     pending.syncedToStoryteller = true
                     updateServerPositionIfNewer(
                         bookId: pending.bookId,
                         locator: pending.locator,
-                        timestamp: pending.timestamp
+                        timestamp: pending.timestamp,
                     )
                     await updateQueueItem(pending)
                     syncedCount += 1
@@ -281,7 +281,7 @@ public actor ProgressSyncActor {
                     await updateHistoryResult(
                         bookId: pending.bookId,
                         timestamp: pending.timestamp,
-                        result: .sent
+                        result: .sent,
                     )
                     debugLog("[PSA] syncPendingQueue: \(pending.bookId) sent successfully")
                 } else if result == .failure {
@@ -376,7 +376,7 @@ public actor ProgressSyncActor {
                 await updateHistoryResult(
                     bookId: bookId,
                     timestamp: pendingTimestamp,
-                    result: .completed
+                    result: .completed,
                 )
                 reconciledCount += 1
                 continue
@@ -406,7 +406,7 @@ public actor ProgressSyncActor {
                     await updateHistoryResult(
                         bookId: bookId,
                         timestamp: pending.timestamp,
-                        result: .completed
+                        result: .completed,
                     )
 
                     await addHistoryEntry(
@@ -417,14 +417,14 @@ public actor ProgressSyncActor {
                         reason: .connectionRestored,
                         result: .serverIncomingAccepted,
                         locatorSummary: locatorSummary,
-                        locator: incomingPosition.locator
+                        locator: incomingPosition.locator,
                     )
 
                     if let locator = incomingPosition.locator {
                         await notifyIncomingPositionObservers(
                             bookId: bookId,
                             locator: locator,
-                            timestamp: incomingTimestamp
+                            timestamp: incomingTimestamp,
                         )
                     }
                 } else {
@@ -441,7 +441,7 @@ public actor ProgressSyncActor {
                         result: .serverIncomingRejected,
                         locatorSummary:
                             "rejected: pending is newer (\(pending.timestamp) > \(incomingTimestamp))",
-                        locator: incomingPosition.locator
+                        locator: incomingPosition.locator,
                     )
                 }
             } else {
@@ -459,14 +459,14 @@ public actor ProgressSyncActor {
                             reason: .connectionRestored,
                             result: .serverIncomingAccepted,
                             locatorSummary: locatorSummary,
-                            locator: incomingPosition.locator
+                            locator: incomingPosition.locator,
                         )
 
                         if let locator = incomingPosition.locator {
                             await notifyIncomingPositionObservers(
                                 bookId: bookId,
                                 locator: locator,
-                                timestamp: incomingTimestamp
+                                timestamp: incomingTimestamp,
                             )
                         }
                     }
@@ -511,14 +511,14 @@ public actor ProgressSyncActor {
                     bookId: bookId,
                     locator: pending.locator,
                     timestamp: pending.timestamp,
-                    source: .pendingSync
+                    source: .pendingSync,
                 )
             } else {
                 result[bookId] = BookProgress(
                     bookId: bookId,
                     locator: serverPosition.locator,
                     timestamp: serverPosition.timestamp,
-                    source: .server
+                    source: .server,
                 )
             }
         }
@@ -528,7 +528,7 @@ public actor ProgressSyncActor {
                 bookId: pending.bookId,
                 locator: pending.locator,
                 timestamp: pending.timestamp,
-                source: .pendingSync
+                source: .pendingSync,
             )
         }
 
@@ -544,7 +544,7 @@ public actor ProgressSyncActor {
                 bookId: bookId,
                 locator: pending.locator,
                 timestamp: pending.timestamp,
-                source: .pendingSync
+                source: .pendingSync,
             )
         }
 
@@ -553,7 +553,7 @@ public actor ProgressSyncActor {
                 bookId: bookId,
                 locator: serverPosition.locator,
                 timestamp: serverPosition.timestamp,
-                source: .server
+                source: .server,
             )
         }
 
@@ -595,7 +595,7 @@ public actor ProgressSyncActor {
     @discardableResult
     public func addIncomingPositionObserver(
         for bookId: String,
-        _ callback: @escaping @Sendable @MainActor (IncomingServerPosition) -> Void
+        _ callback: @escaping @Sendable @MainActor (IncomingServerPosition) -> Void,
     ) -> UUID {
         let id = UUID()
         incomingPositionObservers[id] = (bookId: bookId, callback: callback)
@@ -653,12 +653,12 @@ public actor ProgressSyncActor {
     private func notifyIncomingPositionObservers(
         bookId: String,
         locator: BookLocator,
-        timestamp: Double
+        timestamp: Double,
     ) async {
         let position = IncomingServerPosition(
             bookId: bookId,
             locator: locator,
-            timestamp: timestamp
+            timestamp: timestamp,
         )
         for (_, observer) in incomingPositionObservers where observer.bookId == bookId {
             await observer.callback(position)
@@ -671,7 +671,7 @@ public actor ProgressSyncActor {
     private func updateServerPositionIfNewer(
         bookId: String,
         locator: BookLocator,
-        timestamp: Double
+        timestamp: Double,
     ) {
         if let existing = serverPositions[bookId], let existingTimestamp = existing.timestamp {
             if timestamp <= existingTimestamp {
@@ -688,7 +688,7 @@ public actor ProgressSyncActor {
             locator: locator,
             timestamp: timestamp,
             createdAt: serverPositions[bookId]?.createdAt,
-            updatedAt: updatedAtString
+            updatedAt: updatedAtString,
         )
         debugLog("[PSA] updateServerPositionIfNewer: bookId=\(bookId), timestamp=\(timestamp)")
     }
@@ -697,7 +697,7 @@ public actor ProgressSyncActor {
         bookId: String,
         locator: BookLocator,
         timestamp: Double,
-        syncedToStoryteller: Bool = false
+        syncedToStoryteller: Bool = false,
     ) async -> QueueResult {
         if let serverPosition = serverPositions[bookId],
             let serverTimestamp = serverPosition.timestamp
@@ -736,7 +736,7 @@ public actor ProgressSyncActor {
                 bookId: bookId,
                 locator: locator,
                 timestamp: timestamp,
-                syncedToStoryteller: syncedToStoryteller
+                syncedToStoryteller: syncedToStoryteller,
             )
             pendingProgressQueue.append(pending)
 
@@ -753,7 +753,7 @@ public actor ProgressSyncActor {
             bookId: bookId,
             locator: locator,
             timestamp: timestamp,
-            syncedToStoryteller: syncedToStoryteller
+            syncedToStoryteller: syncedToStoryteller,
         )
         pendingProgressQueue.append(pending)
 
@@ -785,12 +785,12 @@ public actor ProgressSyncActor {
     private func updateLocalMetadataProgress(
         bookId: String,
         locator: BookLocator,
-        timestamp: Double
+        timestamp: Double,
     ) async {
         await LocalMediaActor.shared.updateBookProgress(
             bookId: bookId,
             locator: locator,
-            timestamp: timestamp
+            timestamp: timestamp,
         )
     }
 
@@ -838,7 +838,7 @@ public actor ProgressSyncActor {
         reason: SyncReason,
         result: SyncHistoryEntry.SyncHistoryResult,
         locatorSummary: String,
-        locator: BookLocator? = nil
+        locator: BookLocator? = nil,
     ) async {
         await ensureHistoryLoaded()
 
@@ -849,7 +849,7 @@ public actor ProgressSyncActor {
             reason: reason,
             result: result,
             locatorSummary: locatorSummary,
-            locator: locator
+            locator: locator,
         )
 
         var entries = syncHistory[bookId] ?? []
@@ -866,7 +866,7 @@ public actor ProgressSyncActor {
     private func updateHistoryResult(
         bookId: String,
         timestamp: Double,
-        result: SyncHistoryEntry.SyncHistoryResult
+        result: SyncHistoryEntry.SyncHistoryResult,
     ) async {
         await ensureHistoryLoaded()
 
@@ -881,7 +881,7 @@ public actor ProgressSyncActor {
                 reason: existing.reason,
                 result: result,
                 locatorSummary: existing.locatorSummary,
-                locator: existing.locator
+                locator: existing.locator,
             )
             syncHistory[bookId] = entries
             await saveHistoryToDisk()
@@ -914,7 +914,7 @@ public actor ProgressSyncActor {
             timestamp: timestamp,
             reason: .userRestoredFromHistory,
             sourceIdentifier: "Restored from History",
-            locationDescription: locationDescription
+            locationDescription: locationDescription,
         )
     }
 

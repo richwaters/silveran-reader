@@ -61,13 +61,13 @@ public struct ServerMediaManagementView: View {
                             item: item,
                             format: .ebook,
                             label: "Ebook",
-                            asset: item.ebook
+                            asset: item.ebook,
                         )
                         serverMediaRow(
                             item: item,
                             format: .audiobook,
                             label: "Audiobook",
-                            asset: item.audiobook
+                            asset: item.audiobook,
                         )
                         serverReadaloudRow(item: item)
                     }
@@ -83,8 +83,8 @@ public struct ServerMediaManagementView: View {
                                     } else {
                                         experimentalModeEnabled = false
                                     }
-                                }
-                            )
+                                },
+                            ),
                         )
                         .toggleStyle(.checkbox)
                     }
@@ -110,7 +110,7 @@ public struct ServerMediaManagementView: View {
         .confirmationDialog(
             "Delete Book from Server?",
             isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
+            titleVisibility: .visible,
         ) {
             Button("Delete", role: .destructive) {
                 if let item {
@@ -126,7 +126,7 @@ public struct ServerMediaManagementView: View {
         .confirmationDialog(
             "Delete \(pendingDeleteAssetLabel) from Server?",
             isPresented: $showDeleteAssetConfirmation,
-            titleVisibility: .visible
+            titleVisibility: .visible,
         ) {
             Button("Delete", role: .destructive) {
                 guard let format = pendingDeleteAssetFormat, let item else { return }
@@ -144,7 +144,7 @@ public struct ServerMediaManagementView: View {
         .confirmationDialog(
             "Enable Experimental Features?",
             isPresented: $showExperimentalWarning,
-            titleVisibility: .visible
+            titleVisibility: .visible,
         ) {
             Button("Enable") {
                 experimentalModeEnabled = true
@@ -213,7 +213,7 @@ public struct ServerMediaManagementView: View {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
             for: item,
-            category: category
+            category: category,
         )
         let progress = mediaViewModel.downloadProgressFraction(for: item, category: category)
         let serverHasMedia = serverHasMedia(for: category, item: item)
@@ -329,7 +329,7 @@ public struct ServerMediaManagementView: View {
         item: BookMetadata,
         format: StorytellerBookFormat,
         label: String,
-        asset: BookAsset?
+        asset: BookAsset?,
     ) -> some View {
         let isUploadingThis = isUploading && uploadingFormat == format
         let isDeletingThis = deletingAssetFormat == format
@@ -423,7 +423,7 @@ public struct ServerMediaManagementView: View {
                 readaloudStatusView(
                     item: item,
                     isUploadingThis: isUploadingThis,
-                    isDeletingThis: isDeletingThis
+                    isDeletingThis: isDeletingThis,
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -438,7 +438,7 @@ public struct ServerMediaManagementView: View {
     private func readaloudStatusView(
         item: BookMetadata,
         isUploadingThis: Bool,
-        isDeletingThis: Bool
+        isDeletingThis: Bool,
     ) -> some View {
         if isUploadingThis {
             HStack(spacing: 6) {
@@ -616,7 +616,9 @@ public struct ServerMediaManagementView: View {
     }
 
     @ViewBuilder
-    private func alignmentMenu(item: BookMetadata, restart: AlignmentRestartMode, isBusy: Bool) -> some View {
+    private func alignmentMenu(item: BookMetadata, restart: AlignmentRestartMode, isBusy: Bool)
+        -> some View
+    {
         Menu {
             Button {
                 Task { await startAlignment(item: item, restart: restart) }
@@ -746,7 +748,7 @@ public struct ServerMediaManagementView: View {
     private func selectAndUploadFile(
         format: StorytellerBookFormat,
         types: [UTType],
-        item: BookMetadata
+        item: BookMetadata,
     ) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = types
@@ -782,7 +784,7 @@ public struct ServerMediaManagementView: View {
             let asset = StorytellerUploadAsset(
                 format: format,
                 filename: url.lastPathComponent,
-                data: data
+                data: data,
             )
 
             let isReplace = hasExistingAsset(format: format, item: item)
@@ -791,7 +793,7 @@ public struct ServerMediaManagementView: View {
                 asset,
                 bookUUID: item.uuid,
                 deleteOldFile: isReplace,
-                replaceMetadata: false
+                replaceMetadata: false,
             )
             switch result {
                 case .success:
@@ -815,7 +817,10 @@ public struct ServerMediaManagementView: View {
         isStartingAlignment = true
         errorMessage = nil
 
-        let success = await StorytellerActor.shared.startAlignment(for: item.uuid, restart: restart)
+        let success = await StorytellerActor.shared.startAlignment(
+            for: item.uuid,
+            restart: restart,
+        )
         if !success {
             errorMessage = "Failed to start alignment"
         }
@@ -844,7 +849,7 @@ public struct ServerMediaManagementView: View {
         let result = await StorytellerActor.shared.deleteBookAsset(
             item.uuid,
             type: format,
-            deleteFromDisk: true
+            deleteFromDisk: true,
         )
         switch result {
             case .success:

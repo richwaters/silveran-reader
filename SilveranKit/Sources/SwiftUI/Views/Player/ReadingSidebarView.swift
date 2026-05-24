@@ -39,7 +39,7 @@ public struct ReadingSidebarView: View {
             isPlaying: Bool,
             sleepTimerActive: Bool = false,
             sleepTimerRemaining: TimeInterval? = nil,
-            sleepTimerType: SleepTimerType? = nil
+            sleepTimerType: SleepTimerType? = nil,
         ) {
             self.title = title
             self.author = author
@@ -103,7 +103,7 @@ public struct ReadingSidebarView: View {
         onSleepTimerStart: @escaping (TimeInterval?, SleepTimerType) -> Void = { _, _ in },
         onSleepTimerCancel: @escaping () -> Void = {},
         onProgressSeek: ((Double) -> Void)? = nil,
-        seekWhileDragging: Bool = true
+        seekWhileDragging: Bool = true,
     ) {
         self.bookData = bookData
         self.model = model
@@ -204,7 +204,7 @@ public struct ReadingSidebarView: View {
                                     .clipShape(
                                         RoundedRectangle(
                                             cornerRadius: cornerRadius,
-                                            style: .continuous
+                                            style: .continuous,
                                         )
                                     )
                                     .shadow(radius: 8)
@@ -274,7 +274,7 @@ public struct ReadingSidebarView: View {
                 if seekWhileDragging {
                     onProgressSeek?(clampedValue)
                 }
-            }
+            },
         )
 
         let chapterElapsedRaw =
@@ -290,7 +290,7 @@ public struct ReadingSidebarView: View {
         let chapterRemainingAtRate = timeRemaining(
             atRate: model.playbackRate,
             total: chapterTotalRaw,
-            elapsed: chapterElapsedRaw
+            elapsed: chapterElapsedRaw,
         )
 
         return VStack(alignment: .leading, spacing: 16) {
@@ -308,7 +308,7 @@ public struct ReadingSidebarView: View {
                             onProgressSeek?(draggedSliderValue)
                         }
                     }
-                }
+                },
             )
             .tint(Color.primary)
 
@@ -407,7 +407,7 @@ public struct ReadingSidebarView: View {
                     backgroundColor: .secondary,
                     foregroundColor: .primary,
                     transparency: 1.0,
-                    showLabel: true
+                    showLabel: true,
                 )
             }
 
@@ -420,7 +420,7 @@ public struct ReadingSidebarView: View {
                 backgroundColor: .secondary,
                 foregroundColor: .primary,
                 transparency: 1.0,
-                showLabel: true
+                showLabel: true,
             )
 
             if mode != .ebook {
@@ -460,7 +460,7 @@ public struct ReadingSidebarView: View {
             normalizedFraction(d.bookCurrentFraction)
                 ?? bookAudioFraction(
                     current: d.bookCurrentSecondsAudio,
-                    total: d.bookTotalSecondsAudio
+                    total: d.bookTotalSecondsAudio,
                 )
         }
         let pagesCurrent = data.flatMap { normalizedCurrentPage($0.chapterCurrentPage) }
@@ -473,12 +473,12 @@ public struct ReadingSidebarView: View {
         let bookRemaining = timeRemaining(
             atRate: model.playbackRate,
             total: bookTotalRaw,
-            elapsed: bookElapsedRaw
+            elapsed: bookElapsedRaw,
         )
         let chapterRemaining = timeRemaining(
             atRate: model.playbackRate,
             total: chapterTotalRaw,
-            elapsed: chapterElapsedRaw
+            elapsed: chapterElapsedRaw,
         )
 
         let hasLeftStats =
@@ -490,13 +490,13 @@ public struct ReadingSidebarView: View {
                 leftStatsColumn(
                     bookFraction: bookFraction,
                     pagesCurrent: pagesCurrent,
-                    pagesTotal: pagesTotal
+                    pagesTotal: pagesTotal,
                 )
                 Spacer()
                 if hasRightStats {
                     rightStatsColumn(
                         bookRemaining: bookRemaining,
-                        chapterRemaining: chapterRemaining
+                        chapterRemaining: chapterRemaining,
                     )
                 }
             }
@@ -565,9 +565,9 @@ public struct ReadingSidebarView: View {
                         get: { model.volume },
                         set: { newValue in
                             onVolumeChange(newValue)
-                        }
+                        },
                     ),
-                    in: 0...1
+                    in: 0...1,
                 )
                 .padding(.horizontal)
 
@@ -649,7 +649,7 @@ public struct ReadingSidebarView: View {
     private func sleepTimerOption(
         title: String,
         duration: TimeInterval?,
-        type: SleepTimerType = .duration
+        type: SleepTimerType = .duration,
     )
         -> some View
     {
@@ -701,7 +701,11 @@ public struct ReadingSidebarView: View {
         Color.clear
     }
 
-    private func quickActionButton(title: String, systemImage: String, action: @escaping () -> Void)
+    private func quickActionButton(
+        title: String,
+        systemImage: String,
+        action: @escaping () -> Void,
+    )
         -> some View
     {
         VStack(spacing: 6) {
@@ -726,13 +730,13 @@ public struct ReadingSidebarView: View {
         let hasChapterFraction =
             chapterPagesFraction(
                 current: data.chapterCurrentPage,
-                total: data.chapterTotalPages
+                total: data.chapterTotalPages,
             ) != nil
         let hasBookFraction =
             normalizedFraction(data.bookCurrentFraction) != nil
             || bookAudioFraction(
                 current: data.bookCurrentSecondsAudio,
-                total: data.bookTotalSecondsAudio
+                total: data.bookTotalSecondsAudio,
             ) != nil
         let hasPages = normalizedTotalPage(data.chapterTotalPages) != nil
         let hasAudio =
@@ -762,7 +766,7 @@ public struct ReadingSidebarView: View {
         chapterDuration: (12 * 60) + 27,
         totalRemaining: (8 * 60 * 60) + (9 * 60),
         playbackRate: 1.3,
-        isPlaying: true
+        isPlaying: true,
     )
     let progress = ProgressData(
         chapterLabel: "Chapter 5",
@@ -772,14 +776,14 @@ public struct ReadingSidebarView: View {
         chapterTotalSecondsAudio: Double((12 * 60) + 27),
         bookCurrentSecondsAudio: 3_600,
         bookTotalSecondsAudio: 28_800,
-        bookCurrentFraction: 0.12
+        bookCurrentFraction: 0.12,
     )
     ReadingSidebarView(
         bookData: nil,
         model: model,
         mode: .readaloud,
         chapterProgress: .constant(Double((4 * 60) + 7) / Double((12 * 60) + 27)),
-        progressData: progress
+        progressData: progress,
     )
     .frame(maxWidth: 420)
 }

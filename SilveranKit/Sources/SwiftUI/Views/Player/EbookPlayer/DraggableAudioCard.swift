@@ -133,7 +133,7 @@ struct DraggableAudioCard<FullContent: View>: View {
                                     translation: value.translation.height,
                                     velocity: value.predictedEndTranslation.height
                                         - value.translation.height,
-                                    screenHeight: screenHeight
+                                    screenHeight: screenHeight,
                                 )
                             }
                     )
@@ -242,7 +242,7 @@ struct DraggableAudioCard<FullContent: View>: View {
                         buttonSize: showMiniPlayerStats ? 32 : 36,
                         showBackground: false,
                         compactLabel: true,
-                        iconFont: showMiniPlayerStats ? .body : .title3
+                        iconFont: showMiniPlayerStats ? .body : .title3,
                     )
 
                     Button(action: onPlayPause) {
@@ -250,7 +250,7 @@ struct DraggableAudioCard<FullContent: View>: View {
                             .font(showMiniPlayerStats ? .title2 : .title)
                             .frame(
                                 width: showMiniPlayerStats ? 48 : 54,
-                                height: showMiniPlayerStats ? 48 : 54
+                                height: showMiniPlayerStats ? 48 : 54,
                             )
                             .background(
                                 Circle()
@@ -334,7 +334,7 @@ private struct GlassEffectModifier: ViewModifier {
         bottomLeadingRadius: 0,
         bottomTrailingRadius: 0,
         topTrailingRadius: 16,
-        style: .continuous
+        style: .continuous,
     )
 
     func body(content: Content) -> some View {

@@ -85,7 +85,7 @@ struct WatchDownloadProgressView: View {
                     Task {
                         await DownloadManager.shared.resumeDownload(
                             for: bookId,
-                            category: category
+                            category: category,
                         )
                     }
                 } label: {
@@ -121,7 +121,7 @@ struct WatchDownloadProgressView: View {
                     Task {
                         await DownloadManager.shared.cancelDownload(
                             for: bookId,
-                            category: category
+                            category: category,
                         )
                     }
                     onDismiss()

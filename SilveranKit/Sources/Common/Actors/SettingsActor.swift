@@ -19,7 +19,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         readingBar: ReadingBar = ReadingBar(),
         sync: Sync = Sync(),
         library: Library = Library(),
-        themes: Themes = Themes()
+        themes: Themes = Themes(),
     ) {
         self.reading = reading
         self.playback = playback
@@ -103,7 +103,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             userHighlightLabel6: String = kDefaultUserHighlightLabel6,
             userHighlightMode: String = kDefaultUserHighlightMode,
             readaloudHighlightMode: String = kDefaultReadaloudHighlightMode,
-            tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize
+            tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize,
         ) {
             self.fontSize = fontSize
             self.fontFamily = fontFamily
@@ -262,7 +262,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             defaultPlaybackSpeed: Double = kDefaultPlaybackSpeed,
             defaultVolume: Double = kDefaultVolume,
             statsExpanded: Bool = kDefaultStatsExpanded,
-            lockViewToAudio: Bool = kDefaultLockViewToAudio
+            lockViewToAudio: Bool = kDefaultLockViewToAudio,
         ) {
             self.defaultPlaybackSpeed = defaultPlaybackSpeed
             self.defaultVolume = defaultVolume
@@ -297,7 +297,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             alwaysShowMiniPlayer: Bool = kDefaultAlwaysShowMiniPlayer,
             showOverlaySkipBackward: Bool = kDefaultShowOverlaySkipBackward,
             showOverlaySkipForward: Bool = kDefaultShowOverlaySkipForward,
-            showMiniPlayerStats: Bool = kDefaultShowMiniPlayerStats
+            showMiniPlayerStats: Bool = kDefaultShowMiniPlayerStats,
         ) {
             self.enabled = enabled
             #if os(iOS)
@@ -379,7 +379,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             progressSyncIntervalSeconds: Double = kDefaultProgressSyncIntervalSeconds,
             metadataRefreshIntervalSeconds: Double = kDefaultMetadataRefreshIntervalSeconds,
             isManuallyOffline: Bool = kDefaultIsManuallyOffline,
-            autoSyncToNewerServerPosition: Bool = kDefaultAutoSyncToNewerServerPosition
+            autoSyncToNewerServerPosition: Bool = kDefaultAutoSyncToNewerServerPosition,
         ) {
             self.progressSyncIntervalSeconds = progressSyncIntervalSeconds
             self.metadataRefreshIntervalSeconds = metadataRefreshIntervalSeconds
@@ -425,7 +425,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public init(
             selectedLightThemeId: String = "builtin-light",
             selectedDarkThemeId: String = "builtin-dark",
-            customThemes: [ReaderTheme] = []
+            customThemes: [ReaderTheme] = [],
         ) {
             self.selectedLightThemeId = selectedLightThemeId
             self.selectedDarkThemeId = selectedDarkThemeId
@@ -466,7 +466,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             tabBarSlot2: String = kDefaultTabBarSlot2,
             tapToPlayPreferredPlayer: Bool = kDefaultTapToPlayPreferredPlayer,
             preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook,
-            accentColorHex: String = kDefaultAccentColorHex
+            accentColorHex: String = kDefaultAccentColorHex,
         ) {
             self.showAudioIndicator = showAudioIndicator
             self.tabBarSlot1 = tabBarSlot1
@@ -580,12 +580,14 @@ public actor SettingsActor {
             userHighlightLabel5: reading.userHighlightLabel5,
             userHighlightLabel6: reading.userHighlightLabel6,
             userHighlightMode: reading.userHighlightMode,
-            customCSS: reading.customCSS
+            customCSS: reading.customCSS,
         )
         config.themes.customThemes = [customTheme]
         config.themes.selectedLightThemeId = customTheme.id
         config.themes.selectedDarkThemeId = customTheme.id
-        debugLog("[SettingsActor] Migrated existing color settings to custom theme '\(customTheme.name)'")
+        debugLog(
+            "[SettingsActor] Migrated existing color settings to custom theme '\(customTheme.name)'"
+        )
     }
 
     @discardableResult
@@ -657,7 +659,7 @@ public actor SettingsActor {
         tvSubtitleFontSize: Double? = nil,
         selectedLightThemeId: String? = nil,
         selectedDarkThemeId: String? = nil,
-        customThemes: [ReaderTheme]? = nil
+        customThemes: [ReaderTheme]? = nil,
     ) throws {
         var updated = config
 
@@ -824,7 +826,7 @@ extension SettingsActor {
             for: .cachesDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
         let base = cachesDir.appendingPathComponent(bundleID, isDirectory: true)
         #else
@@ -832,7 +834,7 @@ extension SettingsActor {
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
         let base: URL =
             if appSupport.path.contains("/Containers/") {
@@ -845,11 +847,14 @@ extension SettingsActor {
         let configDirectory = base.appendingPathComponent("Config", isDirectory: true)
         return configDirectory.appendingPathComponent(
             "SilveranGlobalConfig.json",
-            isDirectory: false
+            isDirectory: false,
         )
     }
 
-    fileprivate static func ensureStorageDirectory(for fileURL: URL, using fileManager: FileManager)
+    fileprivate static func ensureStorageDirectory(
+        for fileURL: URL,
+        using fileManager: FileManager,
+    )
         throws
     {
         let directory = fileURL.deletingLastPathComponent()
@@ -874,7 +879,7 @@ extension SettingsActor {
     fileprivate static func save(
         config: SilveranGlobalConfig,
         to url: URL,
-        fileManager _: FileManager
+        fileManager _: FileManager,
     ) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

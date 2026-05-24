@@ -12,8 +12,8 @@ final class MetadataEditorViewModel {
 
         var label: String {
             switch self {
-            case .text: return "Text / Ebook"
-            case .audiobook: return "Audiobook"
+                case .text: return "Text / Ebook"
+                case .audiobook: return "Audiobook"
             }
         }
     }
@@ -75,25 +75,27 @@ final class MetadataEditorViewModel {
             self.statusUuid = metadata.status?.uuid ?? ""
             self.authors = metadata.authors?.compactMap { $0.name } ?? []
             self.narrators = metadata.narrators?.compactMap { $0.name } ?? []
-            self.creators = metadata.creators?.map { creator in
-                EditableCreator(
-                    name: creator.name ?? "",
-                    fileAs: creator.fileAs ?? "",
-                    role: creator.role ?? "",
-                    uuid: creator.uuid
-                )
-            } ?? []
-            self.series = metadata.series?.map { s in
-                EditableSeries(
-                    name: s.name,
-                    position: s.position.map {
-                        $0.truncatingRemainder(dividingBy: 1) == 0
-                            ? String(Int($0)) : String($0)
-                    } ?? "",
-                    featured: s.featured == 1,
-                    uuid: s.uuid
-                )
-            } ?? []
+            self.creators =
+                metadata.creators?.map { creator in
+                    EditableCreator(
+                        name: creator.name ?? "",
+                        fileAs: creator.fileAs ?? "",
+                        role: creator.role ?? "",
+                        uuid: creator.uuid,
+                    )
+                } ?? []
+            self.series =
+                metadata.series?.map { s in
+                    EditableSeries(
+                        name: s.name,
+                        position: s.position.map {
+                            $0.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int($0)) : String($0)
+                        } ?? "",
+                        featured: s.featured == 1,
+                        uuid: s.uuid,
+                    )
+                } ?? []
             self.tags = metadata.tags?.map { $0.name } ?? []
             self.collectionUuids = metadata.collections?.compactMap { $0.uuid } ?? []
         }
@@ -110,46 +112,46 @@ final class MetadataEditorViewModel {
 
         func stringList(for field: String) -> [String] {
             switch field {
-            case "authors": return authors
-            case "narrators": return narrators
-            case "tags": return tags
-            default: return []
+                case "authors": return authors
+                case "narrators": return narrators
+                case "tags": return tags
+                default: return []
             }
         }
 
         mutating func appendToStringList(field: String, value: String) {
             switch field {
-            case "authors": authors.append(value)
-            case "narrators": narrators.append(value)
-            case "tags": tags.append(value)
-            default: break
+                case "authors": authors.append(value)
+                case "narrators": narrators.append(value)
+                case "tags": tags.append(value)
+                default: break
             }
         }
 
         mutating func updateStringList(field: String, index: Int, value: String) {
             switch field {
-            case "authors" where index < authors.count: authors[index] = value
-            case "narrators" where index < narrators.count: narrators[index] = value
-            case "tags" where index < tags.count: tags[index] = value
-            default: break
+                case "authors" where index < authors.count: authors[index] = value
+                case "narrators" where index < narrators.count: narrators[index] = value
+                case "tags" where index < tags.count: tags[index] = value
+                default: break
             }
         }
 
         mutating func removeFromStringList(field: String, index: Int) {
             switch field {
-            case "authors" where index < authors.count: authors.remove(at: index)
-            case "narrators" where index < narrators.count: narrators.remove(at: index)
-            case "tags" where index < tags.count: tags.remove(at: index)
-            default: break
+                case "authors" where index < authors.count: authors.remove(at: index)
+                case "narrators" where index < narrators.count: narrators.remove(at: index)
+                case "tags" where index < tags.count: tags.remove(at: index)
+                default: break
             }
         }
 
         mutating func removeFromStringList(field: String, indices: IndexSet) {
             switch field {
-            case "authors": authors.remove(atOffsets: indices)
-            case "narrators": narrators.remove(atOffsets: indices)
-            case "tags": tags.remove(atOffsets: indices)
-            default: break
+                case "authors": authors.remove(atOffsets: indices)
+                case "narrators": narrators.remove(atOffsets: indices)
+                case "tags": tags.remove(atOffsets: indices)
+                default: break
             }
         }
     }
@@ -262,7 +264,8 @@ final class MetadataEditorViewModel {
     func refreshLibraryCollectionsFromServer() async {
         guard let collections = await StorytellerActor.shared.fetchCollections() else { return }
 
-        libraryCollections = collections
+        libraryCollections =
+            collections
             .filter { !deletedCollectionUuids.contains($0.uuid) }
             .map {
                 BookCollectionSummary(
@@ -272,7 +275,7 @@ final class MetadataEditorViewModel {
                     isPublic: $0.isPublic,
                     importPath: $0.importPath,
                     createdAt: $0.createdAt,
-                    updatedAt: $0.updatedAt
+                    updatedAt: $0.updatedAt,
                 )
             }
         rebuildLibraryCollectionCaches()
@@ -287,7 +290,7 @@ final class MetadataEditorViewModel {
                 name: trimmed,
                 description: "",
                 isPublic: false,
-                users: nil
+                users: nil,
             )
         )
         guard let created else { return nil }
@@ -299,7 +302,7 @@ final class MetadataEditorViewModel {
             isPublic: created.isPublic,
             importPath: created.importPath,
             createdAt: created.createdAt,
-            updatedAt: created.updatedAt
+            updatedAt: created.updatedAt,
         )
         deletedCollectionUuids.remove(created.uuid)
         await StorytellerActor.shared.fetchLibraryInformation()
@@ -325,7 +328,7 @@ final class MetadataEditorViewModel {
         isPublic: Bool?,
         importPath: String?,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         let summary = BookCollectionSummary(
             uuid: uuid,
@@ -334,7 +337,7 @@ final class MetadataEditorViewModel {
             isPublic: isPublic,
             importPath: importPath,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
         )
         libraryCollections.removeAll { $0.uuid == uuid }
         libraryCollections.append(summary)
@@ -396,49 +399,53 @@ final class MetadataEditorViewModel {
 
         let isChanged: Bool
         switch field {
-        case "title": isChanged = book.title != orig.title
-        case "subtitle": isChanged = book.subtitle != (orig.subtitle ?? "")
-        case "description": isChanged = book.description != (orig.description ?? "")
-        case "language": isChanged = book.language != (orig.language ?? "")
-        case "publicationDate":
-            isChanged = book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
-        case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
-        case "status": isChanged = book.statusUuid != (orig.status?.uuid ?? "")
-        case "authors":
-            isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
-        case "narrators":
-            isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
-        case "tags":
-            isChanged = Self.normalizedTags(book.tags) != Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
-        case "creators":
-            let origCreators = orig.creators ?? []
-            if book.creators.count != origCreators.count {
-                isChanged = true
-            } else {
-                isChanged = zip(book.creators, origCreators).contains { edited, original in
-                    edited.name != (original.name ?? "")
-                        || edited.role != (original.role ?? "")
-                        || edited.fileAs != (original.fileAs ?? "")
+            case "title": isChanged = book.title != orig.title
+            case "subtitle": isChanged = book.subtitle != (orig.subtitle ?? "")
+            case "description": isChanged = book.description != (orig.description ?? "")
+            case "language": isChanged = book.language != (orig.language ?? "")
+            case "publicationDate":
+                isChanged =
+                    book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
+            case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
+            case "status": isChanged = book.statusUuid != (orig.status?.uuid ?? "")
+            case "authors":
+                isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
+            case "narrators":
+                isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
+            case "tags":
+                isChanged =
+                    Self.normalizedTags(book.tags)
+                    != Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+            case "creators":
+                let origCreators = orig.creators ?? []
+                if book.creators.count != origCreators.count {
+                    isChanged = true
+                } else {
+                    isChanged = zip(book.creators, origCreators).contains { edited, original in
+                        edited.name != (original.name ?? "")
+                            || edited.role != (original.role ?? "")
+                            || edited.fileAs != (original.fileAs ?? "")
+                    }
                 }
-            }
-        case "series":
-            let origSeries = orig.series ?? []
-            if book.series.count != origSeries.count {
-                isChanged = true
-            } else {
-                isChanged = zip(book.series, origSeries).contains { edited, original in
-                    edited.name != original.name
-                        || edited.position != (original.position.map {
-                            $0.truncatingRemainder(dividingBy: 1) == 0
-                                ? String(Int($0)) : String($0)
-                        } ?? "")
-                        || edited.featured != (original.featured == 1)
+            case "series":
+                let origSeries = orig.series ?? []
+                if book.series.count != origSeries.count {
+                    isChanged = true
+                } else {
+                    isChanged = zip(book.series, origSeries).contains { edited, original in
+                        edited.name != original.name
+                            || edited.position
+                                != (original.position.map {
+                                    $0.truncatingRemainder(dividingBy: 1) == 0
+                                        ? String(Int($0)) : String($0)
+                                } ?? "")
+                            || edited.featured != (original.featured == 1)
+                    }
                 }
-            }
-        case "collections":
-            isChanged = book.collectionUuids != (orig.collections?.compactMap { $0.uuid } ?? [])
-        default:
-            isChanged = true
+            case "collections":
+                isChanged = book.collectionUuids != (orig.collections?.compactMap { $0.uuid } ?? [])
+            default:
+                isChanged = true
         }
 
         if isChanged {
@@ -463,85 +470,103 @@ final class MetadataEditorViewModel {
     private func originalDisplayValue(field: String, for book: EditableBook) -> String {
         let original = book.originalMetadata
         switch field {
-        case "title":
-            return displayValue(original.title)
-        case "subtitle":
-            return displayValue(original.subtitle ?? "")
-        case "description":
-            return displayValue(original.description ?? "")
-        case "language":
-            return displayValue(original.language ?? "")
-        case "publicationDate":
-            return displayValue(EditableBook.dateOnly(original.publicationDate) ?? "")
-        case "rating":
-            return displayValue(original.rating.map { String($0) } ?? "")
-        case "status":
-            return displayValue(original.status?.name ?? "")
-        case "authors":
-            return displayList(original.authors?.compactMap(\.name) ?? [])
-        case "narrators":
-            return displayList(original.narrators?.compactMap(\.name) ?? [])
-        case "tags":
-            return displayList(Self.normalizedTags(original.tags?.map(\.name) ?? []))
-        case "creators":
-            return displayList(original.creators?.map { creator in
-                creatorDisplay(
-                    name: creator.name ?? "",
-                    role: creator.role ?? "",
-                    fileAs: creator.fileAs ?? ""
+            case "title":
+                return displayValue(original.title)
+            case "subtitle":
+                return displayValue(original.subtitle ?? "")
+            case "description":
+                return displayValue(original.description ?? "")
+            case "language":
+                return displayValue(original.language ?? "")
+            case "publicationDate":
+                return displayValue(EditableBook.dateOnly(original.publicationDate) ?? "")
+            case "rating":
+                return displayValue(original.rating.map { String($0) } ?? "")
+            case "status":
+                return displayValue(original.status?.name ?? "")
+            case "authors":
+                return displayList(original.authors?.compactMap(\.name) ?? [])
+            case "narrators":
+                return displayList(original.narrators?.compactMap(\.name) ?? [])
+            case "tags":
+                return displayList(Self.normalizedTags(original.tags?.map(\.name) ?? []))
+            case "creators":
+                return displayList(
+                    original.creators?.map { creator in
+                        creatorDisplay(
+                            name: creator.name ?? "",
+                            role: creator.role ?? "",
+                            fileAs: creator.fileAs ?? "",
+                        )
+                    } ?? []
                 )
-            } ?? [])
-        case "series":
-            return displayList(original.series?.map { series in
-                seriesDisplay(
-                    name: series.name,
-                    position: series.formattedPosition ?? "",
-                    featured: series.featured == 1
+            case "series":
+                return displayList(
+                    original.series?.map { series in
+                        seriesDisplay(
+                            name: series.name,
+                            position: series.formattedPosition ?? "",
+                            featured: series.featured == 1,
+                        )
+                    } ?? []
                 )
-            } ?? [])
-        case "collections":
-            return displayList(original.collections?.map(\.name) ?? [])
-        default:
-            return "(empty)"
+            case "collections":
+                return displayList(original.collections?.map(\.name) ?? [])
+            default:
+                return "(empty)"
         }
     }
 
     private func currentDisplayValue(field: String, for book: EditableBook) -> String {
         switch field {
-        case "title":
-            return displayValue(book.title)
-        case "subtitle":
-            return displayValue(book.subtitle)
-        case "description":
-            return displayValue(book.description)
-        case "language":
-            return displayValue(book.language)
-        case "publicationDate":
-            return displayValue(book.publicationDate)
-        case "rating":
-            return displayValue(book.rating)
-        case "status":
-            return displayValue(book.status)
-        case "authors":
-            return displayList(book.authors)
-        case "narrators":
-            return displayList(book.narrators)
-        case "tags":
-            return displayList(Self.normalizedTags(book.tags))
-        case "creators":
-            return displayList(book.creators.map { creator in
-                creatorDisplay(name: creator.name, role: creator.role, fileAs: creator.fileAs)
-            })
-        case "series":
-            return displayList(book.series.map { series in
-                seriesDisplay(name: series.name, position: series.position, featured: series.featured)
-            })
-        case "collections":
-            return displayList(book.collectionUuids.map { uuid in
-                libraryCollectionNamesByUuid[uuid] ?? uuid
-            })
-        default:
-            return "(empty)"
+            case "title":
+                return displayValue(book.title)
+            case "subtitle":
+                return displayValue(book.subtitle)
+            case "description":
+                return displayValue(book.description)
+            case "language":
+                return displayValue(book.language)
+            case "publicationDate":
+                return displayValue(book.publicationDate)
+            case "rating":
+                return displayValue(book.rating)
+            case "status":
+                return displayValue(book.status)
+            case "authors":
+                return displayList(book.authors)
+            case "narrators":
+                return displayList(book.narrators)
+            case "tags":
+                return displayList(Self.normalizedTags(book.tags))
+            case "creators":
+                return displayList(
+                    book.creators.map { creator in
+                        creatorDisplay(
+                            name: creator.name,
+                            role: creator.role,
+                            fileAs: creator.fileAs,
+                        )
+                    }
+                )
+            case "series":
+                return displayList(
+                    book.series.map { series in
+                        seriesDisplay(
+                            name: series.name,
+                            position: series.position,
+                            featured: series.featured,
+                        )
+                    }
+                )
+            case "collections":
+                return displayList(
+                    book.collectionUuids.map { uuid in
+                        libraryCollectionNamesByUuid[uuid] ?? uuid
+                    }
+                )
+            default:
+                return "(empty)"
         }
     }
 
@@ -551,7 +576,8 @@ final class MetadataEditorViewModel {
     }
 
     private func displayList(_ values: [String]) -> String {
-        let cleaned = values
+        let cleaned =
+            values
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return cleaned.isEmpty ? "(empty)" : cleaned.joined(separator: "\n")
@@ -576,7 +602,9 @@ final class MetadataEditorViewModel {
         if !role.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             parts.append(role)
         }
-        parts.append(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name)
+        parts.append(
+            name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name
+        )
         if !fileAs.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             parts.append("file as: \(fileAs)")
         }
@@ -584,7 +612,9 @@ final class MetadataEditorViewModel {
     }
 
     private func seriesDisplay(name: String, position: String, featured: Bool) -> String {
-        var parts = [name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name]
+        var parts = [
+            name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name
+        ]
         if !position.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             parts.append("position: \(position)")
         }
@@ -607,17 +637,21 @@ final class MetadataEditorViewModel {
         guard let book = books.first(where: { $0.id == bookId }) else { return [] }
         var errors: [ValidationError] = []
 
-        if book.dirtyFields.contains("title") && book.title.trimmingCharacters(in: .whitespaces).isEmpty {
+        if book.dirtyFields.contains("title")
+            && book.title.trimmingCharacters(in: .whitespaces).isEmpty
+        {
             errors.append(ValidationError(field: "title", message: "Title cannot be empty"))
         }
 
         for (index, series) in book.series.enumerated() {
             let pos = series.position.trimmingCharacters(in: .whitespaces)
             if !pos.isEmpty && Double(pos) == nil {
-                errors.append(ValidationError(
-                    field: "series.\(index).position",
-                    message: "Series position '\(pos)' is not a number"
-                ))
+                errors.append(
+                    ValidationError(
+                        field: "series.\(index).position",
+                        message: "Series position '\(pos)' is not a number",
+                    )
+                )
             }
         }
 
@@ -630,10 +664,12 @@ final class MetadataEditorViewModel {
             let statusUuid = book.statusUuid.trimmingCharacters(in: .whitespacesAndNewlines)
             let validStatusUuids = Set(availableStatuses.compactMap(\.uuid))
             if statusUuid.isEmpty || !validStatusUuids.contains(statusUuid) {
-                errors.append(ValidationError(
-                    field: "status",
-                    message: "Select a valid Storyteller status"
-                ))
+                errors.append(
+                    ValidationError(
+                        field: "status",
+                        message: "Select a valid Storyteller status",
+                    )
+                )
             }
         }
 
@@ -646,10 +682,12 @@ final class MetadataEditorViewModel {
                 let isValidDate = pubDate.wholeMatch(of: dateRegex) != nil
                 let isValidFull = fullFmt.date(from: pubDate) != nil
                 if !isValidDate && !isValidFull {
-                    errors.append(ValidationError(
-                        field: "publicationDate",
-                        message: "Publication date must be yyyy-mm-dd format"
-                    ))
+                    errors.append(
+                        ValidationError(
+                            field: "publicationDate",
+                            message: "Publication date must be yyyy-mm-dd format",
+                        )
+                    )
                 }
             }
         }
@@ -676,7 +714,9 @@ final class MetadataEditorViewModel {
         return validationErrors(for: bookId).contains { $0.field == "series.\(index).position" }
     }
 
-    private func coverUploads(for book: EditableBook) -> (text: StorytellerCoverUpload?, audio: StorytellerCoverUpload?) {
+    private func coverUploads(for book: EditableBook) -> (
+        text: StorytellerCoverUpload?, audio: StorytellerCoverUpload?
+    ) {
         let text = book.replacementEbookCover.map {
             StorytellerCoverUpload(filename: $0.filename, data: $0.data, contentType: nil)
         }
@@ -729,7 +769,9 @@ final class MetadataEditorViewModel {
         let anyCreatorFieldDirty = !book.dirtyFields.isDisjoint(
             with: ["authors", "narrators", "creators"])
         if anyCreatorFieldDirty {
-            payload.authors = book.authors.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            payload.authors = book.authors.filter {
+                !$0.trimmingCharacters(in: .whitespaces).isEmpty
+            }
             payload.narrators = book.narrators.filter {
                 !$0.trimmingCharacters(in: .whitespaces).isEmpty
             }
@@ -750,7 +792,7 @@ final class MetadataEditorViewModel {
                     id: nil,
                     name: name,
                     fileAs: creator.fileAs.isEmpty ? name : creator.fileAs,
-                    role: role
+                    role: role,
                 )
             }
         }
@@ -769,7 +811,7 @@ final class MetadataEditorViewModel {
                     uuid: uuid,
                     name: name,
                     featured: s.featured,
-                    position: Double(s.position)
+                    position: Double(s.position),
                 )
             }
         }
@@ -805,7 +847,7 @@ final class MetadataEditorViewModel {
                 await refreshSavedCovers(
                     result: result,
                     metadata: updatedMetadata,
-                    mediaViewModel: mediaViewModel
+                    mediaViewModel: mediaViewModel,
                 )
             } else {
                 saveResults[book.id] = false
@@ -843,7 +885,7 @@ final class MetadataEditorViewModel {
             await refreshSavedCovers(
                 result: result,
                 metadata: updatedMetadata,
-                mediaViewModel: mediaViewModel
+                mediaViewModel: mediaViewModel,
             )
         } else {
             saveResults[bookId] = false
@@ -875,20 +917,20 @@ final class MetadataEditorViewModel {
         let result = await StorytellerActor.shared.updateBook(
             payload,
             textCover: covers.text,
-            audioCover: covers.audio
+            audioCover: covers.audio,
         )
         return SaveBookResult(
             metadata: result,
             metadataSaved: hasMetadataChanges && result != nil,
             textCoverSaved: covers.text != nil && result != nil,
-            audioCoverSaved: covers.audio != nil && result != nil
+            audioCoverSaved: covers.audio != nil && result != nil,
         )
     }
 
     private func refreshSavedCovers(
         result: SaveBookResult,
         metadata: BookMetadata,
-        mediaViewModel: MediaViewModel
+        mediaViewModel: MediaViewModel,
     ) async {
         guard result.coversSaved else { return }
 
@@ -905,7 +947,7 @@ final class MetadataEditorViewModel {
     func applyImport(
         imports: [HardcoverImportSource: HardcoverBookDetails],
         fields: Set<String>,
-        for bookId: String
+        for bookId: String,
     ) {
         guard !imports.isEmpty else { return }
         for (source, details) in imports {
@@ -917,7 +959,7 @@ final class MetadataEditorViewModel {
         details: HardcoverBookDetails,
         source: HardcoverImportSource = .text,
         fields: Set<String>,
-        for bookId: String
+        for bookId: String,
     ) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
 
@@ -952,7 +994,8 @@ final class MetadataEditorViewModel {
                 markDirty(field: "language", for: bookId)
             }
         }
-        if shouldApplyToCurrent("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+        if shouldApplyToCurrent("publicationDate"), let value = details.releaseDate, !value.isEmpty
+        {
             let dateOnly = EditableBook.dateOnly(value) ?? value
             if dateOnly != books[index].publicationDate {
                 books[index].publicationDate = dateOnly
@@ -999,7 +1042,8 @@ final class MetadataEditorViewModel {
             var seenKeys = Set(
                 books[index].creators.map {
                     "\($0.name.lowercased())|\($0.role.lowercased())"
-                })
+                }
+            )
             var changed = false
             for creator in details.creators {
                 let key = "\(creator.name.lowercased())|\(creator.role.lowercased())"
@@ -1009,8 +1053,9 @@ final class MetadataEditorViewModel {
                     EditableCreator(
                         name: creator.name,
                         fileAs: "",
-                        role: creator.role
-                    ))
+                        role: creator.role,
+                    )
+                )
                 changed = true
             }
             if changed {
@@ -1020,7 +1065,8 @@ final class MetadataEditorViewModel {
 
         if shouldApplyToCurrent("series") && !details.series.isEmpty {
             var seenNames = Set(
-                books[index].series.map { $0.name.lowercased() })
+                books[index].series.map { $0.name.lowercased() }
+            )
             var updated = false
             for s in details.series {
                 if seenNames.contains(s.name.lowercased()) {
@@ -1043,16 +1089,18 @@ final class MetadataEditorViewModel {
                     }
                 } else {
                     seenNames.insert(s.name.lowercased())
-                    let posStr: String = s.position.map {
-                        $0.truncatingRemainder(dividingBy: 1) == 0
-                            ? String(Int($0)) : String($0)
-                    } ?? ""
+                    let posStr: String =
+                        s.position.map {
+                            $0.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int($0)) : String($0)
+                        } ?? ""
                     books[index].series.append(
                         EditableSeries(
                             name: s.name,
                             position: posStr,
-                            featured: s.featured
-                        ))
+                            featured: s.featured,
+                        )
+                    )
                     updated = true
                 }
             }
@@ -1083,15 +1131,18 @@ final class MetadataEditorViewModel {
 
     private func selectedHardcoverTagNames(
         from fields: Set<String>,
-        details: HardcoverBookDetails
+        details: HardcoverBookDetails,
     ) -> [String] {
         let prefix = "tags:"
         let selectedKeys = Set(
             fields.compactMap { field -> String? in
                 guard field.hasPrefix(prefix) else { return nil }
-                return String(field.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
-                    .lowercased()
-            })
+                return String(field.dropFirst(prefix.count)).trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                .lowercased()
+            }
+        )
         guard !selectedKeys.isEmpty else { return [] }
         return details.tags.compactMap { tag in
             let key = tag.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -1191,52 +1242,54 @@ final class MetadataEditorViewModel {
         let orig = books[index].originalMetadata
 
         switch field {
-        case "title":
-            books[index].title = orig.title
-        case "subtitle":
-            books[index].subtitle = orig.subtitle ?? ""
-        case "description":
-            books[index].description = orig.description ?? ""
-        case "language":
-            books[index].language = orig.language ?? ""
-        case "publicationDate":
-            books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
-        case "rating":
-            books[index].rating = orig.rating.map { String($0) } ?? ""
-        case "status":
-            books[index].status = orig.status?.name ?? ""
-            books[index].statusUuid = orig.status?.uuid ?? ""
-        case "authors":
-            books[index].authors = orig.authors?.compactMap { $0.name } ?? []
-        case "narrators":
-            books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
-        case "creators":
-            books[index].creators = orig.creators?.map { creator in
-                EditableCreator(
-                    name: creator.name ?? "",
-                    fileAs: creator.fileAs ?? "",
-                    role: creator.role ?? "",
-                    uuid: creator.uuid
-                )
-            } ?? []
-        case "series":
-            books[index].series = orig.series?.map { s in
-                EditableSeries(
-                    name: s.name,
-                    position: s.position.map {
-                        $0.truncatingRemainder(dividingBy: 1) == 0
-                            ? String(Int($0)) : String($0)
-                    } ?? "",
-                    featured: s.featured == 1,
-                    uuid: s.uuid
-                )
-            } ?? []
-        case "tags":
-            books[index].tags = Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
-        case "collections":
-            books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
-        default:
-            break
+            case "title":
+                books[index].title = orig.title
+            case "subtitle":
+                books[index].subtitle = orig.subtitle ?? ""
+            case "description":
+                books[index].description = orig.description ?? ""
+            case "language":
+                books[index].language = orig.language ?? ""
+            case "publicationDate":
+                books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
+            case "rating":
+                books[index].rating = orig.rating.map { String($0) } ?? ""
+            case "status":
+                books[index].status = orig.status?.name ?? ""
+                books[index].statusUuid = orig.status?.uuid ?? ""
+            case "authors":
+                books[index].authors = orig.authors?.compactMap { $0.name } ?? []
+            case "narrators":
+                books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
+            case "creators":
+                books[index].creators =
+                    orig.creators?.map { creator in
+                        EditableCreator(
+                            name: creator.name ?? "",
+                            fileAs: creator.fileAs ?? "",
+                            role: creator.role ?? "",
+                            uuid: creator.uuid,
+                        )
+                    } ?? []
+            case "series":
+                books[index].series =
+                    orig.series?.map { s in
+                        EditableSeries(
+                            name: s.name,
+                            position: s.position.map {
+                                $0.truncatingRemainder(dividingBy: 1) == 0
+                                    ? String(Int($0)) : String($0)
+                            } ?? "",
+                            featured: s.featured == 1,
+                            uuid: s.uuid,
+                        )
+                    } ?? []
+            case "tags":
+                books[index].tags = Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+            case "collections":
+                books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
+            default:
+                break
         }
 
         books[index].dirtyFields.remove(field)
@@ -1255,25 +1308,27 @@ final class MetadataEditorViewModel {
         books[index].statusUuid = orig.status?.uuid ?? ""
         books[index].authors = orig.authors?.compactMap { $0.name } ?? []
         books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
-        books[index].creators = orig.creators?.map { creator in
-            EditableCreator(
-                name: creator.name ?? "",
-                fileAs: creator.fileAs ?? "",
-                role: creator.role ?? "",
-                uuid: creator.uuid
-            )
-        } ?? []
-        books[index].series = orig.series?.map { s in
-            EditableSeries(
-                name: s.name,
-                position: s.position.map {
-                    $0.truncatingRemainder(dividingBy: 1) == 0
-                        ? String(Int($0)) : String($0)
-                } ?? "",
-                featured: s.featured == 1,
-                uuid: s.uuid
-            )
-        } ?? []
+        books[index].creators =
+            orig.creators?.map { creator in
+                EditableCreator(
+                    name: creator.name ?? "",
+                    fileAs: creator.fileAs ?? "",
+                    role: creator.role ?? "",
+                    uuid: creator.uuid,
+                )
+            } ?? []
+        books[index].series =
+            orig.series?.map { s in
+                EditableSeries(
+                    name: s.name,
+                    position: s.position.map {
+                        $0.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(Int($0)) : String($0)
+                    } ?? "",
+                    featured: s.featured == 1,
+                    uuid: s.uuid,
+                )
+            } ?? []
         books[index].tags = Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
         books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
         books[index].dirtyFields.removeAll()
@@ -1285,14 +1340,14 @@ final class MetadataEditorViewModel {
         guard let book = books.first(where: { $0.id == bookId }) else { return "" }
         let orig = book.originalMetadata
         switch field {
-        case "title": return orig.title
-        case "subtitle": return orig.subtitle ?? ""
-        case "description": return orig.description ?? ""
-        case "language": return orig.language ?? ""
-        case "publicationDate":
-            return EditableBook.dateOnly(orig.publicationDate) ?? ""
-        case "rating": return orig.rating.map { String($0) } ?? ""
-        default: return ""
+            case "title": return orig.title
+            case "subtitle": return orig.subtitle ?? ""
+            case "description": return orig.description ?? ""
+            case "language": return orig.language ?? ""
+            case "publicationDate":
+                return EditableBook.dateOnly(orig.publicationDate) ?? ""
+            case "rating": return orig.rating.map { String($0) } ?? ""
+            default: return ""
         }
     }
 
@@ -1300,10 +1355,10 @@ final class MetadataEditorViewModel {
         guard let book = books.first(where: { $0.id == bookId }) else { return [] }
         let orig = book.originalMetadata
         switch field {
-        case "authors": return orig.authors?.compactMap { $0.name } ?? []
-        case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
-        case "tags": return Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
-        default: return []
+            case "authors": return orig.authors?.compactMap { $0.name } ?? []
+            case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
+            case "tags": return Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+            default: return []
         }
     }
 
@@ -1330,7 +1385,7 @@ final class MetadataEditorViewModel {
             do {
                 itunesResultsByBookId[bookId] = try await ITunesSearchActor.search(
                     title: book.title,
-                    author: book.authors.first
+                    author: book.authors.first,
                 )
             } catch {
                 debugLog("[MetadataEditor] iTunes search failed: \(error)")

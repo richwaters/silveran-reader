@@ -32,7 +32,7 @@ struct MediaItemCardMetrics {
     static func make(
         for tileWidth: CGFloat,
         mediaKind: MediaKind,
-        coverPreference: CoverPreference = .preferEbook
+        coverPreference: CoverPreference = .preferEbook,
     ) -> MediaItemCardMetrics {
         let cardPadding = 2.0
         let coverWidth = max(tileWidth - (cardPadding * 2), tileWidth * 0.90)
@@ -74,7 +74,7 @@ struct MediaItemCardMetrics {
             maxCardHeight: maxCardHeight,
             coverContainerHeight: coverContainerHeight,
             titleContainerHeight: titleContainerHeight,
-            titleToAuthorGap: titleToAuthorGap
+            titleToAuthorGap: titleToAuthorGap,
         )
     }
 }
@@ -148,7 +148,7 @@ struct MediaItemCardView: View {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
             for: item,
-            category: category
+            category: category,
         )
         let isAvailable: Bool = {
             switch category {
@@ -221,7 +221,7 @@ struct MediaItemCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
 
@@ -254,7 +254,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.synced,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .synced)
                 } label: {
@@ -263,7 +263,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.ebook,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .ebook)
                 } label: {
@@ -272,7 +272,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.audio,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .audio)
                 } label: {
@@ -325,7 +325,7 @@ struct MediaItemCardView: View {
                                 #else
                                 return .constant(false)
                                 #endif
-                            }()
+                            }(),
                         )
                         .frame(width: metrics.coverWidth)
                         .aspectRatio(containerAspectRatio, contentMode: .fit)
@@ -333,14 +333,14 @@ struct MediaItemCardView: View {
                         MediaItemCoverImage(
                             item: item,
                             placeholderColor: placeholderColor,
-                            variant: coverVariant
+                            variant: coverVariant,
                         )
                         .frame(width: metrics.coverWidth)
                         .aspectRatio(containerAspectRatio, contentMode: .fit)
                         .clipShape(
                             RoundedRectangle(
                                 cornerRadius: metrics.coverCornerRadius,
-                                style: .continuous
+                                style: .continuous,
                             )
                         )
                         .stableCoverRendering()
@@ -379,7 +379,7 @@ struct MediaItemCardView: View {
                             .padding(.vertical, 3)
                             .background(
                                 .black.opacity(0.6),
-                                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                in: RoundedRectangle(cornerRadius: 6, style: .continuous),
                             )
                             .padding(4)
                     }
@@ -390,7 +390,7 @@ struct MediaItemCardView: View {
                     item: item,
                     coverWidth: metrics.coverWidth,
                     isSelected: isSelected,
-                    isHoveringCard: isHovered
+                    isHoveringCard: isHovered,
                 )
                 .environment(mediaViewModel)
                 #endif
@@ -426,7 +426,7 @@ struct MediaItemCardView: View {
                 top: metrics.cardPadding,
                 leading: metrics.cardPadding,
                 bottom: metrics.cardPadding,
-                trailing: metrics.cardPadding
+                trailing: metrics.cardPadding,
             )
         )
         .frame(width: metrics.tileWidth, height: metrics.maxCardHeight, alignment: .top)
@@ -445,7 +445,7 @@ struct MediaItemCardView: View {
             BookContextMenuContent(
                 item: item,
                 onInfo: onInfo,
-                onEditMetadata: onEditMetadata
+                onEditMetadata: onEditMetadata,
             )
         }
         .zIndex(doubleCoverSwapping ? 1000 : 0)
@@ -604,31 +604,36 @@ struct DoubleCoverView: View {
         let audioState = mediaViewModel.coverState(for: item, variant: .audioSquare)
 
         #if os(macOS)
-        let audioXOffset: CGFloat = switch swapPhase {
-            case .idle: xShift
-            case .slidingOut: coverWidth * 0.35
-            case .swapped: xShift
-        }
-        let audioScale: CGFloat = switch swapPhase {
-            case .idle: 1.0
-            case .slidingOut: 1.1
-            case .swapped: 1.1
-        }
-        let audioZ: Double = switch swapPhase {
-            case .idle: 10
-            case .slidingOut: 30
-            case .swapped: 30
-        }
-        let ebookXOffset: CGFloat = switch swapPhase {
-            case .idle: -xShift
-            case .slidingOut: -coverWidth * 0.25
-            case .swapped: -xShift
-        }
-        let ebookZ: Double = switch swapPhase {
-            case .idle: 20
-            case .slidingOut: 5
-            case .swapped: 5
-        }
+        let audioXOffset: CGFloat =
+            switch swapPhase {
+                case .idle: xShift
+                case .slidingOut: coverWidth * 0.35
+                case .swapped: xShift
+            }
+        let audioScale: CGFloat =
+            switch swapPhase {
+                case .idle: 1.0
+                case .slidingOut: 1.1
+                case .swapped: 1.1
+            }
+        let audioZ: Double =
+            switch swapPhase {
+                case .idle: 10
+                case .slidingOut: 30
+                case .swapped: 30
+            }
+        let ebookXOffset: CGFloat =
+            switch swapPhase {
+                case .idle: -xShift
+                case .slidingOut: -coverWidth * 0.25
+                case .swapped: -xShift
+            }
+        let ebookZ: Double =
+            switch swapPhase {
+                case .idle: 20
+                case .slidingOut: 5
+                case .swapped: 5
+            }
         #else
         let audioXOffset = xShift
         let audioScale: CGFloat = 1.0
@@ -646,24 +651,24 @@ struct DoubleCoverView: View {
                 .offset(x: audioXOffset)
                 .zIndex(audioZ)
                 #if os(macOS)
-                .onHover { hovering in
-                    audioHoverTask?.cancel()
-                    if hovering {
-                        audioHoverTask = Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(250))
-                            guard !Task.isCancelled else { return }
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                swapPhase = .slidingOut
-                                isSwapping = true
-                            }
-                            try? await Task.sleep(for: .milliseconds(250))
-                            guard !Task.isCancelled else { return }
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                swapPhase = .swapped
-                            }
+            .onHover { hovering in
+                audioHoverTask?.cancel()
+                if hovering {
+                    audioHoverTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            swapPhase = .slidingOut
+                            isSwapping = true
+                        }
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            swapPhase = .swapped
                         }
                     }
                 }
+            }
                 #endif
 
             coverImage(state: ebookState)
@@ -693,7 +698,6 @@ struct DoubleCoverView: View {
             mediaViewModel.ensureCoverLoaded(for: item, variant: .audioSquare)
         }
     }
-
 
     @ViewBuilder
     private func coverImage(state: MediaViewModel.CoverImageState) -> some View {

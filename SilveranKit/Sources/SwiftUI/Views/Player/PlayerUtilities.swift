@@ -18,7 +18,7 @@ public struct ProgressData {
         chapterTotalSecondsAudio: Double? = nil,
         bookCurrentSecondsAudio: Double? = nil,
         bookTotalSecondsAudio: Double? = nil,
-        bookCurrentFraction: Double? = nil
+        bookCurrentFraction: Double? = nil,
     ) {
         self.chapterLabel = chapterLabel
         self.chapterCurrentPage = chapterCurrentPage

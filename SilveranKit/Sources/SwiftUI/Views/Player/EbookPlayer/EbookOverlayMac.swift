@@ -164,11 +164,11 @@ struct EbookOverlayMac: View {
 
                 let audioFraction = chapterAudioFraction(
                     current: progressData?.chapterCurrentSecondsAudio,
-                    total: progressData?.chapterTotalSecondsAudio
+                    total: progressData?.chapterTotalSecondsAudio,
                 )
                 let pagesFraction = chapterPagesFraction(
                     current: progressData?.chapterCurrentPage,
-                    total: progressData?.chapterTotalPages
+                    total: progressData?.chapterTotalPages,
                 )
 
                 let fraction: Double
@@ -190,7 +190,7 @@ struct EbookOverlayMac: View {
                 draggedSliderValue = clampedValue
                 chapterProgress = clampedValue
                 onProgressSeek?(clampedValue)
-            }
+            },
         )
 
         return Slider(
@@ -202,11 +202,11 @@ struct EbookOverlayMac: View {
                     seekDebounceUntil = nil
                     let audioFraction = chapterAudioFraction(
                         current: progressData?.chapterCurrentSecondsAudio,
-                        total: progressData?.chapterTotalSecondsAudio
+                        total: progressData?.chapterTotalSecondsAudio,
                     )
                     let pagesFraction = chapterPagesFraction(
                         current: progressData?.chapterCurrentPage,
-                        total: progressData?.chapterTotalPages
+                        total: progressData?.chapterTotalPages,
                     )
 
                     let initialFraction: Double
@@ -224,7 +224,7 @@ struct EbookOverlayMac: View {
                 } else {
                     seekDebounceUntil = Date().addingTimeInterval(0.5)
                 }
-            }
+            },
         )
         .tint(overlayColor.opacity(0.9 * readingBarConfig.overlayTransparency))
         .opacity(readingBarConfig.overlayTransparency)
@@ -238,7 +238,7 @@ struct EbookOverlayMac: View {
         let chapterRemainingAtRate = timeRemaining(
             atRate: playbackRate,
             total: chapterTotal,
-            elapsed: chapterElapsed
+            elapsed: chapterElapsed,
         )
 
         return VStack(alignment: .leading, spacing: 4) {

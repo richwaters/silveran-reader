@@ -17,7 +17,8 @@ struct TranslatorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference.storytellerDouble
+    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -56,7 +57,7 @@ struct TranslatorView: View {
                 name: name,
                 books: group.books,
                 pinId: group.translator?.name != nil
-                    ? SidebarPinHelper.pinId(forTranslator: name) : nil
+                    ? SidebarPinHelper.pinId(forTranslator: name) : nil,
             )
         }
     }
@@ -127,21 +128,21 @@ extension TranslatorView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: TranslatorDetailNavigation.self) { nav in
                 translatorDetailView(
                     for: nav.translatorName,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 ).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -162,7 +163,7 @@ extension TranslatorView {
                                 iconName: "character.book.closed.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -179,7 +180,7 @@ extension TranslatorView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -187,7 +188,7 @@ extension TranslatorView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
@@ -199,13 +200,13 @@ extension TranslatorView {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -243,7 +244,7 @@ extension TranslatorView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -258,29 +259,29 @@ extension TranslatorView {
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
                         )
                     case .fan, .grid: fanGridContent
                 }
             }.navigationDestination(for: TranslatorDetailNavigation.self) { nav in
                 translatorDetailView(
                     for: nav.translatorName,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 )
             }
         }
@@ -294,7 +295,7 @@ extension TranslatorView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
@@ -307,7 +308,7 @@ extension TranslatorView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
@@ -330,9 +331,9 @@ extension TranslatorView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
@@ -343,7 +344,7 @@ extension TranslatorView {
 extension TranslatorView {
     @ViewBuilder fileprivate func translatorDetailView(
         for translatorName: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         #if os(iOS)
         MediaGridView(
@@ -358,7 +359,7 @@ extension TranslatorView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(translatorName)
         #else
         MediaGridView(
@@ -372,7 +373,7 @@ extension TranslatorView {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(translatorName)
         #endif
     }

@@ -5,7 +5,7 @@ private struct StableCoverRenderingModifier: ViewModifier {
         content
             .compositingGroup()
             #if os(macOS)
-            .drawingGroup(opaque: false, colorMode: .linear)
+        .drawingGroup(opaque: false, colorMode: .linear)
             #endif
     }
 }
@@ -22,7 +22,7 @@ enum MediaGridViewUtilities {
         from direction: MoveCommandDirection,
         in items: [BookMetadata],
         currentItemID: BookMetadata.ID?,
-        columnCount: Int
+        columnCount: Int,
     ) -> BookMetadata? {
         guard !items.isEmpty else { return nil }
 
@@ -91,7 +91,7 @@ enum MediaGridViewUtilities {
                     category: .ebook,
                     title: "Ebook",
                     openTitle: "Read Ebook",
-                    iconName: "book.fill"
+                    iconName: "book.fill",
                 )
             )
         }
@@ -102,7 +102,7 @@ enum MediaGridViewUtilities {
                     category: .audio,
                     title: "Audiobook",
                     openTitle: "Play Audiobook",
-                    iconName: "headphones"
+                    iconName: "headphones",
                 )
             )
         }
@@ -114,7 +114,7 @@ enum MediaGridViewUtilities {
                     title: "Readaloud",
                     openTitle: "Read Readaloud",
                     iconName: "readalong",
-                    iconType: .readaloud
+                    iconType: .readaloud,
                 )
             )
         }
@@ -157,7 +157,7 @@ struct MediaDownloadOption: Identifiable {
         title: String,
         openTitle: String,
         iconName: String,
-        iconType: IconType = .system("")
+        iconType: IconType = .system(""),
     ) {
         self.id = category
         self.category = category

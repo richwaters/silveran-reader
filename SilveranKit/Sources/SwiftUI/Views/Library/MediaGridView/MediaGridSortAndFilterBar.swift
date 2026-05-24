@@ -76,7 +76,7 @@ struct MediaGridSortAndFilterBar: View {
             #else
             Label(
                 "Sort: \(selectedSortOption.sortField.label)",
-                systemImage: selectedSortOption.isAscending ? "arrow.up" : "arrow.down"
+                systemImage: selectedSortOption.isAscending ? "arrow.up" : "arrow.down",
             )
             #endif
         }
@@ -123,7 +123,7 @@ struct MediaGridSortAndFilterBar: View {
             #else
             Label(
                 "Filters: \(filtersSummaryText)",
-                systemImage: "line.3.horizontal.decrease"
+                systemImage: "line.3.horizontal.decrease",
             )
             #endif
         }
@@ -158,7 +158,7 @@ struct MediaGridSortAndFilterBar: View {
                 } label: {
                     menuRowLabel(
                         text: "All Statuses",
-                        isSelected: selectedStatus == nil
+                        isSelected: selectedStatus == nil,
                     )
                 }
 
@@ -221,7 +221,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: seriesName,
-                                    isSelected: selectedSeries == seriesName
+                                    isSelected: selectedSeries == seriesName,
                                 )
                             }
                         }
@@ -244,7 +244,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: authorName,
-                                    isSelected: selectedAuthor == authorName
+                                    isSelected: selectedAuthor == authorName,
                                 )
                             }
                         }
@@ -258,7 +258,10 @@ struct MediaGridSortAndFilterBar: View {
                         Button {
                             selectedNarrator = nil
                         } label: {
-                            menuRowLabel(text: "All Narrators", isSelected: selectedNarrator == nil)
+                            menuRowLabel(
+                                text: "All Narrators",
+                                isSelected: selectedNarrator == nil,
+                            )
                         }
 
                         ForEach(narrators, id: \.self) { narratorName in
@@ -267,7 +270,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: narratorName,
-                                    isSelected: selectedNarrator == narratorName
+                                    isSelected: selectedNarrator == narratorName,
                                 )
                             }
                         }
@@ -283,7 +286,7 @@ struct MediaGridSortAndFilterBar: View {
                         } label: {
                             menuRowLabel(
                                 text: "All Translators",
-                                isSelected: selectedTranslator == nil
+                                isSelected: selectedTranslator == nil,
                             )
                         }
 
@@ -293,7 +296,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: translatorName,
-                                    isSelected: selectedTranslator == translatorName
+                                    isSelected: selectedTranslator == translatorName,
                                 )
                             }
                         }
@@ -309,7 +312,7 @@ struct MediaGridSortAndFilterBar: View {
                         } label: {
                             menuRowLabel(
                                 text: "All Years",
-                                isSelected: selectedPublicationYear == nil
+                                isSelected: selectedPublicationYear == nil,
                             )
                         }
 
@@ -319,7 +322,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: year,
-                                    isSelected: selectedPublicationYear == year
+                                    isSelected: selectedPublicationYear == year,
                                 )
                             }
                         }
@@ -343,7 +346,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: rating == "Unrated" ? "Unrated" : "\(rating) Stars",
-                                    isSelected: selectedRating == rating
+                                    isSelected: selectedRating == rating,
                                 )
                             }
                         }
@@ -490,7 +493,7 @@ struct MediaGridSortAndFilterBar: View {
                         LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid,
                         LibraryLayoutStyle.table,
                     ],
-                    id: \.self
+                    id: \.self,
                 ) { style in
                     Button {
                         layoutStyle = style
@@ -559,7 +562,7 @@ struct MediaGridSortAndFilterBar: View {
                 Slider(
                     value: $coverSize,
                     in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
-                    step: 5
+                    step: 5,
                 )
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 14))

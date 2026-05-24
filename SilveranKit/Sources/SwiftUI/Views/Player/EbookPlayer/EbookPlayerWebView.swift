@@ -57,7 +57,7 @@ private let consoleOverrideScript = WKUserScript(
         });
         """,
     injectionTime: .atDocumentStart,
-    forMainFrameOnly: false
+    forMainFrameOnly: false,
 )
 
 @available(macOS 14.0, iOS 17.0, *)
@@ -78,7 +78,7 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
 
     func userContentController(
         _ userContentController: WKUserContentController,
-        didReceive message: WKScriptMessage
+        didReceive message: WKScriptMessage,
     ) {
         switch message.name {
             case "ConsoleLog":
@@ -182,10 +182,13 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
 
                 case "FileAccessDiagnostic":
                     if let body = message.body as? [String: Any],
-                       let filePath = body["filePath"] as? String,
-                       let errorMessage = body["errorMessage"] as? String
+                        let filePath = body["filePath"] as? String,
+                        let errorMessage = body["errorMessage"] as? String
                     {
-                        Self.runFileAccessDiagnostic(filePath: filePath, errorMessage: errorMessage)
+                        Self.runFileAccessDiagnostic(
+                            filePath: filePath,
+                            errorMessage: errorMessage,
+                        )
                     }
 
                 default:
@@ -215,13 +218,18 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
                 let protection = attrs[.protectionKey] as? FileProtectionType
                 let fileSize = attrs[.size] as? UInt64 ?? 0
                 debugLog("\(tag) File size: \(fileSize) bytes")
-                debugLog("\(tag) File protection: \(protection?.rawValue ?? "nil (inheriting default)")")
+                debugLog(
+                    "\(tag) File protection: \(protection?.rawValue ?? "nil (inheriting default)")"
+                )
             } catch {
                 debugLog("\(tag) Failed to read file attributes: \(error)")
             }
 
             do {
-                let data = try Data(contentsOf: URL(fileURLWithPath: filePath), options: .mappedIfSafe)
+                let data = try Data(
+                    contentsOf: URL(fileURLWithPath: filePath),
+                    options: .mappedIfSafe,
+                )
                 debugLog("\(tag) Swift Data(contentsOf:) succeeded, \(data.count) bytes")
             } catch {
                 debugLog("\(tag) Swift Data(contentsOf:) FAILED: \(error)")
@@ -245,7 +253,7 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
     func webView(
         _ webView: WKWebView,
         didFail navigation: WKNavigation!,
-        withError error: Error
+        withError error: Error,
     ) {
         debugLog("[EbookPlayerWebView] Navigation failed: \(error.localizedDescription)")
     }
@@ -253,7 +261,7 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
     func webView(
         _ webView: WKWebView,
         didFailProvisionalNavigation navigation: WKNavigation!,
-        withError error: Error
+        withError error: Error,
     ) {
         debugLog(
             "[EbookPlayerWebView] Provisional navigation failed: \(error.localizedDescription)"
@@ -289,7 +297,7 @@ class HighlightableWebView: WKWebView {
 
         let highlightAction = UIAction(
             title: "Highlight",
-            image: UIImage(systemName: "highlighter")
+            image: UIImage(systemName: "highlighter"),
         ) { [weak self] _ in
             self?.highlightSelection(nil)
         }
@@ -347,7 +355,7 @@ struct EbookPlayerWebView: View {
         ebookPath: URL?,
         commsBridge: Binding<WebViewCommsBridge?>,
         onBridgeReady: ((WebViewCommsBridge) -> Void)?,
-        onContentPurged: (() -> Void)? = nil
+        onContentPurged: (() -> Void)? = nil,
     ) {
         self.ebookPath = ebookPath
         self._commsBridge = commsBridge
@@ -360,7 +368,7 @@ struct EbookPlayerWebView: View {
             ebookPath: ebookPath,
             commsBridge: $commsBridge,
             onBridgeReady: onBridgeReady,
-            onContentPurged: onContentPurged
+            onContentPurged: onContentPurged,
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(edges: .top)
@@ -388,7 +396,7 @@ private struct WebViewWrapper2: View {
                     loadEpub()
                 }
             },
-            onContentPurged: onContentPurged
+            onContentPurged: onContentPurged,
         )
         .onChange(of: webView) { oldValue, newValue in
             if newValue != nil {
@@ -420,7 +428,7 @@ private struct WebViewWrapper2: View {
             // can fetch EPUB files from sibling directories like storyteller_media/
             webView.loadFileURL(
                 url,
-                allowingReadAccessTo: webResourcesDir.deletingLastPathComponent()
+                allowingReadAccessTo: webResourcesDir.deletingLastPathComponent(),
             )
         }
     }

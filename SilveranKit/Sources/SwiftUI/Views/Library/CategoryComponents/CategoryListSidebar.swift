@@ -5,7 +5,7 @@ struct CategoryListSidebar<
     RowContent: View,
     DetailContent: View,
     ToolbarContent: View,
-    ContextMenu: View
+    ContextMenu: View,
 >: View {
     let sidebarTitle: String
     let groups: [CategoryGroup]
@@ -28,7 +28,7 @@ struct CategoryListSidebar<
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
         headerAccessory: AnyView? = nil,
-        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu,
     ) {
         self.sidebarTitle = sidebarTitle
         self.groups = groups
@@ -97,7 +97,7 @@ struct CategoryListSidebar<
                             isSelected: selectedGroupId == group.id,
                             rowContent: rowContent,
                             contextMenu: contextMenuBuilder?(group),
-                            onSelect: { selectedGroupId = group.id }
+                            onSelect: { selectedGroupId = group.id },
                         )
                     }
                 }
@@ -136,7 +136,7 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
-        headerAccessory: AnyView? = nil
+        headerAccessory: AnyView? = nil,
     ) {
         self.sidebarTitle = sidebarTitle
         self.groups = groups

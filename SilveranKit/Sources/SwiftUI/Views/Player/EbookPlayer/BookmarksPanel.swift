@@ -22,7 +22,7 @@ struct BookmarksPanel: View {
         onDelete: @escaping (Highlight) -> Void,
         onAddBookmark: @escaping () -> Void,
         highlightColorResolver: @escaping (HighlightColor?) -> Color,
-        initialTab: Tab = .bookmarks
+        initialTab: Tab = .bookmarks,
     ) {
         self.bookmarks = bookmarks
         self.highlights = highlights
@@ -65,7 +65,7 @@ struct BookmarksPanel: View {
                     onDelete: {
                         onDelete(highlight)
                         selectedHighlight = nil
-                    }
+                    },
                 )
             } else {
                 tabPicker
@@ -139,7 +139,7 @@ struct BookmarksPanel: View {
                 ContentUnavailableView(
                     "No Bookmarks",
                     systemImage: "bookmark",
-                    description: Text(emptyStateDescription)
+                    description: Text(emptyStateDescription),
                 )
 
                 Button {
@@ -167,7 +167,7 @@ struct BookmarksPanel: View {
                             highlight: bookmark,
                             onTap: { selectedHighlight = bookmark },
                             onNavigate: { onNavigate(bookmark) },
-                            onDelete: { onDelete(bookmark) }
+                            onDelete: { onDelete(bookmark) },
                         )
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
@@ -194,7 +194,7 @@ struct BookmarksPanel: View {
                 ContentUnavailableView(
                     "No Highlights",
                     systemImage: "highlighter",
-                    description: Text(emptyStateDescription)
+                    description: Text(emptyStateDescription),
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -206,7 +206,7 @@ struct BookmarksPanel: View {
                         highlightColorResolver: highlightColorResolver,
                         onTap: { selectedHighlight = highlight },
                         onNavigate: { onNavigate(highlight) },
-                        onDelete: { onDelete(highlight) }
+                        onDelete: { onDelete(highlight) },
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {

@@ -102,7 +102,7 @@ public actor CustomFontsActor {
             CustomFontInfo(
                 name: family.name,
                 fileName: family.variants.first?.fileName ?? "",
-                fileURL: family.variants.first?.fileURL ?? fontsDirectory
+                fileURL: family.variants.first?.fileURL ?? fontsDirectory,
             )
         }
     }
@@ -191,7 +191,7 @@ public actor CustomFontsActor {
             let contents = try? fileManager.contentsOfDirectory(
                 at: fontsDirectory,
                 includingPropertiesForKeys: [.isRegularFileKey],
-                options: [.skipsHiddenFiles]
+                options: [.skipsHiddenFiles],
             )
         else {
             return []
@@ -214,7 +214,7 @@ public actor CustomFontsActor {
                 weight: weight,
                 isItalic: isItalic,
                 fileName: fileName,
-                fileURL: url
+                fileURL: url,
             )
 
             familyMap[familyName, default: []].append(variant)
@@ -333,7 +333,7 @@ public actor CustomFontsActor {
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         ) {
             appSupport = resolved
         } else {

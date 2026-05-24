@@ -130,7 +130,7 @@ class MediaOverlayManager {
         bookId: String,
         bridge: WebViewCommsBridge,
         settingsVM: SettingsViewModel,
-        reloadBookIntoActor: @escaping () async -> Void
+        reloadBookIntoActor: @escaping () async -> Void,
     ) {
         self.bookStructure = bookStructure
         self.bookId = bookId
@@ -238,7 +238,7 @@ class MediaOverlayManager {
         if entryChanged && fragmentChanged && state.isPlaying {
             handleEntryAdvancement(
                 sectionIndex: state.currentSectionIndex,
-                entryIndex: state.currentEntryIndex
+                entryIndex: state.currentEntryIndex,
             )
         }
 
@@ -283,7 +283,7 @@ class MediaOverlayManager {
             await sendHighlightCommand(
                 sectionIndex: sectionIndex,
                 textId: entry.textId,
-                seekToLocation: true
+                seekToLocation: true,
             )
         }
     }
@@ -344,7 +344,10 @@ class MediaOverlayManager {
             debugLog(
                 "[MOM] First page of section with audio - seeking to first fragment: \(sectionInfo.mediaOverlay[0].textId)"
             )
-            await handleSeekEvent(sectionIndex: section, anchor: sectionInfo.mediaOverlay[0].textId)
+            await handleSeekEvent(
+                sectionIndex: section,
+                anchor: sectionInfo.mediaOverlay[0].textId,
+            )
             return true
         }
 
@@ -426,7 +429,7 @@ class MediaOverlayManager {
 
         let success = await SMILPlayerActor.shared.seekToFragment(
             sectionIndex: sectionIndex,
-            textId: anchor
+            textId: anchor,
         )
         if success {
             debugLog("[MOM] handleSeekEvent - seek successful")
@@ -475,7 +478,7 @@ class MediaOverlayManager {
                 await sendHighlightCommand(
                     sectionIndex: currentSectionIndex,
                     textId: entry.textId,
-                    seekToLocation: true
+                    seekToLocation: true,
                 )
             }
             debugLog("[MOM] startPlaying() - started")
@@ -527,12 +530,12 @@ class MediaOverlayManager {
                 let wasPlaying = isPlaying
                 _ = await SMILPlayerActor.shared.seekToFragment(
                     sectionIndex: sectionIndex,
-                    textId: entry.textId
+                    textId: entry.textId,
                 )
                 await sendHighlightCommand(
                     sectionIndex: sectionIndex,
                     textId: entry.textId,
-                    seekToLocation: true
+                    seekToLocation: true,
                 )
                 if wasPlaying { try? await SMILPlayerActor.shared.play() }
             }
@@ -547,12 +550,12 @@ class MediaOverlayManager {
                         let wasPlaying = isPlaying
                         _ = await SMILPlayerActor.shared.seekToFragment(
                             sectionIndex: nextSectionIndex,
-                            textId: entry.textId
+                            textId: entry.textId,
                         )
                         await sendHighlightCommand(
                             sectionIndex: nextSectionIndex,
                             textId: entry.textId,
-                            seekToLocation: true
+                            seekToLocation: true,
                         )
                         if wasPlaying { try? await SMILPlayerActor.shared.play() }
                     }
@@ -571,12 +574,12 @@ class MediaOverlayManager {
                         let wasPlaying = isPlaying
                         _ = await SMILPlayerActor.shared.seekToFragment(
                             sectionIndex: nextSectionIndex,
-                            textId: entry.textId
+                            textId: entry.textId,
                         )
                         await sendHighlightCommand(
                             sectionIndex: nextSectionIndex,
                             textId: entry.textId,
-                            seekToLocation: true
+                            seekToLocation: true,
                         )
                         if wasPlaying { try? await SMILPlayerActor.shared.play() }
                     }
@@ -609,12 +612,12 @@ class MediaOverlayManager {
                 let wasPlaying = isPlaying
                 _ = await SMILPlayerActor.shared.seekToFragment(
                     sectionIndex: sectionIndex,
-                    textId: entry.textId
+                    textId: entry.textId,
                 )
                 await sendHighlightCommand(
                     sectionIndex: sectionIndex,
                     textId: entry.textId,
-                    seekToLocation: true
+                    seekToLocation: true,
                 )
                 if wasPlaying { try? await SMILPlayerActor.shared.play() }
             }
@@ -632,12 +635,12 @@ class MediaOverlayManager {
                         let wasPlaying = isPlaying
                         _ = await SMILPlayerActor.shared.seekToFragment(
                             sectionIndex: prevSectionIndex,
-                            textId: entry.textId
+                            textId: entry.textId,
                         )
                         await sendHighlightCommand(
                             sectionIndex: prevSectionIndex,
                             textId: entry.textId,
-                            seekToLocation: true
+                            seekToLocation: true,
                         )
                         if wasPlaying { try? await SMILPlayerActor.shared.play() }
                     }
@@ -659,12 +662,12 @@ class MediaOverlayManager {
                         let wasPlaying = isPlaying
                         _ = await SMILPlayerActor.shared.seekToFragment(
                             sectionIndex: prevSectionIndex,
-                            textId: entry.textId
+                            textId: entry.textId,
                         )
                         await sendHighlightCommand(
                             sectionIndex: prevSectionIndex,
                             textId: entry.textId,
-                            seekToLocation: true
+                            seekToLocation: true,
                         )
                         if wasPlaying { try? await SMILPlayerActor.shared.play() }
                     }
@@ -818,7 +821,7 @@ class MediaOverlayManager {
         guard displaySleepActivity == nil else { return }
         displaySleepActivity = ProcessInfo.processInfo.beginActivity(
             options: [.idleDisplaySleepDisabled, .userInitiated],
-            reason: "Audio narration playback"
+            reason: "Audio narration playback",
         )
         debugLog("[MOM] Screen wake lock enabled (macOS display sleep disabled)")
         #endif
@@ -941,13 +944,13 @@ class MediaOverlayManager {
     private func sendHighlightCommand(
         sectionIndex: Int,
         textId: String,
-        seekToLocation: Bool = false
+        seekToLocation: Bool = false,
     ) async {
         do {
             try await commsBridge?.sendJsHighlightFragment(
                 sectionIndex: sectionIndex,
                 textId: textId,
-                seekToLocation: seekToLocation
+                seekToLocation: seekToLocation,
             )
             debugLog(
                 "[MOM] Highlight command sent: section=\(sectionIndex), textId=\(textId), seekToLocation=\(seekToLocation)"
@@ -980,7 +983,7 @@ class MediaOverlayManager {
                 let earlyOffset = message.visibleRatio >= 0.98 ? 0.0 : 1.0
                 let delay = max(
                     0,
-                    (entryDuration * message.visibleRatio / self.playbackRate) - earlyOffset
+                    (entryDuration * message.visibleRatio / self.playbackRate) - earlyOffset,
                 )
 
                 debugLog(
@@ -990,7 +993,7 @@ class MediaOverlayManager {
                 await MainActor.run {
                     self.pageFlipTimer = Timer.scheduledTimer(
                         withTimeInterval: delay,
-                        repeats: false
+                        repeats: false,
                     ) {
                         [weak self] _ in
                         Task { @MainActor [weak self] in

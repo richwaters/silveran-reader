@@ -28,7 +28,7 @@ struct SilveranReaderApp: App {
                     let _ = await StorytellerActor.shared.setLogin(
                         baseURL: credentials.url,
                         username: credentials.username,
-                        password: credentials.password
+                        password: credentials.password,
                     )
                 }
             } catch {
@@ -187,7 +187,7 @@ struct SilveranReaderApp: App {
         WindowGroup(
             "Server Media Management",
             id: "ServerMediaManagement",
-            for: ServerMediaManagementData.self
+            for: ServerMediaManagementData.self,
         ) { data in
             if let bookId = data.wrappedValue?.bookId {
                 ServerMediaManagementView(bookId: bookId)

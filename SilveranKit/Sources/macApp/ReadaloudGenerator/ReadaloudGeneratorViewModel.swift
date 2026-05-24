@@ -11,7 +11,7 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
 
     init(
         progressHandler: @escaping @Sendable (Double) -> Void,
-        completionHandler: @escaping @Sendable (URL?, Error?) -> Void
+        completionHandler: @escaping @Sendable (URL?, Error?) -> Void,
     ) {
         self.progressHandler = progressHandler
         self.completionHandler = completionHandler
@@ -23,7 +23,7 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
         totalBytesWritten: Int64,
-        totalBytesExpectedToWrite: Int64
+        totalBytesExpectedToWrite: Int64,
     ) {
         if totalBytesExpectedToWrite > 0 {
             let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
@@ -40,7 +40,7 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
+        didFinishDownloadingTo location: URL,
     ) {
         let tempDir = FileManager.default.temporaryDirectory
         let tempFile = tempDir.appendingPathComponent(UUID().uuidString)
@@ -55,7 +55,7 @@ private final class ModelDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
-        didCompleteWithError error: Error?
+        didCompleteWithError error: Error?,
     ) {
         if let error {
             completionHandler(nil, error)
@@ -136,7 +136,8 @@ public final class ReadaloudGeneratorViewModel {
     public private(set) var overallProgress: Double = 0.0
     public private(set) var logMessages: [(Date, LogLevel, String)] = []
 
-    public private(set) var availableChapters: [(name: String, id: String, role: EpubChapterRole?)] = []
+    public private(set) var availableChapters:
+        [(name: String, id: String, role: EpubChapterRole?)] = []
     public var startChapterIndex: Int? = nil
     public var endChapterIndex: Int? = nil
 
@@ -178,7 +179,9 @@ public final class ReadaloudGeneratorViewModel {
             let logger = ReadaloudLogger(minLevel: .error)
             let chapterEntries = try EpubParser.chapterEntries(from: epubURL, logger: logger)
                 .filter { $0.role != .unlisted }
-            let chapters = chapterEntries.map { (name: $0.navLabel, id: $0.manifestId, role: $0.role) }
+            let chapters = chapterEntries.map {
+                (name: $0.navLabel, id: $0.manifestId, role: $0.role)
+            }
 
             await MainActor.run {
                 self.availableChapters = chapters
@@ -238,7 +241,8 @@ public final class ReadaloudGeneratorViewModel {
         let expMode = await self.expansionMode
         let expScope = await self.expansionScope
         let expUnits = await self.expansionUnitCount
-        let granularityExpansion: GranularityExpansion? = expanding ? (expMode == .scope ? .scope(expScope) : .units(expUnits)) : nil
+        let granularityExpansion: GranularityExpansion? =
+            expanding ? (expMode == .scope ? .scope(expScope) : .units(expUnits)) : nil
         let chapters = await self.availableChapters
         let startIdx = await self.startChapterIndex
         let endIdx = await self.endChapterIndex
@@ -275,7 +279,10 @@ public final class ReadaloudGeneratorViewModel {
         }
 
         do {
-            let alignmentRequest = try AlignmentRequest(epubURL: epubURL, audioBookURLs: [audioURL])
+            let alignmentRequest = try AlignmentRequest(
+                epubURL: epubURL,
+                audioBookURLs: [audioURL],
+            )
             let alignmentConfig = AlignmentConfig(
                 audioLoaderType: .avfoundation,
                 concurrency: 0,
@@ -284,19 +291,19 @@ public final class ReadaloudGeneratorViewModel {
                 endChapter: endChapter,
                 granularity: granularity,
                 granularityExpansion: granularityExpansion,
-                extraContributors: ["SilveranReader 1.0"]
+                extraContributors: ["SilveranReader 1.0"],
             )
             let whisperConfig = WhisperConfig(
                 modelFile: modelPath,
                 beamSize: nil,
-                dtw: false
+                dtw: false,
             )
             let session = AlignmentSession(
                 request: alignmentRequest,
                 config: alignmentConfig,
                 logger: logger,
                 whisperConfig: whisperConfig,
-                transcriptionStore:nil,
+                transcriptionStore: nil,
             )
             defer { session.cleanup() }
             _ = session.addProgressListener(progressListener)
@@ -379,7 +386,7 @@ public final class ReadaloudGeneratorViewModel {
                 let localURL = try await downloadFile(
                     from: url,
                     baseProgress: baseProgress,
-                    fileWeight: fileWeight
+                    fileWeight: fileWeight,
                 )
                 debugLog("[ReadaloudGenerator] Download complete: \(url.lastPathComponent)")
 
@@ -434,11 +441,11 @@ public final class ReadaloudGeneratorViewModel {
                             throwing: NSError(
                                 domain: "ReadaloudGenerator",
                                 code: -1,
-                                userInfo: [NSLocalizedDescriptionKey: "Download failed"]
+                                userInfo: [NSLocalizedDescriptionKey: "Download failed"],
                             )
                         )
                     }
-                }
+                },
             )
 
             let config = URLSessionConfiguration.default
@@ -454,7 +461,7 @@ public final class ReadaloudGeneratorViewModel {
     private func modelsDirectory() -> URL {
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
-            in: .userDomainMask
+            in: .userDomainMask,
         ).first!
         return appSupport.appendingPathComponent("SilveranReader/WhisperModels")
     }

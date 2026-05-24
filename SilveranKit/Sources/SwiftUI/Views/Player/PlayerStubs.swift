@@ -22,7 +22,7 @@ public struct PlaybackProgressUpdateMessage: Codable {
         bookCurrentSecondsAudio: Double? = nil,
         bookTotalSecondsAudio: Double? = nil,
         bookCurrentFraction: Double? = nil,
-        generatedAt: TimeInterval? = nil
+        generatedAt: TimeInterval? = nil,
     ) {
         self.chapterIndex = chapterIndex
         self.chapterLabel = chapterLabel

@@ -50,7 +50,7 @@ public struct ReadaloudGeneratorView: View {
             footerView
             Link(
                 "Powered by StoryAlign",
-                destination: URL(string: "https://codeberg.org/richwaters/StoryAlign")!
+                destination: URL(string: "https://codeberg.org/richwaters/StoryAlign")!,
             )
             .font(.caption)
             .foregroundStyle(.blue)
@@ -79,7 +79,7 @@ public struct ReadaloudGeneratorView: View {
                 label: "EPUB:",
                 url: viewModel.epubURL,
                 placeholder: "Select EPUB file...",
-                allowedTypes: [.epub]
+                allowedTypes: [.epub],
             ) { url in
                 viewModel.epubURL = url
             }
@@ -88,7 +88,7 @@ public struct ReadaloudGeneratorView: View {
                 label: "Audiobook:",
                 url: viewModel.audioURL,
                 placeholder: "Select M4B audiobook...",
-                allowedTypes: [UTType(filenameExtension: "m4b")!]
+                allowedTypes: [UTType(filenameExtension: "m4b")!],
             ) { url in
                 viewModel.audioURL = url
             }
@@ -203,7 +203,9 @@ public struct ReadaloudGeneratorView: View {
                         HStack {
                             Text("Expand to:")
                             Picker("", selection: $viewModel.expansionScope) {
-                                if viewModel.selectedGranularity == .word || viewModel.selectedGranularity == .group {
+                                if viewModel.selectedGranularity == .word
+                                    || viewModel.selectedGranularity == .group
+                                {
                                     Text("Phrase").tag(Granularity.phrase)
                                 }
                                 Text("Sentence").tag(Granularity.sentence)
@@ -223,9 +225,11 @@ public struct ReadaloudGeneratorView: View {
                                 .textFieldStyle(.roundedBorder)
                         }
 
-                        Text("Keeps up to \(viewModel.expansionUnitCount) \(viewModel.selectedGranularity.rawValue)s highlighted at once.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Keeps up to \(viewModel.expansionUnitCount) \(viewModel.selectedGranularity.rawValue)s highlighted at once."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -290,7 +294,7 @@ public struct ReadaloudGeneratorView: View {
                 placeholder: "Select output location...",
                 allowedTypes: [.epub],
                 isSavePanel: true,
-                suggestedFilename: suggestedName
+                suggestedFilename: suggestedName,
             ) { url in
                 viewModel.outputURL = url
             }
@@ -353,7 +357,7 @@ public struct ReadaloudGeneratorView: View {
                 Button("Show in Finder") {
                     NSWorkspace.shared.selectFile(
                         url.path,
-                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path,
                     )
                 }
                 Button("Open") {
@@ -434,7 +438,7 @@ public struct ReadaloudGeneratorView: View {
         allowedTypes: [UTType],
         isSavePanel: Bool = false,
         suggestedFilename: String? = nil,
-        onSelect: @escaping (URL?) -> Void
+        onSelect: @escaping (URL?) -> Void,
     ) -> some View {
         HStack {
             Text(label)

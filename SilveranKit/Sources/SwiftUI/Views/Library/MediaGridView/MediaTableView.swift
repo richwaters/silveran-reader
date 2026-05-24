@@ -109,7 +109,7 @@ private final class ImmediateSelectTableView: NSTableView {
                 if let cellView = view(
                     atColumn: clickedCol,
                     row: clickedRow,
-                    makeIfNecessary: false
+                    makeIfNecessary: false,
                 ) {
                     if let linkCell = cellView as? LinkTextCellView,
                         let target = linkCell.linkTarget
@@ -180,7 +180,7 @@ struct MediaTableView: NSViewRepresentable {
         onSelect: @escaping (BookMetadata) -> Void,
         onInfo: @escaping (BookMetadata) -> Void,
         onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil,
-        onEditMetadata: (([String]) -> Void)? = nil
+        onEditMetadata: (([String]) -> Void)? = nil,
     ) {
         self.items = items
         self.coverPreference = coverPreference
@@ -323,7 +323,7 @@ struct MediaTableView: NSViewRepresentable {
                 if tableView.selectedRow != index {
                     tableView.selectRowIndexes(
                         IndexSet(integer: index),
-                        byExtendingSelection: false
+                        byExtendingSelection: false,
                     )
                 }
             }
@@ -333,7 +333,6 @@ struct MediaTableView: NSViewRepresentable {
 
         updateSortIndicators(tableView: tableView, context: context)
     }
-
 
     private var isCoverColumnHidden: Bool {
         let visibility = columnCustomization[visibility: "cover"]
@@ -370,9 +369,11 @@ struct MediaTableView: NSViewRepresentable {
     private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
 
     fileprivate func columnWidths(from tableView: NSTableView) -> [String: Double] {
-        Dictionary(uniqueKeysWithValues: tableView.tableColumns.map {
-            ($0.identifier.rawValue, Double($0.width))
-        })
+        Dictionary(
+            uniqueKeysWithValues: tableView.tableColumns.map {
+                ($0.identifier.rawValue, Double($0.width))
+            }
+        )
     }
 
     fileprivate func saveColumnWidths(_ widths: [String: Double], forKey key: String) {
@@ -412,9 +413,11 @@ struct MediaTableView: NSViewRepresentable {
         targetOrder.append(contentsOf: extras)
 
         for (targetIndex, id) in targetOrder.enumerated() {
-            guard let currentIndex = tableView.tableColumns.firstIndex(where: {
-                $0.identifier.rawValue == id
-            }) else { continue }
+            guard
+                let currentIndex = tableView.tableColumns.firstIndex(where: {
+                    $0.identifier.rawValue == id
+                })
+            else { continue }
             if currentIndex != targetIndex {
                 tableView.moveColumn(currentIndex, toColumn: targetIndex)
             }
@@ -434,8 +437,12 @@ struct MediaTableView: NSViewRepresentable {
             if !existingIDs.contains(id) {
                 let label = Self.labelForRole(role)
                 addColumn(
-                    to: tableView, id: id, title: label,
-                    minWidth: 80, width: 120, maxWidth: 10000
+                    to: tableView,
+                    id: id,
+                    title: label,
+                    minWidth: 80,
+                    width: 120,
+                    maxWidth: 10000,
                 )
             }
         }
@@ -465,7 +472,7 @@ struct MediaTableView: NSViewRepresentable {
                 for column in tableView.tableColumns where !column.isHidden {
                     let id = column.identifier.rawValue
                     if !coordinator.visibleColumnIDs.contains(id),
-                       let savedWidth = savedWidths[id]
+                        let savedWidth = savedWidths[id]
                     {
                         column.width = savedWidth
                     }
@@ -529,9 +536,12 @@ struct MediaTableView: NSViewRepresentable {
         for id in finalStaticOrder {
             guard let def = Self.staticColumnDefs[id] else { continue }
             addColumn(
-                to: tableView, id: id, title: def.title,
-                minWidth: def.minWidth, width: migratedWidths[id] ?? def.width,
-                maxWidth: def.maxWidth
+                to: tableView,
+                id: id,
+                title: def.title,
+                minWidth: def.minWidth,
+                width: migratedWidths[id] ?? def.width,
+                maxWidth: def.maxWidth,
             )
         }
 
@@ -539,16 +549,23 @@ struct MediaTableView: NSViewRepresentable {
             guard let roleCode = Self.creatorRoleCode(from: id) else { continue }
             let label = Self.labelForRole(roleCode)
             addColumn(
-                to: tableView, id: id, title: label,
-                minWidth: 80, width: migratedWidths[id] ?? 120,
-                maxWidth: 10000
+                to: tableView,
+                id: id,
+                title: label,
+                minWidth: 80,
+                width: migratedWidths[id] ?? 120,
+                maxWidth: 10000,
             )
         }
     }
 
     private func addColumn(
-        to tableView: NSTableView, id: String, title: String,
-        minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat
+        to tableView: NSTableView,
+        id: String,
+        title: String,
+        minWidth: CGFloat,
+        width: CGFloat,
+        maxWidth: CGFloat,
     ) {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
         column.title = title
@@ -672,7 +689,7 @@ struct MediaTableView: NSViewRepresentable {
         func tableViewColumnDidResize(_ notification: Notification) {
             guard let tv = notification.object as? NSTableView else { return }
             if let immediateTable = tv as? ImmediateSelectTableView,
-               immediateTable.suppressColumnWidthPersistence
+                immediateTable.suppressColumnWidthPersistence
             {
                 return
             }
@@ -733,8 +750,10 @@ struct MediaTableView: NSViewRepresentable {
                     return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
                 case "subtitle":
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: item.subtitle ?? "", secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: item.subtitle ?? "",
+                        secondary: true,
                     )
                 case "author":
                     let name = item.authors?.first?.name ?? ""
@@ -743,7 +762,7 @@ struct MediaTableView: NSViewRepresentable {
                         tableView: tableView,
                         cellID: cellID,
                         text: name,
-                        linkTarget: target
+                        linkTarget: target,
                     )
                 case "series":
                     return makeSeriesCell(tableView: tableView, cellID: cellID, item: item)
@@ -756,18 +775,22 @@ struct MediaTableView: NSViewRepresentable {
                         tableView: tableView,
                         cellID: cellID,
                         text: name,
-                        linkTarget: target
+                        linkTarget: target,
                     )
                 case "language":
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: item.language ?? "", secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: item.language ?? "",
+                        secondary: true,
                     )
                 case "collections":
                     let names = item.collections?.map(\.name).joined(separator: ", ") ?? ""
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: names, secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: names,
+                        secondary: true,
                     )
                 case "publicationYear":
                     let year = item.sortablePublicationYear
@@ -776,7 +799,7 @@ struct MediaTableView: NSViewRepresentable {
                         tableView: tableView,
                         cellID: cellID,
                         dateString: item.publicationDate,
-                        linkTarget: target
+                        linkTarget: target,
                     )
                 case "status":
                     let statusName = item.status?.name ?? ""
@@ -785,19 +808,19 @@ struct MediaTableView: NSViewRepresentable {
                         tableView: tableView,
                         cellID: cellID,
                         text: statusName,
-                        linkTarget: target
+                        linkTarget: target,
                     )
                 case "added":
                     return makeDateCell(
                         tableView: tableView,
                         cellID: cellID,
-                        dateString: item.createdAt
+                        dateString: item.createdAt,
                     )
                 case "lastRead":
                     return makeDateCell(
                         tableView: tableView,
                         cellID: cellID,
-                        dateString: item.position?.updatedAt
+                        dateString: item.position?.updatedAt,
                     )
                 case "tags":
                     return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
@@ -805,35 +828,45 @@ struct MediaTableView: NSViewRepresentable {
                     return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
                 case "allCreators":
                     return makeAllCreatorsCell(
-                        tableView: tableView, cellID: cellID, item: item
+                        tableView: tableView,
+                        cellID: cellID,
+                        item: item,
                     )
                 case "alignedAt":
                     return makeDateCell(
                         tableView: tableView,
                         cellID: cellID,
-                        dateString: item.alignedAt
+                        dateString: item.alignedAt,
                     )
                 case "alignedByVersion":
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: item.alignedByStorytellerVersion ?? "", secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: item.alignedByStorytellerVersion ?? "",
+                        secondary: true,
                     )
                 case "alignedWith":
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: item.alignedWith ?? "", secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: item.alignedWith ?? "",
+                        secondary: true,
                     )
                 case "source":
                     return makeTextCell(
-                        tableView: tableView, cellID: cellID,
-                        text: item.source ?? "", secondary: true
+                        tableView: tableView,
+                        cellID: cellID,
+                        text: item.source ?? "",
+                        secondary: true,
                     )
                 default:
                     if let roleCode = MediaTableView.creatorRoleCode(from: columnID) {
                         let name = item.sortableCreator(role: roleCode)
                         return makeTextCell(
-                            tableView: tableView, cellID: cellID,
-                            text: name, secondary: true
+                            tableView: tableView,
+                            cellID: cellID,
+                            text: name,
+                            secondary: true,
                         )
                     }
                     return nil
@@ -842,7 +875,7 @@ struct MediaTableView: NSViewRepresentable {
 
         func tableView(
             _ tableView: NSTableView,
-            sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]
+            sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor],
         ) {
             guard let descriptor = tableView.sortDescriptors.first,
                 let key = descriptor.key
@@ -896,7 +929,9 @@ struct MediaTableView: NSViewRepresentable {
                         KeyPathComparator(\BookMetadata.sortableLastRead, order: order)
                     ]
                 case "tags":
-                    parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableTags, order: order)
+                    ]
                 case "allCreators":
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableAllCreators, order: order)
@@ -974,7 +1009,7 @@ struct MediaTableView: NSViewRepresentable {
             let showInfo = NSMenuItem(
                 title: "Show Book Information",
                 action: #selector(showBookInfo(_:)),
-                keyEquivalent: ""
+                keyEquivalent: "",
             )
             showInfo.target = self
             showInfo.representedObject = item
@@ -988,7 +1023,7 @@ struct MediaTableView: NSViewRepresentable {
                 let cancel = NSMenuItem(
                     title: "Cancel Processing",
                     action: #selector(cancelProcessing(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 cancel.target = self
                 cancel.representedObject = item.uuid
@@ -999,7 +1034,7 @@ struct MediaTableView: NSViewRepresentable {
                 let retry = NSMenuItem(
                     title: "Retry Processing",
                     action: #selector(reprocessFull(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 retry.target = self
                 retry.representedObject = item.uuid
@@ -1008,7 +1043,7 @@ struct MediaTableView: NSViewRepresentable {
                 let realign = NSMenuItem(
                     title: "Re-align Only",
                     action: #selector(reprocessSync(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 realign.target = self
                 realign.representedObject = item.uuid
@@ -1017,7 +1052,7 @@ struct MediaTableView: NSViewRepresentable {
                 let create = NSMenuItem(
                     title: "Create Readaloud",
                     action: #selector(createReadaloud(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 create.target = self
                 create.representedObject = item.uuid
@@ -1031,7 +1066,7 @@ struct MediaTableView: NSViewRepresentable {
                 let upgrade = NSMenuItem(
                     title: "Convert to EPUB 3",
                     action: #selector(upgradeEpub(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 upgrade.target = self
                 upgrade.representedObject = item.uuid
@@ -1050,7 +1085,7 @@ struct MediaTableView: NSViewRepresentable {
                 let del = NSMenuItem(
                     title: "Delete Local Ebook",
                     action: #selector(deleteLocalEbook(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 del.target = self
                 del.representedObject = item
@@ -1060,7 +1095,7 @@ struct MediaTableView: NSViewRepresentable {
                 let del = NSMenuItem(
                     title: "Delete Local Audiobook",
                     action: #selector(deleteLocalAudiobook(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 del.target = self
                 del.representedObject = item
@@ -1070,7 +1105,7 @@ struct MediaTableView: NSViewRepresentable {
                 let del = NSMenuItem(
                     title: "Delete Local Readaloud",
                     action: #selector(deleteLocalReadaloud(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: "",
                 )
                 del.target = self
                 del.representedObject = item
@@ -1083,7 +1118,7 @@ struct MediaTableView: NSViewRepresentable {
             let editMeta = NSMenuItem(
                 title: "Edit Metadata...",
                 action: #selector(editMetadata(_:)),
-                keyEquivalent: ""
+                keyEquivalent: "",
             )
             editMeta.target = self
             menu.addItem(editMeta)
@@ -1116,7 +1151,7 @@ struct MediaTableView: NSViewRepresentable {
             let sync = NSMenuItem(
                 title: "Re-align (Fast)",
                 action: #selector(reprocessSync(_:)),
-                keyEquivalent: ""
+                keyEquivalent: "",
             )
             sync.target = self
             sync.representedObject = bookId
@@ -1125,7 +1160,7 @@ struct MediaTableView: NSViewRepresentable {
             let transcribe = NSMenuItem(
                 title: "Re-transcribe & Align",
                 action: #selector(reprocessTranscription(_:)),
-                keyEquivalent: ""
+                keyEquivalent: "",
             )
             transcribe.target = self
             transcribe.representedObject = bookId
@@ -1134,7 +1169,7 @@ struct MediaTableView: NSViewRepresentable {
             let full = NSMenuItem(
                 title: "Full Reprocess",
                 action: #selector(reprocessFull(_:)),
-                keyEquivalent: ""
+                keyEquivalent: "",
             )
             full.target = self
             full.representedObject = bookId
@@ -1160,7 +1195,10 @@ struct MediaTableView: NSViewRepresentable {
         @objc private func reprocessTranscription(_ sender: NSMenuItem) {
             guard let bookId = sender.representedObject as? String else { return }
             Task {
-                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .transcription)
+                _ = await StorytellerActor.shared.startAlignment(
+                    for: bookId,
+                    restart: .transcription,
+                )
                 await StorytellerActor.shared.fetchLibraryInformation()
             }
         }
@@ -1207,7 +1245,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeCoverCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let coverVariant = resolveCoverVariant(for: item)
 
@@ -1217,7 +1255,7 @@ struct MediaTableView: NSViewRepresentable {
             let content = CoverCellContent(
                 item: item,
                 coverVariant: coverVariant,
-                mediaViewModel: mediaViewModel
+                mediaViewModel: mediaViewModel,
             )
             cell.setContent(content)
             cell.toolTip = item.readaloud?.processingTooltip
@@ -1227,7 +1265,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeTitleCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let stackedCellID = NSUserInterfaceItemIdentifier("titleStackedCell")
             let cell =
@@ -1241,12 +1279,13 @@ struct MediaTableView: NSViewRepresentable {
             let subtitle = item.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines)
             let secondaryText = subtitle?.isEmpty == false ? subtitle : item.authors?.first?.name
             let secondaryLinkTarget =
-                subtitle?.isEmpty == false ? nil : item.authors?.first?.name.map(MetadataLinkTarget.author)
+                subtitle?.isEmpty == false
+                ? nil : item.authors?.first?.name.map(MetadataLinkTarget.author)
             cell.configure(
                 title: item.title,
                 secondaryText: secondaryText,
                 secondaryLinkTarget: secondaryLinkTarget,
-                showSecondary: showAuthor
+                showSecondary: showAuthor,
             )
             return cell
         }
@@ -1255,7 +1294,7 @@ struct MediaTableView: NSViewRepresentable {
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
             text: String,
-            secondary: Bool
+            secondary: Bool,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? TextCellView
@@ -1268,7 +1307,7 @@ struct MediaTableView: NSViewRepresentable {
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
             text: String,
-            linkTarget: MetadataLinkTarget?
+            linkTarget: MetadataLinkTarget?,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? LinkTextCellView
@@ -1280,7 +1319,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeSeriesCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? SeriesCellView
@@ -1292,7 +1331,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeProgressCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? ProgressCellView
@@ -1305,7 +1344,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeTagsCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
@@ -1316,7 +1355,7 @@ struct MediaTableView: NSViewRepresentable {
                     $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
                 },
                 onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil,
-                compact: isCoverHidden
+                compact: isCoverHidden,
             )
             cell.setContent(content)
             return cell
@@ -1325,7 +1364,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeAllCreatorsCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
@@ -1346,7 +1385,7 @@ struct MediaTableView: NSViewRepresentable {
             }
             let content = TagFlowCellContent(
                 tags: creators,
-                compact: isCoverHidden
+                compact: isCoverHidden,
             )
             cell.setContent(content)
             return cell
@@ -1355,7 +1394,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeMediaCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            item: BookMetadata
+            item: BookMetadata,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
@@ -1368,7 +1407,7 @@ struct MediaTableView: NSViewRepresentable {
         private func makeDateCell(
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
-            dateString: String?
+            dateString: String?,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? DateCellView
@@ -1382,7 +1421,7 @@ struct MediaTableView: NSViewRepresentable {
             tableView: NSTableView,
             cellID: NSUserInterfaceItemIdentifier,
             dateString: String?,
-            linkTarget: MetadataLinkTarget?
+            linkTarget: MetadataLinkTarget?,
         ) -> NSView {
             let cell =
                 tableView.makeView(withIdentifier: cellID, owner: self) as? LinkDateCellView
@@ -1504,7 +1543,7 @@ private final class LinkTextCellView: NSTableCellView {
             rect: bounds,
             options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
             owner: self,
-            userInfo: nil
+            userInfo: nil,
         )
         addTrackingArea(area)
         trackingArea = area
@@ -1571,7 +1610,7 @@ private final class TitleAuthorCellView: NSTableCellView {
         title: String,
         secondaryText: String?,
         secondaryLinkTarget: MetadataLinkTarget?,
-        showSecondary: Bool = true
+        showSecondary: Bool = true,
     ) {
         titleLabel.stringValue = title
         secondaryLabel.stringValue = secondaryText ?? ""
@@ -1609,7 +1648,7 @@ private final class TitleAuthorCellView: NSTableCellView {
             rect: bounds,
             options: [.mouseMoved, .activeInActiveApp, .inVisibleRect],
             owner: self,
-            userInfo: nil
+            userInfo: nil,
         )
         addTrackingArea(area)
         trackingArea = area
@@ -1713,7 +1752,7 @@ private final class SeriesCellView: NSTableCellView {
             rect: bounds,
             options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
             owner: self,
-            userInfo: nil
+            userInfo: nil,
         )
         addTrackingArea(area)
         trackingArea = area
@@ -1913,7 +1952,7 @@ private final class LinkDateCellView: NSTableCellView {
             rect: bounds,
             options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
             owner: self,
-            userInfo: nil
+            userInfo: nil,
         )
         addTrackingArea(area)
         trackingArea = area
@@ -1969,7 +2008,7 @@ private final class ProgressCellView: NSTableCellView {
 
         percentLabelTrailingConstraint = percentLabel.trailingAnchor.constraint(
             equalTo: trailingAnchor,
-            constant: -4
+            constant: -4,
         )
         percentLabelCenterConstraint = percentLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
 
@@ -2015,7 +2054,7 @@ private final class ProgressCellView: NSTableCellView {
                 x: 4,
                 y: y,
                 width: barWidth * currentProgress,
-                height: barHeight
+                height: barHeight,
             )
         }
 
@@ -2237,7 +2276,7 @@ private struct TagFlowLayout: Layout {
         in bounds: CGRect,
         proposal: ProposedViewSize,
         subviews: Subviews,
-        cache: inout ()
+        cache: inout (),
     ) {
         let result = computeLayout(in: bounds.width, subviews: subviews)
         state.visibleCount = result.visibleCount
@@ -2247,12 +2286,12 @@ private struct TagFlowLayout: Layout {
                 let cappedWidth = min(ideal.width, bounds.width)
                 subview.place(
                     at: CGPoint(x: bounds.minX + pos.x, y: bounds.minY + pos.y),
-                    proposal: ProposedViewSize(width: cappedWidth, height: ideal.height)
+                    proposal: ProposedViewSize(width: cappedWidth, height: ideal.height),
                 )
             } else {
                 subview.place(
                     at: CGPoint(x: bounds.minX - 10000, y: 0),
-                    proposal: .init(width: 0, height: 0)
+                    proposal: .init(width: 0, height: 0),
                 )
             }
         }
@@ -2308,7 +2347,7 @@ private struct TagFlowLayout: Layout {
                     y: y,
                     width: size.width,
                     height: size.height,
-                    row: currentRow
+                    row: currentRow,
                 )
             )
             rowHeight = max(rowHeight, size.height)
@@ -2329,7 +2368,7 @@ private struct TagFlowLayout: Layout {
             return LayoutResult(
                 size: CGSize(width: maxW, height: h),
                 placements: placements,
-                visibleCount: items.count
+                visibleCount: items.count,
             )
         }
 
@@ -2368,7 +2407,7 @@ private struct TagFlowLayout: Layout {
         return LayoutResult(
             size: CGSize(width: maxW, height: h),
             placements: placements,
-            visibleCount: visible.count
+            visibleCount: visible.count,
         )
     }
 }
@@ -2573,7 +2612,7 @@ private struct MediaIndicatorCellContent: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
     }

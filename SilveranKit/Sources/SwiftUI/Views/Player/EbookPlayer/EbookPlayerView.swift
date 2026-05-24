@@ -108,7 +108,7 @@ public struct EbookPlayerView: View {
             TitleBarConfigurator(
                 isTitleBarVisible: viewModel.isTitleBarHovered || viewModel.showCustomizePopover
                     || viewModel.showKeybindingsPopover || viewModel.showSearchPanel,
-                windowTitle: viewModel.bookData?.metadata.title ?? "Ebook Reader"
+                windowTitle: viewModel.bookData?.metadata.title ?? "Ebook Reader",
             )
         )
         .navigationTitle(viewModel.bookData?.metadata.title ?? "Ebook Reader")
@@ -158,7 +158,7 @@ public struct EbookPlayerView: View {
                         let hex = viewModel.settingsVM.hexColor(for: color)
                         return Color(hex: hex) ?? color.color
                     },
-                    initialTab: viewModel.bookmarksPanelInitialTab
+                    initialTab: viewModel.bookmarksPanelInitialTab,
                 )
                 .navigationTitle("Bookmarks & Highlights")
                 .navigationBarTitleDisplayMode(.inline)
@@ -175,7 +175,7 @@ public struct EbookPlayerView: View {
         .sheet(
             item: Binding(
                 get: { viewModel.pendingSelection.map { PendingSelectionWrapper(selection: $0) } },
-                set: { _ in viewModel.cancelPendingSelection() }
+                set: { _ in viewModel.cancelPendingSelection() },
             )
         ) { wrapper in
             HighlightCreationSheet(
@@ -186,16 +186,16 @@ public struct EbookPlayerView: View {
                         await viewModel.addHighlight(
                             from: wrapper.selection,
                             color: color,
-                            note: note
+                            note: note,
                         )
                     }
                 },
-                onCancel: { viewModel.cancelPendingSelection() }
+                onCancel: { viewModel.cancelPendingSelection() },
             )
         }
         .alert(
             "Server Has Newer Position",
-            isPresented: $viewModel.showServerPositionDialog
+            isPresented: $viewModel.showServerPositionDialog,
         ) {
             Button("Go to New Position") {
                 viewModel.acceptServerPosition()
@@ -284,7 +284,7 @@ public struct EbookPlayerView: View {
                 expandLeft: viewModel.showChapterSidebar,
                 rightAmount: 361,
                 leftAmount: leftSidebarTotalWidth,
-                savedWidthKey: "EbookPlayerWindowWidth"
+                savedWidthKey: "EbookPlayerWindowWidth",
             )
         )
     }
@@ -296,7 +296,7 @@ public struct EbookPlayerView: View {
             backgroundColor: readerBackgroundColor,
             onChapterSelected: { chapter in
                 viewModel.handleChapterSelection(chapter)
-            }
+            },
         )
     }
     #endif
@@ -352,12 +352,12 @@ public struct EbookPlayerView: View {
                             onBridgeReady: { bridge in
                                 viewModel.installBridgeHandlers(
                                     bridge,
-                                    initialColorScheme: colorScheme
+                                    initialColorScheme: colorScheme,
                                 )
                             },
                             onContentPurged: {
                                 viewModel.recoveryManager?.handleContentPurged()
-                            }
+                            },
                         )
                     )
                     .ignoresSafeArea(.all)
@@ -369,9 +369,9 @@ public struct EbookPlayerView: View {
                             onBridgeReady: { bridge in
                                 viewModel.installBridgeHandlers(
                                     bridge,
-                                    initialColorScheme: colorScheme
+                                    initialColorScheme: colorScheme,
                                 )
-                            }
+                            },
                         )
                     )
                     #endif
@@ -411,7 +411,7 @@ public struct EbookPlayerView: View {
                     },
                     onSkipForward: {
                         viewModel.handleNextSentence()
-                    }
+                    },
                 )
                 .transition(.opacity)
             }
@@ -439,7 +439,7 @@ public struct EbookPlayerView: View {
                     onSearchResultSelected: viewModel.handleSearchResultNavigation,
                     onSleepTimerStart: viewModel.handleSleepTimerStart,
                     onSleepTimerCancel: viewModel.handleSleepTimerCancel,
-                    settingsVM: viewModel.settingsVM
+                    settingsVM: viewModel.settingsVM,
                 )
                 .transition(.opacity)
             }
@@ -463,7 +463,7 @@ public struct EbookPlayerView: View {
                     chapterTotalSecondsAudio: mom?.chapterTotalSeconds,
                     bookCurrentSecondsAudio: mom?.bookElapsedSeconds,
                     bookTotalSecondsAudio: mom?.bookTotalSeconds,
-                    bookCurrentFraction: pm?.bookFraction
+                    bookCurrentFraction: pm?.bookFraction,
                 )
                 let bgHex =
                     viewModel.settingsVM.backgroundColor
@@ -485,7 +485,7 @@ public struct EbookPlayerView: View {
                     },
                     onSkipForward: viewModel.handleNextSentence,
                     onNextChapter: viewModel.handleNextChapter,
-                    onProgressSeek: viewModel.handleProgressSeek
+                    onProgressSeek: viewModel.handleProgressSeek,
                 )
                 .ignoresSafeArea(edges: .bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -505,7 +505,7 @@ public struct EbookPlayerView: View {
             top: window.safeAreaInsets.top,
             leading: window.safeAreaInsets.left,
             bottom: window.safeAreaInsets.bottom,
-            trailing: window.safeAreaInsets.right
+            trailing: window.safeAreaInsets.right,
         )
     }
 
@@ -523,7 +523,7 @@ public struct EbookPlayerView: View {
                 if !alwaysShow {
                     self.viewModel.isReadingBarVisible = newValue
                 }
-            }
+            },
         )
 
         DraggableAudioCard(
@@ -572,7 +572,7 @@ public struct EbookPlayerView: View {
             },
             fullContent: {
                 audiobookSidebar
-            }
+            },
         )
     }
 
@@ -654,7 +654,7 @@ public struct EbookPlayerView: View {
             chapterTotalSecondsAudio: mom?.chapterTotalSeconds,
             bookCurrentSecondsAudio: mom?.bookElapsedSeconds,
             bookTotalSecondsAudio: mom?.bookTotalSeconds,
-            bookCurrentFraction: pm?.bookFraction
+            bookCurrentFraction: pm?.bookFraction,
         )
 
         return ReadingSidebarView(
@@ -672,7 +672,7 @@ public struct EbookPlayerView: View {
                 isPlaying: mom?.isPlaying ?? false,
                 sleepTimerActive: mom?.sleepTimerActive ?? false,
                 sleepTimerRemaining: mom?.sleepTimerRemaining,
-                sleepTimerType: mom?.sleepTimerType
+                sleepTimerType: mom?.sleepTimerType,
             ),
             mode: readingMode,
             chapterProgress: viewModel.chapterProgressBinding,
@@ -710,7 +710,7 @@ public struct EbookPlayerView: View {
             },
             onProgressSeek: { fraction in
                 viewModel.handleProgressSeek(fraction)
-            }
+            },
         )
     }
 }
@@ -756,7 +756,7 @@ private struct TitleBarConfigurator: NSViewRepresentable {
                 x: 0,
                 y: themeFrame.bounds.height - titlebarHeight,
                 width: themeFrame.bounds.width,
-                height: titlebarHeight
+                height: titlebarHeight,
             )
 
             if titlebarRect.contains(location) {
@@ -788,7 +788,7 @@ private struct TitleBarConfigurator: NSViewRepresentable {
 
         let gesture = TitleBarDoubleClickGestureRecognizer(
             target: coordinator,
-            action: #selector(Coordinator.handleDoubleClick(_:))
+            action: #selector(Coordinator.handleDoubleClick(_:)),
         )
         gesture.numberOfClicksRequired = 2
         gesture.delaysPrimaryMouseButtonEvents = false

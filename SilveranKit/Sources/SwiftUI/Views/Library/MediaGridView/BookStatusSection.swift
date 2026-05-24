@@ -80,7 +80,7 @@ struct BookStatusSection: View {
 
         let success = await StorytellerActor.shared.updateStatus(
             forBooks: [item.uuid],
-            toStatusNamed: statusName
+            toStatusNamed: statusName,
         )
 
         if success {
@@ -89,7 +89,7 @@ struct BookStatusSection: View {
             }) {
                 await LocalMediaActor.shared.updateBookStatus(
                     bookId: item.uuid,
-                    status: newStatus
+                    status: newStatus,
                 )
             }
         } else {

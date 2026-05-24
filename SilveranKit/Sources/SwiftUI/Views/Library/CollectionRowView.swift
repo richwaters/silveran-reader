@@ -25,7 +25,7 @@ struct CollectionRowView: View {
                                 .init(color: .clear, location: 1.0),
                             ],
                             startPoint: .leading,
-                            endPoint: .trailing
+                            endPoint: .trailing,
                         )
                     )
 

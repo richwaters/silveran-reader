@@ -108,7 +108,7 @@ struct WatchTransferView: View {
                         Task {
                             await AppleWatchActor.shared.cancelTransfer(transferId: item.id)
                         }
-                    }
+                    },
                 )
             }
         }
@@ -123,10 +123,10 @@ struct WatchTransferView: View {
                         Task {
                             await AppleWatchActor.shared.deleteBookFromWatch(
                                 bookUUID: book.id,
-                                category: book.category
+                                category: book.category,
                             )
                         }
-                    }
+                    },
                 )
             }
         }
@@ -202,7 +202,7 @@ struct WatchTransferView: View {
                 try await AppleWatchActor.shared.queueTransfer(
                     book: book,
                     category: category,
-                    sourceURL: url
+                    sourceURL: url,
                 )
             } catch {
                 debugLog("[WatchTransferView] Failed to queue transfer: \(error)")
@@ -415,7 +415,7 @@ struct WatchBookSearchSheet: View {
                             searchText.isEmpty
                                 ? "Download ebooks first to send them to your watch."
                                 : "No books match your search."
-                        )
+                        ),
                     )
                 } else {
                     ForEach(filteredBooks) { book in
@@ -426,7 +426,7 @@ struct WatchBookSearchSheet: View {
                             hasAudio: mediaViewModel.isCategoryDownloaded(.audio, for: book),
                             ebookOnWatch: isOnWatch(book.uuid, category: .ebook),
                             syncedOnWatch: isOnWatch(book.uuid, category: .synced),
-                            audioOnWatch: isOnWatch(book.uuid, category: .audio)
+                            audioOnWatch: isOnWatch(book.uuid, category: .audio),
                         ) { category in
                             if category == .synced {
                                 onSelect(book, category)
@@ -504,7 +504,7 @@ struct BookSearchRow: View {
                     } label: {
                         Label(
                             ebookOnWatch ? "On Watch" : "Ebook",
-                            systemImage: ebookOnWatch ? "checkmark" : "book"
+                            systemImage: ebookOnWatch ? "checkmark" : "book",
                         )
                         .font(.caption)
                     }
@@ -543,7 +543,7 @@ struct BookSearchRow: View {
                     } label: {
                         Label(
                             audioOnWatch ? "On Watch" : "Audiobook",
-                            systemImage: audioOnWatch ? "checkmark" : "headphones"
+                            systemImage: audioOnWatch ? "checkmark" : "headphones",
                         )
                         .font(.caption)
                     }

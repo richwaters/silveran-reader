@@ -33,7 +33,7 @@ public final class LocalLibraryManager: Sendable {
             let bookFolders = try? fm.contentsOfDirectory(
                 at: localDir,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
+                options: [.skipsHiddenFiles],
             )
         else {
             return ScanResult(metadata: [], paths: [:])
@@ -53,13 +53,13 @@ public final class LocalLibraryManager: Sendable {
             for category in LocalMediaCategory.allCases {
                 let categoryDir = bookFolder.appendingPathComponent(
                     category.rawValue,
-                    isDirectory: true
+                    isDirectory: true,
                 )
                 guard
                     let files = try? fm.contentsOfDirectory(
                         at: categoryDir,
                         includingPropertiesForKeys: [.isRegularFileKey],
-                        options: [.skipsHiddenFiles]
+                        options: [.skipsHiddenFiles],
                     )
                 else {
                     continue
@@ -153,7 +153,7 @@ public final class LocalLibraryManager: Sendable {
                     fileAs: nil,
                     role: "author",
                     createdAt: nil,
-                    updatedAt: nil
+                    updatedAt: nil,
                 )
             }
 
@@ -172,7 +172,7 @@ public final class LocalLibraryManager: Sendable {
                 queuePosition: nil,
                 restartPending: nil,
                 createdAt: nil,
-                updatedAt: nil
+                updatedAt: nil,
             )
         } else {
             ebookAsset = BookAsset(
@@ -180,7 +180,7 @@ public final class LocalLibraryManager: Sendable {
                 filepath: epubURL.lastPathComponent,
                 missing: 0,
                 createdAt: nil,
-                updatedAt: nil
+                updatedAt: nil,
             )
             readaloudAsset = nil
         }
@@ -205,7 +205,7 @@ public final class LocalLibraryManager: Sendable {
             readaloud: readaloudAsset,
             status: nil,
             position: nil,
-            rating: nil
+            rating: nil,
         )
     }
 
@@ -245,7 +245,7 @@ public final class LocalLibraryManager: Sendable {
                     fileAs: nil,
                     role: "author",
                     createdAt: nil,
-                    updatedAt: nil
+                    updatedAt: nil,
                 )
             ]
         }
@@ -255,7 +255,7 @@ public final class LocalLibraryManager: Sendable {
             filepath: audioURL.lastPathComponent,
             missing: 0,
             createdAt: nil,
-            updatedAt: nil
+            updatedAt: nil,
         )
 
         return BookMetadata(
@@ -278,7 +278,7 @@ public final class LocalLibraryManager: Sendable {
             readaloud: nil,
             status: nil,
             position: nil,
-            rating: nil
+            rating: nil,
         )
     }
 
@@ -293,12 +293,12 @@ public final class LocalLibraryManager: Sendable {
         guard
             let rootfileMatch = containerString.range(
                 of: "full-path=\"[^\"]+\"",
-                options: .regularExpression
+                options: .regularExpression,
             ),
             let pathStart = containerString.range(of: "\"", range: rootfileMatch),
             let pathEnd = containerString.range(
                 of: "\"",
-                range: pathStart.upperBound..<rootfileMatch.upperBound
+                range: pathStart.upperBound..<rootfileMatch.upperBound,
             )
         else {
             throw LocalLibraryError.opfPathNotFound

@@ -1,4 +1,5 @@
 import SwiftUI
+
 #if canImport(AppKit)
 import AppKit
 #endif
@@ -11,8 +12,8 @@ private enum MetadataCoverSource: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .hardcover: return "Hardcover"
-        case .itunes: return "iTunes"
+            case .hardcover: return "Hardcover"
+            case .itunes: return "iTunes"
         }
     }
 }
@@ -58,10 +59,14 @@ struct MetadataCoverImportView: View {
     @State private var hardcoverCandidates: [MetadataCoverScope: [MetadataCoverCandidate]] = [:]
     @State private var errorMessage: String?
     @State private var previewingCover: PreviewCover?
-    @AppStorage("hardcoverImport.filterLanguage.audiobook") private var audiobookHardcoverFilterLanguage: String?
-    @AppStorage("hardcoverImport.filterFormat.audiobook") private var audiobookHardcoverFilterFormat: String?
-    @AppStorage("hardcoverImport.filterLanguage.ebook") private var ebookHardcoverFilterLanguage: String?
-    @AppStorage("hardcoverImport.filterFormat.ebook") private var ebookHardcoverFilterFormat: String?
+    @AppStorage("hardcoverImport.filterLanguage.audiobook") private
+        var audiobookHardcoverFilterLanguage: String?
+    @AppStorage("hardcoverImport.filterFormat.audiobook") private
+        var audiobookHardcoverFilterFormat: String?
+    @AppStorage("hardcoverImport.filterLanguage.ebook") private var ebookHardcoverFilterLanguage:
+        String?
+    @AppStorage("hardcoverImport.filterFormat.ebook") private var ebookHardcoverFilterFormat:
+        String?
     @State private var hardcoverMinResolutions: [MetadataCoverScope: Int] = [:]
     @State private var hardcoverSort: MetadataCoverSort = .relevance
     @State private var itunesSort: MetadataCoverSort = .relevance
@@ -102,9 +107,9 @@ struct MetadataCoverImportView: View {
 
         var id: String {
             switch self {
-            case .image(_, let label): return "image-\(label)"
-            case .data(_, let label): return "data-\(label)"
-            case .url(let url, _): return url.absoluteString
+                case .image(_, let label): return "image-\(label)"
+                case .data(_, let label): return "data-\(label)"
+                case .url(let url, _): return url.absoluteString
             }
         }
     }
@@ -114,9 +119,11 @@ struct MetadataCoverImportView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Import Covers")
                     .font(.title3.weight(.semibold))
-                Text("Choose a candidate cover for each edition. Imported covers are staged locally until you save to Storyteller.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Choose a candidate cover for each edition. Imported covers are staged locally until you save to Storyteller."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
             }
             Spacer()
             Button("Refresh") {
@@ -164,7 +171,9 @@ struct MetadataCoverImportView: View {
                         await searchHardcoverCovers()
                     }
                 }
-                .disabled(hardcoverVM.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(
+                    hardcoverVM.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
                 if hardcoverVM.hasToken {
                     Button("Cancel") {
                         hardcoverVM.isEditingToken = false
@@ -194,11 +203,16 @@ struct MetadataCoverImportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hardcover API Token")
                     .font(.headline)
-                Text("Create or copy a token from your Hardcover account API settings, then paste it here.")
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Link("Open Hardcover API settings", destination: URL(string: "https://hardcover.app/account/api")!)
-                    .font(.callout)
+                Text(
+                    "Create or copy a token from your Hardcover account API settings, then paste it here."
+                )
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+                Link(
+                    "Open Hardcover API settings",
+                    destination: URL(string: "https://hardcover.app/account/api")!,
+                )
+                .font(.callout)
             }
             .padding()
             .frame(width: 320)
@@ -253,7 +267,7 @@ struct MetadataCoverImportView: View {
             coverImageView(
                 data: replacementCover(scope: scope)?.data,
                 serverImage: currentServerCover(scope: scope),
-                aspectRatio: scope.aspectRatio
+                aspectRatio: scope.aspectRatio,
             )
             .frame(width: currentCoverWidth(scope), height: currentCoverHeight(scope))
             .metadataEditorBoundary(cornerRadius: 8)
@@ -261,9 +275,12 @@ struct MetadataCoverImportView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Current Cover")
                     .font(.subheadline.weight(.semibold))
-                Text(replacementCover(scope: scope) == nil ? "Storyteller cover" : "Replacement staged")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text(
+                    replacementCover(scope: scope) == nil
+                        ? "Storyteller cover" : "Replacement staged"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
                 if let resolution = currentResolution(scope: scope) {
                     Text(resolution)
                         .font(.caption)
@@ -323,7 +340,8 @@ struct MetadataCoverImportView: View {
     }
 
     @ViewBuilder
-    private func sourceControls(source: MetadataCoverSource, scope: MetadataCoverScope) -> some View {
+    private func sourceControls(source: MetadataCoverSource, scope: MetadataCoverScope) -> some View
+    {
         Menu {
             Picker("Sort", selection: sortBinding(for: source)) {
                 ForEach(MetadataCoverSort.allCases) { sort in
@@ -339,22 +357,27 @@ struct MetadataCoverImportView: View {
         .help("Sort \(source.title) covers")
 
         if source == .hardcover {
-            let active = hardcoverFilterLanguage(for: scope) != nil
+            let active =
+                hardcoverFilterLanguage(for: scope) != nil
                 || hardcoverFilterFormat(for: scope) != nil
                 || hardcoverMinResolutions[scope] != nil
             Button {
                 filterPopoverScope = scope
             } label: {
-                Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                    .font(.callout)
-                    .foregroundStyle(active ? Color.accentColor : .secondary)
+                Image(
+                    systemName: active
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle"
+                )
+                .font(.callout)
+                .foregroundStyle(active ? Color.accentColor : .secondary)
             }
             .buttonStyle(.borderless)
             .help("Filter Hardcover editions")
             .popover(
                 isPresented: Binding(
                     get: { filterPopoverScope == scope },
-                    set: { if !$0 { filterPopoverScope = nil } }
+                    set: { if !$0 { filterPopoverScope = nil } },
                 )
             ) {
                 hardcoverFilterPopover(scope: scope)
@@ -366,10 +389,14 @@ struct MetadataCoverImportView: View {
         let candidates = hardcoverCandidates[scope] ?? []
         let languages = Array(Set(candidates.compactMap(\.language))).sorted()
         let formats = Array(Set(candidates.compactMap(\.format))).sorted()
-        let resolutions = Array(Set(candidates.compactMap { candidate -> Int? in
-            let resolution = max(candidate.width ?? 0, candidate.height ?? 0)
-            return resolution > 0 ? resolution : nil
-        })).sorted()
+        let resolutions = Array(
+            Set(
+                candidates.compactMap { candidate -> Int? in
+                    let resolution = max(candidate.width ?? 0, candidate.height ?? 0)
+                    return resolution > 0 ? resolution : nil
+                }
+            )
+        ).sorted()
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("Filter Editions")
@@ -430,7 +457,8 @@ struct MetadataCoverImportView: View {
                     hardcoverMinResolutions[scope] = nil
                 }
                 .disabled(
-                    hardcoverFilterLanguage(for: scope) == nil && hardcoverFilterFormat(for: scope) == nil
+                    hardcoverFilterLanguage(for: scope) == nil
+                        && hardcoverFilterFormat(for: scope) == nil
                         && hardcoverMinResolutions[scope] == nil
                 )
             }
@@ -442,54 +470,54 @@ struct MetadataCoverImportView: View {
 
     private func hardcoverFilterLanguage(for scope: MetadataCoverScope) -> String? {
         switch scope {
-        case .audiobook: return audiobookHardcoverFilterLanguage
-        case .ebook: return ebookHardcoverFilterLanguage
+            case .audiobook: return audiobookHardcoverFilterLanguage
+            case .ebook: return ebookHardcoverFilterLanguage
         }
     }
 
     private func setHardcoverFilterLanguage(_ value: String?, for scope: MetadataCoverScope) {
         switch scope {
-        case .audiobook:
-            audiobookHardcoverFilterLanguage = value
-        case .ebook:
-            ebookHardcoverFilterLanguage = value
+            case .audiobook:
+                audiobookHardcoverFilterLanguage = value
+            case .ebook:
+                ebookHardcoverFilterLanguage = value
         }
     }
 
     private func hardcoverFilterLanguageBinding(for scope: MetadataCoverScope) -> Binding<String?> {
         Binding(
             get: { hardcoverFilterLanguage(for: scope) },
-            set: { setHardcoverFilterLanguage($0, for: scope) }
+            set: { setHardcoverFilterLanguage($0, for: scope) },
         )
     }
 
     private func hardcoverFilterFormat(for scope: MetadataCoverScope) -> String? {
         switch scope {
-        case .audiobook: return audiobookHardcoverFilterFormat
-        case .ebook: return ebookHardcoverFilterFormat
+            case .audiobook: return audiobookHardcoverFilterFormat
+            case .ebook: return ebookHardcoverFilterFormat
         }
     }
 
     private func setHardcoverFilterFormat(_ value: String?, for scope: MetadataCoverScope) {
         switch scope {
-        case .audiobook:
-            audiobookHardcoverFilterFormat = value
-        case .ebook:
-            ebookHardcoverFilterFormat = value
+            case .audiobook:
+                audiobookHardcoverFilterFormat = value
+            case .ebook:
+                ebookHardcoverFilterFormat = value
         }
     }
 
     private func hardcoverFilterFormatBinding(for scope: MetadataCoverScope) -> Binding<String?> {
         Binding(
             get: { hardcoverFilterFormat(for: scope) },
-            set: { setHardcoverFilterFormat($0, for: scope) }
+            set: { setHardcoverFilterFormat($0, for: scope) },
         )
     }
 
     private func hardcoverMinResolutionBinding(for scope: MetadataCoverScope) -> Binding<Int?> {
         Binding(
             get: { hardcoverMinResolutions[scope] },
-            set: { hardcoverMinResolutions[scope] = $0 }
+            set: { hardcoverMinResolutions[scope] = $0 },
         )
     }
 
@@ -498,15 +526,15 @@ struct MetadataCoverImportView: View {
         return HStack(alignment: .top, spacing: 8) {
             AsyncImage(url: candidate.url) { phase in
                 switch phase {
-                case .success(let image):
-                    image.resizable().interpolation(.high).scaledToFit()
-                case .failure:
-                    Image(systemName: "photo")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                default:
-                    ProgressView()
-                        .controlSize(.small)
+                    case .success(let image):
+                        image.resizable().interpolation(.high).scaledToFit()
+                    case .failure:
+                        Image(systemName: "photo")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    default:
+                        ProgressView()
+                            .controlSize(.small)
                 }
             }
             .frame(width: 58, height: candidate.scope == .audiobook ? 58 : 86)
@@ -558,7 +586,11 @@ struct MetadataCoverImportView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(applyingCandidateId != nil)
-                .help(isSelected ? "Selected for import" : "Select this \(scopeTitle(candidate.scope).lowercased()) cover")
+                .help(
+                    isSelected
+                        ? "Selected for import"
+                        : "Select this \(scopeTitle(candidate.scope).lowercased()) cover"
+                )
             }
             .frame(width: 28, alignment: .top)
         }
@@ -617,28 +649,31 @@ struct MetadataCoverImportView: View {
 
             Group {
                 switch cover {
-                case .image(let image, _):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                case .data(let data, _):
-                    dataImage(data)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                case .url(let url, _):
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                        case .failure:
-                            ContentUnavailableView("Failed to load image", systemImage: "photo")
-                        default:
-                            ProgressView()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    case .image(let image, _):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .data(let data, _):
+                        dataImage(data)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .url(let url, _):
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                case .failure:
+                                    ContentUnavailableView(
+                                        "Failed to load image",
+                                        systemImage: "photo",
+                                    )
+                                default:
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
                         }
-                    }
                 }
             }
             .padding()
@@ -667,10 +702,16 @@ struct MetadataCoverImportView: View {
         isSearchingItunes = true
         defer { isSearchingItunes = false }
         do {
-            let results = try await ITunesSearchActor.search(title: book.title, author: book.authors.first)
-            var grouped: [MetadataCoverScope: [MetadataCoverCandidate]] = [.audiobook: [], .ebook: []]
+            let results = try await ITunesSearchActor.search(
+                title: book.title,
+                author: book.authors.first,
+            )
+            var grouped: [MetadataCoverScope: [MetadataCoverCandidate]] = [
+                .audiobook: [], .ebook: [],
+            ]
             for result in results {
-                let scope: MetadataCoverScope = result.mediaType == "audiobook" ? .audiobook : .ebook
+                let scope: MetadataCoverScope =
+                    result.mediaType == "audiobook" ? .audiobook : .ebook
                 grouped[scope, default: []].append(
                     MetadataCoverCandidate(
                         id: "itunes-\(scope.rawValue)-\(result.id)",
@@ -682,7 +723,7 @@ struct MetadataCoverImportView: View {
                         width: inferredResolution(from: result.hiresUrl)?.width,
                         height: inferredResolution(from: result.hiresUrl)?.height,
                         language: nil,
-                        format: result.mediaType
+                        format: result.mediaType,
                     )
                 )
             }
@@ -714,24 +755,26 @@ struct MetadataCoverImportView: View {
                 scope: .ebook,
                 idPart: "work-\(result.id)",
                 language: nil,
-                format: "Work cover"
+                format: "Work cover",
             ) {
                 grouped[.ebook, default: []].append(candidate)
             }
 
             for edition in details.editions {
                 let scope: MetadataCoverScope = isAudioEdition(edition) ? .audiobook : .ebook
-                guard let candidate = hardcoverCandidate(
-                    urlString: edition.imageUrl,
-                    width: edition.imageWidth,
-                    height: edition.imageHeight,
-                    title: edition.title ?? details.title ?? result.title,
-                    subtitle: editionSubtitle(edition),
-                    scope: scope,
-                    idPart: "edition-\(edition.id)",
-                    language: edition.language,
-                    format: normalizedFormat(edition.format)
-                ) else { continue }
+                guard
+                    let candidate = hardcoverCandidate(
+                        urlString: edition.imageUrl,
+                        width: edition.imageWidth,
+                        height: edition.imageHeight,
+                        title: edition.title ?? details.title ?? result.title,
+                        subtitle: editionSubtitle(edition),
+                        scope: scope,
+                        idPart: "edition-\(edition.id)",
+                        language: edition.language,
+                        format: normalizedFormat(edition.format),
+                    )
+                else { continue }
                 grouped[scope, default: []].append(candidate)
             }
         }
@@ -750,7 +793,7 @@ struct MetadataCoverImportView: View {
         scope: MetadataCoverScope,
         idPart: String,
         language: String?,
-        format: String?
+        format: String?,
     ) -> MetadataCoverCandidate? {
         guard let urlString, let url = URL(string: urlString) else { return nil }
         return MetadataCoverCandidate(
@@ -763,7 +806,7 @@ struct MetadataCoverImportView: View {
             width: width,
             height: height,
             language: language,
-            format: format
+            format: format,
         )
     }
 
@@ -777,12 +820,18 @@ struct MetadataCoverImportView: View {
                 return
             }
             guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
-            let filename = coverFilename(from: candidate.url, response: response, fallback: candidate.filename)
+            let filename = coverFilename(
+                from: candidate.url,
+                response: response,
+                fallback: candidate.filename,
+            )
             switch candidate.scope {
-            case .audiobook:
-                viewModel.books[index].replacementAudiobookCover = (data: data, filename: filename)
-            case .ebook:
-                viewModel.books[index].replacementEbookCover = (data: data, filename: filename)
+                case .audiobook:
+                    viewModel.books[index].replacementAudiobookCover = (
+                        data: data, filename: filename,
+                    )
+                case .ebook:
+                    viewModel.books[index].replacementEbookCover = (data: data, filename: filename)
             }
             errorMessage = nil
         } catch {
@@ -805,13 +854,15 @@ struct MetadataCoverImportView: View {
         }
     }
 
-    private func candidates(source: MetadataCoverSource, scope: MetadataCoverScope) -> [MetadataCoverCandidate] {
+    private func candidates(source: MetadataCoverSource, scope: MetadataCoverScope)
+        -> [MetadataCoverCandidate]
+    {
         let candidates: [MetadataCoverCandidate]
         switch source {
-        case .hardcover:
-            candidates = filteredHardcoverCandidates(scope: scope)
-        case .itunes:
-            candidates = itunesCandidates[scope] ?? []
+            case .hardcover:
+                candidates = filteredHardcoverCandidates(scope: scope)
+            case .itunes:
+                candidates = itunesCandidates[scope] ?? []
         }
 
         return sortedCandidates(candidates, sort: sortValue(for: source))
@@ -819,23 +870,23 @@ struct MetadataCoverImportView: View {
 
     private func sortValue(for source: MetadataCoverSource) -> MetadataCoverSort {
         switch source {
-        case .hardcover: return hardcoverSort
-        case .itunes: return itunesSort
+            case .hardcover: return hardcoverSort
+            case .itunes: return itunesSort
         }
     }
 
     private func sortBinding(for source: MetadataCoverSource) -> Binding<MetadataCoverSort> {
         switch source {
-        case .hardcover:
-            return Binding(
-                get: { hardcoverSort },
-                set: { hardcoverSort = $0 }
-            )
-        case .itunes:
-            return Binding(
-                get: { itunesSort },
-                set: { itunesSort = $0 }
-            )
+            case .hardcover:
+                return Binding(
+                    get: { hardcoverSort },
+                    set: { hardcoverSort = $0 },
+                )
+            case .itunes:
+                return Binding(
+                    get: { itunesSort },
+                    set: { itunesSort = $0 },
+                )
         }
     }
 
@@ -843,28 +894,39 @@ struct MetadataCoverImportView: View {
         candidates(source: .hardcover, scope: scope) + candidates(source: .itunes, scope: scope)
     }
 
-    private func filteredHardcoverCandidates(scope: MetadataCoverScope) -> [MetadataCoverCandidate] {
+    private func filteredHardcoverCandidates(scope: MetadataCoverScope) -> [MetadataCoverCandidate]
+    {
         let filterLanguage = hardcoverFilterLanguage(for: scope)
         let filterFormat = hardcoverFilterFormat(for: scope)
         let minResolution = hardcoverMinResolutions[scope]
 
         return (hardcoverCandidates[scope] ?? []).filter { candidate in
             if let filterLanguage {
-                guard candidate.language?.lowercased() == filterLanguage.lowercased() else { return false }
+                guard candidate.language?.lowercased() == filterLanguage.lowercased() else {
+                    return false
+                }
             }
 
             if let filterFormat {
                 switch filterFormat {
-                case "digital":
-                    guard Self.digitalFormats.contains(candidate.format ?? "") else { return false }
-                case "physical":
-                    guard Self.physicalFormats.contains(candidate.format ?? "") else { return false }
-                case "ebook":
-                    guard Self.ebookFormats.contains(candidate.format ?? "") else { return false }
-                case "audiobook":
-                    guard Self.audiobookFormats.contains(candidate.format ?? "") else { return false }
-                default:
-                    guard candidate.format == filterFormat else { return false }
+                    case "digital":
+                        guard Self.digitalFormats.contains(candidate.format ?? "") else {
+                            return false
+                        }
+                    case "physical":
+                        guard Self.physicalFormats.contains(candidate.format ?? "") else {
+                            return false
+                        }
+                    case "ebook":
+                        guard Self.ebookFormats.contains(candidate.format ?? "") else {
+                            return false
+                        }
+                    case "audiobook":
+                        guard Self.audiobookFormats.contains(candidate.format ?? "") else {
+                            return false
+                        }
+                    default:
+                        guard candidate.format == filterFormat else { return false }
                 }
             }
 
@@ -880,51 +942,52 @@ struct MetadataCoverImportView: View {
 
     private func sortedCandidates(
         _ candidates: [MetadataCoverCandidate],
-        sort: MetadataCoverSort
+        sort: MetadataCoverSort,
     ) -> [MetadataCoverCandidate] {
         switch sort {
-        case .relevance:
-            return candidates
-        case .resolution:
-            return candidates.sorted {
-                let lhs = max($0.width ?? 0, $0.height ?? 0)
-                let rhs = max($1.width ?? 0, $1.height ?? 0)
-                if lhs != rhs { return lhs > rhs }
-                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-            }
+            case .relevance:
+                return candidates
+            case .resolution:
+                return candidates.sorted {
+                    let lhs = max($0.width ?? 0, $0.height ?? 0)
+                    let rhs = max($1.width ?? 0, $1.height ?? 0)
+                    if lhs != rhs { return lhs > rhs }
+                    return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                }
         }
     }
 
     private func isLoading(_ source: MetadataCoverSource) -> Bool {
         switch source {
-        case .hardcover: return isSearchingHardcover
-        case .itunes: return isSearchingItunes
+            case .hardcover: return isSearchingHardcover
+            case .itunes: return isSearchingItunes
         }
     }
 
     private func emptyText(source: MetadataCoverSource) -> String {
         switch source {
-        case .hardcover:
-            return hardcoverVM.hasToken ? "No Hardcover covers found." : "Add a Hardcover API key above."
-        case .itunes:
-            return "No iTunes covers found."
+            case .hardcover:
+                return hardcoverVM.hasToken
+                    ? "No Hardcover covers found." : "Add a Hardcover API key above."
+            case .itunes:
+                return "No iTunes covers found."
         }
     }
 
     private func replacementCover(scope: MetadataCoverScope) -> (data: Data, filename: String)? {
         switch scope {
-        case .audiobook: return book?.replacementAudiobookCover
-        case .ebook: return book?.replacementEbookCover
+            case .audiobook: return book?.replacementAudiobookCover
+            case .ebook: return book?.replacementEbookCover
         }
     }
 
     private func clearReplacementCover(scope: MetadataCoverScope) {
         guard let index = viewModel.books.firstIndex(where: { $0.id == bookId }) else { return }
         switch scope {
-        case .audiobook:
-            viewModel.books[index].replacementAudiobookCover = nil
-        case .ebook:
-            viewModel.books[index].replacementEbookCover = nil
+            case .audiobook:
+                viewModel.books[index].replacementAudiobookCover = nil
+            case .ebook:
+                viewModel.books[index].replacementEbookCover = nil
         }
     }
 
@@ -950,14 +1013,17 @@ struct MetadataCoverImportView: View {
         guard let metadata = book?.originalMetadata else { return nil }
         #if canImport(AppKit)
         let state = mediaViewModel.coverState(for: metadata, variant: scope.variant)
-        guard let nsImage = state.nsImage, let rep = nsImage.representations.first else { return nil }
+        guard let nsImage = state.nsImage, let rep = nsImage.representations.first else {
+            return nil
+        }
         return "\(rep.pixelsWide) x \(rep.pixelsHigh)"
         #else
         return nil
         #endif
     }
 
-    private func coverImageView(data: Data?, serverImage: Image?, aspectRatio: CGFloat) -> some View {
+    private func coverImageView(data: Data?, serverImage: Image?, aspectRatio: CGFloat) -> some View
+    {
         ZStack {
             Color.secondary.opacity(0.1)
             if let data {
@@ -1003,7 +1069,9 @@ struct MetadataCoverImportView: View {
     }
 
     private static let digitalFormats: Set<String> = ["Ebook", "Kindle", "Audible", "Audiobook"]
-    private static let physicalFormats: Set<String> = ["Hardcover", "Paperback", "Mass Market Paperback"]
+    private static let physicalFormats: Set<String> = [
+        "Hardcover", "Paperback", "Mass Market Paperback",
+    ]
     private static let ebookFormats: Set<String> = ["Ebook", "Kindle"]
     private static let audiobookFormats: Set<String> = ["Audible", "Audiobook"]
     private static let formatNormalization: [String: String] = [
@@ -1044,7 +1112,9 @@ struct MetadataCoverImportView: View {
         .joined(separator: " / ")
     }
 
-    private func uniqueCandidates(_ candidates: [MetadataCoverCandidate]) -> [MetadataCoverCandidate] {
+    private func uniqueCandidates(_ candidates: [MetadataCoverCandidate])
+        -> [MetadataCoverCandidate]
+    {
         var seen = Set<URL>()
         var result: [MetadataCoverCandidate] = []
         for candidate in candidates {
@@ -1056,7 +1126,9 @@ struct MetadataCoverImportView: View {
 
     private func resolutionString(from data: Data) -> String? {
         #if canImport(AppKit)
-        guard let image = NSImage(data: data), let rep = image.representations.first else { return nil }
+        guard let image = NSImage(data: data), let rep = image.representations.first else {
+            return nil
+        }
         return "\(rep.pixelsWide) x \(rep.pixelsHigh)"
         #else
         return nil
@@ -1065,19 +1137,21 @@ struct MetadataCoverImportView: View {
 
     private func previewTitle(_ cover: PreviewCover) -> String {
         switch cover {
-        case .image(_, let label), .data(_, let label), .url(_, let label):
-            return label
+            case .image(_, let label), .data(_, let label), .url(_, let label):
+                return label
         }
     }
 
     private func imageResponseFailure(data: Data, response: URLResponse) -> String? {
         if let httpResponse = response as? HTTPURLResponse,
-           !(200..<300).contains(httpResponse.statusCode) {
+            !(200..<300).contains(httpResponse.statusCode)
+        {
             return "HTTP \(httpResponse.statusCode)"
         }
 
         if let mimeType = response.mimeType?.lowercased(),
-           !mimeType.hasPrefix("image/") {
+            !mimeType.hasPrefix("image/")
+        {
             return "unexpected content type \(mimeType)"
         }
 
@@ -1101,14 +1175,14 @@ struct MetadataCoverImportView: View {
         }
 
         switch response.mimeType?.lowercased() {
-        case "image/png":
-            return fallbackFilename(base: fallback, ext: "png")
-        case "image/webp":
-            return fallbackFilename(base: fallback, ext: "webp")
-        case "image/heic", "image/heif":
-            return fallbackFilename(base: fallback, ext: "heic")
-        default:
-            return fallbackFilename(base: fallback, ext: "jpg")
+            case "image/png":
+                return fallbackFilename(base: fallback, ext: "png")
+            case "image/webp":
+                return fallbackFilename(base: fallback, ext: "webp")
+            case "image/heic", "image/heif":
+                return fallbackFilename(base: fallback, ext: "heic")
+            default:
+                return fallbackFilename(base: fallback, ext: "jpg")
         }
     }
 

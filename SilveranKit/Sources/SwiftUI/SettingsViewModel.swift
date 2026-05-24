@@ -94,7 +94,7 @@ public final class SettingsViewModel {
             showTimeRemainingInBook: showTimeRemainingInBook,
             showTimeRemainingInChapter: showTimeRemainingInChapter,
             showPageNumber: showPageNumber,
-            overlayTransparency: overlayTransparency
+            overlayTransparency: overlayTransparency,
         )
     }
 
@@ -247,8 +247,11 @@ public final class SettingsViewModel {
     public func applyActiveTheme(for colorScheme: ColorScheme) {
         let themeId = activeThemeId(for: colorScheme)
         guard let theme = resolveTheme(id: themeId) else {
-            debugLog("[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in")
-            let fallback = colorScheme == .dark
+            debugLog(
+                "[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in"
+            )
+            let fallback =
+                colorScheme == .dark
                 ? ReaderTheme.builtInDark
                 : ReaderTheme.builtInLight
             applyThemeValues(fallback)
@@ -328,7 +331,7 @@ public final class SettingsViewModel {
             userHighlightLabel5: source.userHighlightLabel5,
             userHighlightLabel6: source.userHighlightLabel6,
             userHighlightMode: source.userHighlightMode,
-            customCSS: source.customCSS
+            customCSS: source.customCSS,
         )
         addCustomTheme(newTheme)
         return newTheme
@@ -401,7 +404,7 @@ public final class SettingsViewModel {
             tabBarSlot2: tabBarSlot2Value,
             selectedLightThemeId: selectedLightThemeId,
             selectedDarkThemeId: selectedDarkThemeId,
-            customThemes: customThemes
+            customThemes: customThemes,
         )
     }
 

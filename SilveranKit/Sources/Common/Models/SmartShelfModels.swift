@@ -10,7 +10,7 @@ public struct SmartShelf: Codable, Identifiable, Hashable, Sendable {
         id: UUID = UUID(),
         name: String,
         conditions: [ShelfCondition] = [],
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
     ) {
         self.id = id
         self.name = name
@@ -21,7 +21,7 @@ public struct SmartShelf: Codable, Identifiable, Hashable, Sendable {
     public func matchesAll(
         _ book: BookMetadata,
         progress: Double,
-        locationInfo: ShelfLocationInfo = .init()
+        locationInfo: ShelfLocationInfo = .init(),
     ) -> Bool {
         guard !conditions.isEmpty else { return false }
 
@@ -88,7 +88,7 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
     public func matches(
         _ book: BookMetadata,
         progress: Double,
-        locationInfo: ShelfLocationInfo = .init()
+        locationInfo: ShelfLocationInfo = .init(),
     ) -> Bool {
         switch self {
             case .format(let mode, let conditions):
@@ -235,7 +235,7 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
 
     private func locationConditionMatches(
         _ condition: LocationCondition,
-        locationInfo: ShelfLocationInfo
+        locationInfo: ShelfLocationInfo,
     ) -> Bool {
         switch condition {
             case .downloaded: return locationInfo.isDownloaded

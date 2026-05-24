@@ -11,13 +11,13 @@ struct WatchRemoteControlView: View {
                 RemoteChapterListView(
                     state: state,
                     viewModel: viewModel,
-                    onBack: { showChapters = false }
+                    onBack: { showChapters = false },
                 )
             } else if let state = viewModel.remotePlaybackState {
                 RemoteControlsPage(
                     state: state,
                     viewModel: viewModel,
-                    onChapters: { showChapters = true }
+                    onChapters: { showChapters = true },
                 )
             } else {
                 emptyState
@@ -84,7 +84,7 @@ private struct RemoteControlsPage: View {
             LinearGradient(
                 colors: [Color.accentColor.opacity(0.3), Color.accentColor.opacity(0.1)],
                 startPoint: .top,
-                endPoint: .bottom
+                endPoint: .bottom,
             )
         )
         .overlay {
@@ -101,7 +101,7 @@ private struct RemoteControlsPage: View {
             by: 0.02,
             sensitivity: .low,
             isContinuous: false,
-            isHapticFeedbackEnabled: true
+            isHapticFeedbackEnabled: true,
         )
         .onChange(of: crownVolume) { _, newValue in
             viewModel.sendPlaybackCommand(.setVolume(volume: newValue))

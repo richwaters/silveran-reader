@@ -68,7 +68,7 @@ struct TVPlayerView: View {
             .onChange(
                 of: mediaViewModel.coverState(
                     for: book,
-                    variant: mediaViewModel.coverVariant(for: book)
+                    variant: mediaViewModel.coverVariant(for: book),
                 ).image
             ) { _, newImage in
                 if let newImage, cachedCoverImage == nil {
@@ -107,7 +107,7 @@ struct TVPlayerView: View {
             }
             .alert(
                 "Server Has Newer Position",
-                isPresented: $viewModel.showServerPositionDialog
+                isPresented: $viewModel.showServerPositionDialog,
             ) {
                 Button("Go to New Position") {
                     viewModel.acceptServerPosition()
@@ -130,7 +130,7 @@ struct TVPlayerView: View {
                     .frame(
                         width: geometry.size.width,
                         height: geometry.size.height,
-                        alignment: .center
+                        alignment: .center,
                     )
 
                 if viewModel.isLoadingPosition || viewModel.chapterParagraphs.isEmpty {
@@ -147,7 +147,7 @@ struct TVPlayerView: View {
                     LinearGradient(
                         colors: [.black, .black.opacity(0.8), .clear],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .frame(height: 350)
                     .allowsHitTesting(false)
@@ -157,7 +157,7 @@ struct TVPlayerView: View {
                     LinearGradient(
                         colors: [.clear, .black.opacity(0.8), .black],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .frame(height: 300)
                     .allowsHitTesting(false)
@@ -176,7 +176,7 @@ struct TVPlayerView: View {
                         onMove: { direction in
                             print("[TVDBG] background onMove: \(direction)")
                             handleBackgroundMove(direction)
-                        }
+                        },
                     ) {
                         Color.clear
                     }
@@ -375,7 +375,7 @@ struct TVPlayerView: View {
                     controlButton(
                         systemName: "backward.end.fill",
                         caption: nil,
-                        focused: .previousChapter
+                        focused: .previousChapter,
                     ) {
                         viewModel.previousChapter()
                         showControlsTemporarily()
@@ -384,7 +384,7 @@ struct TVPlayerView: View {
                     controlButton(
                         systemName: "list.bullet",
                         caption: nil,
-                        focused: .chapterList
+                        focused: .chapterList,
                     ) {
                         showChapterList = true
                         showControlsTemporarily()
@@ -393,7 +393,7 @@ struct TVPlayerView: View {
                     controlButton(
                         systemName: "speedometer",
                         caption: nil,
-                        focused: .speed
+                        focused: .speed,
                     ) {
                         showSpeedPicker = true
                         showControlsTemporarily()
@@ -402,7 +402,7 @@ struct TVPlayerView: View {
                     controlButton(
                         systemName: "forward.end.fill",
                         caption: nil,
-                        focused: .nextChapter
+                        focused: .nextChapter,
                     ) {
                         viewModel.nextChapter()
                         showControlsTemporarily()
@@ -435,13 +435,13 @@ struct TVPlayerView: View {
             },
             currentProgress: displayProgress,
             scrubScale: 0.52,
-            scrubActivationProgress: 0.10
+            scrubActivationProgress: 0.10,
         ) {
             ProgressBarContent(
                 progress: displayProgress,
                 currentTime: viewModel.currentTimeFormatted,
                 duration: viewModel.chapterDurationFormatted,
-                isFocused: isFocused
+                isFocused: isFocused,
             )
         }
         .focused($focusedControl, equals: .progressBar)
@@ -489,7 +489,7 @@ struct TVPlayerView: View {
 
     private func handleProgressBarScrub(
         _ progress: Double,
-        state: UIGestureRecognizer.State
+        state: UIGestureRecognizer.State,
     ) {
         let clamped = min(max(progress, 0), 1)
         switch state {
@@ -570,7 +570,7 @@ struct TVPlayerView: View {
     private func scrollToCurrent(
         _ proxy: ScrollViewProxy,
         animated: Bool = true,
-        consumeForce: Bool = true
+        consumeForce: Bool = true,
     ) {
         guard
             let targetIndex = viewModel.scrollTargetIndex(
@@ -601,7 +601,7 @@ struct TVPlayerView: View {
         systemName: String,
         caption: String?,
         focused: FocusedControl,
-        action: @escaping () -> Void
+        action: @escaping () -> Void,
     ) -> some View {
         let isFocused = focusedControl == focused
         return VStack(spacing: 6) {
@@ -676,8 +676,8 @@ private struct ProgressBarContent: View {
                             handleSize / 2,
                             min(
                                 proxy.size.width - handleSize / 2,
-                                proxy.size.width * clampedProgress
-                            )
+                                proxy.size.width * clampedProgress,
+                            ),
                         )
                         Circle()
                             .fill(.white)
@@ -724,7 +724,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
         currentProgress: Double = 0,
         scrubScale: CGFloat = 0.4,
         scrubActivationProgress: Double = 0.1,
-        @ViewBuilder label: () -> Label
+        @ViewBuilder label: () -> Label,
     ) {
         self.onSelect = onSelect
         self.onMove = onMove
@@ -752,7 +752,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
         button.addTarget(
             button,
             action: #selector(PressButton.handlePrimaryAction),
-            for: .primaryActionTriggered
+            for: .primaryActionTriggered,
         )
 
         let host = UIHostingController(rootView: label)
@@ -786,7 +786,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
     func sizeThatFits(
         _ proposal: ProposedViewSize,
         uiView: PressButton,
-        context: Context
+        context: Context,
     ) -> CGSize? {
         guard let host = context.coordinator.host else { return nil }
         let targetWidth = proposal.width ?? UIScreen.main.bounds.width

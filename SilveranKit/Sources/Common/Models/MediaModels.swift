@@ -100,7 +100,7 @@ public struct BookCreator: Codable, Sendable, Hashable {
         fileAs: String?,
         role: String?,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         self.uuid = uuid
         self.id = id
@@ -176,7 +176,7 @@ public struct BookCollectionSummary: Codable, Sendable, Hashable {
         isPublic: Bool?,
         importPath: String?,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         self.uuid = uuid
         self.name = name
@@ -215,7 +215,7 @@ public struct BookAsset: Codable, Sendable, Hashable {
         filepath: String,
         missing: Int,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         self.uuid = uuid
         self.filepath = filepath
@@ -295,7 +295,7 @@ public struct BookReadaloud: Codable, Sendable, Hashable {
         queuePosition: Int?,
         restartPending: Int?,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         self.uuid = uuid
         self.filepath = filepath
@@ -341,7 +341,7 @@ public struct BookStatus: Codable, Sendable, Hashable {
         name: String,
         isDefault: Bool? = nil,
         createdAt: String? = nil,
-        updatedAt: String? = nil
+        updatedAt: String? = nil,
     ) {
         self.uuid = uuid
         self.name = name
@@ -399,7 +399,7 @@ public struct BookLocator: Codable, Sendable, Hashable {
             totalProgression: Double?,
             cssSelector: String?,
             partialCfi: String?,
-            domRange: DomRange?
+            domRange: DomRange?,
         ) {
             self.fragments = fragments
             self.progression = progression
@@ -450,7 +450,7 @@ public struct BookReadingPosition: Codable, Sendable, Hashable {
         locator: BookLocator?,
         timestamp: Double?,
         createdAt: String?,
-        updatedAt: String?
+        updatedAt: String?,
     ) {
         self.uuid = uuid
         self.locator = locator
@@ -509,7 +509,7 @@ public struct PendingProgressSync: Codable, Sendable, Hashable {
         bookId: String,
         locator: BookLocator,
         timestamp: Double,
-        syncedToStoryteller: Bool = false
+        syncedToStoryteller: Bool = false,
     ) {
         self.bookId = bookId
         self.locator = locator
@@ -576,7 +576,7 @@ public struct SyncHistoryEntry: Codable, Sendable, Hashable {
         result: SyncHistoryResult,
         locatorSummary: String,
         locator: BookLocator? = nil,
-        arrivedAt: Double? = nil
+        arrivedAt: Double? = nil,
     ) {
         self.timestamp = timestamp
         self.humanTimestamp = Self.formatTimestamp(timestamp)
@@ -618,7 +618,7 @@ public struct PlayerBookData: Codable, Hashable, Sendable {
         localMediaPath: URL?,
         category: LocalMediaCategory,
         coverArt: Image? = nil,
-        ebookCoverArt: Image? = nil
+        ebookCoverArt: Image? = nil,
     ) {
         self.metadata = metadata
         self.localMediaPath = localMediaPath
@@ -757,7 +757,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var sortableSeries: SeriesSortKey {
         SeriesSortKey(
             name: series?.first?.name ?? "",
-            position: series?.first?.position ?? .greatestFiniteMagnitude
+            position: series?.first?.position ?? .greatestFiniteMagnitude,
         )
     }
 

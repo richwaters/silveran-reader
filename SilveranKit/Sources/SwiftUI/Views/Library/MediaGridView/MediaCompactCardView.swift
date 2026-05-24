@@ -67,7 +67,7 @@ struct MediaCompactCardView: View {
                         coverWidth: tileSize,
                         containerAspectRatio: aspectRatio,
                         cornerRadius: 6,
-                        isSwapping: .constant(false)
+                        isSwapping: .constant(false),
                     )
                     .frame(width: tileSize, height: tileSize / aspectRatio)
                 } else {
@@ -132,7 +132,7 @@ struct MediaCompactCardView: View {
                         .padding(.vertical, 2)
                         .background(
                             .black.opacity(0.6),
-                            in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: 4, style: .continuous),
                         )
                         .padding(2)
                 }
@@ -164,7 +164,7 @@ struct MediaCompactCardView: View {
             BookContextMenuContent(
                 item: item,
                 onInfo: onInfo,
-                onEditMetadata: onEditMetadata
+                onEditMetadata: onEditMetadata,
             )
         }
         #endif
@@ -240,7 +240,7 @@ struct MediaCompactCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
     #endif
@@ -302,7 +302,10 @@ struct MediaCompactCardView: View {
 
     private func tabStatus(for tab: TabCategory) -> TabStatus {
         let category = tab.localCategory
-        let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let downloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category,
+        )
         if downloading {
             let progress = mediaViewModel.downloadProgressFraction(for: item, category: category)
             return .downloading(progress: progress)
@@ -426,7 +429,7 @@ struct MediaCompactCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
     }

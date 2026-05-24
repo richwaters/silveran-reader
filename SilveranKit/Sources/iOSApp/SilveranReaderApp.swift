@@ -10,7 +10,7 @@ class SilveranAppDelegate: NSObject, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
         handleEventsForBackgroundURLSession identifier: String,
-        completionHandler: @escaping () -> Void
+        completionHandler: @escaping () -> Void,
     ) {
         if identifier == "com.kyonifer.silveran.downloads" {
             nonisolated(unsafe) let handler = completionHandler
@@ -26,7 +26,9 @@ class SilveranAppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
         let available = os_proc_available_memory()
-        debugLog("[SilveranAppDelegate] Memory warning received - available: \(available / 1_048_576) MB")
+        debugLog(
+            "[SilveranAppDelegate] Memory warning received - available: \(available / 1_048_576) MB"
+        )
     }
 
     func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
@@ -53,7 +55,7 @@ struct SilveranReaderApp: App {
                     let _ = await StorytellerActor.shared.setLogin(
                         baseURL: credentials.url,
                         username: credentials.username,
-                        password: credentials.password
+                        password: credentials.password,
                     )
                 }
             } catch {

@@ -233,7 +233,7 @@ public final class MP3ToM4BConverterViewModel {
                 outputURL: outputURL,
                 title: title,
                 author: author,
-                bitrate: bitrateValue
+                bitrate: bitrateValue,
             )
         }
     }
@@ -249,7 +249,7 @@ public final class MP3ToM4BConverterViewModel {
         outputURL: URL,
         title: String,
         author: String,
-        bitrate: Int
+        bitrate: Int,
     ) async {
         var accessedURLs: [(URL, Bool)] = []
         defer {
@@ -282,7 +282,7 @@ public final class MP3ToM4BConverterViewModel {
                 let displayName = info.chapterName
                 await updateProgress(
                     message: "Analyzing: \(displayName)",
-                    progress: 0.02 + (Double(index) / Double(fileInfos.count)) * 0.08
+                    progress: 0.02 + (Double(index) / Double(fileInfos.count)) * 0.08,
                 )
 
                 let asset = AVURLAsset(url: info.url)
@@ -309,11 +309,11 @@ public final class MP3ToM4BConverterViewModel {
 
                         if let layout = CMAudioFormatDescriptionGetChannelLayout(
                             formatDesc,
-                            sizeOut: nil
+                            sizeOut: nil,
                         ) {
                             channelLayout = Data(
                                 bytes: layout,
-                                count: MemoryLayout<AudioChannelLayout>.size
+                                count: MemoryLayout<AudioChannelLayout>.size,
                             )
                         }
                     }
@@ -392,7 +392,7 @@ public final class MP3ToM4BConverterViewModel {
                         AVLinearPCMBitDepthKey: 32,
                         AVLinearPCMIsFloatKey: true,
                         AVLinearPCMIsNonInterleaved: false,
-                    ]
+                    ],
                 )
                 reader.add(readerOutput)
 
@@ -413,7 +413,10 @@ public final class MP3ToM4BConverterViewModel {
                         return
                     }
 
-                    let adjustedBuffer = adjustSampleBufferTiming(sampleBuffer, offset: currentTime)
+                    let adjustedBuffer = adjustSampleBufferTiming(
+                        sampleBuffer,
+                        offset: currentTime,
+                    )
 
                     while !audioInput.isReadyForMoreMediaData {
                         try await Task.sleep(nanoseconds: 10_000_000)
@@ -468,7 +471,7 @@ public final class MP3ToM4BConverterViewModel {
 
     private nonisolated func writeChplAtom(
         to url: URL,
-        chapters: [(startTime: CMTime, duration: CMTime, title: String)]
+        chapters: [(startTime: CMTime, duration: CMTime, title: String)],
     ) throws {
         var data = try Data(contentsOf: url)
 
@@ -489,7 +492,7 @@ public final class MP3ToM4BConverterViewModel {
             throw NSError(
                 domain: "MP3ToM4B",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No moov atom found"]
+                userInfo: [NSLocalizedDescriptionKey: "No moov atom found"],
             )
         }
 
@@ -599,7 +602,7 @@ public final class MP3ToM4BConverterViewModel {
 
     private nonisolated func adjustSampleBufferTiming(
         _ sampleBuffer: CMSampleBuffer,
-        offset: CMTime
+        offset: CMTime,
     ) -> CMSampleBuffer? {
         var timingInfo = CMSampleTimingInfo()
         CMSampleBufferGetSampleTimingInfo(sampleBuffer, at: 0, timingInfoOut: &timingInfo)
@@ -615,7 +618,7 @@ public final class MP3ToM4BConverterViewModel {
             sampleBuffer: sampleBuffer,
             sampleTimingEntryCount: 1,
             sampleTimingArray: &timingInfo,
-            sampleBufferOut: &newBuffer
+            sampleBufferOut: &newBuffer,
         )
         return newBuffer
     }

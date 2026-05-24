@@ -26,7 +26,7 @@ public struct RemotePlaybackState: Codable, Sendable {
         bookElapsed: TimeInterval,
         bookDuration: TimeInterval,
         playbackRate: Double,
-        volume: Double
+        volume: Double,
     ) {
         self.bookTitle = bookTitle
         self.bookId = bookId

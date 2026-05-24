@@ -188,7 +188,7 @@ enum StorytellerDownloadEvent: Sendable {
         expectedBytes: Int64?,
         contentType: String?,
         etag: String?,
-        lastModified: String?
+        lastModified: String?,
     )
     case progress(receivedBytes: Int64, expectedBytes: Int64?)
     case finished(temporaryURL: URL)
@@ -225,7 +225,7 @@ public struct StorytellerUploadAsset {
         filename: String,
         data: Data,
         contentType: String? = nil,
-        relativePath: String? = nil
+        relativePath: String? = nil,
     ) {
         self.format = format
         self.filename = filename

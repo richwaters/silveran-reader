@@ -58,16 +58,25 @@ public struct HardcoverBookDetails: Sendable {
     public let rawJSON: String?
 
     public init(
-        id: Int? = nil, slug: String? = nil,
-        title: String?, subtitle: String?, description: String?,
-        releaseDate: String?, rating: Double?, language: String? = nil,
-        authors: [String], narrators: [String],
+        id: Int? = nil,
+        slug: String? = nil,
+        title: String?,
+        subtitle: String?,
+        description: String?,
+        releaseDate: String?,
+        rating: Double?,
+        language: String? = nil,
+        authors: [String],
+        narrators: [String],
         creators: [(name: String, role: String)],
         series: [(name: String, position: Double?, featured: Bool)],
-        tags: [HardcoverTagInfo], defaultAudioEdition: HardcoverEditionInfo? = nil,
+        tags: [HardcoverTagInfo],
+        defaultAudioEdition: HardcoverEditionInfo? = nil,
         editions: [HardcoverEditionInfo],
-        imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil,
-        rawJSON: String? = nil
+        imageUrl: String? = nil,
+        imageWidth: Int? = nil,
+        imageHeight: Int? = nil,
+        rawJSON: String? = nil,
     ) {
         self.id = id
         self.slug = slug
@@ -116,12 +125,12 @@ public actor HardcoverActor {
 
         let graphQL: [String: Any] = [
             "query": """
-                query SearchBooks($q: String!) {
-                    search(query: $q, query_type: "Book", per_page: 10) {
-                        results
-                    }
+            query SearchBooks($q: String!) {
+                search(query: $q, query_type: "Book", per_page: 10) {
+                    results
                 }
-                """,
+            }
+            """,
             "variables": ["q": query],
         ]
 
@@ -140,14 +149,16 @@ public actor HardcoverActor {
             let resultsObj: [String: Any]
             if let resultsString = resultsRaw as? String,
                 let parsed = try? JSONSerialization.jsonObject(
-                    with: Data(resultsString.utf8)) as? [String: Any]
+                    with: Data(resultsString.utf8)
+                ) as? [String: Any]
             {
                 resultsObj = parsed
             } else if let dict = resultsRaw as? [String: Any] {
                 resultsObj = dict
             } else {
                 throw HardcoverError.graphQLError(
-                    "Unexpected results format: \(type(of: resultsRaw))")
+                    "Unexpected results format: \(type(of: resultsRaw))"
+                )
             }
             hits = resultsObj["hits"] as? [[String: Any]] ?? []
         } else {
@@ -175,7 +186,7 @@ public actor HardcoverActor {
                 id: id,
                 title: title,
                 authorNames: authorNames,
-                releaseYear: releaseYear
+                releaseYear: releaseYear,
             )
         }
     }
@@ -185,20 +196,73 @@ public actor HardcoverActor {
 
         let graphQL: [String: Any] = [
             "query": """
-                query GetBook($id: Int!) {
-                    books(where: {id: {_eq: $id}}) {
+            query GetBook($id: Int!) {
+                books(where: {id: {_eq: $id}}) {
+                    id
+                    slug
+                    title
+                    subtitle
+                    description
+                    release_date
+                    release_year
+                    rating
+                    cached_contributors
+                    cached_featured_series
+                    cached_image
+                    cached_tags
+                    book_mappings {
+                        external_id
+                        edition_id
+                        state
+                        verified
+                        loaded
+                        platform { name url }
+                    }
+                    contributions {
+                        contribution
+                        author { name }
+                    }
+                    book_series {
+                        position
+                        featured
+                        series { name }
+                    }
+                    taggable_counts(order_by: {count: desc}) {
+                        count
+                        tag {
+                            tag
+                            tag_category { category slug }
+                        }
+                    }
+                    image { url width height }
+                    default_audio_edition {
                         id
-                        slug
+                        object_type
+                        source
+                        state
+                        score
+                        edition_format
+                        edition_information
+                        physical_format
+                        physical_information
                         title
                         subtitle
-                        description
+                        isbn_13
+                        isbn_10
+                        asin
+                        pages
+                        audio_seconds
                         release_date
                         release_year
                         rating
                         cached_contributors
-                        cached_featured_series
                         cached_image
                         cached_tags
+                        language { language }
+                        country { name }
+                        publisher { name }
+                        image { url width height }
+                        images { url width height }
                         book_mappings {
                             external_id
                             edition_id
@@ -211,104 +275,51 @@ public actor HardcoverActor {
                             contribution
                             author { name }
                         }
-                        book_series {
-                            position
-                            featured
-                            series { name }
-                        }
-                        taggable_counts(order_by: {count: desc}) {
-                            count
-                            tag {
-                                tag
-                                tag_category { category slug }
-                            }
-                        }
+                    }
+                    editions {
+                        id
+                        object_type
+                        source
+                        state
+                        score
+                        edition_format
+                        edition_information
+                        physical_format
+                        physical_information
+                        title
+                        subtitle
+                        isbn_13
+                        isbn_10
+                        asin
+                        pages
+                        audio_seconds
+                        release_date
+                        release_year
+                        rating
+                        cached_contributors
+                        cached_image
+                        cached_tags
+                        language { language }
+                        country { name }
+                        publisher { name }
                         image { url width height }
-                        default_audio_edition {
-                            id
-                            object_type
-                            source
+                        images { url width height }
+                        book_mappings {
+                            external_id
+                            edition_id
                             state
-                            score
-                            edition_format
-                            edition_information
-                            physical_format
-                            physical_information
-                            title
-                            subtitle
-                            isbn_13
-                            isbn_10
-                            asin
-                            pages
-                            audio_seconds
-                            release_date
-                            release_year
-                            rating
-                            cached_contributors
-                            cached_image
-                            cached_tags
-                            language { language }
-                            country { name }
-                            publisher { name }
-                            image { url width height }
-                            images { url width height }
-                            book_mappings {
-                                external_id
-                                edition_id
-                                state
-                                verified
-                                loaded
-                                platform { name url }
-                            }
-                            contributions {
-                                contribution
-                                author { name }
-                            }
+                            verified
+                            loaded
+                            platform { name url }
                         }
-                        editions {
-                            id
-                            object_type
-                            source
-                            state
-                            score
-                            edition_format
-                            edition_information
-                            physical_format
-                            physical_information
-                            title
-                            subtitle
-                            isbn_13
-                            isbn_10
-                            asin
-                            pages
-                            audio_seconds
-                            release_date
-                            release_year
-                            rating
-                            cached_contributors
-                            cached_image
-                            cached_tags
-                            language { language }
-                            country { name }
-                            publisher { name }
-                            image { url width height }
-                            images { url width height }
-                            book_mappings {
-                                external_id
-                                edition_id
-                                state
-                                verified
-                                loaded
-                                platform { name url }
-                            }
-                            contributions {
-                                contribution
-                                author { name }
-                            }
+                        contributions {
+                            contribution
+                            author { name }
                         }
                     }
                 }
-                """,
+            }
+            """,
             "variables": ["id": id],
         ]
 
@@ -405,13 +416,13 @@ public actor HardcoverActor {
             imageUrl: bookImageUrl,
             imageWidth: bookImageWidth,
             imageHeight: bookImageHeight,
-            rawJSON: rawJSON
+            rawJSON: rawJSON,
         )
     }
 
     private static func parseEdition(_ ed: [String: Any]) -> HardcoverEditionInfo? {
         guard let format = ed["edition_format"] as? String,
-              let edId = ed["id"] as? Int
+            let edId = ed["id"] as? Int
         else { return nil }
         let lang = (ed["language"] as? [String: Any])?["language"] as? String
         let country = (ed["country"] as? [String: Any])?["name"] as? String
@@ -426,7 +437,7 @@ public actor HardcoverActor {
         var edOther: [(name: String, role: String)] = []
         for c in edContribs {
             guard let a = c["author"] as? [String: Any],
-                  let name = a["name"] as? String
+                let name = a["name"] as? String
             else { continue }
             let role = c["contribution"] as? String ?? ""
             if role.lowercased() == "narrator" {
@@ -455,16 +466,16 @@ public actor HardcoverActor {
             imageUrl: edImageUrl,
             imageWidth: edImageWidth,
             imageHeight: edImageHeight,
-            rawJSON: rawEditionJSON
+            rawJSON: rawEditionJSON,
         )
     }
 
     private static func prettyJSONString(_ object: Any) -> String? {
         guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(
+            let data = try? JSONSerialization.data(
                 withJSONObject: object,
-                options: [.prettyPrinted, .sortedKeys]
-              )
+                options: [.prettyPrinted, .sortedKeys],
+            )
         else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -486,10 +497,10 @@ public actor HardcoverActor {
         }
 
         switch httpResponse.statusCode {
-        case 200..<300: break
-        case 401: throw HardcoverError.unauthorized
-        case 429: throw HardcoverError.rateLimited
-        default: throw HardcoverError.unexpectedStatus(httpResponse.statusCode)
+            case 200..<300: break
+            case 401: throw HardcoverError.unauthorized
+            case 429: throw HardcoverError.rateLimited
+            default: throw HardcoverError.unexpectedStatus(httpResponse.statusCode)
         }
 
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -518,14 +529,14 @@ public enum HardcoverError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .noToken: return "No Hardcover API token configured"
-        case .invalidURL: return "Invalid API URL"
-        case .invalidResponse: return "Invalid response from server"
-        case .unauthorized: return "Invalid or expired Hardcover token"
-        case .rateLimited: return "Rate limited - try again in a minute"
-        case .bookNotFound: return "Book not found on Hardcover"
-        case .unexpectedStatus(let code): return "Unexpected HTTP status: \(code)"
-        case .graphQLError(let msg): return "Hardcover: \(msg)"
+            case .noToken: return "No Hardcover API token configured"
+            case .invalidURL: return "Invalid API URL"
+            case .invalidResponse: return "Invalid response from server"
+            case .unauthorized: return "Invalid or expired Hardcover token"
+            case .rateLimited: return "Rate limited - try again in a minute"
+            case .bookNotFound: return "Book not found on Hardcover"
+            case .unexpectedStatus(let code): return "Unexpected HTTP status: \(code)"
+            case .graphQLError(let msg): return "Hardcover: \(msg)"
         }
     }
 }
