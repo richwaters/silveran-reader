@@ -31,6 +31,8 @@ struct MediaGridSortAndFilterBar: View {
     var showSortOption: Bool = true
     #if os(macOS)
     var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
+    var availableCreatorRoles: Set<String> = []
+    var enabledCreatorRoles: Binding<Set<String>>? = nil
     var onResetColumns: (() -> Void)? = nil
     #endif
 
@@ -574,17 +576,21 @@ struct MediaGridSortAndFilterBar: View {
         Menu {
             columnToggle(id: "cover", label: "Cover")
             columnToggle(id: "title", label: "Title")
+            columnToggle(id: "subtitle", label: "Subtitle")
             columnToggle(id: "author", label: "Author")
             columnToggle(id: "series", label: "Series")
             columnToggle(id: "progress", label: "Progress")
             columnToggle(id: "narrator", label: "Narrator")
+            columnToggle(id: "language", label: "Language")
+            columnToggle(id: "collections", label: "Collections")
             columnToggle(id: "status", label: "Status")
             columnToggle(id: "added", label: "Added")
             columnToggle(id: "lastRead", label: "Last Read")
             columnToggle(id: "tags", label: "Tags")
-            columnToggle(id: "translator", label: "Translator")
-            columnToggle(id: "publicationYear", label: "Published")
             columnToggle(id: "media", label: "Media")
+            Divider()
+            creatorsSubmenu
+            alignmentDataSubmenu
             Divider()
             Button("Reset to Defaults") {
                 onResetColumns?()
@@ -593,6 +599,40 @@ struct MediaGridSortAndFilterBar: View {
             Label("Columns", systemImage: "rectangle.split.3x1")
         }
         .menuStyle(.borderlessButton)
+    }
+
+    @ViewBuilder
+    private var creatorsSubmenu: some View {
+        Menu("Creators") {
+            columnToggle(id: "allCreators", label: "All Creators")
+            Divider()
+            let allRoles = mergedCreatorRoles
+            ForEach(allRoles, id: \.code) { role in
+                creatorColumnToggle(code: role.code, label: role.label)
+            }
+        }
+    }
+
+    private var mergedCreatorRoles: [(code: String, label: String)] {
+        let curated = MediaTableView.curatedCreatorRoles
+        let curatedCodes = Set(curated.map(\.code))
+        let extraRoles = availableCreatorRoles
+            .filter { !curatedCodes.contains($0) && $0 != "aut" && $0 != "nrt" }
+            .sorted()
+            .map { code in
+                (code: code, label: MediaTableView.labelForRole(code))
+            }
+        let filteredCurated = curated.filter { $0.code != "aut" && $0.code != "nrt" }
+        return filteredCurated + extraRoles
+    }
+
+    @ViewBuilder
+    private var alignmentDataSubmenu: some View {
+        Menu("Alignment Data") {
+            columnToggle(id: "alignedAt", label: "Aligned Date")
+            columnToggle(id: "alignedByVersion", label: "ST Version")
+            columnToggle(id: "alignedWith", label: "Transcription Engine")
+        }
     }
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
@@ -616,6 +656,32 @@ struct MediaGridSortAndFilterBar: View {
             let isVisible = isColumnVisible(id)
             Button {
                 binding.wrappedValue[visibility: id] = isVisible ? .hidden : .visible
+            } label: {
+                HStack {
+                    Text(label)
+                    Spacer()
+                    if isVisible {
+                        Image(systemName: "checkmark")
+                            .imageScale(.small)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func creatorColumnToggle(code: String, label: String) -> some View {
+        let columnID = MediaTableView.creatorColumnID(for: code)
+        if let binding = columnCustomization, let rolesBinding = enabledCreatorRoles {
+            let isVisible = isColumnVisible(columnID)
+            Button {
+                if isVisible {
+                    binding.wrappedValue[visibility: columnID] = .hidden
+                    rolesBinding.wrappedValue.remove(code)
+                } else {
+                    rolesBinding.wrappedValue.insert(code)
+                    binding.wrappedValue[visibility: columnID] = .visible
+                }
             } label: {
                 HStack {
                     Text(label)

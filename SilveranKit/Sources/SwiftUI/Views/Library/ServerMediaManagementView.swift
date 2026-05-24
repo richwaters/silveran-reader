@@ -558,7 +558,7 @@ public struct ServerMediaManagementView: View {
                 .disabled(isCancelingAlignment)
                 .help("Cancel alignment")
             } else if isErrorOrStopped {
-                alignmentMenu(item: item, restart: true, isBusy: isBusy)
+                alignmentMenu(item: item, restart: .full, isBusy: isBusy)
 
                 Button {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
@@ -570,7 +570,7 @@ public struct ServerMediaManagementView: View {
                 .disabled(isBusy || !experimentalModeEnabled)
                 .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
             } else if canStartAlignment(item: item) && !hasReadaloud {
-                alignmentMenu(item: item, restart: false, isBusy: isBusy)
+                alignmentMenu(item: item, restart: .none, isBusy: isBusy)
 
                 Button {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
@@ -616,7 +616,7 @@ public struct ServerMediaManagementView: View {
     }
 
     @ViewBuilder
-    private func alignmentMenu(item: BookMetadata, restart: Bool, isBusy: Bool) -> some View {
+    private func alignmentMenu(item: BookMetadata, restart: AlignmentRestartMode, isBusy: Bool) -> some View {
         Menu {
             Button {
                 Task { await startAlignment(item: item, restart: restart) }
@@ -641,7 +641,7 @@ public struct ServerMediaManagementView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(restart ? "Restart alignment" : "Start alignment")
+        .help(restart != .none ? "Restart alignment" : "Start alignment")
     }
 
     private func footerView(item: BookMetadata) -> some View {
@@ -811,7 +811,7 @@ public struct ServerMediaManagementView: View {
         uploadingFormat = nil
     }
 
-    private func startAlignment(item: BookMetadata, restart: Bool) async {
+    private func startAlignment(item: BookMetadata, restart: AlignmentRestartMode) async {
         isStartingAlignment = true
         errorMessage = nil
 

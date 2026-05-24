@@ -2,11 +2,91 @@
 import SwiftUI
 import AppKit
 
+private let tableTrailingPadding: CGFloat = 12
+
 private final class ImmediateSelectTableView: NSTableView {
-    var onRowClicked: ((Int) -> Void)?
+    var onRowDoubleClicked: ((Int) -> Void)?
     var onLinkClicked: ((MetadataLinkTarget) -> Void)?
-    private var lastFittedWidth: CGFloat = 0
-    fileprivate var isProgrammaticResize: Bool = false
+    fileprivate var isFitting = false
+    fileprivate var suppressColumnWidthPersistence = false
+    fileprivate var activeIdealWidths: [String: CGFloat] = [:]
+    private var lastClipWidth: CGFloat = 0
+
+    private func columnTargetWidth() -> CGFloat? {
+        guard let clipView = enclosingScrollView?.contentView else { return nil }
+        let availableWidth = clipView.bounds.width
+        guard availableWidth > 0 else { return nil }
+        let visibleColumns = tableColumns.filter { !$0.isHidden }
+        guard !visibleColumns.isEmpty else { return nil }
+        let spacingTotal = intercellSpacing.width * CGFloat(max(visibleColumns.count - 1, 0))
+        return max(availableWidth - spacingTotal - tableTrailingPadding, 0)
+    }
+
+    fileprivate func fitDocumentWidthToClipView() {
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        let width = clipView.bounds.width
+        guard width > 0, abs(frame.width - width) > 0.5 else { return }
+        setFrameSize(NSSize(width: width, height: frame.height))
+    }
+
+    fileprivate func applyIdealWidthsAndTile() {
+        suppressColumnWidthPersistence = true
+        defer { suppressColumnWidthPersistence = false }
+
+        fitDocumentWidthToClipView()
+        if !activeIdealWidths.isEmpty {
+            applyWidths(activeIdealWidths)
+        }
+        tile()
+    }
+
+    override func layout() {
+        super.layout()
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        let width = clipView.bounds.width
+        guard width > 0, abs(width - lastClipWidth) > 0.5 else { return }
+        lastClipWidth = width
+        applyIdealWidthsAndTile()
+    }
+
+    override func tile() {
+        super.tile()
+        guard !isFitting else { return }
+        guard let targetWidth = columnTargetWidth() else { return }
+
+        let visibleColumns = tableColumns.filter { !$0.isHidden }
+        guard visibleColumns.count >= 2 else { return }
+
+        let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
+        var remaining = targetWidth - totalWidth
+        guard abs(remaining) > 1 else { return }
+
+        isFitting = true
+        defer { isFitting = false }
+
+        for column in visibleColumns.reversed() {
+            guard abs(remaining) > 0.5 else { break }
+            let newWidth = column.width + remaining
+            let clamped = min(max(newWidth, column.minWidth), column.maxWidth)
+            let delta = clamped - column.width
+            if abs(delta) > 0.1 {
+                remaining -= delta
+                column.width = clamped
+            }
+        }
+    }
+
+    fileprivate func applyWidths(_ widths: [String: CGFloat]) {
+        isFitting = true
+        defer { isFitting = false }
+
+        for column in tableColumns {
+            let id = column.identifier.rawValue
+            if let w = widths[id] {
+                column.width = min(max(w, column.minWidth), column.maxWidth)
+            }
+        }
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -57,71 +137,15 @@ private final class ImmediateSelectTableView: NSTableView {
                     }
                 }
             }
-            onRowClicked?(clickedRow)
         }
 
         super.mouseDown(with: event)
-    }
 
-    override func layout() {
-        super.layout()
-        adjustWidthToClipView()
-    }
-
-    private func adjustWidthToClipView() {
-        guard let clipView = enclosingScrollView?.contentView else { return }
-        let availableWidth = clipView.bounds.width
-        guard availableWidth > 0, !tableColumns.isEmpty else { return }
-
-        if abs(availableWidth - lastFittedWidth) > 0.5 {
-            isProgrammaticResize = true
-            fitVisibleColumns(to: availableWidth)
-            DispatchQueue.main.async { [weak self] in
-                self?.isProgrammaticResize = false
-            }
-            lastFittedWidth = availableWidth
-        }
-
-        if abs(frame.width - availableWidth) > 0.5 {
-            setFrameSize(NSSize(width: availableWidth, height: frame.height))
+        if event.clickCount == 2 && clickedRow >= 0 {
+            onRowDoubleClicked?(clickedRow)
         }
     }
 
-    private func fitVisibleColumns(to availableWidth: CGFloat) {
-        let visibleColumns = tableColumns.filter { !$0.isHidden }
-        guard !visibleColumns.isEmpty else { return }
-
-        let spacingTotal = intercellSpacing.width * CGFloat(max(visibleColumns.count - 1, 0))
-        let totalWidth = visibleColumns.reduce(0) { $0 + $1.width }
-        let targetWidth = max(availableWidth - spacingTotal, 0)
-
-        if totalWidth + 0.5 < targetWidth {
-            if let last = visibleColumns.last {
-                last.width += (targetWidth - totalWidth)
-            }
-            return
-        }
-        guard totalWidth > targetWidth + 0.5 else { return }
-
-        let minTotal = visibleColumns.reduce(0) { $0 + $1.minWidth }
-        if minTotal >= targetWidth {
-            for column in visibleColumns {
-                column.width = column.minWidth
-            }
-            return
-        }
-
-        let adjustable = visibleColumns.reduce(0) { $0 + max($1.width - $1.minWidth, 0) }
-        guard adjustable > 0 else { return }
-
-        let overflow = totalWidth - targetWidth
-        for column in visibleColumns {
-            let delta = max(column.width - column.minWidth, 0)
-            let shrink = overflow * (delta / adjustable)
-            let proposed = column.width - shrink
-            column.width = max(column.minWidth, proposed)
-        }
-    }
 }
 
 struct MediaTableView: NSViewRepresentable {
@@ -129,35 +153,50 @@ struct MediaTableView: NSViewRepresentable {
     let coverPreference: CoverPreference
     let mediaViewModel: MediaViewModel
     let tableContext: String
+    let isDetailSidebarOpen: Bool
+    var columnResetToken: Int = 0
     @Binding var selection: BookMetadata.ID?
     @Binding var columnCustomization: TableColumnCustomization<BookMetadata>
     @Binding var sortOrder: [KeyPathComparator<BookMetadata>]
+    @Binding var creatorSortRoleCode: String?
+    var enabledCreatorRoles: Set<String>
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
+    var onEditMetadata: (([String]) -> Void)?
 
     init(
         items: [BookMetadata],
         coverPreference: CoverPreference,
         mediaViewModel: MediaViewModel,
         tableContext: String = "main",
+        isDetailSidebarOpen: Bool = false,
+        columnResetToken: Int = 0,
         selection: Binding<BookMetadata.ID?>,
         columnCustomization: Binding<TableColumnCustomization<BookMetadata>>,
         sortOrder: Binding<[KeyPathComparator<BookMetadata>]>,
+        creatorSortRoleCode: Binding<String?> = .constant(nil),
+        enabledCreatorRoles: Set<String> = [],
         onSelect: @escaping (BookMetadata) -> Void,
         onInfo: @escaping (BookMetadata) -> Void,
-        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil
+        onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil,
+        onEditMetadata: (([String]) -> Void)? = nil
     ) {
         self.items = items
         self.coverPreference = coverPreference
         self.mediaViewModel = mediaViewModel
         self.tableContext = tableContext
+        self.isDetailSidebarOpen = isDetailSidebarOpen
+        self.columnResetToken = columnResetToken
         self._selection = selection
         self._columnCustomization = columnCustomization
         self._sortOrder = sortOrder
+        self._creatorSortRoleCode = creatorSortRoleCode
+        self.enabledCreatorRoles = enabledCreatorRoles
         self.onSelect = onSelect
         self.onInfo = onInfo
         self.onMetadataLinkClicked = onMetadataLinkClicked
+        self.onEditMetadata = onEditMetadata
     }
 
     func makeCoordinator() -> Coordinator {
@@ -179,27 +218,32 @@ struct MediaTableView: NSViewRepresentable {
         tableView.rowHeight = 48
         tableView.usesAutomaticRowHeights = false
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
-        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.allowsColumnReordering = true
         tableView.allowsColumnResizing = true
         tableView.allowsColumnSelection = false
-        tableView.allowsMultipleSelection = false
+        tableView.allowsMultipleSelection = true
         tableView.allowsEmptySelection = true
         tableView.backgroundColor = .clear
         tableView.headerView = NSTableHeaderView()
+        tableView.autoresizingMask = [.width]
 
         setupColumns(tableView: tableView, context: context)
 
         tableView.dataSource = context.coordinator
         tableView.delegate = context.coordinator
 
+        let menu = NSMenu()
+        menu.delegate = context.coordinator
+        tableView.menu = menu
+
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
         context.coordinator.scrollView = scrollView
 
         let coordinator = context.coordinator
-        tableView.onRowClicked = { [weak coordinator] row in
-            coordinator?.handleRowClicked(row)
+        tableView.onRowDoubleClicked = { [weak coordinator] row in
+            coordinator?.handleRowDoubleClicked(row)
         }
         tableView.onLinkClicked = { [weak coordinator] target in
             coordinator?.handleLinkClicked(target)
@@ -217,25 +261,61 @@ struct MediaTableView: NSViewRepresentable {
         let oldCoverPreference = coordinator.coverPreference
         let oldCoverHidden = coordinator.isCoverHidden
 
+        let oldSidebarOpen = coordinator.isDetailSidebarOpen
+
         coordinator.parent = self
         coordinator.items = items
         coordinator.coverPreference = coverPreference
         coordinator.mediaViewModel = mediaViewModel
+        coordinator.enabledCreatorRoles = enabledCreatorRoles
 
         let newCoverHidden = isCoverColumnHidden
         coordinator.isCoverHidden = newCoverHidden
+        coordinator.isDetailSidebarOpen = isDetailSidebarOpen
+
+        if let immediateTable = tableView as? ImmediateSelectTableView {
+            immediateTable.activeIdealWidths = loadColumnWidths()
+        }
+
+        if oldSidebarOpen != isDetailSidebarOpen {
+            scrollView.layoutSubtreeIfNeeded()
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                immediateTable.applyIdealWidthsAndTile()
+            }
+        }
+
+        if coordinator.columnResetToken != columnResetToken {
+            coordinator.columnResetToken = columnResetToken
+            reorderColumnsToDefault(tableView: tableView)
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                immediateTable.activeIdealWidths = [:]
+                immediateTable.applyIdealWidthsAndTile()
+            }
+        }
 
         updateColumnVisibility(tableView: tableView, coordinator: coordinator)
 
-        if oldItems.map(\.id) != newItems.map(\.id) {
+        let oldIDs = oldItems.map(\.id)
+        let newIDs = newItems.map(\.id)
+
+        if oldIDs != newIDs {
             tableView.reloadData()
-        } else if oldItems != newItems {
+        } else if oldCoverHidden != newCoverHidden {
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<newItems.count))
             tableView.reloadData()
         } else if oldCoverPreference != coverPreference {
             tableView.reloadData()
-        } else if oldCoverHidden != newCoverHidden {
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<items.count))
-            tableView.reloadData()
+        } else if oldItems != newItems {
+            var changedRows = IndexSet()
+            for i in 0..<min(oldItems.count, newItems.count) {
+                if oldItems[i] != newItems[i] {
+                    changedRows.insert(i)
+                }
+            }
+            if !changedRows.isEmpty {
+                let allColumns = IndexSet(integersIn: 0..<tableView.numberOfColumns)
+                tableView.reloadData(forRowIndexes: changedRows, columnIndexes: allColumns)
+            }
         }
 
         if let selectedID = selection {
@@ -254,6 +334,7 @@ struct MediaTableView: NSViewRepresentable {
         updateSortIndicators(tableView: tableView, context: context)
     }
 
+
     private var isCoverColumnHidden: Bool {
         let visibility = columnCustomization[visibility: "cover"]
         switch visibility {
@@ -268,19 +349,50 @@ struct MediaTableView: NSViewRepresentable {
 
     private static let defaultVisibleColumns: Set<String> = ["cover", "title", "series", "media"]
     private static let defaultColumnOrder = [
-        "cover", "title", "author", "series", "progress", "narrator", "translator",
-        "publicationYear", "status", "added", "lastRead", "tags", "media",
+        "cover", "title", "subtitle", "author", "series", "progress", "narrator",
+        "language", "collections", "publicationYear", "status", "added", "lastRead",
+        "tags", "media", "allCreators", "alignedAt", "alignedByVersion", "alignedWith",
     ]
 
-    private var columnWidthsKey: String { "library.table.\(tableContext).columnWidths" }
+    static let curatedCreatorRoles: [(code: String, label: String)] = [
+        ("trl", "Translator"),
+        ("edt", "Editor"),
+        ("ill", "Illustrator"),
+        ("clr", "Colorist"),
+        ("aui", "Author of Introduction"),
+        ("ctb", "Contributor"),
+    ]
+
+    static func creatorColumnID(for roleCode: String) -> String {
+        "creator_\(roleCode)"
+    }
+
+    static func creatorRoleCode(from columnID: String) -> String? {
+        guard columnID.hasPrefix("creator_") else { return nil }
+        return String(columnID.dropFirst("creator_".count))
+    }
+
+    private var columnWidthsKey: String {
+        let base = "library.table.\(tableContext).columnWidths"
+        return isDetailSidebarOpen ? "\(base).detail" : base
+    }
     private var columnOrderKey: String { "library.table.\(tableContext).columnOrder" }
 
-    fileprivate func saveColumnWidths(from tableView: NSTableView) {
-        var widths: [String: Double] = [:]
-        for column in tableView.tableColumns {
-            widths[column.identifier.rawValue] = Double(column.width)
-        }
-        UserDefaults.standard.set(widths, forKey: columnWidthsKey)
+    fileprivate func columnWidths(from tableView: NSTableView) -> [String: Double] {
+        Dictionary(uniqueKeysWithValues: tableView.tableColumns.map {
+            ($0.identifier.rawValue, Double($0.width))
+        })
+    }
+
+    fileprivate func saveColumnWidths(_ widths: [String: Double], forKey key: String) {
+        UserDefaults.standard.set(widths, forKey: key)
+    }
+
+    static func resetColumnDefaults(tableContext: String) {
+        let base = "library.table.\(tableContext).columnWidths"
+        UserDefaults.standard.removeObject(forKey: base)
+        UserDefaults.standard.removeObject(forKey: "\(base).detail")
+        UserDefaults.standard.removeObject(forKey: "library.table.\(tableContext).columnOrder")
     }
 
     fileprivate func saveColumnOrder(from tableView: NSTableView) {
@@ -302,7 +414,41 @@ struct MediaTableView: NSViewRepresentable {
         UserDefaults.standard.stringArray(forKey: columnOrderKey) ?? Self.defaultColumnOrder
     }
 
+    private func reorderColumnsToDefault(tableView: NSTableView) {
+        let currentIDs = tableView.tableColumns.map { $0.identifier.rawValue }
+        var targetOrder = Self.defaultColumnOrder
+        let extras = currentIDs.filter { !targetOrder.contains($0) }
+        targetOrder.append(contentsOf: extras)
+
+        for (targetIndex, id) in targetOrder.enumerated() {
+            guard let currentIndex = tableView.tableColumns.firstIndex(where: {
+                $0.identifier.rawValue == id
+            }) else { continue }
+            if currentIndex != targetIndex {
+                tableView.moveColumn(currentIndex, toColumn: targetIndex)
+            }
+        }
+
+        for column in tableView.tableColumns {
+            if let def = Self.staticColumnDefs[column.identifier.rawValue] {
+                column.width = def.width
+            }
+        }
+    }
+
     private func updateColumnVisibility(tableView: NSTableView, coordinator: Coordinator) {
+        let existingIDs = Set(tableView.tableColumns.map { $0.identifier.rawValue })
+        for role in coordinator.enabledCreatorRoles {
+            let id = Self.creatorColumnID(for: role)
+            if !existingIDs.contains(id) {
+                let label = Self.labelForRole(role)
+                addColumn(
+                    to: tableView, id: id, title: label,
+                    minWidth: 80, width: 120, maxWidth: 10000
+                )
+            }
+        }
+
         var newVisibleIDs: Set<String> = []
         for column in tableView.tableColumns {
             let id = column.identifier.rawValue
@@ -323,61 +469,133 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         if !coordinator.visibleColumnIDs.isEmpty && newVisibleIDs != coordinator.visibleColumnIDs {
-            tableView.sizeToFit()
+            if let immediateTable = tableView as? ImmediateSelectTableView {
+                let savedWidths = loadColumnWidths()
+                for column in tableView.tableColumns where !column.isHidden {
+                    let id = column.identifier.rawValue
+                    if !coordinator.visibleColumnIDs.contains(id),
+                       let savedWidth = savedWidths[id]
+                    {
+                        column.width = savedWidth
+                    }
+                }
+                immediateTable.tile()
+            }
         }
         coordinator.visibleColumnIDs = newVisibleIDs
     }
 
-    private func setupColumns(tableView: NSTableView, context: Context) {
-        let columnDefs:
-            [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
-                "cover": ("", 30, 50, 70),
-                "title": ("Title", 100, 200, 10000),
-                "author": ("Author", 80, 150, 10000),
-                "series": ("Series", 80, 140, 10000),
-                "progress": ("Progress", 60, 100, 140),
-                "narrator": ("Narrator", 80, 120, 10000),
-                "translator": ("Translator", 80, 120, 10000),
-                "publicationYear": ("Published", 80, 100, 10000),
-                "status": ("Status", 60, 80, 10000),
-                "added": ("Added", 80, 100, 10000),
-                "lastRead": ("Last Read", 80, 100, 10000),
-                "tags": ("Tags", 80, 120, 10000),
-                "media": ("Media", 100, 120, 150),
-            ]
+    private static let staticColumnDefs:
+        [String: (title: String, minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat)] = [
+            "cover": ("", 30, 50, 70),
+            "title": ("Title", 100, 200, 10000),
+            "subtitle": ("Subtitle", 80, 150, 10000),
+            "author": ("Author", 80, 150, 10000),
+            "series": ("Series", 80, 140, 10000),
+            "progress": ("Progress", 60, 100, 140),
+            "narrator": ("Narrator", 80, 120, 10000),
+            "language": ("Language", 50, 80, 10000),
+            "collections": ("Collections", 80, 120, 10000),
+            "publicationYear": ("Published", 80, 100, 10000),
+            "status": ("Status", 60, 80, 10000),
+            "added": ("Added", 80, 100, 10000),
+            "lastRead": ("Last Read", 80, 100, 10000),
+            "tags": ("Tags", 80, 120, 10000),
+            "media": ("Media", 100, 120, 150),
+            "allCreators": ("Creators", 80, 140, 10000),
+            "alignedAt": ("Aligned Date", 80, 115, 10000),
+            "alignedByVersion": ("ST Version", 60, 90, 10000),
+            "alignedWith": ("Engine", 60, 100, 10000),
+        ]
 
+    private static let ascendingSortColumns: Set<String> = [
+        "title", "subtitle", "author", "series", "narrator", "language", "collections",
+        "publicationYear", "status", "added", "tags", "allCreators",
+        "alignedByVersion", "alignedWith",
+    ]
+    private static let descendingSortColumns: Set<String> = [
+        "lastRead", "progress", "alignedAt",
+    ]
+
+    private func setupColumns(tableView: NSTableView, context: Context) {
         let savedWidths = loadColumnWidths()
         let savedOrder = loadColumnOrder()
-        let columnOrder = savedOrder.filter { columnDefs[$0] != nil }
-        let missingColumns = Self.defaultColumnOrder.filter { !columnOrder.contains($0) }
-        let finalOrder = columnOrder + missingColumns
 
-        for id in finalOrder {
-            guard let def = columnDefs[id] else { continue }
-            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            column.title = def.title
-            column.minWidth = def.minWidth
-            column.width = savedWidths[id] ?? def.width
-            column.maxWidth = def.maxWidth
-            column.isEditable = false
-
-            if id == "title" || id == "author" || id == "series" || id == "narrator"
-                || id == "translator" || id == "publicationYear" || id == "status" || id == "added"
-                || id == "tags"
-            {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+        let migratedOrder = savedOrder.map { $0 == "translator" ? "creator_trl" : $0 }
+        let migratedWidths = Dictionary(
+            uniqueKeysWithValues: savedWidths.map { key, value in
+                (key == "translator" ? "creator_trl" : key, value)
             }
+        )
 
-            if id == "lastRead" {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
-            }
+        let staticOrder = migratedOrder.filter { Self.staticColumnDefs[$0] != nil }
+        let missingStatic = Self.defaultColumnOrder.filter { !staticOrder.contains($0) }
+        let finalStaticOrder = staticOrder + missingStatic
 
-            if id == "progress" {
-                column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
-            }
+        let creatorIDs = migratedOrder.filter { Self.creatorRoleCode(from: $0) != nil }
 
-            tableView.addTableColumn(column)
+        for id in finalStaticOrder {
+            guard let def = Self.staticColumnDefs[id] else { continue }
+            addColumn(
+                to: tableView, id: id, title: def.title,
+                minWidth: def.minWidth, width: migratedWidths[id] ?? def.width,
+                maxWidth: def.maxWidth
+            )
         }
+
+        for id in creatorIDs {
+            guard let roleCode = Self.creatorRoleCode(from: id) else { continue }
+            let label = Self.labelForRole(roleCode)
+            addColumn(
+                to: tableView, id: id, title: label,
+                minWidth: 80, width: migratedWidths[id] ?? 120,
+                maxWidth: 10000
+            )
+        }
+    }
+
+    private func addColumn(
+        to tableView: NSTableView, id: String, title: String,
+        minWidth: CGFloat, width: CGFloat, maxWidth: CGFloat
+    ) {
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+        column.title = title
+        column.minWidth = minWidth
+        column.width = width
+        column.maxWidth = maxWidth
+        column.isEditable = false
+
+        if Self.ascendingSortColumns.contains(id) || Self.creatorRoleCode(from: id) != nil {
+            column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
+        } else if Self.descendingSortColumns.contains(id) {
+            column.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: false)
+        }
+
+        tableView.addTableColumn(column)
+    }
+
+    static let marcRelatorLabels: [String: String] = [
+        "abr": "Abridger", "act": "Actor", "adp": "Adapter", "anm": "Animator",
+        "ann": "Annotator", "arc": "Architect", "arr": "Arranger", "art": "Artist",
+        "aut": "Author", "aui": "Author of Introduction", "blw": "Blurb Writer",
+        "bkd": "Book Designer", "bkp": "Book Producer", "clr": "Colorist",
+        "cmm": "Commentator", "com": "Compiler", "cmp": "Composer", "cnd": "Conductor",
+        "ctb": "Contributor", "cov": "Cover Designer", "cre": "Creator", "cur": "Curator",
+        "drt": "Director", "dsr": "Designer", "edt": "Editor", "edc": "Editor of Compilation",
+        "eng": "Engineer", "ill": "Illustrator", "ink": "Inker", "itr": "Instrumentalist",
+        "ive": "Interviewee", "ivr": "Interviewer", "lbt": "Librettist", "ltr": "Letterer",
+        "lyr": "Lyricist", "mus": "Musician", "nrt": "Narrator", "pbl": "Publisher",
+        "pnc": "Penciller", "pht": "Photographer", "prf": "Performer", "pro": "Producer",
+        "prg": "Programmer", "pfr": "Proofreader", "red": "Redaktor", "rev": "Reviewer",
+        "sce": "Scenarist", "sng": "Singer", "spk": "Speaker", "stl": "Storyteller",
+        "trc": "Transcriber", "trl": "Translator", "vac": "Voice Actor",
+        "wam": "Writer of Accompanying Material", "waw": "Writer of Afterword",
+        "wfw": "Writer of Foreword", "win": "Writer of Introduction",
+        "wpr": "Writer of Preface",
+    ]
+
+    static func labelForRole(_ code: String) -> String {
+        marcRelatorLabels[code] ?? code.uppercased()
     }
 
     private func updateSortIndicators(tableView: NSTableView, context: Context) {
@@ -389,19 +607,34 @@ struct MediaTableView: NSViewRepresentable {
 
         let keyPathToColumn: [AnyKeyPath: String] = [
             \BookMetadata.title: "title",
+            \BookMetadata.sortableSubtitle: "subtitle",
             \BookMetadata.sortableAuthor: "author",
             \BookMetadata.sortableSeries: "series",
             \BookMetadata.progress: "progress",
             \BookMetadata.sortableNarrator: "narrator",
-            \BookMetadata.sortableTranslator: "translator",
+            \BookMetadata.sortableLanguage: "language",
+            \BookMetadata.sortableCollections: "collections",
             \BookMetadata.sortablePublicationYear: "publicationYear",
             \BookMetadata.sortableStatus: "status",
             \BookMetadata.sortableAdded: "added",
             \BookMetadata.sortableLastRead: "lastRead",
             \BookMetadata.sortableTags: "tags",
+            \BookMetadata.sortableAllCreators: "allCreators",
+            \BookMetadata.sortableAlignedAt: "alignedAt",
+            \BookMetadata.sortableAlignedByVersion: "alignedByVersion",
+            \BookMetadata.sortableAlignedWith: "alignedWith",
         ]
 
-        guard let columnID = keyPathToColumn[comparator.keyPath],
+        let columnID: String?
+        if let mapped = keyPathToColumn[comparator.keyPath] {
+            columnID = mapped
+        } else if let ctx = context.coordinator.creatorSortRoleCode {
+            columnID = Self.creatorColumnID(for: ctx)
+        } else {
+            columnID = nil
+        }
+
+        guard let columnID,
             let column = tableView.tableColumn(
                 withIdentifier: NSUserInterfaceItemIdentifier(columnID)
             )
@@ -417,15 +650,22 @@ struct MediaTableView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
         var parent: MediaTableView
         var items: [BookMetadata]
         var coverPreference: CoverPreference
         var mediaViewModel: MediaViewModel
         var isCoverHidden: Bool = false
+        var isDetailSidebarOpen: Bool = false
+        var columnResetToken: Int = 0
         var visibleColumnIDs: Set<String> = []
+        var creatorSortRoleCode: String?
+        var enabledCreatorRoles: Set<String> = []
         weak var tableView: NSTableView?
         weak var scrollView: NSScrollView?
+        private var isHandlingColumnResize = false
+        private var saveWidthsWorkItem: DispatchWorkItem?
+        private var saveOrderWorkItem: DispatchWorkItem?
 
         init(parent: MediaTableView, mediaViewModel: MediaViewModel) {
             self.parent = parent
@@ -437,18 +677,47 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         func tableViewColumnDidResize(_ notification: Notification) {
-            guard let tableView = notification.object as? NSTableView else { return }
-            if let immediateTable = tableView as? ImmediateSelectTableView,
-                immediateTable.isProgrammaticResize
+            guard let tv = notification.object as? NSTableView else { return }
+            if let immediateTable = tv as? ImmediateSelectTableView,
+               immediateTable.suppressColumnWidthPersistence
             {
                 return
             }
-            parent.saveColumnWidths(from: tableView)
+            guard !isHandlingColumnResize else { return }
+            isHandlingColumnResize = true
+            defer { isHandlingColumnResize = false }
+
+            (tv as? ImmediateSelectTableView)?.tile()
+
+            let parent = self.parent
+            let key = parent.columnWidthsKey
+
+            saveWidthsWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak tv] in
+                MainActor.assumeIsolated {
+                    guard let tv = tv else { return }
+                    let currentWidths = parent.columnWidths(from: tv)
+                    parent.saveColumnWidths(currentWidths, forKey: key)
+                    if let immediateTable = tv as? ImmediateSelectTableView {
+                        immediateTable.activeIdealWidths = currentWidths.mapValues { CGFloat($0) }
+                    }
+                }
+            }
+            saveWidthsWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
         }
 
         func tableViewColumnDidMove(_ notification: Notification) {
-            guard let tableView = notification.object as? NSTableView else { return }
-            parent.saveColumnOrder(from: tableView)
+            guard let tv = notification.object as? NSTableView else { return }
+            saveOrderWorkItem?.cancel()
+            let parent = self.parent
+            let work = DispatchWorkItem {
+                MainActor.assumeIsolated {
+                    parent.saveColumnOrder(from: tv)
+                }
+            }
+            saveOrderWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {
@@ -469,6 +738,11 @@ struct MediaTableView: NSViewRepresentable {
                     return makeCoverCell(tableView: tableView, cellID: cellID, item: item)
                 case "title":
                     return makeTitleCell(tableView: tableView, cellID: cellID, item: item)
+                case "subtitle":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.subtitle ?? "", secondary: true
+                    )
                 case "author":
                     let name = item.authors?.first?.name ?? ""
                     let target: MetadataLinkTarget? = name.isEmpty ? nil : .author(name)
@@ -491,14 +765,16 @@ struct MediaTableView: NSViewRepresentable {
                         text: name,
                         linkTarget: target
                     )
-                case "translator":
-                    let name = item.sortableTranslator
-                    let target: MetadataLinkTarget? = name.isEmpty ? nil : .translator(name)
-                    return makeLinkTextCell(
-                        tableView: tableView,
-                        cellID: cellID,
-                        text: name,
-                        linkTarget: target
+                case "language":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.language ?? "", secondary: true
+                    )
+                case "collections":
+                    let names = item.collections?.map(\.name).joined(separator: ", ") ?? ""
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: names, secondary: true
                     )
                 case "publicationYear":
                     let year = item.sortablePublicationYear
@@ -534,7 +810,34 @@ struct MediaTableView: NSViewRepresentable {
                     return makeTagsCell(tableView: tableView, cellID: cellID, item: item)
                 case "media":
                     return makeMediaCell(tableView: tableView, cellID: cellID, item: item)
+                case "allCreators":
+                    return makeAllCreatorsCell(
+                        tableView: tableView, cellID: cellID, item: item
+                    )
+                case "alignedAt":
+                    return makeDateCell(
+                        tableView: tableView,
+                        cellID: cellID,
+                        dateString: item.alignedAt
+                    )
+                case "alignedByVersion":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.alignedByStorytellerVersion ?? "", secondary: true
+                    )
+                case "alignedWith":
+                    return makeTextCell(
+                        tableView: tableView, cellID: cellID,
+                        text: item.alignedWith ?? "", secondary: true
+                    )
                 default:
+                    if let roleCode = MediaTableView.creatorRoleCode(from: columnID) {
+                        let name = item.sortableCreator(role: roleCode)
+                        return makeTextCell(
+                            tableView: tableView, cellID: cellID,
+                            text: name, secondary: true
+                        )
+                    }
                     return nil
             }
         }
@@ -552,6 +855,10 @@ struct MediaTableView: NSViewRepresentable {
             switch key {
                 case "title":
                     parent.sortOrder = [KeyPathComparator(\BookMetadata.title, order: order)]
+                case "subtitle":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableSubtitle, order: order)
+                    ]
                 case "author":
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableAuthor, order: order)
@@ -566,9 +873,13 @@ struct MediaTableView: NSViewRepresentable {
                     parent.sortOrder = [
                         KeyPathComparator(\BookMetadata.sortableNarrator, order: order)
                     ]
-                case "translator":
+                case "language":
                     parent.sortOrder = [
-                        KeyPathComparator(\BookMetadata.sortableTranslator, order: order)
+                        KeyPathComparator(\BookMetadata.sortableLanguage, order: order)
+                    ]
+                case "collections":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableCollections, order: order)
                     ]
                 case "publicationYear":
                     parent.sortOrder = [
@@ -588,19 +899,44 @@ struct MediaTableView: NSViewRepresentable {
                     ]
                 case "tags":
                     parent.sortOrder = [KeyPathComparator(\BookMetadata.sortableTags, order: order)]
+                case "allCreators":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAllCreators, order: order)
+                    ]
+                case "alignedAt":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedAt, order: order)
+                    ]
+                case "alignedByVersion":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedByVersion, order: order)
+                    ]
+                case "alignedWith":
+                    parent.sortOrder = [
+                        KeyPathComparator(\BookMetadata.sortableAlignedWith, order: order)
+                    ]
                 default:
-                    break
+                    if let roleCode = MediaTableView.creatorRoleCode(from: key) {
+                        creatorSortRoleCode = roleCode
+                        parent.creatorSortRoleCode = roleCode
+                        parent.sortOrder = [
+                            KeyPathComparator(\BookMetadata.sortableTranslator, order: order)
+                        ]
+                        return
+                    }
             }
+            creatorSortRoleCode = nil
+            parent.creatorSortRoleCode = nil
         }
 
         func tableViewSelectionDidChange(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
-            let selectedRow = tableView.selectedRow
-            if selectedRow >= 0 && selectedRow < items.count {
-                let item = items[selectedRow]
+            let selectedIndexes = tableView.selectedRowIndexes
+            if let lastIndex = selectedIndexes.last, lastIndex < items.count {
+                let item = items[lastIndex]
                 parent.selection = item.id
                 parent.onSelect(item)
-            } else {
+            } else if selectedIndexes.isEmpty {
                 parent.selection = nil
             }
         }
@@ -613,7 +949,7 @@ struct MediaTableView: NSViewRepresentable {
             isCoverHidden ? 28 : 48
         }
 
-        func handleRowClicked(_ row: Int) {
+        func handleRowDoubleClicked(_ row: Int) {
             guard row >= 0 && row < items.count else { return }
             let item = items[row]
             parent.onInfo(item)
@@ -621,6 +957,249 @@ struct MediaTableView: NSViewRepresentable {
 
         func handleLinkClicked(_ target: MetadataLinkTarget) {
             parent.onMetadataLinkClicked?(target)
+        }
+
+        // MARK: - NSMenuDelegate (right-click context menu)
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            guard let tableView, tableView.clickedRow >= 0,
+                tableView.clickedRow < items.count
+            else { return }
+
+            let item = items[tableView.clickedRow]
+
+            let showInfo = NSMenuItem(
+                title: "Show Book Information",
+                action: #selector(showBookInfo(_:)),
+                keyEquivalent: ""
+            )
+            showInfo.target = self
+            showInfo.representedObject = item
+            menu.addItem(showInfo)
+            menu.addItem(.separator())
+
+            let status = item.readaloud?.status?.uppercased() ?? ""
+            let hasEbookAndAudio = item.hasAvailableEbook && item.hasAvailableAudiobook
+
+            if status == "PROCESSING" || status == "QUEUED" {
+                let cancel = NSMenuItem(
+                    title: "Cancel Processing",
+                    action: #selector(cancelProcessing(_:)),
+                    keyEquivalent: ""
+                )
+                cancel.target = self
+                cancel.representedObject = item.uuid
+                menu.addItem(cancel)
+            } else if status == "ALIGNED" {
+                addReprocessItems(to: menu, bookId: item.uuid)
+            } else if status == "ERROR" || status == "STOPPED" {
+                let retry = NSMenuItem(
+                    title: "Retry Processing",
+                    action: #selector(reprocessFull(_:)),
+                    keyEquivalent: ""
+                )
+                retry.target = self
+                retry.representedObject = item.uuid
+                menu.addItem(retry)
+
+                let realign = NSMenuItem(
+                    title: "Re-align Only",
+                    action: #selector(reprocessSync(_:)),
+                    keyEquivalent: ""
+                )
+                realign.target = self
+                realign.representedObject = item.uuid
+                menu.addItem(realign)
+            } else if hasEbookAndAudio {
+                let create = NSMenuItem(
+                    title: "Create Readaloud",
+                    action: #selector(createReadaloud(_:)),
+                    keyEquivalent: ""
+                )
+                create.target = self
+                create.representedObject = item.uuid
+                menu.addItem(create)
+            }
+
+            if item.hasAvailableEbook {
+                if menu.items.count > 0 {
+                    menu.addItem(.separator())
+                }
+                let upgrade = NSMenuItem(
+                    title: "Convert to EPUB 3",
+                    action: #selector(upgradeEpub(_:)),
+                    keyEquivalent: ""
+                )
+                upgrade.target = self
+                upgrade.representedObject = item.uuid
+                menu.addItem(upgrade)
+            }
+
+            let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
+            let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
+            let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
+
+            if (ebookDownloaded || audioDownloaded || syncedDownloaded) && menu.items.count > 0 {
+                menu.addItem(.separator())
+            }
+
+            if ebookDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Ebook",
+                    action: #selector(deleteLocalEbook(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+            if audioDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Audiobook",
+                    action: #selector(deleteLocalAudiobook(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+            if syncedDownloaded {
+                let del = NSMenuItem(
+                    title: "Delete Local Readaloud",
+                    action: #selector(deleteLocalReadaloud(_:)),
+                    keyEquivalent: ""
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+
+            if menu.items.count > 0 {
+                menu.addItem(.separator())
+            }
+            let editMeta = NSMenuItem(
+                title: "Edit Metadata...",
+                action: #selector(editMetadata(_:)),
+                keyEquivalent: ""
+            )
+            editMeta.target = self
+            menu.addItem(editMeta)
+        }
+
+        @objc private func editMetadata(_ sender: NSMenuItem) {
+            guard let tableView else { return }
+            var bookIds: [String] = []
+            let selectedIndexes = tableView.selectedRowIndexes
+            if selectedIndexes.count > 1 {
+                for index in selectedIndexes where index < items.count {
+                    bookIds.append(items[index].uuid)
+                }
+            } else {
+                let clickedRow = tableView.clickedRow
+                if clickedRow >= 0 && clickedRow < items.count {
+                    bookIds.append(items[clickedRow].uuid)
+                }
+            }
+            guard !bookIds.isEmpty else { return }
+            parent.onEditMetadata?(bookIds)
+        }
+
+        @objc private func showBookInfo(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            parent.onInfo(item)
+        }
+
+        private func addReprocessItems(to menu: NSMenu, bookId: String) {
+            let sync = NSMenuItem(
+                title: "Re-align (Fast)",
+                action: #selector(reprocessSync(_:)),
+                keyEquivalent: ""
+            )
+            sync.target = self
+            sync.representedObject = bookId
+            menu.addItem(sync)
+
+            let transcribe = NSMenuItem(
+                title: "Re-transcribe & Align",
+                action: #selector(reprocessTranscription(_:)),
+                keyEquivalent: ""
+            )
+            transcribe.target = self
+            transcribe.representedObject = bookId
+            menu.addItem(transcribe)
+
+            let full = NSMenuItem(
+                title: "Full Reprocess",
+                action: #selector(reprocessFull(_:)),
+                keyEquivalent: ""
+            )
+            full.target = self
+            full.representedObject = bookId
+            menu.addItem(full)
+        }
+
+        @objc private func createReadaloud(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessSync(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .sync)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessTranscription(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .transcription)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func reprocessFull(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .full)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func cancelProcessing(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.cancelAlignment(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func upgradeEpub(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            Task {
+                _ = await StorytellerActor.shared.upgradeEpub(for: bookId)
+                await StorytellerActor.shared.fetchLibraryInformation()
+            }
+        }
+
+        @objc private func deleteLocalEbook(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .ebook)
+        }
+
+        @objc private func deleteLocalAudiobook(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .audio)
+        }
+
+        @objc private func deleteLocalReadaloud(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            mediaViewModel.deleteDownload(for: item, category: .synced)
         }
 
         private func makeCoverCell(
@@ -639,6 +1218,7 @@ struct MediaTableView: NSViewRepresentable {
                 mediaViewModel: mediaViewModel
             )
             cell.setContent(content)
+            cell.toolTip = item.readaloud?.processingTooltip
             return cell
         }
 
@@ -729,6 +1309,36 @@ struct MediaTableView: NSViewRepresentable {
                     $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
                 },
                 onTagClicked: onLinkClicked != nil ? { tag in onLinkClicked?(.tag(tag)) } : nil,
+                compact: isCoverHidden
+            )
+            cell.setContent(content)
+            return cell
+        }
+
+        private func makeAllCreatorsCell(
+            tableView: NSTableView,
+            cellID: NSUserInterfaceItemIdentifier,
+            item: BookMetadata
+        ) -> NSView {
+            let cell =
+                tableView.makeView(withIdentifier: cellID, owner: self) as? HostingCellView
+                ?? HostingCellView(identifier: cellID)
+            let excludedRoles: Set<String> = Set(
+                visibleColumnIDs.compactMap { MediaTableView.creatorRoleCode(from: $0) }
+            )
+            let creators = (item.creators ?? []).compactMap { creator -> String? in
+                if let role = creator.role, excludedRoles.contains(role) { return nil }
+                guard let name = creator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !name.isEmpty
+                else { return nil }
+                if let role = creator.role {
+                    let label = MediaTableView.labelForRole(role)
+                    return "\(name) (\(label))"
+                }
+                return name
+            }
+            let content = TagFlowCellContent(
+                tags: creators,
                 compact: isCoverHidden
             )
             cell.setContent(content)
@@ -1433,6 +2043,10 @@ private struct CoverCellContent: View {
 
     private let height: CGFloat = 40
 
+    private var readaloudStatus: String? {
+        item.readaloud?.status?.uppercased()
+    }
+
     var body: some View {
         let coverState = mediaViewModel.coverState(for: item, variant: coverVariant)
         let width = height * coverVariant.preferredAspectRatio
@@ -1445,11 +2059,58 @@ private struct CoverCellContent: View {
                     .interpolation(.medium)
                     .scaledToFill()
             }
+
+            processingOverlay
         }
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
         .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        }
+    }
+
+    @ViewBuilder
+    private var processingOverlay: some View {
+        switch readaloudStatus {
+            case "PROCESSING":
+                let progress = item.readaloud?.stageProgress ?? 0
+                ZStack {
+                    Color.black.opacity(0.45)
+                    CircularProgressRing(progress: progress)
+                        .frame(width: 24, height: 24)
+                }
+            case "QUEUED":
+                ZStack {
+                    Color.black.opacity(0.45)
+                    Image(systemName: "clock")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            case "ERROR", "STOPPED":
+                ZStack {
+                    Color.black.opacity(0.45)
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.orange)
+                }
+            default:
+                EmptyView()
+        }
+    }
+}
+
+private struct CircularProgressRing: View {
+    let progress: Double
+    private let lineWidth: CGFloat = 2.5
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.3), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
         }
     }
 }
@@ -1940,6 +2601,12 @@ private final class DateFormatterCache {
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter
     }()
+    private let jsDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE MMM dd yyyy HH:mm:ss 'GMT'xx"
+        return formatter
+    }()
     private let displayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -1988,6 +2655,18 @@ private final class DateFormatterCache {
             ?? isoWithoutFractional.date(from: dateString)
             ?? fallbackWithTimeFormatter.date(from: dateString)
             ?? fallbackFormatter.date(from: dateString)
+            ?? parseJSDate(dateString)
+    }
+
+    private func parseJSDate(_ dateString: String) -> Date? {
+        // JS Date.toString(): "Mon Dec 15 2025 17:23:45 GMT+0100 (Central European Standard Time)"
+        let stripped: String
+        if let parenRange = dateString.range(of: " (") {
+            stripped = String(dateString[..<parenRange.lowerBound])
+        } else {
+            stripped = dateString
+        }
+        return jsDateFormatter.date(from: stripped)
     }
 }
 #endif

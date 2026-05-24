@@ -7,6 +7,13 @@ import FoundationNetworking
 import Network
 #endif
 
+public enum AlignmentRestartMode: String, Sendable {
+    case none = "false"
+    case full = "full"
+    case transcription = "transcription"
+    case sync = "sync"
+}
+
 public enum ConnectionStatus: Equatable, Sendable {
     case disconnected
     case connecting
@@ -39,6 +46,7 @@ public actor StorytellerActor {
     private var apiBaseURL: URL?
     private var accessToken: AccessToken?
     private(set) public var libraryMetadata: [BookMetadata] = []
+    public var lastUpdateBookError: String?
     private var cachedStatuses: [BookStatus] = []
     public private(set) var connectionStatus: ConnectionStatus = .disconnected
 
@@ -809,8 +817,7 @@ public actor StorytellerActor {
 
     /// Updates book metadata using the multipart protocol handled at `/api/v2/books/{bookId}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/route.ts` (PUT handler).
-    /// TODO: UNTESTED
-    func updateBook(
+    public func updateBook(
         _ payload: StorytellerBookUpdatePayload,
         textCover: StorytellerCoverUpload? = nil,
         audioCover: StorytellerCoverUpload? = nil,
@@ -857,7 +864,14 @@ public actor StorytellerActor {
         }
 
         if let publicationDate = payload.publicationDate {
-            guard appendJSONField("publicationDate", value: publicationDate) else { return nil }
+            switch publicationDate {
+            case .value(let date):
+                guard appendJSONField("publicationDate", value: date) else { return nil }
+            case .null:
+                guard appendJSONField("publicationDate", value: Optional<String>.none) else {
+                    return nil
+                }
+            }
         }
 
         if let descriptionWrapper = payload.description {
@@ -865,7 +879,12 @@ public actor StorytellerActor {
         }
 
         if let ratingWrapper = payload.rating {
-            guard appendJSONField("rating", value: ratingWrapper) else { return nil }
+            switch ratingWrapper {
+            case .value(let rating):
+                guard appendJSONField("rating", value: rating) else { return nil }
+            case .null:
+                guard appendJSONField("rating", value: Optional<Double>.none) else { return nil }
+            }
         }
 
         if let statusWrapper = payload.status {
@@ -873,24 +892,28 @@ public actor StorytellerActor {
         }
 
         if let authors = payload.authors {
+            registerField("authors")
             for author in authors {
                 guard appendJSONField("authors", value: Optional(author)) else { return nil }
             }
         }
 
         if let narrators = payload.narrators {
+            registerField("narrators")
             for narrator in narrators {
                 guard appendJSONField("narrators", value: Optional(narrator)) else { return nil }
             }
         }
 
         if let creators = payload.creators {
+            registerField("creators")
             for creator in creators {
                 guard appendJSONField("creators", value: creator) else { return nil }
             }
         }
 
         if let series = payload.series {
+            registerField("series")
             for item in series {
                 guard appendJSONField("series", value: item) else { return nil }
             }
@@ -904,6 +927,7 @@ public actor StorytellerActor {
         }
 
         if let tags = payload.tags {
+            registerField("tags")
             for tag in tags {
                 guard appendJSONField("tags", value: Optional(tag)) else { return nil }
             }
@@ -964,24 +988,31 @@ public actor StorytellerActor {
                 allowedStatusCodes: allowedStatuses
             )
 
-            guard
-                case .success = evaluateResponse(
-                    response,
-                    methodName: "updateBook",
-                    context: "book \(payload.uuid)"
-                )
-            else {
+            let status = evaluateResponse(
+                response,
+                methodName: "updateBook",
+                context: "book \(payload.uuid)"
+            )
+            guard case .success = status else {
+                if let errorMessage = extractServerErrorMessage(from: response.data) {
+                    lastUpdateBookError = errorMessage
+                } else {
+                    lastUpdateBookError = "Server rejected update (HTTP \(response.statusCode))"
+                }
                 return nil
             }
 
             do {
+                lastUpdateBookError = nil
                 return try decoder.decode(BookMetadata.self, from: response.data)
             } catch {
                 logStorytellerError("updateBook decode", error: error)
+                lastUpdateBookError = "Failed to decode server response"
                 return nil
             }
         } catch {
             logStorytellerError("updateBook", error: error)
+            lastUpdateBookError = "Network error: \(error.localizedDescription)"
             return nil
         }
     }
@@ -1109,7 +1140,7 @@ public actor StorytellerActor {
 
     /// Starts alignment processing for a book (creates readaloud from ebook + audiobook).
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (POST handler).
-    public func startAlignment(for bookId: String, restart: Bool = false) async -> Bool {
+    public func startAlignment(for bookId: String, restart: AlignmentRestartMode = .none) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let processURL =
             baseURL
@@ -1118,8 +1149,8 @@ public actor StorytellerActor {
             .appendingPathComponent("process")
 
         var queryParameters: [String: String] = [:]
-        if restart {
-            queryParameters["restart"] = "true"
+        if restart != .none {
+            queryParameters["restart"] = restart.rawValue
         }
 
         var allowedStatuses = Set(200..<300)
@@ -1181,6 +1212,47 @@ public actor StorytellerActor {
             ) == .success
         } catch {
             logStorytellerError("cancelAlignment", error: error)
+            return false
+        }
+    }
+
+    /// Upgrades a book's EPUB files from EPUB 2 to EPUB 3.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upgrade-epub/route.ts`.
+    public func upgradeEpub(for bookId: String) async -> Bool {
+        guard let (baseURL, token) = await ensureAuthentication() else { return false }
+        let url =
+            baseURL
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+            .appendingPathComponent("upgrade-epub")
+
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+        allowedStatuses.insert(404)
+
+        do {
+            let bodyData = try JSONSerialization.data(
+                withJSONObject: ["createBackup": true]
+            )
+            let response = try await httpPost(
+                url.absoluteString,
+                headers: [
+                    "Authorization": authorizationHeaderValue(for: token),
+                    "Content-Type": "application/json",
+                ],
+                body: bodyData,
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            return evaluateResponse(
+                response,
+                methodName: "upgradeEpub",
+                context: "book \(bookId)"
+            ) == .success
+        } catch {
+            logStorytellerError("upgradeEpub", error: error)
             return false
         }
     }
@@ -1249,7 +1321,7 @@ public actor StorytellerActor {
     /// Triggers Storyteller's processing pipeline via `/api/v2/books/{bookId}/process`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts`.
     /// TODO: UNTESTED
-    func startProcessing(for bookId: String, restart: Bool = false) async -> Bool {
+    func startProcessing(for bookId: String, restart: AlignmentRestartMode = .none) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let processURL =
             baseURL
@@ -1258,8 +1330,8 @@ public actor StorytellerActor {
             .appendingPathComponent("process")
 
         var queryParameters: [String: String] = [:]
-        if restart {
-            queryParameters["restart"] = "true"
+        if restart != .none {
+            queryParameters["restart"] = restart.rawValue
         }
 
         var allowedStatuses = Set(200..<300)
@@ -2371,6 +2443,13 @@ public actor StorytellerActor {
                 }
                 return .unexpected(statusCode)
         }
+    }
+
+    private func extractServerErrorMessage(from data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let message = json["message"] as? String
+        else { return nil }
+        return message
     }
 
     private func resolveUploadLocation(_ locationHeader: String, relativeTo baseURL: URL) -> URL {

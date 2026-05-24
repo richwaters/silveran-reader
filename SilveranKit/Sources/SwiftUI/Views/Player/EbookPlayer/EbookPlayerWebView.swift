@@ -180,12 +180,61 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
                     let msg = try decoder.decode(HighlightTappedMessage.self, from: data)
                     bridge.sendSwiftHighlightTapped(msg)
 
+                case "FileAccessDiagnostic":
+                    if let body = message.body as? [String: Any],
+                       let filePath = body["filePath"] as? String,
+                       let errorMessage = body["errorMessage"] as? String
+                    {
+                        Self.runFileAccessDiagnostic(filePath: filePath, errorMessage: errorMessage)
+                    }
+
                 default:
                     debugLog("[EbookPlayerWebView] Unknown message type: \(message.name)")
             }
         } catch {
             debugLog("[EbookPlayerWebView] Failed to decode message '\(message.name)': \(error)")
         }
+    }
+
+    static func runFileAccessDiagnostic(filePath: String, errorMessage: String) {
+        let fm = FileManager.default
+        let tag = "[FileAccessDiagnostic]"
+
+        debugLog("\(tag) JS fetch failed for: \(filePath)")
+        debugLog("\(tag) JS error: \(errorMessage)")
+
+        let exists = fm.fileExists(atPath: filePath)
+        debugLog("\(tag) FileManager.fileExists: \(exists)")
+
+        if exists {
+            let readable = fm.isReadableFile(atPath: filePath)
+            debugLog("\(tag) FileManager.isReadableFile: \(readable)")
+
+            do {
+                let attrs = try fm.attributesOfItem(atPath: filePath)
+                let protection = attrs[.protectionKey] as? FileProtectionType
+                let fileSize = attrs[.size] as? UInt64 ?? 0
+                debugLog("\(tag) File size: \(fileSize) bytes")
+                debugLog("\(tag) File protection: \(protection?.rawValue ?? "nil (inheriting default)")")
+            } catch {
+                debugLog("\(tag) Failed to read file attributes: \(error)")
+            }
+
+            do {
+                let data = try Data(contentsOf: URL(fileURLWithPath: filePath), options: .mappedIfSafe)
+                debugLog("\(tag) Swift Data(contentsOf:) succeeded, \(data.count) bytes")
+            } catch {
+                debugLog("\(tag) Swift Data(contentsOf:) FAILED: \(error)")
+            }
+        }
+
+        #if os(iOS)
+        let protectedDataAvailable = UIApplication.shared.isProtectedDataAvailable
+        debugLog("\(tag) isProtectedDataAvailable: \(protectedDataAvailable)")
+
+        let availableMemory = os_proc_available_memory()
+        debugLog("\(tag) os_proc_available_memory: \(availableMemory / 1_048_576) MB")
+        #endif
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -278,6 +327,7 @@ private func makeWebViewConfiguration2(coordinator: WebViewCoordinator2) -> WKWe
     contentController.add(coordinator, name: "SearchError")
     contentController.add(coordinator, name: "TextSelection")
     contentController.add(coordinator, name: "HighlightTapped")
+    contentController.add(coordinator, name: "FileAccessDiagnostic")
     contentController.add(coordinator, name: "ReaderReady")
 
     contentController.addUserScript(consoleOverrideScript)

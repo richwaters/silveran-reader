@@ -200,7 +200,7 @@ struct WindowFrameAdjuster: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    class Coordinator {
+    class Coordinator: @unchecked Sendable {
         var initialized = false
         var lastExpandRight = false
         var lastExpandLeft = false

@@ -117,19 +117,62 @@ export default class BookLoader {
     console.warn("[BookLoader] Could not load _sizes.json:", err);
   }
 
+  let healthCheckFile = null;
+
   async function fetchFileAsBlob(filename) {
+    let url;
     try {
-      const url = new URL(filename, `file://${dirPath}`);
+      url = new URL(filename, `file://${dirPath}`);
       debugLog("BookLoader", "Fetching file:", url.href);
       const response = await fetch(url);
       if (!response.ok && response.status !== 0) {
         console.error("[BookLoader] Failed to fetch", filename, "status:", response.status);
+        await reportFetchFailure(filename, url.href, `HTTP status ${response.status}`);
         return null;
       }
-      return await response.blob();
+      const blob = await response.blob();
+      if (!healthCheckFile && blob && blob.size > 0) {
+        healthCheckFile = { filename, href: url.href };
+      }
+      return blob;
     } catch (err) {
       console.error("[BookLoader] Error fetching", filename, err);
+      console.error("[BookLoader] Error name:", err?.name, "message:", err?.message, "cause:", err?.cause);
+      await reportFetchFailure(filename, url?.href ?? filename, `${err?.name}: ${err?.message}`);
       return null;
+    }
+  }
+
+  async function reportFetchFailure(filename, fullUrl, errorMessage) {
+    try {
+      const filePath = fullUrl.startsWith("file://")
+        ? decodeURIComponent(fullUrl.replace("file://", ""))
+        : filename;
+
+      window.webkit?.messageHandlers?.FileAccessDiagnostic?.postMessage({
+        filePath: filePath,
+        errorMessage: errorMessage,
+      });
+
+      if (healthCheckFile) {
+        debugLog("BookLoader", "Running health check fetch on previously-loaded file:", healthCheckFile.filename);
+        try {
+          const checkResponse = await fetch(healthCheckFile.href);
+          const checkOk = checkResponse.ok || checkResponse.status === 0;
+          if (checkOk) {
+            const checkBlob = await checkResponse.blob();
+            debugLog("BookLoader", "Health check PASSED - fetched", checkBlob.size, "bytes. Failure is specific to:", filename);
+          } else {
+            console.error("[BookLoader] Health check FAILED - status:", checkResponse.status, "- file:// access may be systemically broken");
+          }
+        } catch (healthErr) {
+          console.error("[BookLoader] Health check FAILED with error:", healthErr?.name, healthErr?.message, "- file:// access is systemically broken");
+        }
+      } else {
+        debugLog("BookLoader", "No health check file available (no previous successful fetch)");
+      }
+    } catch (diagErr) {
+      console.error("[BookLoader] Diagnostic reporting itself failed:", diagErr);
     }
   }
 
