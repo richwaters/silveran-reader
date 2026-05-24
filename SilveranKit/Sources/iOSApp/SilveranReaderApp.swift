@@ -23,6 +23,19 @@ class SilveranAppDelegate: NSObject, UIApplicationDelegate {
             completionHandler()
         }
     }
+
+    func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
+        let available = os_proc_available_memory()
+        debugLog("[SilveranAppDelegate] Memory warning received - available: \(available / 1_048_576) MB")
+    }
+
+    func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
+        debugLog("[SilveranAppDelegate] Protected data became available (device unlocked)")
+    }
+
+    func applicationProtectedDataWillBecomeUnavailable(_ application: UIApplication) {
+        debugLog("[SilveranAppDelegate] Protected data will become unavailable (device locking)")
+    }
 }
 
 struct SilveranReaderApp: App {

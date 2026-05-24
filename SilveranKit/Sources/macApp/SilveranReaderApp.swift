@@ -62,6 +62,7 @@ struct SilveranReaderApp: App {
         mp3ToM4BConverterScene
         serverMediaManagementScene
         uploadNewBookScene
+        metadataEditorScene
         #endif
     }
 
@@ -201,6 +202,15 @@ struct SilveranReaderApp: App {
                 .environment(mediaViewModel)
         }
         .windowResizability(.contentSize)
+        .disableWindowRestoration()
+    }
+
+    private var metadataEditorScene: some Scene {
+        Window("Edit Metadata", id: "MetadataEditor") {
+            MetadataEditorView(initialBookIds: [])
+                .environment(mediaViewModel)
+        }
+        .defaultSize(width: 900, height: 650)
         .disableWindowRestoration()
     }
 }

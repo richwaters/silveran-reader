@@ -113,6 +113,7 @@ struct MediaGridView: View {
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
     @State private var cardTapInProgress: Bool = false
+    @Environment(\.openWindow) private var openWindow
     #endif
 
     @State private var activeInfoItem: BookMetadata? = nil
@@ -145,8 +146,25 @@ struct MediaGridView: View {
     @State private var tableSortOrder: [KeyPathComparator<BookMetadata>]
     @State private var tableSortedItems: [BookMetadata] = []
     @State private var lastSortKeyPath: AnyKeyPath?
+    @State private var creatorSortRoleCode: String?
+    @State private var enabledCreatorRoles: Set<String> = Self.loadEnabledCreatorRoles()
+    @State private var columnResetToken: Int = 0
 
     private static let columnCustomizationKey = "library.table.columnCustomization"
+    private static let enabledCreatorRolesKey = "library.table.enabledCreatorRoles"
+
+    private static func loadEnabledCreatorRoles() -> Set<String> {
+        guard let array = UserDefaults.standard.stringArray(forKey: enabledCreatorRolesKey) else {
+            return []
+        }
+        return Set(array)
+    }
+
+    private func saveEnabledCreatorRoles() {
+        UserDefaults.standard.set(
+            Array(enabledCreatorRoles), forKey: Self.enabledCreatorRolesKey
+        )
+    }
 
     private static func loadColumnCustomization() -> TableColumnCustomization<BookMetadata> {
         guard let data = UserDefaults.standard.data(forKey: columnCustomizationKey),
@@ -254,6 +272,7 @@ struct MediaGridView: View {
     @State private var cachedAvailablePublicationYears: [String] = []
     @State private var cachedAvailableRatings: [String] = []
     @State private var cachedAvailableStatuses: [String] = []
+    @State private var cachedAvailableCreatorRoles: Set<String> = []
     @State private var cachedFiltersSummary: String = ""
     @State private var lastCachedLibraryVersion: Int = -1
 
@@ -608,7 +627,7 @@ struct MediaGridView: View {
             tableHeader
                 .padding(.horizontal, gridHorizontalPadding)
                 .padding(.leading, 8)
-                .padding(.top)
+                .padding(.top, 52)
 
             if cachedDisplayItems.isEmpty {
                 emptyStateView
@@ -620,6 +639,8 @@ struct MediaGridView: View {
                     coverPreference: coverPreference,
                     mediaViewModel: mediaViewModel,
                     tableContext: tableContext,
+                    isDetailSidebarOpen: isSidebarVisible && activeInfoItem != nil,
+                    columnResetToken: columnResetToken,
                     selection: Binding(
                         get: { activeInfoItem?.id },
                         set: { newID in
@@ -628,9 +649,17 @@ struct MediaGridView: View {
                     ),
                     columnCustomization: $columnCustomization,
                     sortOrder: $tableSortOrder,
+                    creatorSortRoleCode: $creatorSortRoleCode,
+                    enabledCreatorRoles: enabledCreatorRoles,
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) },
-                    onMetadataLinkClicked: onMetadataLinkClicked
+                    onMetadataLinkClicked: onMetadataLinkClicked,
+                    onEditMetadata: { bookIds in
+                        openWindow(id: "MetadataEditor")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            MetadataEditorNotification.post(bookIds: bookIds)
+                        }
+                    }
                 )
                 .padding(.top, 8)
             }
@@ -652,6 +681,9 @@ struct MediaGridView: View {
         }
         .onChange(of: columnCustomization) { _, _ in
             saveColumnCustomization()
+        }
+        .onChange(of: enabledCreatorRoles) { _, _ in
+            saveEnabledCreatorRoles()
         }
         .modifier(
             FilterChangeModifier(
@@ -702,6 +734,15 @@ struct MediaGridView: View {
 
         if sameKeyPath && !tableSortedItems.isEmpty && !forceResort {
             tableSortedItems = Array(tableSortedItems.reversed())
+        } else if let roleCode = creatorSortRoleCode {
+            let ascending = comparator.order == .forward
+            tableSortedItems = cachedDisplayItems.sorted { a, b in
+                let aVal = a.sortableCreator(role: roleCode)
+                let bVal = b.sortableCreator(role: roleCode)
+                return ascending
+                    ? aVal.localizedCaseInsensitiveCompare(bVal) == .orderedAscending
+                    : aVal.localizedCaseInsensitiveCompare(bVal) == .orderedDescending
+            }
         } else {
             tableSortedItems = cachedDisplayItems.sorted(using: comparator)
         }
@@ -769,9 +810,14 @@ struct MediaGridView: View {
                 showLayoutOption: true,
                 showSortOption: false,
                 columnCustomization: $columnCustomization,
+                availableCreatorRoles: cachedAvailableCreatorRoles,
+                enabledCreatorRoles: $enabledCreatorRoles,
                 onResetColumns: {
                     columnCustomization = TableColumnCustomization<BookMetadata>()
                     UserDefaults.standard.removeObject(forKey: Self.columnCustomizationKey)
+                    enabledCreatorRoles = []
+                    MediaTableView.resetColumnDefaults(tableContext: tableContext)
+                    columnResetToken += 1
                 }
             )
         }
@@ -1324,6 +1370,7 @@ struct MediaGridView: View {
             let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
             let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
+            let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
             await MainActor.run {
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
@@ -1333,6 +1380,7 @@ struct MediaGridView: View {
                 self.cachedAvailablePublicationYears = newPublicationYears
                 self.cachedAvailableRatings = newRatings
                 self.cachedAvailableStatuses = newStatuses
+                self.cachedAvailableCreatorRoles = newCreatorRoles
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
             }
         }
@@ -1366,6 +1414,7 @@ struct MediaGridView: View {
             let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
             let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
+            let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
             let newDisplayItems = Self.computeDisplayItemsOffThread(
                 base: baseItems,
                 locationInfo: locationInfo,
@@ -1392,6 +1441,7 @@ struct MediaGridView: View {
                 self.cachedAvailablePublicationYears = newPublicationYears
                 self.cachedAvailableRatings = newRatings
                 self.cachedAvailableStatuses = newStatuses
+                self.cachedAvailableCreatorRoles = newCreatorRoles
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
                 self.cachedDisplayItems = newDisplayItems
                 self.cachedFiltersSummary = filtersSummary
@@ -1969,6 +2019,20 @@ struct MediaGridView: View {
             result.append("Unknown Translator")
         }
         return result
+    }
+
+    private static nonisolated func computeAvailableCreatorRolesOffThread(
+        from catalog: [BookMetadata]
+    ) -> Set<String> {
+        var roles = Set<String>()
+        for item in catalog {
+            for creator in item.creators ?? [] {
+                if let role = creator.role, !role.isEmpty {
+                    roles.insert(role)
+                }
+            }
+        }
+        return roles
     }
 
     private static nonisolated func computeAvailablePublicationYearsOffThread(
