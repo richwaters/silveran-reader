@@ -514,9 +514,9 @@ class EbookPlayerViewModel {
             )
 
             #if os(iOS)
-            if let uuid = bookData?.metadata.uuid {
+            if let metadata = bookData?.metadata {
                 if let coverData = await FilesystemActor.shared.loadCoverImage(
-                    uuid: uuid,
+                    uuid: metadata.uuid,
                     variant: "standard"
                 ) {
                     if let image = UIImage(data: coverData) {

@@ -43,6 +43,7 @@ struct SilveranReaderApp: App {
     @State private var mediaViewModel: MediaViewModel
 
     init() {
+        StorytellerFontRegistration.registerBundledFonts()
         let vm = MediaViewModel()
         _mediaViewModel = State(initialValue: vm)
 

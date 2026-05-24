@@ -17,7 +17,7 @@ struct TranslatorView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.translators") private var layoutStyleRaw: String = CategoryLayoutStyle
         .list.rawValue
-    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.translators") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("translators.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -194,7 +194,7 @@ extension TranslatorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Translators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Translators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -318,7 +318,7 @@ extension TranslatorView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Translators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Translators").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

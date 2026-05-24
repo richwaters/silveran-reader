@@ -17,7 +17,7 @@ struct SeriesView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -194,7 +194,7 @@ extension SeriesView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -325,7 +325,7 @@ extension SeriesView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

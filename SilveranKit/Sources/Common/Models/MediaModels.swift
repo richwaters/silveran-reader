@@ -169,6 +169,24 @@ public struct BookCollectionSummary: Codable, Sendable, Hashable {
         case updatedAt
     }
 
+    public init(
+        uuid: String?,
+        name: String,
+        description: String?,
+        isPublic: Bool?,
+        importPath: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.description = description
+        self.isPublic = isPublic
+        self.importPath = importPath
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         uuid = container.decodeLenient(String.self, forKey: .uuid)
@@ -317,6 +335,20 @@ public struct BookStatus: Codable, Sendable, Hashable {
     public let isDefault: Bool?
     public let createdAt: String?
     public let updatedAt: String?
+
+    public init(
+        uuid: String?,
+        name: String,
+        isDefault: Bool? = nil,
+        createdAt: String? = nil,
+        updatedAt: String? = nil
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.isDefault = isDefault
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -660,6 +692,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var alignedAt: String? = nil
     public var alignedByStorytellerVersion: String? = nil
     public var alignedWith: String? = nil
+    public var source: String? = nil
     public var id: String { uuid }
 
     public var hasAudioNarration: Bool {
@@ -772,13 +805,14 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
 
     public var sortableAlignedWith: String { alignedWith ?? "" }
 
+    public var sortableSource: String { source ?? "" }
+
     public func sortableCreator(role: String) -> String {
         (creators ?? []).first(where: { $0.role == role })?.name ?? ""
     }
 
     public var sortablePublicationYear: String {
-        guard let pubDate = publicationDate, pubDate.count >= 4 else { return "" }
-        return String(pubDate.prefix(4))
+        publicationDate ?? ""
     }
 }
 

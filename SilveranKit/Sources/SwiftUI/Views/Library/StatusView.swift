@@ -17,7 +17,7 @@ struct StatusView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.status") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.status") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.status") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("status.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -202,7 +202,7 @@ extension StatusView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Status").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Status").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -323,7 +323,7 @@ extension StatusView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Status").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Status").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

@@ -17,7 +17,7 @@ struct CollectionsView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
-    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -202,7 +202,7 @@ extension CollectionsView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -330,7 +330,7 @@ extension CollectionsView {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }

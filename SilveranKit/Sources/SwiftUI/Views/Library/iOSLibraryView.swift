@@ -925,7 +925,7 @@ struct SeriesContentView: View {
     @Binding var searchText: String
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
 
     private var coverPreference: CoverPreference {
@@ -1754,7 +1754,7 @@ struct MoreSeriesView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -1861,7 +1861,7 @@ struct MoreSeriesView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -1997,7 +1997,7 @@ struct MoreCollectionsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2023,7 +2023,7 @@ struct MoreAuthorsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2122,7 +2122,7 @@ struct MoreAuthorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2247,7 +2247,7 @@ struct MoreNarratorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Narrators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Narrators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2273,7 +2273,7 @@ struct MoreTagsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2371,7 +2371,7 @@ struct MoreTagsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2497,7 +2497,7 @@ struct MoreTranslatorsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Translators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Translators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2523,7 +2523,7 @@ struct MorePublicationYearsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2621,7 +2621,7 @@ struct MorePublicationYearsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
@@ -2647,7 +2647,7 @@ struct MoreRatingsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2750,7 +2750,7 @@ struct MoreRatingsView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(

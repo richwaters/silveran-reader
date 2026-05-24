@@ -7,6 +7,7 @@ struct SeriesStackView: View {
     let showAudioIndicator: Bool
     let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
+    var onInfo: ((BookMetadata) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredBookID: BookMetadata.ID? = nil
@@ -132,7 +133,7 @@ struct SeriesStackView: View {
                 if let image = coverState.image {
                     image
                         .resizable()
-                        .interpolation(.medium)
+                        .interpolation(.high)
                         .scaledToFill()
                         .frame(width: coverWidth, height: coverHeight)
                         .clipped()
@@ -140,6 +141,7 @@ struct SeriesStackView: View {
             }
             .frame(width: coverWidth, height: coverHeight)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .stableCoverRendering()
             .overlay(alignment: .bottomTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: book, coverVariant: coverVariant)
@@ -158,6 +160,9 @@ struct SeriesStackView: View {
         .zIndex(isHovered ? 1000 : Double(totalCount - index))
         .onHover { hovering in
             hoveredBookID = hovering ? book.id : nil
+        }
+        .contextMenu {
+            BookContextMenuContent(item: book, onInfo: onInfo)
         }
         #else
         .zIndex(Double(totalCount - index))
@@ -251,7 +256,7 @@ struct SeriesStackView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

@@ -495,6 +495,67 @@ public actor StorytellerActor {
         return nil
     }
 
+    public enum PermissionCheckResult: Sendable {
+        case allowed
+        case denied
+        case error(String)
+    }
+
+    /// Checks if the current user has the `bookUpdate` permission.
+    /// Server implementation: `storyteller/web/src/app/api/v2/user/route.ts`.
+    public func checkBookUpdatePermission() async -> PermissionCheckResult {
+        guard let (baseURL, token) = await ensureAuthentication() else {
+            return .error("Not connected to server")
+        }
+
+        let result = await fetchBookUpdatePermission(baseURL: baseURL, token: token)
+        if case .error = result {
+            guard let (retryURL, retryToken) = await ensureAuthentication(forceReauth: true) else {
+                return .error("Authentication failed")
+            }
+            return await fetchBookUpdatePermission(baseURL: retryURL, token: retryToken)
+        }
+        return result
+    }
+
+    private func fetchBookUpdatePermission(baseURL: URL, token: AccessToken) async -> PermissionCheckResult {
+        let userURL = baseURL.appendingPathComponent("user")
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+
+        do {
+            let response = try await httpGet(
+                userURL.absoluteString,
+                headers: [
+                    "Accept": "application/json",
+                    "Authorization": authorizationHeaderValue(for: token),
+                ],
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses
+            )
+
+            switch evaluateResponse(response, methodName: "checkBookUpdatePermission", context: "user permissions") {
+            case .success:
+                break
+            case .unauthorized:
+                return .error("Unauthorized")
+            default:
+                return .error("Unexpected server response (\(response.statusCode))")
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any],
+                let permissions = json["permissions"] as? [String: Any],
+                let bookUpdate = permissions["bookUpdate"] as? Bool
+            else {
+                return .error("Invalid response from server")
+            }
+            return bookUpdate ? .allowed : .denied
+        } catch {
+            return .error(error.localizedDescription)
+        }
+    }
+
     /// Fetches library metadata from `/api/v2/books`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/route.ts`.
     public func fetchLibraryInformation() async -> [BookMetadata]? {
@@ -572,6 +633,7 @@ public actor StorytellerActor {
         // Hard-code sizes. Storyteller server current returns 404 if you give no dimensions for non-readaloud books--a bug?
         width: Int? = 209,
         height: Int? = 320,
+        version: String? = nil,
         ifNoneMatch: String? = nil,
         ifModifiedSince: String? = nil,
     ) async -> BookCover? {
@@ -592,6 +654,9 @@ public actor StorytellerActor {
         }
         if audio {
             queryParameters["audio"] = "true"
+        }
+        if let version = Self.coverVersionQueryValue(from: version) {
+            queryParameters["v"] = version
         }
 
         var headers: [String: String] = [
@@ -643,6 +708,27 @@ public actor StorytellerActor {
             logStorytellerError("fetchCoverImage", error: error)
             return nil
         }
+    }
+
+    public nonisolated static func coverVersionQueryValue(from updatedAt: String?) -> String? {
+        guard let updatedAt, !updatedAt.isEmpty else { return nil }
+        if let numeric = Int64(updatedAt) {
+            return String(numeric)
+        }
+
+        let date: Date?
+        if let isoDate = ISO8601DateFormatter().date(from: updatedAt) {
+            date = isoDate
+        } else {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            formatter.timeZone = .current
+            date = formatter.date(from: updatedAt)
+        }
+
+        guard let date else { return nil }
+        return String(Int64(date.timeIntervalSince1970 * 1000))
     }
 
     /// Streams the actual book from `/api/v2/books/{bookId}/files`.
@@ -1007,6 +1093,8 @@ public actor StorytellerActor {
                 return try decoder.decode(BookMetadata.self, from: response.data)
             } catch {
                 logStorytellerError("updateBook decode", error: error)
+                let bodyPreview = String(data: response.data.prefix(500), encoding: .utf8) ?? "<binary>"
+                debugLog("[StorytellerActor] updateBook response body: \(bodyPreview)")
                 lastUpdateBookError = "Failed to decode server response"
                 return nil
             }
@@ -2019,7 +2107,7 @@ public actor StorytellerActor {
 
     /// Lists collections visible to the user via `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (GET handler).
-    func fetchCollections() async -> [StorytellerCollection]? {
+    public func fetchCollections() async -> [StorytellerCollection]? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
         let collectionsURL = baseURL.appendingPathComponent("collections")
 
@@ -2102,7 +2190,7 @@ public actor StorytellerActor {
     /// Creates a new collection using `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (POST handler).
     /// TODO: UNTESTED
-    func createCollection(_ payload: StorytellerCollectionCreatePayload) async
+    public func createCollection(_ payload: StorytellerCollectionCreatePayload) async
         -> StorytellerCollection?
     {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
@@ -2215,7 +2303,7 @@ public actor StorytellerActor {
     /// Deletes a collection with `/api/v2/collections/{uuid}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/[uuid]/route.ts` (DELETE handler).
     /// TODO: UNTESTED
-    func deleteCollection(uuid: String) async -> Bool {
+    public func deleteCollection(uuid: String) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let collectionURL =
             baseURL

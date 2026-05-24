@@ -1,5 +1,50 @@
 import SwiftUI
 
+#if os(macOS)
+private struct DebouncedSearchField: View {
+    @Binding var searchText: String
+    @State private var localText: String = ""
+    @State private var debounceTask: Task<Void, Never>?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+            TextField("Search", text: $localText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .onChange(of: localText) { _, newValue in
+                    debounceTask?.cancel()
+                    debounceTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        searchText = newValue
+                    }
+                }
+            if !localText.isEmpty {
+                Button {
+                    localText = ""
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
+        .onAppear { localText = searchText }
+    }
+}
+#endif
+
 struct SidebarView: View {
     let sections: [SidebarSectionDescription]
     @Binding var selectedItem: SidebarItemDescription?
@@ -255,6 +300,43 @@ struct SidebarView: View {
     var body: some View {
         let _ = mediaViewModel.smartShelves
         let config = sidebarConfig
+        #if os(macOS)
+        VStack(spacing: 0) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 50, height: 50)
+                    Text("Storyteller")
+                        .font(.storytellerTitle(size: 18))
+                    Spacer()
+                }
+                HStack {
+                    Spacer()
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 40, height: 40)
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, -8)
+            .padding(.bottom, 6)
+
+            DebouncedSearchField(searchText: $searchText)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+            sidebarList(config: config)
+        }
+        #else
+        sidebarList(config: config)
+        #endif
+    }
+
+    private func sidebarList(config: [SidebarConfigGroup]) -> some View {
         List(selection: $selectedId) {
             ForEach(config) { group in
                 sidebarSection(for: group, config: config)
@@ -288,12 +370,14 @@ struct SidebarView: View {
             homeSectionConfigJSON =
                 UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
         }
+        #if !os(macOS)
         .searchable(
             text: $searchText,
             isPresented: $isSearchFocused,
             placement: .sidebar,
             prompt: "Search"
         )
+        #endif
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
         #if os(macOS)
         .toolbar {
@@ -302,8 +386,25 @@ struct SidebarView: View {
                     Button("Customize Sidebar...") {
                         showCustomizeSidebar = true
                     }
+                    Divider()
+                    Button {
+                        Task {
+                            let didDelete = await mediaViewModel.deleteLocalCoverCache()
+                            mediaViewModel.showSyncNotification(
+                                SyncNotification(
+                                    message: didDelete
+                                        ? "Local cover cache cleared"
+                                        : "Failed to clear local cover cache",
+                                    type: didDelete ? .success : .error
+                                )
+                            )
+                        }
+                    } label: {
+                        Label("Clear Local Cover Cache", systemImage: "trash")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
                 }
             }
         }

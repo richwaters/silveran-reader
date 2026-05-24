@@ -59,6 +59,7 @@ public final class SettingsViewModel {
     public var tapToPlayPreferredPlayer: Bool = kDefaultTapToPlayPreferredPlayer
     public var preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook
     #endif
+    public var accentColorHex: String = kDefaultAccentColorHex
 
     public var userHighlightColor1: String = kDefaultUserHighlightColor1
     public var userHighlightColor2: String = kDefaultUserHighlightColor2
@@ -187,6 +188,7 @@ public final class SettingsViewModel {
         tapToPlayPreferredPlayer = config.library.tapToPlayPreferredPlayer
         preferAudioOverEbook = config.library.preferAudioOverEbook
         #endif
+        accentColorHex = config.library.accentColorHex
 
         userHighlightColor1 = config.reading.userHighlightColor1
         userHighlightColor2 = config.reading.userHighlightColor2
@@ -392,6 +394,7 @@ public final class SettingsViewModel {
             showAudioIndicator: showAudioIndicator,
             tapToPlayPreferredPlayer: tapToPlayPreferredPlayerValue,
             preferAudioOverEbook: preferAudioOverEbookValue,
+            accentColorHex: accentColorHex,
             userHighlightMode: userHighlightMode,
             readaloudHighlightMode: readaloudHighlightMode,
             tabBarSlot1: tabBarSlot1Value,

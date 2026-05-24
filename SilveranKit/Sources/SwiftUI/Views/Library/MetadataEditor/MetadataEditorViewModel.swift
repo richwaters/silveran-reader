@@ -4,6 +4,20 @@ import SwiftUI
 @MainActor
 @Observable
 final class MetadataEditorViewModel {
+    enum HardcoverImportSource: String, CaseIterable, Identifiable {
+        case text
+        case audiobook
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .text: return "Text / Ebook"
+            case .audiobook: return "Audiobook"
+            }
+        }
+    }
+
     struct EditableCreator: Identifiable, Hashable {
         let id = UUID()
         var name: String
@@ -30,7 +44,8 @@ final class MetadataEditorViewModel {
         var language: String
         var publicationDate: String
         var rating: String
-        var statusUuid: String?
+        var status: String
+        var statusUuid: String
         var authors: [String]
         var narrators: [String]
         var creators: [EditableCreator]
@@ -39,8 +54,9 @@ final class MetadataEditorViewModel {
         var collectionUuids: [String]
 
         var dirtyFields: Set<String> = []
-        var importedFields: Set<String> = []
-        var importedItems: [String: Set<String>] = [:]
+        var hardcoverImports: [HardcoverImportSource: HardcoverBookDetails] = [:]
+        var replacementEbookCover: (data: Data, filename: String)?
+        var replacementAudiobookCover: (data: Data, filename: String)?
 
         var displayTitle: String {
             title.isEmpty ? "(Untitled)" : title
@@ -55,7 +71,8 @@ final class MetadataEditorViewModel {
             self.language = metadata.language ?? ""
             self.publicationDate = Self.dateOnly(metadata.publicationDate) ?? ""
             self.rating = metadata.rating.map { String($0) } ?? ""
-            self.statusUuid = metadata.status?.uuid
+            self.status = metadata.status?.name ?? ""
+            self.statusUuid = metadata.status?.uuid ?? ""
             self.authors = metadata.authors?.compactMap { $0.name } ?? []
             self.narrators = metadata.narrators?.compactMap { $0.name } ?? []
             self.creators = metadata.creators?.map { creator in
@@ -87,7 +104,9 @@ final class MetadataEditorViewModel {
             return isoDate
         }
 
-        var hasDirtyFields: Bool { !dirtyFields.isEmpty }
+        var hasDirtyFields: Bool {
+            !dirtyFields.isEmpty || replacementEbookCover != nil || replacementAudiobookCover != nil
+        }
 
         func stringList(for field: String) -> [String] {
             switch field {
@@ -124,6 +143,26 @@ final class MetadataEditorViewModel {
             default: break
             }
         }
+
+        mutating func removeFromStringList(field: String, indices: IndexSet) {
+            switch field {
+            case "authors": authors.remove(atOffsets: indices)
+            case "narrators": narrators.remove(atOffsets: indices)
+            case "tags": tags.remove(atOffsets: indices)
+            default: break
+            }
+        }
+    }
+
+    struct CollectionChoice: Identifiable, Hashable {
+        let id: Int
+        let uuid: String
+        let name: String
+    }
+
+    struct FieldDiffDisplay {
+        let original: String
+        let current: String
     }
 
     var books: [EditableBook] = []
@@ -131,6 +170,15 @@ final class MetadataEditorViewModel {
     var isSaving = false
     var saveError: String?
     var saveResults: [String: Bool] = [:]
+    var itunesResultsByBookId: [String: [ITunesCoverResult]] = [:]
+    var searchingItunesBookIds: Set<String> = []
+    var libraryAuthorNames: [String] = []
+    var libraryTagNames: [String] = []
+    var libraryCollections: [BookCollectionSummary] = []
+    var libraryCollectionChoices: [CollectionChoice] = []
+    var libraryCollectionNamesByUuid: [String: String] = [:]
+    var availableStatuses: [BookStatus] = []
+    var deletedCollectionUuids: Set<String> = []
 
     var selectedBook: EditableBook? {
         get { books.first { $0.id == selectedBookId } }
@@ -143,6 +191,10 @@ final class MetadataEditorViewModel {
     }
 
     func addBooks(ids: [String], from library: BookLibrary) {
+        updateLibraryAuthors(from: library)
+        updateLibraryTags(from: library)
+        updateLibraryCollections(from: library)
+
         for id in ids {
             guard !books.contains(where: { $0.id == id }) else { continue }
             guard let metadata = library.bookMetaData.first(where: { $0.uuid == id }) else {
@@ -155,6 +207,161 @@ final class MetadataEditorViewModel {
         }
     }
 
+    private func updateLibraryAuthors(from library: BookLibrary) {
+        var authorsByKey: [String: String] = [:]
+        for book in library.bookMetaData {
+            for author in book.authors ?? [] {
+                guard let name = author.name else { continue }
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if authorsByKey[key] == nil {
+                    authorsByKey[key] = trimmed
+                }
+            }
+        }
+        libraryAuthorNames = authorsByKey.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func updateLibraryTags(from library: BookLibrary) {
+        var tagsByKey: [String: String] = [:]
+        for book in library.bookMetaData {
+            for tag in book.tagNames {
+                let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let key = trimmed.lowercased()
+                if tagsByKey[key] == nil {
+                    tagsByKey[key] = trimmed
+                }
+            }
+        }
+        libraryTagNames = tagsByKey.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func updateLibraryCollections(from library: BookLibrary) {
+        var collectionsByKey: [String: BookCollectionSummary] = [:]
+        for book in library.bookMetaData {
+            for collection in book.collections ?? [] {
+                let key = collection.uuid ?? collection.name.lowercased()
+                if collectionsByKey[key] == nil {
+                    collectionsByKey[key] = collection
+                }
+            }
+        }
+        libraryCollections = collectionsByKey.values.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        rebuildLibraryCollectionCaches()
+        deletedCollectionUuids.removeAll()
+    }
+
+    func refreshLibraryCollectionsFromServer() async {
+        guard let collections = await StorytellerActor.shared.fetchCollections() else { return }
+
+        libraryCollections = collections
+            .filter { !deletedCollectionUuids.contains($0.uuid) }
+            .map {
+                BookCollectionSummary(
+                    uuid: $0.uuid,
+                    name: $0.name,
+                    description: $0.description,
+                    isPublic: $0.isPublic,
+                    importPath: $0.importPath,
+                    createdAt: $0.createdAt,
+                    updatedAt: $0.updatedAt
+                )
+            }
+        rebuildLibraryCollectionCaches()
+    }
+
+    func createCollection(named name: String) async -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let created = await StorytellerActor.shared.createCollection(
+            StorytellerCollectionCreatePayload(
+                name: trimmed,
+                description: "",
+                isPublic: false,
+                users: nil
+            )
+        )
+        guard let created else { return nil }
+
+        upsertLibraryCollection(
+            uuid: created.uuid,
+            name: created.name,
+            description: created.description,
+            isPublic: created.isPublic,
+            importPath: created.importPath,
+            createdAt: created.createdAt,
+            updatedAt: created.updatedAt
+        )
+        deletedCollectionUuids.remove(created.uuid)
+        await StorytellerActor.shared.fetchLibraryInformation()
+        return created.uuid
+    }
+
+    func deleteCollection(uuid: String) async -> Bool {
+        guard await StorytellerActor.shared.deleteCollection(uuid: uuid) else { return false }
+
+        deletedCollectionUuids.insert(uuid)
+        removeLibraryCollection(uuid: uuid)
+        for index in books.indices {
+            books[index].collectionUuids.removeAll { $0 == uuid }
+        }
+        await StorytellerActor.shared.fetchLibraryInformation()
+        return true
+    }
+
+    private func upsertLibraryCollection(
+        uuid: String,
+        name: String,
+        description: String?,
+        isPublic: Bool?,
+        importPath: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
+        let summary = BookCollectionSummary(
+            uuid: uuid,
+            name: name,
+            description: description,
+            isPublic: isPublic,
+            importPath: importPath,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+        libraryCollections.removeAll { $0.uuid == uuid }
+        libraryCollections.append(summary)
+        rebuildLibraryCollectionCaches()
+    }
+
+    private func removeLibraryCollection(uuid: String) {
+        libraryCollections.removeAll { $0.uuid == uuid }
+        rebuildLibraryCollectionCaches()
+    }
+
+    private func rebuildLibraryCollectionCaches() {
+        libraryCollections.sort {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        libraryCollectionNamesByUuid = Dictionary(
+            uniqueKeysWithValues: libraryCollections.compactMap { collection in
+                guard let uuid = collection.uuid else { return nil }
+                return (uuid, collection.name)
+            }
+        )
+        libraryCollectionChoices = libraryCollections.enumerated().compactMap { index, collection in
+            guard let uuid = collection.uuid else { return nil }
+            return CollectionChoice(id: index, uuid: uuid, name: collection.name)
+        }
+    }
+
     func removeBook(id: String) {
         removeBooks(ids: [id])
     }
@@ -163,6 +370,10 @@ final class MetadataEditorViewModel {
         guard !ids.isEmpty else { return }
         let previousSelected = selectedBookId
         books.removeAll { ids.contains($0.id) }
+        for id in ids {
+            itunesResultsByBookId[id] = nil
+            searchingItunesBookIds.remove(id)
+        }
 
         if let previousSelected, !ids.contains(previousSelected),
             books.contains(where: { $0.id == previousSelected })
@@ -171,6 +382,11 @@ final class MetadataEditorViewModel {
         } else {
             selectedBookId = books.first?.id
         }
+    }
+
+    func clearTransientImportState() {
+        itunesResultsByBookId.removeAll()
+        searchingItunesBookIds.removeAll()
     }
 
     func markDirty(field: String, for bookId: String) {
@@ -187,13 +403,38 @@ final class MetadataEditorViewModel {
         case "publicationDate":
             isChanged = book.publicationDate != (EditableBook.dateOnly(orig.publicationDate) ?? "")
         case "rating": isChanged = book.rating != (orig.rating.map { String($0) } ?? "")
-        case "status": isChanged = book.statusUuid != orig.status?.uuid
+        case "status": isChanged = book.statusUuid != (orig.status?.uuid ?? "")
         case "authors":
             isChanged = book.authors != (orig.authors?.compactMap { $0.name } ?? [])
         case "narrators":
             isChanged = book.narrators != (orig.narrators?.compactMap { $0.name } ?? [])
         case "tags":
-            isChanged = book.tags != (orig.tags?.map { $0.name } ?? [])
+            isChanged = Self.normalizedTags(book.tags) != Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+        case "creators":
+            let origCreators = orig.creators ?? []
+            if book.creators.count != origCreators.count {
+                isChanged = true
+            } else {
+                isChanged = zip(book.creators, origCreators).contains { edited, original in
+                    edited.name != (original.name ?? "")
+                        || edited.role != (original.role ?? "")
+                        || edited.fileAs != (original.fileAs ?? "")
+                }
+            }
+        case "series":
+            let origSeries = orig.series ?? []
+            if book.series.count != origSeries.count {
+                isChanged = true
+            } else {
+                isChanged = zip(book.series, origSeries).contains { edited, original in
+                    edited.name != original.name
+                        || edited.position != (original.position.map {
+                            $0.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int($0)) : String($0)
+                        } ?? "")
+                        || edited.featured != (original.featured == 1)
+                }
+            }
         case "collections":
             isChanged = book.collectionUuids != (orig.collections?.compactMap { $0.uuid } ?? [])
         default:
@@ -209,6 +450,148 @@ final class MetadataEditorViewModel {
 
     func isDirty(field: String, for bookId: String) -> Bool {
         books.first { $0.id == bookId }?.dirtyFields.contains(field) ?? false
+    }
+
+    func fieldDiffDisplay(field: String, for bookId: String) -> FieldDiffDisplay? {
+        guard let book = books.first(where: { $0.id == bookId }) else { return nil }
+        let original = originalDisplayValue(field: field, for: book)
+        let current = currentDisplayValue(field: field, for: book)
+        guard original != current else { return nil }
+        return FieldDiffDisplay(original: original, current: current)
+    }
+
+    private func originalDisplayValue(field: String, for book: EditableBook) -> String {
+        let original = book.originalMetadata
+        switch field {
+        case "title":
+            return displayValue(original.title)
+        case "subtitle":
+            return displayValue(original.subtitle ?? "")
+        case "description":
+            return displayValue(original.description ?? "")
+        case "language":
+            return displayValue(original.language ?? "")
+        case "publicationDate":
+            return displayValue(EditableBook.dateOnly(original.publicationDate) ?? "")
+        case "rating":
+            return displayValue(original.rating.map { String($0) } ?? "")
+        case "status":
+            return displayValue(original.status?.name ?? "")
+        case "authors":
+            return displayList(original.authors?.compactMap(\.name) ?? [])
+        case "narrators":
+            return displayList(original.narrators?.compactMap(\.name) ?? [])
+        case "tags":
+            return displayList(Self.normalizedTags(original.tags?.map(\.name) ?? []))
+        case "creators":
+            return displayList(original.creators?.map { creator in
+                creatorDisplay(
+                    name: creator.name ?? "",
+                    role: creator.role ?? "",
+                    fileAs: creator.fileAs ?? ""
+                )
+            } ?? [])
+        case "series":
+            return displayList(original.series?.map { series in
+                seriesDisplay(
+                    name: series.name,
+                    position: series.formattedPosition ?? "",
+                    featured: series.featured == 1
+                )
+            } ?? [])
+        case "collections":
+            return displayList(original.collections?.map(\.name) ?? [])
+        default:
+            return "(empty)"
+        }
+    }
+
+    private func currentDisplayValue(field: String, for book: EditableBook) -> String {
+        switch field {
+        case "title":
+            return displayValue(book.title)
+        case "subtitle":
+            return displayValue(book.subtitle)
+        case "description":
+            return displayValue(book.description)
+        case "language":
+            return displayValue(book.language)
+        case "publicationDate":
+            return displayValue(book.publicationDate)
+        case "rating":
+            return displayValue(book.rating)
+        case "status":
+            return displayValue(book.status)
+        case "authors":
+            return displayList(book.authors)
+        case "narrators":
+            return displayList(book.narrators)
+        case "tags":
+            return displayList(Self.normalizedTags(book.tags))
+        case "creators":
+            return displayList(book.creators.map { creator in
+                creatorDisplay(name: creator.name, role: creator.role, fileAs: creator.fileAs)
+            })
+        case "series":
+            return displayList(book.series.map { series in
+                seriesDisplay(name: series.name, position: series.position, featured: series.featured)
+            })
+        case "collections":
+            return displayList(book.collectionUuids.map { uuid in
+                libraryCollectionNamesByUuid[uuid] ?? uuid
+            })
+        default:
+            return "(empty)"
+        }
+    }
+
+    private func displayValue(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "(empty)" : value
+    }
+
+    private func displayList(_ values: [String]) -> String {
+        let cleaned = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return cleaned.isEmpty ? "(empty)" : cleaned.joined(separator: "\n")
+    }
+
+    private static func normalizedTags(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+        for tag in tags {
+            let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !seen.contains(trimmed) else { continue }
+            seen.insert(trimmed)
+            normalized.append(trimmed)
+        }
+        return normalized.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func creatorDisplay(name: String, role: String, fileAs: String) -> String {
+        var parts: [String] = []
+        if !role.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append(role)
+        }
+        parts.append(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name)
+        if !fileAs.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("file as: \(fileAs)")
+        }
+        return parts.joined(separator: " | ")
+    }
+
+    private func seriesDisplay(name: String, position: String, featured: Bool) -> String {
+        var parts = [name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(unnamed)" : name]
+        if !position.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("position: \(position)")
+        }
+        if featured {
+            parts.append("featured")
+        }
+        return parts.joined(separator: " | ")
     }
 
     var hasAnyDirtyBooks: Bool {
@@ -241,6 +624,17 @@ final class MetadataEditorViewModel {
         let ratingStr = book.rating.trimmingCharacters(in: .whitespaces)
         if book.dirtyFields.contains("rating") && !ratingStr.isEmpty && Double(ratingStr) == nil {
             errors.append(ValidationError(field: "rating", message: "Invalid rating"))
+        }
+
+        if book.dirtyFields.contains("status") {
+            let statusUuid = book.statusUuid.trimmingCharacters(in: .whitespacesAndNewlines)
+            let validStatusUuids = Set(availableStatuses.compactMap(\.uuid))
+            if statusUuid.isEmpty || !validStatusUuids.contains(statusUuid) {
+                errors.append(ValidationError(
+                    field: "status",
+                    message: "Select a valid Storyteller status"
+                ))
+            }
         }
 
         if book.dirtyFields.contains("publicationDate") {
@@ -282,6 +676,16 @@ final class MetadataEditorViewModel {
         return validationErrors(for: bookId).contains { $0.field == "series.\(index).position" }
     }
 
+    private func coverUploads(for book: EditableBook) -> (text: StorytellerCoverUpload?, audio: StorytellerCoverUpload?) {
+        let text = book.replacementEbookCover.map {
+            StorytellerCoverUpload(filename: $0.filename, data: $0.data, contentType: nil)
+        }
+        let audio = book.replacementAudiobookCover.map {
+            StorytellerCoverUpload(filename: $0.filename, data: $0.data, contentType: nil)
+        }
+        return (text, audio)
+    }
+
     func buildPayload(for book: EditableBook) -> StorytellerBookUpdatePayload? {
         guard book.hasDirtyFields else { return nil }
         var payload = StorytellerBookUpdatePayload(uuid: book.id)
@@ -305,7 +709,7 @@ final class MetadataEditorViewModel {
             } else if trimmed.contains("T") {
                 payload.publicationDate = .value(trimmed)
             } else {
-                payload.publicationDate = .value(trimmed + "T00:00:00.000Z")
+                payload.publicationDate = .value(trimmed + "T12:00:00.000Z")
             }
         }
         if book.dirtyFields.contains("rating") {
@@ -320,15 +724,8 @@ final class MetadataEditorViewModel {
             }
         }
         if book.dirtyFields.contains("status") {
-            if let statusUuid = book.statusUuid, !statusUuid.isEmpty {
-                payload.status = statusUuid
-            } else {
-                if let index = books.firstIndex(where: { $0.id == book.id }) {
-                    books[index].dirtyFields.remove("status")
-                }
-            }
+            payload.status = book.statusUuid
         }
-
         let anyCreatorFieldDirty = !book.dirtyFields.isDisjoint(
             with: ["authors", "narrators", "creators"])
         if anyCreatorFieldDirty {
@@ -336,24 +733,40 @@ final class MetadataEditorViewModel {
             payload.narrators = book.narrators.filter {
                 !$0.trimmingCharacters(in: .whitespaces).isEmpty
             }
+            var originalCreatorNamesByUuid: [String: String] = [:]
+            for creator in book.originalMetadata.creators ?? [] {
+                guard let uuid = creator.uuid else { continue }
+                originalCreatorNamesByUuid[uuid] = creator.name ?? ""
+            }
             payload.creators = book.creators.compactMap { creator in
                 let name = creator.name.trimmingCharacters(in: .whitespaces)
                 guard !name.isEmpty else { return nil }
+                let role = creator.role.trimmingCharacters(in: .whitespaces)
+                guard !role.isEmpty && role != "Role" else { return nil }
+                let originalName = creator.uuid.flatMap { originalCreatorNamesByUuid[$0] } ?? ""
+                let uuid = originalName == name ? creator.uuid : nil
                 return StorytellerCreatorRelationUpdate(
-                    uuid: creator.uuid,
+                    uuid: uuid,
                     id: nil,
                     name: name,
                     fileAs: creator.fileAs.isEmpty ? name : creator.fileAs,
-                    role: creator.role.isEmpty ? nil : creator.role
+                    role: role
                 )
             }
         }
         if book.dirtyFields.contains("series") {
+            var originalSeriesNamesByUuid: [String: String] = [:]
+            for series in book.originalMetadata.series ?? [] {
+                guard let uuid = series.uuid else { continue }
+                originalSeriesNamesByUuid[uuid] = series.name
+            }
             payload.series = book.series.compactMap { s in
                 let name = s.name.trimmingCharacters(in: .whitespaces)
                 guard !name.isEmpty else { return nil }
+                let originalName = s.uuid.flatMap { originalSeriesNamesByUuid[$0] } ?? ""
+                let uuid = originalName == name ? s.uuid : nil
                 return StorytellerSeriesRelationUpdate(
-                    uuid: s.uuid,
+                    uuid: uuid,
                     name: name,
                     featured: s.featured,
                     position: Double(s.position)
@@ -361,7 +774,7 @@ final class MetadataEditorViewModel {
             }
         }
         if book.dirtyFields.contains("tags") {
-            payload.tags = book.tags.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            payload.tags = Self.normalizedTags(book.tags)
         }
         if book.dirtyFields.contains("collections") {
             payload.collections = book.collectionUuids
@@ -370,20 +783,30 @@ final class MetadataEditorViewModel {
         return payload
     }
 
-    func saveAll() async {
+    func saveAll(mediaViewModel: MediaViewModel) async {
         isSaving = true
         saveError = nil
         saveResults = [:]
 
         for book in books where book.hasDirtyFields {
-            guard let payload = buildPayload(for: book) else { continue }
-            let result = await StorytellerActor.shared.updateBook(payload)
-            if let updatedMetadata = result {
+            let result = await saveBook(book)
+            if let updatedMetadata = result.metadata {
                 saveResults[book.id] = true
                 if let index = books.firstIndex(where: { $0.id == book.id }) {
-                    books[index].dirtyFields.removeAll()
                     books[index].originalMetadata = updatedMetadata
+                    if result.metadataSaved {
+                        books[index].dirtyFields.removeAll()
+                    }
+                    if result.coversSaved {
+                        books[index].replacementEbookCover = nil
+                        books[index].replacementAudiobookCover = nil
+                    }
                 }
+                await refreshSavedCovers(
+                    result: result,
+                    metadata: updatedMetadata,
+                    mediaViewModel: mediaViewModel
+                )
             } else {
                 saveResults[book.id] = false
                 let serverError = await StorytellerActor.shared.lastUpdateBookError
@@ -396,21 +819,32 @@ final class MetadataEditorViewModel {
         isSaving = false
     }
 
-    func saveSingle(_ bookId: String) async {
+    func saveSingle(_ bookId: String, mediaViewModel: MediaViewModel) async {
         guard let book = books.first(where: { $0.id == bookId }),
-            let payload = buildPayload(for: book)
+            book.hasDirtyFields
         else { return }
 
         isSaving = true
         saveError = nil
 
-        let result = await StorytellerActor.shared.updateBook(payload)
-        if let updatedMetadata = result {
+        let result = await saveBook(book)
+        if let updatedMetadata = result.metadata {
             saveResults[bookId] = true
             if let index = books.firstIndex(where: { $0.id == bookId }) {
-                books[index].dirtyFields.removeAll()
                 books[index].originalMetadata = updatedMetadata
+                if result.metadataSaved {
+                    books[index].dirtyFields.removeAll()
+                }
+                if result.coversSaved {
+                    books[index].replacementEbookCover = nil
+                    books[index].replacementAudiobookCover = nil
+                }
             }
+            await refreshSavedCovers(
+                result: result,
+                metadata: updatedMetadata,
+                mediaViewModel: mediaViewModel
+            )
         } else {
             saveResults[bookId] = false
             let serverError = await StorytellerActor.shared.lastUpdateBookError
@@ -422,85 +856,151 @@ final class MetadataEditorViewModel {
         isSaving = false
     }
 
+    private struct SaveBookResult {
+        let metadata: BookMetadata?
+        let metadataSaved: Bool
+        let textCoverSaved: Bool
+        let audioCoverSaved: Bool
+
+        var coversSaved: Bool {
+            textCoverSaved || audioCoverSaved
+        }
+    }
+
+    private func saveBook(_ book: EditableBook) async -> SaveBookResult {
+        let covers = coverUploads(for: book)
+        let hasMetadataChanges = !book.dirtyFields.isEmpty
+
+        let payload = buildPayload(for: book) ?? StorytellerBookUpdatePayload(uuid: book.id)
+        let result = await StorytellerActor.shared.updateBook(
+            payload,
+            textCover: covers.text,
+            audioCover: covers.audio
+        )
+        return SaveBookResult(
+            metadata: result,
+            metadataSaved: hasMetadataChanges && result != nil,
+            textCoverSaved: covers.text != nil && result != nil,
+            audioCoverSaved: covers.audio != nil && result != nil
+        )
+    }
+
+    private func refreshSavedCovers(
+        result: SaveBookResult,
+        metadata: BookMetadata,
+        mediaViewModel: MediaViewModel
+    ) async {
+        guard result.coversSaved else { return }
+
+        if metadata.hasAvailableEbook {
+            await mediaViewModel.refreshCover(for: metadata, variant: .standard)
+        }
+        if metadata.hasAvailableAudiobook {
+            await mediaViewModel.refreshCover(for: metadata, variant: .audioSquare)
+        }
+    }
+
     // MARK: - Hardcover Import
 
-    func applyImport(details: HardcoverBookDetails, fields: Set<String>, for bookId: String) {
+    func applyImport(
+        imports: [HardcoverImportSource: HardcoverBookDetails],
+        fields: Set<String>,
+        for bookId: String
+    ) {
+        guard !imports.isEmpty else { return }
+        for (source, details) in imports {
+            applyImport(details: details, source: source, fields: fields, for: bookId)
+        }
+    }
+
+    func applyImport(
+        details: HardcoverBookDetails,
+        source: HardcoverImportSource = .text,
+        fields: Set<String>,
+        for bookId: String
+    ) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
 
-        if fields.contains("title"), let value = details.title, !value.isEmpty,
+        books[index].hardcoverImports[source] = details
+
+        let shouldApplyToCurrent = { (field: String) -> Bool in
+            fields.contains(field) && Self.defaultHardcoverSource(for: field) == source
+        }
+
+        if shouldApplyToCurrent("title"), let value = details.title, !value.isEmpty,
             value != books[index].title
         {
             books[index].title = value
-            books[index].importedFields.insert("title")
             markDirty(field: "title", for: bookId)
         }
-        if fields.contains("subtitle"), let value = details.subtitle, !value.isEmpty,
+        if shouldApplyToCurrent("subtitle"), let value = details.subtitle, !value.isEmpty,
             value != books[index].subtitle
         {
             books[index].subtitle = value
-            books[index].importedFields.insert("subtitle")
             markDirty(field: "subtitle", for: bookId)
         }
-        if fields.contains("description"), let value = details.description, !value.isEmpty,
+        if shouldApplyToCurrent("description"), let value = details.description, !value.isEmpty,
             value != books[index].description
         {
             books[index].description = value
-            books[index].importedFields.insert("description")
             markDirty(field: "description", for: bookId)
         }
-        if fields.contains("language"), let value = details.language, !value.isEmpty {
+        if shouldApplyToCurrent("language"), let value = details.language, !value.isEmpty {
             let code = Self.languageNameToCode(value)
             if code != books[index].language {
                 books[index].language = code
-                books[index].importedFields.insert("language")
                 markDirty(field: "language", for: bookId)
             }
         }
-        if fields.contains("publicationDate"), let value = details.releaseDate, !value.isEmpty {
+        if shouldApplyToCurrent("publicationDate"), let value = details.releaseDate, !value.isEmpty {
             let dateOnly = EditableBook.dateOnly(value) ?? value
             if dateOnly != books[index].publicationDate {
                 books[index].publicationDate = dateOnly
-                books[index].importedFields.insert("publicationDate")
                 markDirty(field: "publicationDate", for: bookId)
             }
         }
+        if shouldApplyToCurrent("rating"), let value = details.rating {
+            let ratingStr = String(format: "%.2f", value)
+            if ratingStr != books[index].rating {
+                books[index].rating = ratingStr
+                markDirty(field: "rating", for: bookId)
+            }
+        }
 
-        if fields.contains("authors") && !details.authors.isEmpty {
+        if shouldApplyToCurrent("authors") && !details.authors.isEmpty {
             var seen = Set(books[index].authors.map { $0.lowercased() })
-            var imported = Set<String>()
+            var changed = false
             for author in details.authors {
                 guard !seen.contains(author.lowercased()) else { continue }
                 seen.insert(author.lowercased())
                 books[index].authors.append(author)
-                imported.insert(author)
+                changed = true
             }
-            if !imported.isEmpty {
-                books[index].importedItems["authors", default: []].formUnion(imported)
+            if changed {
                 markDirty(field: "authors", for: bookId)
             }
         }
 
-        if fields.contains("narrators") && !details.narrators.isEmpty {
+        if shouldApplyToCurrent("narrators") && !details.narrators.isEmpty {
             var seen = Set(books[index].narrators.map { $0.lowercased() })
-            var imported = Set<String>()
+            var changed = false
             for narrator in details.narrators {
                 guard !seen.contains(narrator.lowercased()) else { continue }
                 seen.insert(narrator.lowercased())
                 books[index].narrators.append(narrator)
-                imported.insert(narrator)
+                changed = true
             }
-            if !imported.isEmpty {
-                books[index].importedItems["narrators", default: []].formUnion(imported)
+            if changed {
                 markDirty(field: "narrators", for: bookId)
             }
         }
 
-        if fields.contains("creators") && !details.creators.isEmpty {
+        if shouldApplyToCurrent("creators") && !details.creators.isEmpty {
             var seenKeys = Set(
                 books[index].creators.map {
                     "\($0.name.lowercased())|\($0.role.lowercased())"
                 })
-            var imported = Set<String>()
+            var changed = false
             for creator in details.creators {
                 let key = "\(creator.name.lowercased())|\(creator.role.lowercased())"
                 guard !seenKeys.contains(key) else { continue }
@@ -511,18 +1011,16 @@ final class MetadataEditorViewModel {
                         fileAs: "",
                         role: creator.role
                     ))
-                imported.insert(creator.name)
+                changed = true
             }
-            if !imported.isEmpty {
-                books[index].importedItems["creators", default: []].formUnion(imported)
+            if changed {
                 markDirty(field: "creators", for: bookId)
             }
         }
 
-        if fields.contains("series") && !details.series.isEmpty {
+        if shouldApplyToCurrent("series") && !details.series.isEmpty {
             var seenNames = Set(
                 books[index].series.map { $0.name.lowercased() })
-            var imported = Set<String>()
             var updated = false
             for s in details.series {
                 if seenNames.contains(s.name.lowercased()) {
@@ -555,31 +1053,54 @@ final class MetadataEditorViewModel {
                             position: posStr,
                             featured: s.featured
                         ))
-                    imported.insert(s.name)
+                    updated = true
                 }
             }
-            if !imported.isEmpty {
-                books[index].importedItems["series", default: []].formUnion(imported)
-            }
-            if !imported.isEmpty || updated {
+            if updated {
                 markDirty(field: "series", for: bookId)
             }
         }
 
-        if fields.contains("tags") && !details.tags.isEmpty {
-            var seen = Set(books[index].tags.map { $0.lowercased() })
-            var imported = Set<String>()
-            for tag in details.tags {
-                guard !seen.contains(tag.lowercased()) else { continue }
-                seen.insert(tag.lowercased())
-                books[index].tags.append(tag)
-                imported.insert(tag)
-            }
-            if !imported.isEmpty {
-                books[index].importedItems["tags", default: []].formUnion(imported)
-                markDirty(field: "tags", for: bookId)
+        if source == .text, !details.tags.isEmpty {
+            let selectedTagNames = selectedHardcoverTagNames(from: fields, details: details)
+            if !selectedTagNames.isEmpty {
+                let current = Self.normalizedTags(books[index].tags)
+                let currentKeys = Set(current.map { $0.lowercased() })
+                let additions = selectedTagNames.filter { !currentKeys.contains($0.lowercased()) }
+                if !additions.isEmpty {
+                    books[index].tags = Self.normalizedTags(current + additions)
+                    markDirty(field: "tags", for: bookId)
+                }
+            } else if shouldApplyToCurrent("tags") {
+                let tagNames = Self.normalizedTags(details.tags.map(\.name))
+                if Self.normalizedTags(books[index].tags) != tagNames {
+                    books[index].tags = tagNames
+                    markDirty(field: "tags", for: bookId)
+                }
             }
         }
+    }
+
+    private func selectedHardcoverTagNames(
+        from fields: Set<String>,
+        details: HardcoverBookDetails
+    ) -> [String] {
+        let prefix = "tags:"
+        let selectedKeys = Set(
+            fields.compactMap { field -> String? in
+                guard field.hasPrefix(prefix) else { return nil }
+                return String(field.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+            })
+        guard !selectedKeys.isEmpty else { return [] }
+        return details.tags.compactMap { tag in
+            let key = tag.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return selectedKeys.contains(key) ? tag.name : nil
+        }
+    }
+
+    static func defaultHardcoverSource(for field: String) -> HardcoverImportSource {
+        field == "narrators" ? .audiobook : .text
     }
 
     private static func languageNameToCode(_ name: String) -> String {
@@ -595,47 +1116,226 @@ final class MetadataEditorViewModel {
         return name
     }
 
-    func isImportedField(_ field: String, for bookId: String) -> Bool {
-        guard let book = books.first(where: { $0.id == bookId }) else { return false }
-        return book.importedFields.contains(field)
-    }
+    func rawHardcoverDataDump(for bookId: String) -> String {
+        guard let book = books.first(where: { $0.id == bookId }) else {
+            return "No book selected."
+        }
+        guard !book.hardcoverImports.isEmpty else {
+            return "No Hardcover data has been imported for this book."
+        }
 
-    func isImported(field: String, value: String, for bookId: String) -> Bool {
-        guard let book = books.first(where: { $0.id == bookId }) else { return false }
-        return book.importedItems[field]?.contains(value) ?? false
-    }
+        var parts: [String] = []
+        parts.append("Hardcover imported data for \(book.displayTitle)")
 
-    // MARK: - Auto Import All
-
-    var isAutoImporting = false
-    var autoImportProgress: (current: Int, total: Int) = (0, 0)
-    var autoImportError: String?
-
-    func autoImportAll(fields: Set<String>) async {
-        isAutoImporting = true
-        autoImportError = nil
-        let total = books.count
-        autoImportProgress = (0, total)
-
-        for (i, book) in books.enumerated() {
-            autoImportProgress = (i, total)
-
-            var query = book.title
-            if let author = book.authors.first, !author.isEmpty {
-                query += " \(author)"
-            }
-
-            do {
-                let results = try await HardcoverActor.shared.searchBooks(query: query)
-                guard let first = results.first else { continue }
-                let details = try await HardcoverActor.shared.fetchBookDetails(id: first.id)
-                applyImport(details: details, fields: fields, for: book.id)
-            } catch {
-                autoImportError = "\(book.displayTitle): \(error.localizedDescription)"
+        for source in HardcoverImportSource.allCases {
+            guard let details = book.hardcoverImports[source] else { continue }
+            parts.append("\n\n=== \(source.label) ===")
+            if let rawJSON = details.rawJSON {
+                parts.append(rawJSON)
+            } else {
+                parts.append(Self.fallbackHardcoverDump(details))
             }
         }
 
-        autoImportProgress = (total, total)
-        isAutoImporting = false
+        return parts.joined(separator: "\n")
     }
+
+    private static func fallbackHardcoverDump(_ details: HardcoverBookDetails) -> String {
+        var lines: [String] = []
+        func row(_ name: String, _ value: String?) {
+            guard let value, !value.isEmpty else { return }
+            lines.append("\(name): \(value)")
+        }
+        row("Title", details.title)
+        row("Subtitle", details.subtitle)
+        row("Description", details.description)
+        row("Release Date", details.releaseDate)
+        row("Language", details.language)
+        if let rating = details.rating { lines.append("Rating: \(rating)") }
+        if !details.authors.isEmpty {
+            lines.append("Authors: \(details.authors.joined(separator: ", "))")
+        }
+        if !details.narrators.isEmpty {
+            lines.append("Narrators: \(details.narrators.joined(separator: ", "))")
+        }
+        if !details.creators.isEmpty {
+            let creators = details.creators.map { "\($0.name) (\($0.role))" }
+            lines.append("Creators: \(creators.joined(separator: ", "))")
+        }
+        if !details.series.isEmpty {
+            lines.append("Series: \(details.series.map(\.name).joined(separator: ", "))")
+        }
+        if !details.tags.isEmpty {
+            let tags = details.tags.map { "\($0.name) [\($0.count)]" }
+            lines.append("Tags: \(tags.joined(separator: ", "))")
+        }
+        if !details.editions.isEmpty {
+            lines.append("\nEditions:")
+            for edition in details.editions {
+                lines.append("- \(edition.id): \(edition.title ?? "(untitled)")")
+                row("  Format", edition.format)
+                row("  Edition Info", edition.editionInfo)
+                row("  Release Date", edition.releaseDate)
+                row("  Language", edition.language)
+                row("  Publisher", edition.publisher)
+                row("  ISBN-13", edition.isbn13)
+                row("  ISBN-10", edition.isbn10)
+                row("  ASIN", edition.asin)
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    func revertFieldToOriginal(field: String, for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let orig = books[index].originalMetadata
+
+        switch field {
+        case "title":
+            books[index].title = orig.title
+        case "subtitle":
+            books[index].subtitle = orig.subtitle ?? ""
+        case "description":
+            books[index].description = orig.description ?? ""
+        case "language":
+            books[index].language = orig.language ?? ""
+        case "publicationDate":
+            books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
+        case "rating":
+            books[index].rating = orig.rating.map { String($0) } ?? ""
+        case "status":
+            books[index].status = orig.status?.name ?? ""
+            books[index].statusUuid = orig.status?.uuid ?? ""
+        case "authors":
+            books[index].authors = orig.authors?.compactMap { $0.name } ?? []
+        case "narrators":
+            books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
+        case "creators":
+            books[index].creators = orig.creators?.map { creator in
+                EditableCreator(
+                    name: creator.name ?? "",
+                    fileAs: creator.fileAs ?? "",
+                    role: creator.role ?? "",
+                    uuid: creator.uuid
+                )
+            } ?? []
+        case "series":
+            books[index].series = orig.series?.map { s in
+                EditableSeries(
+                    name: s.name,
+                    position: s.position.map {
+                        $0.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(Int($0)) : String($0)
+                    } ?? "",
+                    featured: s.featured == 1,
+                    uuid: s.uuid
+                )
+            } ?? []
+        case "tags":
+            books[index].tags = Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+        case "collections":
+            books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
+        default:
+            break
+        }
+
+        books[index].dirtyFields.remove(field)
+    }
+
+    func revertAllFields(for bookId: String) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let orig = books[index].originalMetadata
+        books[index].title = orig.title
+        books[index].subtitle = orig.subtitle ?? ""
+        books[index].description = orig.description ?? ""
+        books[index].language = orig.language ?? ""
+        books[index].publicationDate = EditableBook.dateOnly(orig.publicationDate) ?? ""
+        books[index].rating = orig.rating.map { String($0) } ?? ""
+        books[index].status = orig.status?.name ?? ""
+        books[index].statusUuid = orig.status?.uuid ?? ""
+        books[index].authors = orig.authors?.compactMap { $0.name } ?? []
+        books[index].narrators = orig.narrators?.compactMap { $0.name } ?? []
+        books[index].creators = orig.creators?.map { creator in
+            EditableCreator(
+                name: creator.name ?? "",
+                fileAs: creator.fileAs ?? "",
+                role: creator.role ?? "",
+                uuid: creator.uuid
+            )
+        } ?? []
+        books[index].series = orig.series?.map { s in
+            EditableSeries(
+                name: s.name,
+                position: s.position.map {
+                    $0.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int($0)) : String($0)
+                } ?? "",
+                featured: s.featured == 1,
+                uuid: s.uuid
+            )
+        } ?? []
+        books[index].tags = Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+        books[index].collectionUuids = orig.collections?.compactMap { $0.uuid } ?? []
+        books[index].dirtyFields.removeAll()
+        books[index].replacementEbookCover = nil
+        books[index].replacementAudiobookCover = nil
+    }
+
+    func originalScalarValue(field: String, for bookId: String) -> String {
+        guard let book = books.first(where: { $0.id == bookId }) else { return "" }
+        let orig = book.originalMetadata
+        switch field {
+        case "title": return orig.title
+        case "subtitle": return orig.subtitle ?? ""
+        case "description": return orig.description ?? ""
+        case "language": return orig.language ?? ""
+        case "publicationDate":
+            return EditableBook.dateOnly(orig.publicationDate) ?? ""
+        case "rating": return orig.rating.map { String($0) } ?? ""
+        default: return ""
+        }
+    }
+
+    func originalStringList(field: String, for bookId: String) -> [String] {
+        guard let book = books.first(where: { $0.id == bookId }) else { return [] }
+        let orig = book.originalMetadata
+        switch field {
+        case "authors": return orig.authors?.compactMap { $0.name } ?? []
+        case "narrators": return orig.narrators?.compactMap { $0.name } ?? []
+        case "tags": return Self.normalizedTags(orig.tags?.map { $0.name } ?? [])
+        default: return []
+        }
+    }
+
+    // MARK: - iTunes Search
+
+    func itunesResults(for bookId: String) -> [ITunesCoverResult] {
+        itunesResultsByBookId[bookId] ?? []
+    }
+
+    func isSearchingItunes(for bookId: String) -> Bool {
+        searchingItunesBookIds.contains(bookId)
+    }
+
+    func clearItunesResults(for bookId: String) {
+        itunesResultsByBookId[bookId] = nil
+    }
+
+    func searchItunes(book: EditableBook) {
+        let bookId = book.id
+        searchingItunesBookIds.insert(bookId)
+        itunesResultsByBookId[bookId] = []
+        Task {
+            defer { searchingItunesBookIds.remove(bookId) }
+            do {
+                itunesResultsByBookId[bookId] = try await ITunesSearchActor.search(
+                    title: book.title,
+                    author: book.authors.first
+                )
+            } catch {
+                debugLog("[MetadataEditor] iTunes search failed: \(error)")
+            }
+        }
+    }
+
 }

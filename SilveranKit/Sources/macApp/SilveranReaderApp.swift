@@ -20,6 +20,8 @@ struct SilveranReaderApp: App {
     @State private var didOpenSecondaryWindows = false
 
     init() {
+        StorytellerFontRegistration.registerBundledFonts()
+        SidebarSelectionColor.install()
         Task {
             do {
                 if let credentials = try await AuthenticationActor.shared.loadCredentials() {
@@ -206,11 +208,11 @@ struct SilveranReaderApp: App {
     }
 
     private var metadataEditorScene: some Scene {
-        Window("Edit Metadata", id: "MetadataEditor") {
-            MetadataEditorView(initialBookIds: [])
+        WindowGroup("Edit Metadata", id: "MetadataEditor", for: MetadataEditorData.self) { data in
+            MetadataEditorView(initialBookIds: data.wrappedValue?.bookIds ?? [])
                 .environment(mediaViewModel)
         }
-        .defaultSize(width: 900, height: 650)
+        .defaultSize(width: 900, height: 710)
         .disableWindowRestoration()
     }
 }

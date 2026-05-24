@@ -1,5 +1,9 @@
 import SwiftUI
 
+extension Notification.Name {
+    static let openSmartShelves = Notification.Name("openSmartShelves")
+}
+
 public struct LibraryView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
 
@@ -32,17 +36,25 @@ public struct LibraryView: View {
                     isSearchFocused: $isSearchFocused
                 )
             } detail: {
-                if let selected = selectedItem {
-                    detailView(
-                        for: selected,
-                        sections: $sections,
-                        selectedItem: $selectedItem,
-                    )
-                } else {
-                    PlaceholderDetailView(title: "Select an item")
+                Group {
+                    if let selected = selectedItem {
+                        detailView(
+                            for: selected,
+                            sections: $sections,
+                            selectedItem: $selectedItem,
+                        )
+                    } else {
+                        PlaceholderDetailView(title: "Select an item")
+                    }
                 }
+                #if os(macOS)
+                .tint(Color(hex: mediaViewModel.cachedConfig.library.accentColorHex) ?? .storytellerOrange)
+                #endif
             }
             #if os(macOS)
+            .onChange(of: mediaViewModel.cachedConfig.library.accentColorHex) { _, newHex in
+                SidebarSelectionColor.updateColor(hex: newHex)
+            }
             .onAppear {
                 NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     if event.modifierFlags.contains(.command)
@@ -62,6 +74,14 @@ public struct LibraryView: View {
                 } else {
                     metadataNavStack.removeAll()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openSmartShelves)) { _ in
+                selectedItem = SidebarItemDescription(
+                    name: "Smart Shelves",
+                    systemImage: "sparkles.rectangle.stack",
+                    badge: -1,
+                    content: .smartShelves
+                )
             }
             #if os(iOS)
             .toolbar {

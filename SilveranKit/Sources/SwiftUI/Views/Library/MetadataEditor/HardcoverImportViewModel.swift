@@ -39,6 +39,7 @@ final class HardcoverImportViewModel {
         ("description", "Description"),
         ("language", "Language"),
         ("publicationDate", "Publication Date"),
+        ("rating", "Rating"),
         ("authors", "Authors"),
         ("narrators", "Narrators"),
         ("creators", "Other Creators"),
@@ -48,7 +49,7 @@ final class HardcoverImportViewModel {
 
     private static let defaultFields: Set<String> = [
         "title", "subtitle", "description", "language", "publicationDate",
-        "authors", "narrators", "creators", "series", "tags",
+        "rating", "authors", "narrators", "creators", "series", "tags",
     ]
 
     private static let selectedFieldsKey = "hardcoverImport.selectedFields"
@@ -126,6 +127,11 @@ final class HardcoverImportViewModel {
         error = nil
         selectedResult = nil
         fetchedDetails = nil
+        selectedEditionId = nil
+        selectedTextEditionId = nil
+        selectedAudiobookEditionId = nil
+        selectedTextDetails = nil
+        selectedAudiobookDetails = nil
 
         do {
             searchResults = try await HardcoverActor.shared.searchBooks(query: query)
@@ -140,13 +146,68 @@ final class HardcoverImportViewModel {
         }
 
         isSearching = false
+
+        if let first = searchResults.first {
+            await selectResult(first)
+        }
     }
 
     var selectedEditionId: Int?
+    var selectedTextEditionId: Int?
+    var selectedAudiobookEditionId: Int?
+    var selectedTextDetails: HardcoverBookDetails?
+    var selectedAudiobookDetails: HardcoverBookDetails?
+
+    var selectedImports: [MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails] {
+        var imports: [MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails] = [:]
+        if let selectedTextDetails {
+            imports[.text] = selectedTextDetails
+        } else if let fetchedDetails {
+            imports[.text] = fetchedDetails
+        }
+        if let selectedAudiobookDetails {
+            imports[.audiobook] = selectedAudiobookDetails
+        }
+        return imports
+    }
+
+    func clearTextSelection() {
+        selectedTextEditionId = nil
+        selectedTextDetails = nil
+        if selectedAudiobookDetails == nil {
+            selectedResult = nil
+            selectedEditionId = nil
+            fetchedDetails = nil
+        }
+    }
+
+    func clearAudiobookSelection() {
+        selectedAudiobookEditionId = nil
+        selectedAudiobookDetails = nil
+        if selectedTextDetails == nil {
+            selectedResult = nil
+            selectedEditionId = nil
+            fetchedDetails = nil
+        }
+    }
+
+    func useFetchedDetailsForText() {
+        selectedTextEditionId = nil
+        selectedTextDetails = fetchedDetails
+    }
+
+    func useFetchedDetailsForAudiobook() {
+        selectedAudiobookEditionId = nil
+        selectedAudiobookDetails = fetchedDetails
+    }
 
     func selectResult(_ result: HardcoverSearchResult) async {
         selectedResult = result
         selectedEditionId = nil
+        selectedTextEditionId = nil
+        selectedAudiobookEditionId = nil
+        selectedTextDetails = nil
+        selectedAudiobookDetails = nil
         isFetching = true
         error = nil
         fetchedDetails = nil
@@ -155,6 +216,8 @@ final class HardcoverImportViewModel {
             let details = try await HardcoverActor.shared.fetchBookDetails(id: result.id)
             infoDetails[result.id] = details
             fetchedDetails = details
+            selectedTextDetails = details
+            selectedTextEditionId = nil
         } catch {
             self.error = error.localizedDescription
         }
@@ -163,8 +226,37 @@ final class HardcoverImportViewModel {
     }
 
     func selectEdition(_ edition: HardcoverEditionInfo, bookId: Int) {
-        guard let bookDetails = infoDetails[bookId] else { return }
+        selectEdition(edition, bookId: bookId, source: .text)
+    }
+
+    func selectEdition(
+        _ edition: HardcoverEditionInfo,
+        bookId: Int,
+        source: MetadataEditorViewModel.HardcoverImportSource
+    ) {
+        guard let details = detailsForEdition(edition, bookId: bookId) else { return }
         selectedEditionId = edition.id
+        switch source {
+        case .text:
+            selectedTextEditionId = edition.id
+        case .audiobook:
+            selectedAudiobookEditionId = edition.id
+        }
+
+        fetchedDetails = details
+        switch source {
+        case .text:
+            selectedTextDetails = details
+        case .audiobook:
+            selectedAudiobookDetails = details
+        }
+    }
+
+    func detailsForEdition(
+        _ edition: HardcoverEditionInfo,
+        bookId: Int
+    ) -> HardcoverBookDetails? {
+        guard let bookDetails = infoDetails[bookId] else { return nil }
 
         let releaseDate: String? = {
             guard let raw = edition.releaseDate else { return bookDetails.releaseDate }
@@ -178,7 +270,9 @@ final class HardcoverImportViewModel {
             return raw
         }()
 
-        fetchedDetails = HardcoverBookDetails(
+        let details = HardcoverBookDetails(
+            id: bookDetails.id,
+            slug: bookDetails.slug,
             title: edition.title ?? bookDetails.title,
             subtitle: edition.subtitle ?? bookDetails.subtitle,
             description: bookDetails.description,
@@ -191,8 +285,14 @@ final class HardcoverImportViewModel {
                 ? bookDetails.creators : edition.otherContributors,
             series: bookDetails.series,
             tags: bookDetails.tags,
-            editions: bookDetails.editions
+            defaultAudioEdition: bookDetails.defaultAudioEdition,
+            editions: bookDetails.editions,
+            imageUrl: edition.imageUrl ?? bookDetails.imageUrl,
+            imageWidth: edition.imageUrl != nil ? edition.imageWidth : bookDetails.imageWidth,
+            imageHeight: edition.imageUrl != nil ? edition.imageHeight : bookDetails.imageHeight,
+            rawJSON: bookDetails.rawJSON
         )
+        return details
     }
 
     func toggleField(_ field: String) {

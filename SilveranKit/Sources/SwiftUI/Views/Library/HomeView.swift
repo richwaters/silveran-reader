@@ -7,6 +7,9 @@ struct HomeView: View {
     let searchText: String
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
     @Binding var sidebarSections: [SidebarSectionDescription]
     @Binding var selectedSidebarItem: SidebarItemDescription?
     @Binding var showSettings: Bool
@@ -44,20 +47,27 @@ struct HomeView: View {
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
     @State private var cardTapInProgress: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
-    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.storytellerDouble
         .rawValue
     @AppStorage("coverSize.home") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     @AppStorage("showAudioIndicator.home") private var showAudioIndicator: Bool = true
     @AppStorage("showSourceBadge.home") private var showSourceBadge: Bool = false
     @AppStorage("showSeriesPositionBadge.home") private var showSeriesPositionBadge: Bool = false
+    @AppStorage("progressStyle.home") private var progressStyleRaw: String = ProgressIndicatorStyle.circle.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
+
+    private var progressStyle: ProgressIndicatorStyle {
+        ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle
     }
 
     private var coverSize: CGFloat {
@@ -178,7 +188,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: sectionSpacing) {
                             HStack {
                                 Text("Home")
-                                    .font(.system(size: 32, weight: .regular, design: .serif))
+                                    .font(.storytellerTitle(size: 32))
                                 Spacer()
                                 #if os(macOS)
                                 viewOptionsButton
@@ -239,6 +249,7 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
@@ -256,8 +267,10 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
+                                        onEditMetadata: handleEditMetadata,
                                         onNavigateToSection: { navigateToSection($0) }
                                     )
                                     .id(section.id)
@@ -323,6 +336,11 @@ struct HomeView: View {
                 return .handled
             }
             return .ignored
+        }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
         }
         #endif
         .onAppear {
@@ -451,6 +469,36 @@ struct HomeView: View {
         }
         #endif
     }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+            case .allowed:
+                if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                    return
+                }
+                openWindow(
+                    id: "MetadataEditor",
+                    value: MetadataEditorData(bookIds: bookIds)
+                )
+            case .denied:
+                permissionErrorMessage =
+                    "Your account does not have permission to edit metadata on this server."
+                showPermissionError = true
+            case .error(let message):
+                permissionErrorMessage = "Could not verify server permissions: \(message)"
+                showPermissionError = true
+            }
+        }
+    }
+    #endif
 
     private func firstAvailableSelection() -> Selection? {
         for (index, section) in sections.enumerated() {
@@ -909,6 +957,19 @@ struct HomeView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+
+                    Button {
+                        coverPrefRaw = CoverPreference.storytellerDouble.rawValue
+                    } label: {
+                        Image("readalong")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 18, height: 18)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(coverPreference == .storytellerDouble ? .accentColor : .secondary)
                 }
             }
 
@@ -938,16 +999,34 @@ struct HomeView: View {
                 Toggle("Audio Indicator", isOn: $showAudioIndicator)
                 Toggle("Source Badge", isOn: $showSourceBadge)
                 Toggle("Series Position", isOn: $showSeriesPositionBadge)
+
+                Text("Progress")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                HStack(spacing: 8) {
+                    ForEach(ProgressIndicatorStyle.allCases) { style in
+                        Button {
+                            progressStyleRaw = style.rawValue
+                        } label: {
+                            Image(systemName: style.iconName)
+                                .frame(width: 32, height: 28)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(progressStyle == style ? .accentColor : .secondary)
+                    }
+                }
             }
 
             Divider()
 
             Button("Reset to Defaults") {
-                coverPrefRaw = CoverPreference.preferEbook.rawValue
+                coverPrefRaw = CoverPreference.storytellerDouble.rawValue
                 coverSizeValue = CoverSizeRange.defaultValue
                 showAudioIndicator = true
                 showSourceBadge = false
                 showSeriesPositionBadge = false
+                progressStyleRaw = ProgressIndicatorStyle.circle.rawValue
             }
             .font(.subheadline)
         }
@@ -971,9 +1050,11 @@ private struct HomeSectionRow: View {
     let showSourceBadge: Bool
     let showSeriesPositionBadge: Bool
     let coverPreference: CoverPreference
+    let progressStyle: ProgressIndicatorStyle
     let coverSize: CGFloat
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
+    let onEditMetadata: ([String]) -> Void
     #endif
     let onNavigateToSection: (HomeView.HomeSection) -> Void
 
@@ -990,7 +1071,7 @@ private struct HomeSectionRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(section.title)
-                    .font(.title2.weight(.semibold))
+                    .font(.storytellerTitle(size: 22))
 
                 #if os(macOS)
                 if !section.items.isEmpty {
@@ -1030,7 +1111,7 @@ private struct HomeSectionRow: View {
                 }
                 .buttonStyle(.plain)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             }
 
             let metrics = MediaItemCardMetrics.make(
@@ -1096,19 +1177,29 @@ private struct HomeSectionRow: View {
             metrics: metrics,
             isSelected: isItemSelected(item.id),
             showAudioIndicator: showAudioIndicator,
-            sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+            sourceLabel: showSourceBadge ? item.source : nil,
             seriesPositionBadge: seriesPositionBadge(for: item),
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 select(selected)
             },
             onInfo: { selected in
                 openInfo(for: selected)
-            }
+            },
+            onEditMetadata: editMetadataHandler
         )
     }
 
     @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        onEditMetadata
+        #else
+        nil
+        #endif
+    }
 
     private func isItemSelected(_ id: BookMetadata.ID) -> Bool {
         guard let selection else { return false }

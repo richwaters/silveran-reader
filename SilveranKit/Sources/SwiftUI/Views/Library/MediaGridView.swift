@@ -136,7 +136,10 @@ struct MediaGridView: View {
     @AppStorage private var showSourceBadge: Bool
     @AppStorage private var showSeriesPositionBadge: Bool
     @AppStorage private var showAudioIndicator: Bool
+    @AppStorage private var progressStyleRaw: String
     @State private var showStickyControls: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     @AppStorage private var layoutStyleRaw: String
     @AppStorage private var coverPrefRaw: String
     @AppStorage private var coverSizeValue: Double
@@ -246,6 +249,11 @@ struct MediaGridView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
+    private var progressStyle: ProgressIndicatorStyle {
+        get { ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle }
+        set { progressStyleRaw = newValue.rawValue }
+    }
+
     private var coverSize: CGFloat {
         get { CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max) }
         set { coverSizeValue = Double(newValue) }
@@ -324,13 +332,15 @@ struct MediaGridView: View {
         _layoutStyleRaw = AppStorage(
             wrappedValue: LibraryLayoutStyle.grid.rawValue, "viewLayout.\(viewOptionsKey)")
         _coverPrefRaw = AppStorage(
-            wrappedValue: CoverPreference.preferEbook.rawValue, "coverPref.\(viewOptionsKey)")
+            wrappedValue: CoverPreference.storytellerDouble.rawValue, "coverPref.\(viewOptionsKey)")
         _coverSizeValue = AppStorage(
             wrappedValue: CoverSizeRange.defaultValue, "coverSize.\(viewOptionsKey)")
         _showAudioIndicator = AppStorage(wrappedValue: true, "showAudioIndicator.\(viewOptionsKey)")
         _showSourceBadge = AppStorage(wrappedValue: false, "showSourceBadge.\(viewOptionsKey)")
         _showSeriesPositionBadge = AppStorage(
             wrappedValue: seriesFilter != nil, "showSeriesPositionBadge.\(viewOptionsKey)")
+        _progressStyleRaw = AppStorage(
+            wrappedValue: ProgressIndicatorStyle.circle.rawValue, "progressStyle.\(viewOptionsKey)")
         self.title = title
         self.searchText = searchText
         self.mediaKind = mediaKind
@@ -535,6 +545,11 @@ struct MediaGridView: View {
             }
             return .ignored
         }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
+        }
         #endif
     }
 
@@ -654,12 +669,7 @@ struct MediaGridView: View {
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
-                    onEditMetadata: { bookIds in
-                        openWindow(id: "MetadataEditor")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            MetadataEditorNotification.post(bookIds: bookIds)
-                        }
-                    }
+                    onEditMetadata: handleEditMetadata
                 )
                 .padding(.top, 8)
             }
@@ -766,7 +776,7 @@ struct MediaGridView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
                 if hasActiveFilters {
                     Text("\(cachedDisplayItems.count) books")
                         .font(.callout)
@@ -798,6 +808,10 @@ struct MediaGridView: View {
                 showAudioIndicator: $showAudioIndicator,
                 showSourceBadge: $showSourceBadge,
                 showSeriesPositionBadge: $showSeriesPositionBadge,
+                progressStyle: Binding(
+                    get: { progressStyle },
+                    set: { progressStyleRaw = $0.rawValue }
+                ),
                 availableTags: cachedAvailableTags,
                 availableSeries: cachedAvailableSeries,
                 availableAuthors: cachedAvailableAuthors,
@@ -866,6 +880,10 @@ struct MediaGridView: View {
             showAudioIndicator: $showAudioIndicator,
             showSourceBadge: $showSourceBadge,
             showSeriesPositionBadge: $showSeriesPositionBadge,
+                progressStyle: Binding(
+                    get: { progressStyle },
+                    set: { progressStyleRaw = $0.rawValue }
+                ),
             availableTags: cachedAvailableTags,
             availableSeries: cachedAvailableSeries,
             availableAuthors: cachedAvailableAuthors,
@@ -974,7 +992,7 @@ struct MediaGridView: View {
         VStack(alignment: .leading, spacing: verticalSpacing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
 
                 contentFilterBar
             }
@@ -1032,7 +1050,7 @@ struct MediaGridView: View {
                         #else
                         let gridAlignment: HorizontalAlignment = .leading
                         #endif
-                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
+                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 0) {
                             ForEach(cachedDisplayItems) { item in
                                 card(for: item, metrics: gridMetrics)
                             }
@@ -1073,15 +1091,17 @@ struct MediaGridView: View {
                                     tileSize: compactTileSize,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
+                                    progressStyle: progressStyle,
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
                                         selectItem(selected)
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler
                                 )
                             }
                         }
@@ -1096,7 +1116,7 @@ struct MediaGridView: View {
                                     coverPreference: coverPreference,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
@@ -1104,7 +1124,8 @@ struct MediaGridView: View {
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler
                                 )
                             }
                         }
@@ -1175,7 +1196,7 @@ struct MediaGridView: View {
 
     @ViewBuilder
     private func card(for item: BookMetadata, metrics: MediaItemCardMetrics) -> some View {
-        let sourceLabel = showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil
+        let sourceLabel = showSourceBadge ? item.source : nil
         let seriesPositionBadge = seriesPositionBadge(for: item)
         #if os(macOS)
         MediaItemCardView(
@@ -1187,12 +1208,14 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },
             onInfo: { selected in
                 openSidebar(for: selected)
-            }
+            },
+            onEditMetadata: handleEditMetadata
         )
         #else
         MediaItemCardView(
@@ -1204,6 +1227,7 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },
@@ -1240,6 +1264,44 @@ struct MediaGridView: View {
         shouldEnsureActiveItemVisible = ensureVisible
         activeInfoItem = item
     }
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        return handleEditMetadata
+        #else
+        return nil
+        #endif
+    }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+            case .allowed:
+                if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                    return
+                }
+                openWindow(
+                    id: "MetadataEditor",
+                    value: MetadataEditorData(bookIds: bookIds)
+                )
+            case .denied:
+                permissionErrorMessage =
+                    "Your account does not have permission to edit metadata on this server."
+                showPermissionError = true
+            case .error(let message):
+                permissionErrorMessage = "Could not verify server permissions: \(message)"
+                showPermissionError = true
+            }
+        }
+    }
+    #endif
 
     private func openSidebar(for item: BookMetadata) {
         activeInfoItem = item
