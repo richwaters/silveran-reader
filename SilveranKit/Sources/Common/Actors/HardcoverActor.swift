@@ -37,6 +37,8 @@ public struct HardcoverTagInfo: Sendable {
 }
 
 public struct HardcoverBookDetails: Sendable {
+    public let id: Int?
+    public let slug: String?
     public let title: String?
     public let subtitle: String?
     public let description: String?
@@ -56,6 +58,7 @@ public struct HardcoverBookDetails: Sendable {
     public let rawJSON: String?
 
     public init(
+        id: Int? = nil, slug: String? = nil,
         title: String?, subtitle: String?, description: String?,
         releaseDate: String?, rating: Double?, language: String? = nil,
         authors: [String], narrators: [String],
@@ -66,6 +69,8 @@ public struct HardcoverBookDetails: Sendable {
         imageUrl: String? = nil, imageWidth: Int? = nil, imageHeight: Int? = nil,
         rawJSON: String? = nil
     ) {
+        self.id = id
+        self.slug = slug
         self.title = title
         self.subtitle = subtitle
         self.description = description
@@ -317,6 +322,7 @@ public actor HardcoverActor {
         else { throw HardcoverError.bookNotFound }
 
         let rawJSON = Self.prettyJSONString(book)
+        let slug = book["slug"] as? String
         let title = book["title"] as? String
         let subtitle = book["subtitle"] as? String
         let description = book["description"] as? String
@@ -382,6 +388,8 @@ public actor HardcoverActor {
         let editions: [HardcoverEditionInfo] = editionsRaw.compactMap(Self.parseEdition)
 
         return HardcoverBookDetails(
+            id: id,
+            slug: slug,
             title: title,
             subtitle: subtitle,
             description: description,

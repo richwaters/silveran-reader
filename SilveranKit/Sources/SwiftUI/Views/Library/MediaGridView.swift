@@ -1284,12 +1284,13 @@ struct MediaGridView: View {
             let result = await StorytellerActor.shared.checkBookUpdatePermission()
             switch result {
             case .allowed:
-                for bookId in bookIds {
-                    openWindow(
-                        id: "MetadataEditor",
-                        value: MetadataEditorData(bookId: bookId)
-                    )
+                if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                    return
                 }
+                openWindow(
+                    id: "MetadataEditor",
+                    value: MetadataEditorData(bookIds: bookIds)
+                )
             case .denied:
                 permissionErrorMessage =
                     "Your account does not have permission to edit metadata on this server."

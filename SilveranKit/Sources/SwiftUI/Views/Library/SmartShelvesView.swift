@@ -289,14 +289,19 @@ extension SmartShelvesView {
                                     ),
                                     showBookCountBadge: $showBookCountBadge
                                 )
-                                Spacer()
-                                Button {
-                                    showCreator = true
-                                } label: {
-                                    Label("Create New Shelf", systemImage: "plus.circle")
-                                }
-                                .buttonStyle(.borderless)
                             },
+                            headerAccessory: AnyView(
+                                HStack {
+                                    Button {
+                                        showCreator = true
+                                    } label: {
+                                        Label("Create New Shelf", systemImage: "plus.circle")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .fixedSize()
+                                    Spacer()
+                                }
+                            ),
                             contextMenuBuilder: shelfContextMenu
                         )
                     case .fan, .grid:
@@ -381,7 +386,10 @@ extension SmartShelvesView {
                 )
 
                 Spacer()
+            }
+            .font(.callout)
 
+            HStack {
                 Button {
                     showCreator = true
                 } label: {
@@ -390,6 +398,7 @@ extension SmartShelvesView {
                 #if os(macOS)
                 .buttonStyle(.borderless)
                 #endif
+                Spacer()
             }
             .font(.callout)
         }

@@ -1,39 +1,30 @@
 import Foundation
+import SwiftUI
 
-enum MetadataEditorSection: String, CaseIterable, Identifiable {
-    case covers = "Covers"
-    case titleDetails = "Title & Details"
-    case description = "Description"
-    case authors = "Authors"
-    case narrators = "Narrators"
-    case otherCreators = "Other Creators"
-    case organization = "Tags"
-    case collections = "Collections"
+enum MetadataCoverScope: String, CaseIterable, Identifiable {
+    case audiobook
+    case ebook
 
     var id: String { rawValue }
 
-    var systemImage: String {
-        switch self {
-        case .covers: "photo.on.rectangle"
-        case .titleDetails: "info.circle"
-        case .description: "text.alignleft"
-        case .authors: "person.2"
-        case .narrators: "mic"
-        case .otherCreators: "person.text.rectangle"
-        case .organization: "tag"
-        case .collections: "rectangle.stack"
-        }
-    }
+    var isAudio: Bool { self == .audiobook }
+    var label: String { isAudio ? "Audiobook Cover" : "Ebook Cover" }
+    var serverPreviewLabel: String { isAudio ? "Server Audiobook Cover" : "Server Ebook Cover" }
+    var aspectRatio: CGFloat { isAudio ? 1.0 : 2.0 / 3.0 }
+    var variant: MediaViewModel.CoverVariant { isAudio ? .audioSquare : .standard }
 }
 
 public struct MetadataEditorData: Codable, Hashable {
     public let bookIds: [String]
+    public let sessionId: UUID
 
-    public init(bookIds: [String]) {
+    public init(bookIds: [String], sessionId: UUID = UUID()) {
         self.bookIds = bookIds
+        self.sessionId = sessionId
     }
 
     public init(bookId: String) {
         self.bookIds = [bookId]
+        self.sessionId = UUID()
     }
 }

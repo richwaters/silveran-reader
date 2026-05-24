@@ -15,6 +15,7 @@ struct CategoryListSidebar<
     @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
     @ViewBuilder let detailContent: (CategoryGroup) -> DetailContent
     @ViewBuilder let toolbarContent: () -> ToolbarContent
+    let headerAccessory: AnyView?
     let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     init(
@@ -26,6 +27,7 @@ struct CategoryListSidebar<
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
+        headerAccessory: AnyView? = nil,
         @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
     ) {
         self.sidebarTitle = sidebarTitle
@@ -36,6 +38,7 @@ struct CategoryListSidebar<
         self.rowContent = rowContent
         self.detailContent = detailContent
         self.toolbarContent = toolbarContent
+        self.headerAccessory = headerAccessory
         self.contextMenuBuilder = contextMenuBuilder
     }
 
@@ -63,6 +66,11 @@ struct CategoryListSidebar<
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .font(.callout)
+
+            if let headerAccessory {
+                headerAccessory
+                    .font(.callout)
+            }
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
@@ -127,7 +135,8 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         sortByCount: Binding<Bool>,
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
-        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
+        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
+        headerAccessory: AnyView? = nil
     ) {
         self.sidebarTitle = sidebarTitle
         self.groups = groups
@@ -137,6 +146,7 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         self.rowContent = rowContent
         self.detailContent = detailContent
         self.toolbarContent = toolbarContent
+        self.headerAccessory = headerAccessory
         self.contextMenuBuilder = nil
     }
 }

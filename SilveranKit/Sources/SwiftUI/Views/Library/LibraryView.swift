@@ -1,5 +1,9 @@
 import SwiftUI
 
+extension Notification.Name {
+    static let openSmartShelves = Notification.Name("openSmartShelves")
+}
+
 public struct LibraryView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
 
@@ -70,6 +74,14 @@ public struct LibraryView: View {
                 } else {
                     metadataNavStack.removeAll()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openSmartShelves)) { _ in
+                selectedItem = SidebarItemDescription(
+                    name: "Smart Shelves",
+                    systemImage: "sparkles.rectangle.stack",
+                    badge: -1,
+                    content: .smartShelves
+                )
             }
             #if os(iOS)
             .toolbar {
