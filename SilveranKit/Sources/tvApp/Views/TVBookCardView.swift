@@ -16,7 +16,11 @@ struct TVBookCardView: View {
             if let image = coverState.image {
                 image
                     .resizable()
+                    .interpolation(.high)
+                    .antialiased(true)
                     .aspectRatio(contentMode: .fit)
+                    .compositingGroup()
+                    .drawingGroup(opaque: false, colorMode: .linear)
             } else {
                 placeholderCover
             }

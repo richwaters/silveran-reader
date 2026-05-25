@@ -248,6 +248,7 @@ struct TVPlayerView: View {
                 GeometryReader { geometry in
                     image
                         .resizable()
+                        .interpolation(.high)
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
@@ -714,6 +715,7 @@ struct TVPlayerView: View {
             if let image = cachedCoverImage {
                 image
                     .resizable()
+                    .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
             } else {
                 RoundedRectangle(cornerRadius: 12)
