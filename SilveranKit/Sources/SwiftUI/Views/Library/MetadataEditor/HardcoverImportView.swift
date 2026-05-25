@@ -36,6 +36,17 @@ private enum HardcoverImportTarget: String, CaseIterable, Identifiable {
     }
 }
 
+extension View {
+    @ViewBuilder
+    fileprivate func metadataImportCompactPopover() -> some View {
+        #if os(iOS)
+        self.presentationCompactAdaptation(.popover)
+        #else
+        self
+        #endif
+    }
+}
+
 private struct ReviewTagFlowLayout: Layout {
     var horizontalSpacing: CGFloat
     var verticalSpacing: CGFloat
@@ -239,6 +250,15 @@ struct HardcoverImportView: View {
     let onImport:
         ([MetadataEditorViewModel.HardcoverImportSource: HardcoverBookDetails], Set<String>) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -256,7 +276,8 @@ struct HardcoverImportView: View {
             Divider()
             bottomBar
         }
-        .frame(width: 920, height: 640)
+        .frame(width: isCompactIOS ? nil : 920, height: isCompactIOS ? nil : 640)
+        .frame(maxWidth: isCompactIOS ? .infinity : nil, maxHeight: isCompactIOS ? .infinity : nil)
         .task {
             viewModel.loadFieldSelection()
             await viewModel.loadToken()
@@ -319,49 +340,111 @@ struct HardcoverImportView: View {
 
     @ViewBuilder
     private var tokenSection: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "key.fill")
-                .foregroundStyle(viewModel.hasToken ? .green : .secondary)
-            Text("Hardcover credentials")
-                .font(.callout.weight(.semibold))
+        Group {
+            if isCompactIOS {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(viewModel.hasToken ? .green : .secondary)
+                        Text("Hardcover credentials")
+                            .font(.callout.weight(.semibold))
+                        Spacer()
+                        if !viewModel.hasToken || viewModel.isEditingToken {
+                            tokenHelpButton
+                        }
+                    }
 
-            if viewModel.hasToken && !viewModel.isEditingToken {
-                Text("Token saved")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Change") {
-                    viewModel.isEditingToken = true
+                    if viewModel.hasToken && !viewModel.isEditingToken {
+                        HStack {
+                            Text("Token saved")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Change") {
+                                viewModel.isEditingToken = true
+                            }
+                            .font(.callout)
+                            Button("Clear") {
+                                Task { await viewModel.clearToken() }
+                            }
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                        }
+                    } else {
+                        SecureField("Hardcover API Token", text: $viewModel.tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                Task { await viewModel.saveToken() }
+                            }
+                        HStack {
+                            Button("Save") {
+                                Task { await viewModel.saveToken() }
+                            }
+                            .disabled(
+                                viewModel.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    .isEmpty
+                            )
+                            if viewModel.hasToken {
+                                Button("Cancel") {
+                                    viewModel.isEditingToken = false
+                                    viewModel.tokenInput = ""
+                                }
+                            } else {
+                                Text("You need a Hardcover API key to continue.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
-                .font(.callout)
-                Button("Clear") {
-                    Task { await viewModel.clearToken() }
-                }
-                .font(.callout)
-                .foregroundStyle(.red)
             } else {
-                SecureField("Hardcover API Token", text: $viewModel.tokenInput)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
-                        Task { await viewModel.saveToken() }
-                    }
-                Button("Save") {
-                    Task { await viewModel.saveToken() }
-                }
-                .disabled(
-                    viewModel.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-                if viewModel.hasToken {
-                    Button("Cancel") {
-                        viewModel.isEditingToken = false
-                        viewModel.tokenInput = ""
-                    }
-                } else {
-                    HStack(spacing: 4) {
-                        Text("You need a Hardcover API key to continue.")
+                HStack(spacing: 8) {
+                    Image(systemName: "key.fill")
+                        .foregroundStyle(viewModel.hasToken ? .green : .secondary)
+                    Text("Hardcover credentials")
+                        .font(.callout.weight(.semibold))
+
+                    if viewModel.hasToken && !viewModel.isEditingToken {
+                        Text("Token saved")
                             .font(.callout)
                             .foregroundStyle(.secondary)
-                        tokenHelpButton
+                        Spacer()
+                        Button("Change") {
+                            viewModel.isEditingToken = true
+                        }
+                        .font(.callout)
+                        Button("Clear") {
+                            Task { await viewModel.clearToken() }
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                    } else {
+                        SecureField("Hardcover API Token", text: $viewModel.tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                Task { await viewModel.saveToken() }
+                            }
+                        Button("Save") {
+                            Task { await viewModel.saveToken() }
+                        }
+                        .disabled(
+                            viewModel.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .isEmpty
+                        )
+                        if viewModel.hasToken {
+                            Button("Cancel") {
+                                viewModel.isEditingToken = false
+                                viewModel.tokenInput = ""
+                            }
+                        } else {
+                            HStack(spacing: 4) {
+                                Text("You need a Hardcover API key to continue.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                tokenHelpButton
+                            }
+                        }
                     }
                 }
             }
@@ -520,7 +603,14 @@ struct HardcoverImportView: View {
             if expandedResultIds.contains(result.id),
                 let details = viewModel.infoDetails[result.id]
             {
-                editionsList(details: details, result: result)
+                if isCompactIOS {
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        editionsList(details: details, result: result)
+                            .frame(minWidth: 720, alignment: .leading)
+                    }
+                } else {
+                    editionsList(details: details, result: result)
+                }
             }
         }
     }
@@ -1365,7 +1455,6 @@ struct HardcoverImportView: View {
                 value: row.current,
                 isExpanded: isExpanded,
                 help: isExpanded ? "Collapse \(row.label)" : "Show full \(row.label)",
-                showsExpansionControl: row.id == "description",
             ) {
                 expandedReviewRowId = isExpanded ? nil : row.id
             }
@@ -1403,6 +1492,7 @@ struct HardcoverImportView: View {
                 Text("No changes")
                     .font(.callout)
                     .padding()
+                    .metadataImportCompactPopover()
             }
             .frame(width: 34)
 
@@ -1411,11 +1501,16 @@ struct HardcoverImportView: View {
                 value: row.incoming,
                 isExpanded: isExpanded,
                 help: isExpanded ? "Collapse \(row.label)" : "Show full \(row.label)",
-                showsExpansionControl: row.id == "description",
             ) {
                 expandedReviewRowId = isExpanded ? nil : row.id
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            reviewExpansionButton(
+                rowId: row.id,
+                isExpanded: isExpanded,
+                label: row.label,
+            )
         }
         .padding(10)
         .background(
@@ -1438,69 +1533,42 @@ struct HardcoverImportView: View {
         let importableTagIds = reviewImportableTagIds(for: row.details)
         let hasImportableTags = !importableTagIds.isEmpty
 
-        return HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                reviewTagsHeader(
-                    title: "Tags",
-                    isExpanded: isExpanded,
-                    showsSortControls: false,
-                    showsExpansionControl: true,
-                    selectedCount: nil,
-                )
-                reviewCurrentTagPills(isExpanded: isExpanded)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        return Group {
+            if isCompactIOS {
+                VStack(alignment: .leading, spacing: 8) {
+                    reviewTagsHeader(
+                        title: "Current Tags",
+                        showsSortControls: false,
+                        selectedCount: nil,
+                    )
+                    reviewCurrentTagPills(isExpanded: isExpanded)
 
-            Button {
-                guard hasImportableTags else {
-                    noChangePopoverRowId = row.id
-                    return
-                }
-                if hasSelectedTags {
-                    clearSelectedReviewTags()
-                } else {
-                    reviewFields.formUnion(importableTagIds)
-                }
-            } label: {
-                Image(
-                    systemName: !reviewFields.isDisjoint(with: importableTagIds)
-                        ? "arrow.left.circle.fill" : "arrow.left.circle"
-                )
-                .font(.title3)
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(hasImportableTags ? Color.accentColor : Color.secondary.opacity(0.45))
-            .help(hasImportableTags ? "Import all available Hardcover tags" : "No tag changes")
-            .popover(
-                isPresented: Binding(
-                    get: { noChangePopoverRowId == row.id },
-                    set: { if !$0 { noChangePopoverRowId = nil } },
-                )
-            ) {
-                Text("No tag changes")
-                    .font(.callout)
-                    .padding()
-            }
-            .frame(width: 34)
+                    reviewTagsImportButton(
+                        row: row,
+                        importableTagIds: importableTagIds,
+                        hasImportableTags: hasImportableTags,
+                        hasSelectedTags: hasSelectedTags,
+                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 2)
 
-            VStack(alignment: .leading, spacing: 8) {
-                reviewTagsHeader(
-                    title: "Tags",
-                    isExpanded: isExpanded,
-                    showsSortControls: true,
-                    showsExpansionControl: true,
-                    selectedCount: selectedTagCount,
-                )
-                Picker("", selection: $selectedReviewTagCategory) {
-                    ForEach(HardcoverReviewTagCategory.allCases) { category in
-                        Text(category.title).tag(category)
+                    reviewTagsHeader(
+                        title: "Hardcover Tags",
+                        showsSortControls: true,
+                        selectedCount: selectedTagCount,
+                    )
+                    Picker("", selection: $selectedReviewTagCategory) {
+                        ForEach(HardcoverReviewTagCategory.allCases) { category in
+                            Text(category.title).tag(category)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
 
-                if incomingTags.isEmpty {
-                    Text("No \(selectedReviewTagCategory.title.lowercased()) tags from Hardcover.")
+                    if incomingTags.isEmpty {
+                        Text(
+                            "No \(selectedReviewTagCategory.title.lowercased()) tags from Hardcover."
+                        )
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .frame(
@@ -1508,11 +1576,76 @@ struct HardcoverImportView: View {
                             minHeight: isExpanded ? 0 : collapsedReviewTagAreaHeight,
                             alignment: .topLeading,
                         )
-                } else {
-                    reviewIncomingTagPills(tags: incomingTags, isExpanded: isExpanded)
+                    } else {
+                        reviewIncomingTagPills(tags: incomingTags, isExpanded: isExpanded)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
+                ZStack {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            reviewTagsHeader(
+                                title: "Tags",
+                                showsSortControls: false,
+                                selectedCount: nil,
+                            )
+                            reviewCurrentTagPills(isExpanded: isExpanded)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                        Color.clear
+                            .frame(width: 34)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            reviewTagsHeader(
+                                title: "Tags",
+                                showsSortControls: true,
+                                selectedCount: selectedTagCount,
+                            )
+                            Picker("", selection: $selectedReviewTagCategory) {
+                                ForEach(HardcoverReviewTagCategory.allCases) { category in
+                                    Text(category.title).tag(category)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+
+                            if incomingTags.isEmpty {
+                                Text(
+                                    "No \(selectedReviewTagCategory.title.lowercased()) tags from Hardcover."
+                                )
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    minHeight: isExpanded ? 0 : collapsedReviewTagAreaHeight,
+                                    alignment: .topLeading,
+                                )
+                            } else {
+                                reviewIncomingTagPills(tags: incomingTags, isExpanded: isExpanded)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+
+                    reviewTagsImportButton(
+                        row: row,
+                        importableTagIds: importableTagIds,
+                        hasImportableTags: hasImportableTags,
+                        hasSelectedTags: hasSelectedTags,
+                    )
+                    .frame(width: 34)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .overlay(alignment: .topTrailing) {
+            reviewExpansionButton(
+                rowId: row.id,
+                isExpanded: isExpanded,
+                label: "Tags",
+            )
+            .padding(8)
         }
         .padding(10)
         .background(
@@ -1525,11 +1658,50 @@ struct HardcoverImportView: View {
         )
     }
 
+    private func reviewTagsImportButton(
+        row: ReviewRow,
+        importableTagIds: Set<String>,
+        hasImportableTags: Bool,
+        hasSelectedTags: Bool,
+    ) -> some View {
+        let iconName =
+            !reviewFields.isDisjoint(with: importableTagIds)
+            ? (isCompactIOS ? "arrow.up.circle.fill" : "arrow.left.circle.fill")
+            : (isCompactIOS ? "arrow.up.circle" : "arrow.left.circle")
+
+        return Button {
+            guard hasImportableTags else {
+                noChangePopoverRowId = row.id
+                return
+            }
+            if hasSelectedTags {
+                clearSelectedReviewTags()
+            } else {
+                reviewFields.formUnion(importableTagIds)
+            }
+        } label: {
+            Image(systemName: iconName)
+                .font(.title3)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(hasImportableTags ? Color.accentColor : Color.secondary.opacity(0.45))
+        .help(hasImportableTags ? "Import all available Hardcover tags" : "No tag changes")
+        .popover(
+            isPresented: Binding(
+                get: { noChangePopoverRowId == row.id },
+                set: { if !$0 { noChangePopoverRowId = nil } },
+            )
+        ) {
+            Text("No tag changes")
+                .font(.callout)
+                .padding()
+                .metadataImportCompactPopover()
+        }
+    }
+
     private func reviewTagsHeader(
         title: String,
-        isExpanded: Bool,
         showsSortControls: Bool,
-        showsExpansionControl: Bool,
         selectedCount: Int?,
     ) -> some View {
         HStack(spacing: 6) {
@@ -1564,16 +1736,6 @@ struct HardcoverImportView: View {
                 .menuStyle(.borderlessButton)
                 .foregroundStyle(.secondary)
                 .help("Tag display options")
-            }
-            if showsExpansionControl {
-                Button {
-                    expandedReviewRowId = isExpanded ? nil : "tags"
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .help(isExpanded ? "Collapse Tags" : "Show more Tags")
             }
         }
     }
@@ -1626,12 +1788,16 @@ struct HardcoverImportView: View {
         let fieldId = tagFieldId(tag.name)
         let isAlreadyCurrent = currentTagKeys.contains(Self.normalizedTagKey(tag.name))
         let isSelected = reviewFields.contains(fieldId)
+        let arrowIcon =
+            isSelected
+            ? (isCompactIOS ? "arrow.up.circle.fill" : "arrow.left.circle.fill")
+            : (isCompactIOS ? "arrow.up.circle" : "arrow.left.circle")
 
         return HStack(spacing: 6) {
             Text(reviewTagShowsCounts ? "\(tag.name) (\(tag.count))" : tag.name)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Image(systemName: isSelected ? "arrow.left.circle.fill" : "arrow.left.circle")
+            Image(systemName: arrowIcon)
                 .font(.callout)
                 .foregroundStyle(
                     isAlreadyCurrent
@@ -1654,6 +1820,7 @@ struct HardcoverImportView: View {
             Text("Already in current tags")
                 .font(.callout)
                 .padding()
+                .metadataImportCompactPopover()
         }
     }
 
@@ -1674,7 +1841,6 @@ struct HardcoverImportView: View {
         value: String,
         isExpanded: Bool,
         help: String,
-        showsExpansionControl: Bool = false,
         toggleExpansion: @escaping () -> Void,
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -1683,20 +1849,24 @@ struct HardcoverImportView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                if showsExpansionControl {
-                    Button(action: toggleExpansion) {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    .help(help)
-                }
             }
             reviewValue(value, isExpanded: isExpanded)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggleExpansion)
                 .help(help)
         }
+    }
+
+    private func reviewExpansionButton(rowId: String, isExpanded: Bool, label: String) -> some View
+    {
+        Button {
+            expandedReviewRowId = isExpanded ? nil : rowId
+        } label: {
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .help(isExpanded ? "Collapse \(label)" : "Show more \(label)")
     }
 
     @ViewBuilder
@@ -1945,8 +2115,10 @@ struct HardcoverImportView: View {
     @ViewBuilder
     private var bottomBar: some View {
         HStack {
+            #if !os(iOS)
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)
+            #endif
 
             if step == .review {
                 Button("Back") {

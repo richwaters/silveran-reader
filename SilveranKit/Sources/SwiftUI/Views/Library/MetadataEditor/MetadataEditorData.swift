@@ -14,9 +14,10 @@ enum MetadataCoverScope: String, CaseIterable, Identifiable {
     var variant: MediaViewModel.CoverVariant { isAudio ? .audioSquare : .standard }
 }
 
-public struct MetadataEditorData: Codable, Hashable {
+public struct MetadataEditorData: Codable, Hashable, Identifiable {
     public let bookIds: [String]
     public let sessionId: UUID
+    public var id: UUID { sessionId }
 
     public init(bookIds: [String], sessionId: UUID = UUID()) {
         self.bookIds = bookIds

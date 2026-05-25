@@ -5,6 +5,7 @@ struct iOSBookDetailView: View {
     let item: BookMetadata
     let mediaKind: MediaKind
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    @Environment(\.editMetadataAction) private var editMetadataAction
     @State private var showingSyncHistory = false
     @State private var currentChapter: String?
     @State private var selectedStatusName: String?
@@ -52,6 +53,7 @@ struct iOSBookDetailView: View {
                 selectedStatusName: $selectedStatusName,
                 isUpdatingStatus: $isUpdatingStatus,
                 showOfflineError: $showOfflineError,
+                editMetadataAction: editMetadataAction,
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
@@ -992,6 +994,7 @@ private struct BookOptionsSheet: View {
     @Binding var selectedStatusName: String?
     @Binding var isUpdatingStatus: Bool
     @Binding var showOfflineError: Bool
+    let editMetadataAction: MetadataEditorAction?
     @Environment(MediaViewModel.self) private var mediaViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -1026,6 +1029,18 @@ private struct BookOptionsSheet: View {
                             Text(selectedStatusName ?? "-")
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                }
+
+                if let editMetadataAction {
+                    Button {
+                        dismiss()
+                        Task { @MainActor in
+                            await Task.yield()
+                            editMetadataAction([item.uuid])
+                        }
+                    } label: {
+                        Label("Edit Metadata...", systemImage: "pencil")
                     }
                 }
             }

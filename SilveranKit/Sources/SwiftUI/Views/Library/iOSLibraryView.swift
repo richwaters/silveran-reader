@@ -58,6 +58,11 @@ public struct iOSLibraryView: View {
     @State private var booksNavigationPath = NavigationPath()
     @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
+    @State private var metadataEditorData: MetadataEditorData?
+    @State private var metadataEditorHasUnsavedChanges = false
+    @State private var showMetadataEditorCloseWarning = false
+    @State private var showMetadataPermissionError = false
+    @State private var metadataPermissionErrorMessage = ""
     @State private var settingsViewModel = SettingsViewModel()
     @AppStorage("coverPref.iOSLibrary") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
@@ -155,6 +160,7 @@ public struct iOSLibraryView: View {
                 }
                 .tag(Tab.more)
         }
+        .environment(\.editMetadataAction, handleEditMetadata)
         .id("\(settingsViewModel.tabBarSlot1)-\(settingsViewModel.tabBarSlot2)")
         .onChange(of: selectedTab) { _, _ in
             searchText = ""
@@ -199,6 +205,53 @@ public struct iOSLibraryView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
+        .fullScreenCover(
+            item: $metadataEditorData,
+            onDismiss: {
+                metadataEditorData = nil
+                metadataEditorHasUnsavedChanges = false
+            },
+        ) { metadataEditorData in
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Edit Metadata")
+                        .font(.headline)
+                    Spacer()
+                    Button("Done") {
+                        closeMetadataEditor()
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(.bar)
+
+                Divider()
+
+                MetadataEditorView(
+                    initialBookIds: metadataEditorData.bookIds,
+                    hasUnsavedChanges: $metadataEditorHasUnsavedChanges,
+                )
+                .environment(mediaViewModel)
+            }
+            .interactiveDismissDisabled(metadataEditorHasUnsavedChanges)
+            .alert(
+                "Discard unsaved metadata changes?",
+                isPresented: $showMetadataEditorCloseWarning,
+            ) {
+                Button("Discard Changes", role: .destructive) {
+                    metadataEditorHasUnsavedChanges = false
+                    self.metadataEditorData = nil
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Closing the metadata editor will lose any unsaved changes.")
+            }
+        }
+        .alert("Edit Metadata", isPresented: $showMetadataPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(metadataPermissionErrorMessage)
+        }
         .safeAreaInset(edge: .top) {
             if CarPlayCoordinator.shared.isCarPlayConnected,
                 CarPlayCoordinator.shared.isPlaying,
@@ -239,6 +292,44 @@ public struct iOSLibraryView: View {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private func closeMetadataEditor() {
+        if metadataEditorHasUnsavedChanges {
+            showMetadataEditorCloseWarning = true
+        } else {
+            metadataEditorData = nil
+        }
+    }
+
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            metadataPermissionErrorMessage =
+                "Editing metadata for local books is not supported yet."
+            showMetadataPermissionError = true
+            return
+        }
+
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            await MainActor.run {
+                switch result {
+                    case .allowed:
+                        Task {
+                            await Task.yield()
+                            metadataEditorData = MetadataEditorData(bookIds: bookIds)
+                        }
+                    case .denied:
+                        metadataPermissionErrorMessage =
+                            "Your account does not have permission to edit metadata on this server."
+                        showMetadataPermissionError = true
+                    case .error(let message):
+                        metadataPermissionErrorMessage =
+                            "Could not verify server permissions: \(message)"
+                        showMetadataPermissionError = true
                 }
             }
         }

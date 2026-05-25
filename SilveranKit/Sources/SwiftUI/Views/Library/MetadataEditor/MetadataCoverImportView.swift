@@ -71,6 +71,17 @@ struct MetadataCoverImportView: View {
     @State private var hardcoverSort: MetadataCoverSort = .relevance
     @State private var itunesSort: MetadataCoverSort = .relevance
     @State private var filterPopoverScope: MetadataCoverScope?
+    @State private var compactSelectedScope: MetadataCoverScope = .audiobook
+    @State private var compactSelectedSource: MetadataCoverSource = .hardcover
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     private var book: MetadataEditorViewModel.EditableBook? {
         viewModel.books.first { $0.id == bookId }
@@ -82,21 +93,83 @@ struct MetadataCoverImportView: View {
             Divider()
             tokenSection
             Divider()
-            HStack(alignment: .top, spacing: 14) {
-                editionColumn(scope: .audiobook)
-                Divider()
-                editionColumn(scope: .ebook)
+            if isCompactIOS {
+                compactCoverBrowser
+            } else {
+                HStack(alignment: .top, spacing: 14) {
+                    editionColumn(scope: .audiobook)
+                    Divider()
+                    editionColumn(scope: .ebook)
+                }
+                .padding(14)
             }
-            .padding(14)
             Divider()
             bottomBar
         }
-        .frame(width: 1120, height: 720)
+        .frame(width: isCompactIOS ? nil : 1120, height: isCompactIOS ? nil : 720)
+        .frame(maxWidth: isCompactIOS ? .infinity : nil, maxHeight: isCompactIOS ? .infinity : nil)
         .task {
             await loadInitialCandidates()
         }
         .sheet(item: $previewingCover) { cover in
             coverPreviewSheet(cover)
+        }
+    }
+
+    private var compactCoverBrowser: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Edition", selection: $compactSelectedScope) {
+                    ForEach(MetadataCoverScope.allCases) { scope in
+                        Text(scopeTitle(scope)).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                selectedCoverSummary(scope: compactSelectedScope)
+            }
+            .padding(12)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    currentCoverPanel(scope: compactSelectedScope)
+
+                    Picker("Source", selection: $compactSelectedSource) {
+                        ForEach(MetadataCoverSource.allCases) { source in
+                            Text(source.title).tag(source)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    sourceColumn(source: compactSelectedSource, scope: compactSelectedScope)
+                        .frame(minHeight: 360)
+                }
+                .padding(12)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectedCoverSummary(scope: MetadataCoverScope) -> some View {
+        if selectedCandidateIds[scope] != nil {
+            HStack(spacing: 6) {
+                Text("1 selected for \(scopeTitle(scope))")
+                    .font(.caption.weight(.semibold))
+                Button {
+                    selectedCandidateIds[scope] = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Clear \(scopeTitle(scope).lowercased()) selection")
+            }
+            .foregroundStyle(Color.accentColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.accentColor.opacity(0.12), in: Capsule())
         }
     }
 
@@ -136,54 +209,124 @@ struct MetadataCoverImportView: View {
 
     @ViewBuilder
     private var tokenSection: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "key.fill")
-                .foregroundStyle(hardcoverVM.hasToken ? .green : .secondary)
-            Text("Hardcover API")
-                .font(.callout.weight(.semibold))
-
-            if hardcoverVM.hasToken && !hardcoverVM.isEditingToken {
-                Text("Token saved")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Change") {
-                    hardcoverVM.isEditingToken = true
-                }
-                .font(.callout)
-                Button("Clear") {
-                    Task { await hardcoverVM.clearToken() }
-                }
-                .font(.callout)
-                .foregroundStyle(.red)
-            } else {
-                SecureField("Hardcover API Token", text: $hardcoverVM.tokenInput)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
-                        Task {
-                            await hardcoverVM.saveToken()
-                            await searchHardcoverCovers()
+        Group {
+            if isCompactIOS {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(hardcoverVM.hasToken ? .green : .secondary)
+                        Text("Hardcover API")
+                            .font(.callout.weight(.semibold))
+                        Spacer()
+                        if !hardcoverVM.hasToken || hardcoverVM.isEditingToken {
+                            tokenHelpButton
                         }
                     }
-                Button("Save") {
-                    Task {
-                        await hardcoverVM.saveToken()
-                        await searchHardcoverCovers()
+
+                    if hardcoverVM.hasToken && !hardcoverVM.isEditingToken {
+                        HStack {
+                            Text("Token saved")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Change") {
+                                hardcoverVM.isEditingToken = true
+                            }
+                            .font(.callout)
+                            Button("Clear") {
+                                Task { await hardcoverVM.clearToken() }
+                            }
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                        }
+                    } else {
+                        SecureField("Hardcover API Token", text: $hardcoverVM.tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                Task {
+                                    await hardcoverVM.saveToken()
+                                    await searchHardcoverCovers()
+                                }
+                            }
+                        HStack {
+                            Button("Save") {
+                                Task {
+                                    await hardcoverVM.saveToken()
+                                    await searchHardcoverCovers()
+                                }
+                            }
+                            .disabled(
+                                hardcoverVM.tokenInput.trimmingCharacters(
+                                    in: .whitespacesAndNewlines
+                                )
+                                .isEmpty
+                            )
+                            if hardcoverVM.hasToken {
+                                Button("Cancel") {
+                                    hardcoverVM.isEditingToken = false
+                                    hardcoverVM.tokenInput = ""
+                                }
+                            } else {
+                                Text("Hardcover covers require an API key.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                     }
                 }
-                .disabled(
-                    hardcoverVM.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-                if hardcoverVM.hasToken {
-                    Button("Cancel") {
-                        hardcoverVM.isEditingToken = false
-                        hardcoverVM.tokenInput = ""
-                    }
-                } else {
-                    Text("Hardcover covers require an API key.")
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "key.fill")
+                        .foregroundStyle(hardcoverVM.hasToken ? .green : .secondary)
+                    Text("Hardcover API")
+                        .font(.callout.weight(.semibold))
+
+                    if hardcoverVM.hasToken && !hardcoverVM.isEditingToken {
+                        Text("Token saved")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Change") {
+                            hardcoverVM.isEditingToken = true
+                        }
                         .font(.callout)
-                        .foregroundStyle(.secondary)
-                    tokenHelpButton
+                        Button("Clear") {
+                            Task { await hardcoverVM.clearToken() }
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                    } else {
+                        SecureField("Hardcover API Token", text: $hardcoverVM.tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                Task {
+                                    await hardcoverVM.saveToken()
+                                    await searchHardcoverCovers()
+                                }
+                            }
+                        Button("Save") {
+                            Task {
+                                await hardcoverVM.saveToken()
+                                await searchHardcoverCovers()
+                            }
+                        }
+                        .disabled(
+                            hardcoverVM.tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .isEmpty
+                        )
+                        if hardcoverVM.hasToken {
+                            Button("Cancel") {
+                                hardcoverVM.isEditingToken = false
+                                hardcoverVM.tokenInput = ""
+                            }
+                        } else {
+                            Text("Hardcover covers require an API key.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            tokenHelpButton
+                        }
+                    }
                 }
             }
         }
@@ -253,9 +396,18 @@ struct MetadataCoverImportView: View {
 
             currentCoverPanel(scope: scope)
 
-            HStack(alignment: .top, spacing: 10) {
-                sourceColumn(source: .hardcover, scope: scope)
-                sourceColumn(source: .itunes, scope: scope)
+            Group {
+                if isCompactIOS {
+                    VStack(alignment: .leading, spacing: 10) {
+                        sourceColumn(source: .hardcover, scope: scope)
+                        sourceColumn(source: .itunes, scope: scope)
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: 10) {
+                        sourceColumn(source: .hardcover, scope: scope)
+                        sourceColumn(source: .itunes, scope: scope)
+                    }
+                }
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -617,10 +769,12 @@ struct MetadataCoverImportView: View {
                     .lineLimit(1)
             }
             Spacer()
+            #if !os(iOS)
             Button("Cancel") {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
+            #endif
 
             Button("Apply Selected Covers") {
                 Task {
@@ -678,7 +832,8 @@ struct MetadataCoverImportView: View {
             }
             .padding()
         }
-        .frame(width: 620, height: 720)
+        .frame(width: isCompactIOS ? nil : 620, height: isCompactIOS ? nil : 720)
+        .frame(maxWidth: isCompactIOS ? .infinity : nil, maxHeight: isCompactIOS ? .infinity : nil)
     }
 
     private func loadInitialCandidates(force: Bool = false) async {

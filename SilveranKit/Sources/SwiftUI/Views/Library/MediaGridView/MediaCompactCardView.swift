@@ -21,6 +21,7 @@ struct MediaCompactCardView: View {
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @Environment(\.editMetadataAction) private var editMetadataAction
     @State private var pendingDetailsNavigation = false
     #endif
 
@@ -185,6 +186,14 @@ struct MediaCompactCardView: View {
             handleDetailsNavigation()
         } label: {
             Label("View Details", systemImage: "info.circle")
+        }
+
+        if let editMetadataAction {
+            Button {
+                editMetadataAction([item.uuid])
+            } label: {
+                Label("Edit Metadata...", systemImage: "pencil")
+            }
         }
     }
 

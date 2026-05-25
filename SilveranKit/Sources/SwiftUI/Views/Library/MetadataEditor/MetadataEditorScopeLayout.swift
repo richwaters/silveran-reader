@@ -36,12 +36,20 @@ struct WorkMetadataLayout: View {
     @Bindable var viewModel: MetadataEditorViewModel
     let openHardcoverImport: () -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
 
     private var book: MetadataEditorViewModel.EditableBook? {
         viewModel.books.first { $0.id == bookId }
+    }
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
     }
 
     var body: some View {
@@ -74,6 +82,7 @@ struct WorkMetadataLayout: View {
                     .padding(.vertical, 24)
                 }
             }
+            .scrollIndicators(.visible)
         }
     }
 
@@ -451,8 +460,7 @@ struct WorkMetadataLayout: View {
     private func readOnlyField(_ label: String, value: String, isPlaceholder: Bool = false)
         -> some View
     {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            fieldLabel(label)
+        fieldRow(label: label, isEditable: false) {
             Text(value.isEmpty ? "(empty)" : value)
                 .foregroundStyle(value.isEmpty || isPlaceholder ? .secondary : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -462,8 +470,7 @@ struct WorkMetadataLayout: View {
     }
 
     private func hardcoverSlugField() -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            fieldLabel("Hardcover Slug")
+        fieldRow(label: "Hardcover Slug", isEditable: false) {
             Group {
                 if let url = hardcoverSlugURL {
                     HStack(spacing: 6) {
@@ -495,9 +502,7 @@ struct WorkMetadataLayout: View {
     }
 
     private func readOnlyTextArea(_ label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            fieldLabel(label)
-                .padding(.top, 8)
+        fieldRow(label: label, isEditable: false, labelAlignment: .top, labelTopPadding: 8) {
             Text(value)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
@@ -513,11 +518,47 @@ struct WorkMetadataLayout: View {
         labelTopPadding: CGFloat = 0,
         @ViewBuilder content: () -> Content,
     ) -> some View {
-        HStack(alignment: labelAlignment, spacing: 10) {
-            editableFieldLabel(label: label, field: field)
-                .padding(.top, labelTopPadding)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
+        fieldRow(
+            label: label,
+            field: field,
+            isEditable: true,
+            labelAlignment: labelAlignment,
+            labelTopPadding: labelTopPadding,
+            content: content,
+        )
+    }
+
+    @ViewBuilder
+    private func fieldRow<Content: View>(
+        label: String,
+        field: String = "",
+        isEditable: Bool,
+        labelAlignment: VerticalAlignment = .firstTextBaseline,
+        labelTopPadding: CGFloat = 0,
+        @ViewBuilder content: () -> Content,
+    ) -> some View {
+        if isCompactIOS {
+            VStack(alignment: .leading, spacing: 6) {
+                if isEditable {
+                    editableFieldLabel(label: label, field: field)
+                } else {
+                    fieldLabel(label)
+                }
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            HStack(alignment: labelAlignment, spacing: 10) {
+                if isEditable {
+                    editableFieldLabel(label: label, field: field)
+                        .padding(.top, labelTopPadding)
+                } else {
+                    fieldLabel(label)
+                        .padding(.top, labelTopPadding)
+                }
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 
@@ -526,16 +567,17 @@ struct WorkMetadataLayout: View {
             label: label,
             isDirty: viewModel.isDirty(field: field, for: bookId),
             diff: viewModel.fieldDiffDisplay(field: field, for: bookId),
+            leadingAligned: isCompactIOS,
             revertAction: {
                 viewModel.revertFieldToOriginal(field: field, for: bookId)
             },
         )
-        .frame(width: 132, alignment: .trailing)
+        .frame(width: isCompactIOS ? nil : 132, alignment: isCompactIOS ? .leading : .trailing)
     }
 
     private func fieldLabel(_ label: String) -> some View {
         Text(label + ":")
-            .frame(width: 132, alignment: .trailing)
+            .frame(width: isCompactIOS ? nil : 132, alignment: isCompactIOS ? .leading : .trailing)
             .foregroundStyle(.primary)
     }
 
@@ -689,9 +731,18 @@ struct EditionMetadataLayout: View {
     let openHardcoverImport: () -> Void
     @Environment(MediaViewModel.self) private var mediaViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showCoverPicker = false
     @State private var isGridPreviewSwapping = false
     @State private var showCoverDiff = false
+
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     private static let dateToNoonUTC: DateFormatter = {
         let formatter = DateFormatter()
@@ -736,6 +787,7 @@ struct EditionMetadataLayout: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
+            .scrollIndicators(.visible)
         }
         .onAppear {
             selectedCoverScope = scope.coverScope
@@ -812,7 +864,6 @@ struct EditionMetadataLayout: View {
             unsupportedEditionField(
                 "Edition Subtitle",
                 value: book?.subtitle ?? "",
-                placeholder: "unique subtitle for this release if desired",
                 note: "(not editable by Storyteller yet)",
             )
             unsupportedEditionField(
@@ -855,7 +906,6 @@ struct EditionMetadataLayout: View {
             unsupportedEditionField(
                 "Edition Subtitle",
                 value: book?.subtitle ?? "",
-                placeholder: "unique subtitle for this release if desired",
                 note: "(not editable by Storyteller yet)",
             )
             unsupportedEditionField(
@@ -1107,8 +1157,7 @@ struct EditionMetadataLayout: View {
         field: String,
         keyPath: WritableKeyPath<MetadataEditorViewModel.EditableBook, String>,
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            editionFieldLabel(label: label, field: field)
+        editionFieldRow(label: label, field: field) {
             TextField(
                 "(empty)",
                 text: Binding(
@@ -1128,55 +1177,68 @@ struct EditionMetadataLayout: View {
     private func editionPublicationDateField() -> some View {
         let dateString = viewModel.books.first { $0.id == bookId }?.publicationDate ?? ""
         let hasDate = !dateString.isEmpty
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
-            editionFieldLabel(label: "Release Date", field: "", isEditable: false)
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                #if os(macOS)
-                MetadataEditorDatePicker(
-                    selection: Binding(
-                        get: {
-                            if let date = Self.dateToNoonUTC.date(
-                                from: "\(dateString)T12:00:00.000Z"
-                            ) {
-                                return date
-                            }
-                            let today = Self.dateFromNoonUTC.string(from: Date())
-                            return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
-                        },
-                        set: { _ in },
-                    )
-                )
-                .frame(width: 156)
-                #else
-                DatePicker(
-                    "",
-                    selection: Binding(
-                        get: {
-                            if let date = Self.dateToNoonUTC.date(
-                                from: "\(dateString)T12:00:00.000Z"
-                            ) {
-                                return date
-                            }
-                            let today = Self.dateFromNoonUTC.string(from: Date())
-                            return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z") ?? Date()
-                        },
-                        set: { _ in },
-                    ),
-                    displayedComponents: .date,
-                )
-                .labelsHidden()
-                #endif
-
-                Toggle("No date", isOn: .constant(!hasDate))
+        return editionFieldRow(label: "Release Date", field: "", isEditable: false) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
                     #if os(macOS)
-                .toggleStyle(.checkbox)
+                    MetadataEditorDatePicker(
+                        selection: Binding(
+                            get: {
+                                if let date = Self.dateToNoonUTC.date(
+                                    from: "\(dateString)T12:00:00.000Z"
+                                ) {
+                                    return date
+                                }
+                                let today = Self.dateFromNoonUTC.string(from: Date())
+                                return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z")
+                                    ?? Date()
+                            },
+                            set: { _ in },
+                        )
+                    )
+                    .frame(width: 156)
+                    #else
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: {
+                                if let date = Self.dateToNoonUTC.date(
+                                    from: "\(dateString)T12:00:00.000Z"
+                                ) {
+                                    return date
+                                }
+                                let today = Self.dateFromNoonUTC.string(from: Date())
+                                return Self.dateToNoonUTC.date(from: "\(today)T12:00:00.000Z")
+                                    ?? Date()
+                            },
+                            set: { _ in },
+                        ),
+                        displayedComponents: .date,
+                    )
+                    .labelsHidden()
                     #endif
 
-                Text("(not editable by Storyteller yet)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    Toggle("No date", isOn: .constant(!hasDate))
+                        #if os(macOS)
+                    .toggleStyle(.checkbox)
+                        #endif
+
+                    if !isCompactIOS {
+                        Text("(not editable by Storyteller yet)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+
+                if isCompactIOS {
+                    Text("(not editable by Storyteller yet)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .disabled(true)
@@ -1186,8 +1248,7 @@ struct EditionMetadataLayout: View {
     }
 
     private func editionChipList(_ label: String, field: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            editionFieldLabel(label: label, field: field)
+        editionFieldRow(label: label, field: field, alignment: .top) {
             ExpandedStringListEditor(
                 values: Binding(
                     get: {
@@ -1217,8 +1278,7 @@ struct EditionMetadataLayout: View {
         isPlaceholder: Bool = false,
         note: String? = nil,
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            editionFieldLabel(label: label, field: "", isEditable: false)
+        editionFieldRow(label: label, field: "", isEditable: false) {
             HStack(spacing: 10) {
                 Text(value.isEmpty ? (placeholder ?? "(empty)") : value)
                     .foregroundStyle(.secondary)
@@ -1239,11 +1299,33 @@ struct EditionMetadataLayout: View {
         }
     }
 
+    @ViewBuilder
+    private func editionFieldRow<Content: View>(
+        label: String,
+        field: String,
+        isEditable: Bool = true,
+        alignment: VerticalAlignment = .firstTextBaseline,
+        @ViewBuilder content: () -> Content,
+    ) -> some View {
+        if isCompactIOS {
+            VStack(alignment: .leading, spacing: 6) {
+                editionFieldLabel(label: label, field: field, isEditable: isEditable)
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            HStack(alignment: alignment, spacing: 10) {
+                editionFieldLabel(label: label, field: field, isEditable: isEditable)
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
     private func editionFieldLabel(label: String, field: String, isEditable: Bool = true)
         -> some View
     {
         HStack(spacing: 4) {
-            Spacer(minLength: 0)
             if isEditable, viewModel.isDirty(field: field, for: bookId) {
                 Button {
                     viewModel.revertFieldToOriginal(field: field, for: bookId)
@@ -1258,7 +1340,7 @@ struct EditionMetadataLayout: View {
             Text(label + ":")
                 .foregroundStyle(isEditable ? Color.primary : Color.secondary)
         }
-        .frame(width: 144, alignment: .trailing)
+        .frame(width: isCompactIOS ? nil : 144, alignment: .leading)
     }
 
     private func loadScopedCover() {
@@ -1410,13 +1492,16 @@ private struct DirtyFieldHeading: View {
     let label: String
     let isDirty: Bool
     let diff: MetadataEditorViewModel.FieldDiffDisplay?
+    var leadingAligned = false
     let revertAction: () -> Void
     @Environment(\.colorScheme) private var colorScheme
     @State private var showsDiff = false
 
     var body: some View {
         HStack(spacing: 4) {
-            Spacer(minLength: 0)
+            if !leadingAligned {
+                Spacer(minLength: 0)
+            }
             if isDirty {
                 Button(action: handleDirtyClick) {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
@@ -2021,6 +2106,7 @@ private struct ManageCollectionsButton: View {
             .task {
                 await refreshCollections()
             }
+            .metadataEditorCompactPopover()
         }
         .onChange(of: isPresented) { _, newValue in
             if !newValue {
@@ -2061,6 +2147,7 @@ private struct ScrollableStringPickerButton: View {
                 query = ""
                 isPresented = false
             }
+            .metadataEditorCompactPopover()
         }
         .onChange(of: isPresented) { _, newValue in
             if !newValue {
@@ -2154,6 +2241,7 @@ private struct ScrollableCollectionPickerButton: View {
                 .frame(maxHeight: 260)
             }
             .padding(10)
+            .metadataEditorCompactPopover()
         }
         .onChange(of: isPresented) { _, newValue in
             if !newValue {
@@ -2170,6 +2258,17 @@ private func pickerHeader(title: String, query: Binding<String>) -> some View {
         TextField("Search", text: query)
             .textFieldStyle(.roundedBorder)
             .frame(width: 170)
+    }
+}
+
+extension View {
+    @ViewBuilder
+    fileprivate func metadataEditorCompactPopover() -> some View {
+        #if os(iOS)
+        self.presentationCompactAdaptation(.popover)
+        #else
+        self
+        #endif
     }
 }
 

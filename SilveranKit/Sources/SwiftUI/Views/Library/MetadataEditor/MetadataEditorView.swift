@@ -6,6 +6,7 @@ import AppKit
 
 public struct MetadataEditorView: View {
     public let initialBookIds: [String]
+    private let hasUnsavedChanges: Binding<Bool>?
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var viewModel = MetadataEditorViewModel()
     @State private var selectedScope: MetadataEditorScope = .work
@@ -17,14 +18,26 @@ public struct MetadataEditorView: View {
     @State private var showHardcoverDataDump = false
     @State private var showErrorDetail = false
     @State private var pendingRevertBookId: String?
+    @State private var pendingSaveBookId: String?
     @State private var selectedSidebarBookIds: Set<String> = []
     @State private var sidebarSelectionAnchorId: String?
     @State private var selectedSidebarListBookId: String?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var iOSNavigationPath: [String] = []
     @FocusState private var isSidebarFocused: Bool
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    public init(initialBookIds: [String]) {
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
+
+    public init(initialBookIds: [String], hasUnsavedChanges: Binding<Bool>? = nil) {
         self.initialBookIds = initialBookIds
+        self.hasUnsavedChanges = hasUnsavedChanges
     }
 
     public var body: some View {
@@ -33,6 +46,19 @@ public struct MetadataEditorView: View {
                 warningBanner
             }
 
+            #if os(iOS)
+            if isCompactIOS {
+                sectionContent
+            } else {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
+                    bookSidebar
+                } detail: {
+                    sectionContent
+                        .clipped()
+                }
+                .navigationSplitViewStyle(.balanced)
+            }
+            #else
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 bookSidebar
             } detail: {
@@ -41,11 +67,23 @@ public struct MetadataEditorView: View {
                     .clipped()
             }
             .navigationSplitViewStyle(.balanced)
+            #endif
 
+            #if os(iOS)
+            if !isCompactIOS || viewModel.selectedBookId != nil {
+                Divider()
+                bottomBar
+            }
+            #else
             Divider()
             bottomBar
+            #endif
         }
+        #if os(macOS)
         .frame(minWidth: 700, minHeight: 560)
+        #else
+        .frame(minHeight: 560)
+        #endif
         .navigationTitle(viewModel.selectedBook?.displayTitle ?? "Edit Metadata")
         #if os(macOS)
         .background(
@@ -69,6 +107,7 @@ public struct MetadataEditorView: View {
             if let selectedBookId = viewModel.selectedBookId {
                 selectedSidebarBookIds = [selectedBookId]
             }
+            hasUnsavedChanges?.wrappedValue = viewModel.hasAnyDirtyBooks
             #if os(macOS)
             MetadataEditorWindowRegistry.register { bookIds in
                 viewModel.addBooks(ids: bookIds, from: mediaViewModel.library)
@@ -82,6 +121,9 @@ public struct MetadataEditorView: View {
         }
         .task {
             await loadAvailableStatusesIfNeeded()
+        }
+        .onChange(of: viewModel.hasAnyDirtyBooks) { _, isDirty in
+            hasUnsavedChanges?.wrappedValue = isDirty
         }
         .onDisappear {
             resetEditorSession()
@@ -118,6 +160,24 @@ public struct MetadataEditorView: View {
                 "This restores the book to the Storyteller metadata loaded when the editor opened."
             )
         }
+        .alert("Save metadata to Storyteller?", isPresented: saveConfirmationBinding) {
+            Button("Save") {
+                if let pendingSaveBookId {
+                    Task { @MainActor in
+                        await viewModel.saveSingle(
+                            pendingSaveBookId,
+                            mediaViewModel: mediaViewModel,
+                        )
+                    }
+                }
+                pendingSaveBookId = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingSaveBookId = nil
+            }
+        } message: {
+            Text("This writes the current book's staged metadata changes to Storyteller.")
+        }
         .background {
             Button("Select All Sidebar Books") {
                 selectAllSidebarBooks()
@@ -140,38 +200,79 @@ public struct MetadataEditorView: View {
         )
     }
 
+    private var saveConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingSaveBookId != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingSaveBookId = nil
+                }
+            },
+        )
+    }
+
     // MARK: - Warning Banner
 
     @ViewBuilder
     private var warningBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.yellow)
-                .font(.title3)
+        Group {
+            if isCompactIOS {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.title3)
+                        Text("Experimental Feature")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: { showWarning = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Experimental Feature")
-                    .font(.headline)
-                Text(
-                    "Back up your database before editing metadata. This feature could cause data corruption."
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Toggle("Don't show again", isOn: $hideWarning)
-                #if os(macOS)
-            .toggleStyle(.checkbox)
-                #endif
-                .font(.callout)
-
-            Button(action: { showWarning = false }) {
-                Image(systemName: "xmark.circle.fill")
+                    Text(
+                        "Back up your database before editing metadata. This feature could cause data corruption."
+                    )
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Toggle("Don't show again", isOn: $hideWarning)
+                        .font(.callout)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.yellow)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Experimental Feature")
+                            .font(.headline)
+                        Text(
+                            "Back up your database before editing metadata. This feature could cause data corruption."
+                        )
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("Don't show again", isOn: $hideWarning)
+                        #if os(macOS)
+                    .toggleStyle(.checkbox)
+                        #endif
+                        .font(.callout)
+
+                    Button(action: { showWarning = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
-            .buttonStyle(.borderless)
         }
         .padding(12)
         .background(.yellow.opacity(0.1))
@@ -186,8 +287,35 @@ public struct MetadataEditorView: View {
 
     // MARK: - Book Sidebar
 
+    @ViewBuilder
     private var bookSidebar: some View {
-        VStack(spacing: 0) {
+        #if os(iOS)
+        if isCompactIOS {
+            List {
+                ForEach(viewModel.books) { book in
+                    Button {
+                        selectSidebarBook(id: book.id)
+                        iOSNavigationPath = [book.id]
+                    } label: {
+                        MetadataEditorBookRailItem(
+                            book: book,
+                            image: mediaViewModel.coverImage(for: book.originalMetadata),
+                            compact: false,
+                            isSelected: false,
+                            saveResult: viewModel.saveResults[book.id],
+                            action: nil,
+                            removeAction: {
+                                removeSidebarBook(id: book.id)
+                            },
+                            showsDisclosure: true,
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 250)
+        } else {
             List(selection: $selectedSidebarListBookId) {
                 ForEach(viewModel.books) { book in
                     MetadataEditorBookRailItem(
@@ -202,9 +330,41 @@ public struct MetadataEditorView: View {
                         removeAction: {
                             removeSidebarBook(id: book.id)
                         },
+                        showsDisclosure: false,
                     )
-                        .tag(book.id)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                    .tag(book.id)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                }
+            }
+            .onChange(of: selectedSidebarListBookId) { _, newValue in
+                guard let newValue else { return }
+                selectSidebarBook(id: newValue)
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 250)
+        }
+        #else
+        VStack(spacing: 0) {
+            List(selection: $selectedSidebarListBookId) {
+                ForEach(viewModel.books) { book in
+                    MetadataEditorBookRailItem(
+                        book: book,
+                        image: mediaViewModel.coverImage(for: book.originalMetadata),
+                        compact: false,
+                        isSelected: selectedSidebarBookIds.contains(book.id),
+                        saveResult: viewModel.saveResults[book.id],
+                        action: {
+                            selectSidebarBook(id: book.id)
+                            #if os(iOS)
+                            columnVisibility = .detailOnly
+                            #endif
+                        },
+                        removeAction: {
+                            removeSidebarBook(id: book.id)
+                        },
+                        showsDisclosure: sidebarRowsShowDisclosure,
+                    )
+                    .tag(book.id)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                 }
             }
         }
@@ -213,6 +373,15 @@ public struct MetadataEditorView: View {
             selectSidebarBook(id: newValue)
         }
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
+        #endif
+    }
+
+    private var sidebarRowsShowDisclosure: Bool {
+        #if os(iOS)
+        true
+        #else
+        false
+        #endif
     }
 
     private func selectSidebarBook(id: String) {
@@ -321,8 +490,10 @@ public struct MetadataEditorView: View {
         viewModel.saveResults.removeAll()
         viewModel.saveError = nil
         viewModel.clearTransientImportState()
+        hasUnsavedChanges?.wrappedValue = false
         selectedSidebarBookIds.removeAll()
         sidebarSelectionAnchorId = nil
+        iOSNavigationPath = []
     }
 
     #if os(macOS)
@@ -456,6 +627,13 @@ public struct MetadataEditorView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
+        #if os(iOS)
+        if isCompactIOS {
+            iOSCompactBottomBar
+        } else {
+            iOSBottomBar
+        }
+        #else
         HStack {
             if let error = viewModel.saveError {
                 HStack(spacing: 4) {
@@ -550,6 +728,98 @@ public struct MetadataEditorView: View {
             )
         }
         .padding(12)
+        #endif
+    }
+
+    private var iOSCompactBottomBar: some View {
+        HStack(alignment: .top, spacing: 10) {
+            iOSBottomBarButton("Import Metadata", systemImage: "square.and.arrow.down") {
+                showHardcoverImportSheet = true
+            }
+            .disabled(viewModel.selectedBookId == nil)
+
+            iOSBottomBarButton("Import Covers", systemImage: "photo.on.rectangle") {
+                showCoverImportSheet = true
+            }
+            .disabled(viewModel.selectedBook == nil)
+
+            iOSBottomBarButton("Save to Storyteller", systemImage: "tray.and.arrow.up") {
+                pendingSaveBookId = viewModel.selectedBookId
+            }
+            .disabled(
+                viewModel.isSaving || viewModel.selectedBookId == nil
+                    || !(viewModel.books.first { $0.id == viewModel.selectedBookId }?.hasDirtyFields
+                        ?? false)
+                    || viewModel.hasValidationErrors(for: viewModel.selectedBookId ?? "")
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var iOSBottomBar: some View {
+        HStack(alignment: .top, spacing: 10) {
+            if viewModel.isSaving {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            iOSBottomBarButton("Import Metadata", systemImage: "square.and.arrow.down") {
+                showHardcoverImportSheet = true
+            }
+            .disabled(viewModel.selectedBookId == nil)
+
+            iOSBottomBarButton("Import Covers", systemImage: "photo.on.rectangle") {
+                showCoverImportSheet = true
+            }
+            .disabled(viewModel.selectedBook == nil)
+
+            iOSBottomBarButton("Save Current", systemImage: "tray.and.arrow.up") {
+                guard let bookId = viewModel.selectedBookId else { return }
+                Task { @MainActor in
+                    await viewModel.saveSingle(bookId, mediaViewModel: mediaViewModel)
+                }
+            }
+            .disabled(
+                viewModel.isSaving || viewModel.selectedBookId == nil
+                    || !(viewModel.books.first { $0.id == viewModel.selectedBookId }?.hasDirtyFields
+                        ?? false)
+                    || viewModel.hasValidationErrors(for: viewModel.selectedBookId ?? "")
+            )
+
+            iOSBottomBarButton("Save All", systemImage: "tray.full") {
+                Task { @MainActor in
+                    await viewModel.saveAll(mediaViewModel: mediaViewModel)
+                }
+            }
+            .disabled(
+                viewModel.isSaving || !viewModel.hasAnyDirtyBooks
+                    || viewModel.hasAnyValidationErrors
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+    }
+
+    private func iOSBottomBarButton(
+        _ title: String,
+        systemImage: String,
+        action: @escaping () -> Void,
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18))
+                Text(title)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 
     private var hardcoverDataDumpText: String {
@@ -590,14 +860,13 @@ private struct MetadataEditorBookRailItem: View {
     let compact: Bool
     let isSelected: Bool
     let saveResult: Bool?
-    let action: () -> Void
+    let action: (() -> Void)?
     let removeAction: () -> Void
+    var showsDisclosure = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        content
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
+        rowContent
             .contextMenu {
                 Button("Remove from Editor") {
                     removeAction()
@@ -615,6 +884,17 @@ private struct MetadataEditorBookRailItem: View {
                         .padding(.vertical, 8)
                 }
             }
+    }
+
+    @ViewBuilder
+    private var rowContent: some View {
+        if let action {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: action)
+        } else {
+            content
+        }
     }
 
     @ViewBuilder
@@ -643,6 +923,11 @@ private struct MetadataEditorBookRailItem: View {
                 }
                 Spacer(minLength: 0)
                 statusGlyph
+                if showsDisclosure {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(8)
         }
