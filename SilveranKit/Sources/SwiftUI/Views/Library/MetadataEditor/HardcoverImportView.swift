@@ -1536,11 +1536,19 @@ struct HardcoverImportView: View {
         return Group {
             if isCompactIOS {
                 VStack(alignment: .leading, spacing: 8) {
-                    reviewTagsHeader(
-                        title: "Current Tags",
-                        showsSortControls: false,
-                        selectedCount: nil,
-                    )
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        reviewTagsHeader(
+                            title: "Current Tags",
+                            showsSortControls: false,
+                            selectedCount: nil,
+                        )
+
+                        reviewExpansionButton(
+                            rowId: row.id,
+                            isExpanded: isExpanded,
+                            label: "Tags",
+                        )
+                    }
                     reviewCurrentTagPills(isExpanded: isExpanded)
 
                     reviewTagsImportButton(
@@ -1629,6 +1637,13 @@ struct HardcoverImportView: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
 
+                    reviewExpansionButton(
+                        rowId: row.id,
+                        isExpanded: isExpanded,
+                        label: "Tags",
+                    )
+                    .frame(width: 24, alignment: .trailing)
+
                     reviewTagsImportButton(
                         row: row,
                         importableTagIds: importableTagIds,
@@ -1638,14 +1653,6 @@ struct HardcoverImportView: View {
                     .frame(width: 34)
                 }
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            reviewExpansionButton(
-                rowId: row.id,
-                isExpanded: isExpanded,
-                label: "Tags",
-            )
-            .padding(8)
         }
         .padding(10)
         .background(

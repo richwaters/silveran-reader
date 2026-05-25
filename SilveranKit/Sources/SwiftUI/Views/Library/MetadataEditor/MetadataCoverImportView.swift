@@ -83,8 +83,28 @@ struct MetadataCoverImportView: View {
         #endif
     }
 
+    private var isIOS: Bool {
+        #if os(iOS)
+        true
+        #else
+        false
+        #endif
+    }
+
     private var book: MetadataEditorViewModel.EditableBook? {
         viewModel.books.first { $0.id == bookId }
+    }
+
+    private var sheetWidth: CGFloat? {
+        if isCompactIOS { return nil }
+        if isIOS { return 920 }
+        return 1120
+    }
+
+    private var sheetHeight: CGFloat? {
+        if isCompactIOS { return nil }
+        if isIOS { return 760 }
+        return 720
     }
 
     var body: some View {
@@ -95,6 +115,8 @@ struct MetadataCoverImportView: View {
             Divider()
             if isCompactIOS {
                 compactCoverBrowser
+            } else if isIOS {
+                iPadCoverBrowser
             } else {
                 HStack(alignment: .top, spacing: 14) {
                     editionColumn(scope: .audiobook)
@@ -106,13 +128,44 @@ struct MetadataCoverImportView: View {
             Divider()
             bottomBar
         }
-        .frame(width: isCompactIOS ? nil : 1120, height: isCompactIOS ? nil : 720)
+        .frame(width: sheetWidth, height: sheetHeight)
         .frame(maxWidth: isCompactIOS ? .infinity : nil, maxHeight: isCompactIOS ? .infinity : nil)
         .task {
             await loadInitialCandidates()
         }
         .sheet(item: $previewingCover) { cover in
             coverPreviewSheet(cover)
+        }
+    }
+
+    private var iPadCoverBrowser: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Edition", selection: $compactSelectedScope) {
+                    ForEach(MetadataCoverScope.allCases) { scope in
+                        Text(scopeTitle(scope)).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 420)
+
+                selectedCoverSummary(scope: compactSelectedScope)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 12) {
+                currentCoverPanel(scope: compactSelectedScope)
+
+                HStack(alignment: .top, spacing: 12) {
+                    sourceColumn(source: .hardcover, scope: compactSelectedScope)
+                    sourceColumn(source: .itunes, scope: compactSelectedScope)
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            }
+            .padding(12)
         }
     }
 
