@@ -155,8 +155,13 @@ struct MediaCompactCardView: View {
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onTapGesture {
             onSelect(item)
-            onInfo(item)
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    onInfo(item)
+                }
+        )
         .onHover { hovering in
             isHovered = hovering
         }

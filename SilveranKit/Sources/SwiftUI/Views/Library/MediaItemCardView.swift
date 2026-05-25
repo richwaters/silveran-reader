@@ -434,8 +434,13 @@ struct MediaItemCardView: View {
         #if os(macOS)
         .onTapGesture {
             onSelect(item)
-            onInfo(item)
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    onInfo(item)
+                }
+        )
         .scaleEffect(isHovered ? 1.05 : 1.0)
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { hovering in
