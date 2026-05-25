@@ -13,6 +13,9 @@ struct TagView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
@@ -289,6 +292,7 @@ extension TagView {
                                     showBookCountBadge: $showBookCountBadge,
                                 )
                             },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid:
                         fanGridContent
@@ -313,6 +317,8 @@ extension TagView {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -326,6 +332,8 @@ extension TagView {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
@@ -350,6 +358,16 @@ extension TagView {
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif

@@ -6,6 +6,9 @@ extension Notification.Name {
 
 public struct LibraryView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     // TODO: wire up search
     @State private var searchText: String = ""
@@ -23,6 +26,10 @@ public struct LibraryView: View {
     @State private var gridScrollPositions: [String: BookMetadata.ID?] = [:]
     @State private var metadataNavStack: [SidebarItemDescription] = []
     @State private var isMetadataLinkNavigation = false
+    #if os(macOS)
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
+    #endif
 
     public init() {}
 
@@ -99,6 +106,13 @@ public struct LibraryView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                 .presentationDragIndicator(.visible)
+            }
+            #endif
+            #if os(macOS)
+            .alert("Edit Metadata", isPresented: $showPermissionError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(permissionErrorMessage)
             }
             #endif
 
@@ -214,6 +228,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .authorView(let mediaKind):
@@ -232,6 +247,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .narratorView(let mediaKind):
@@ -250,6 +266,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .translatorView(let mediaKind):
@@ -268,6 +285,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .publicationYearView(let mediaKind):
@@ -286,6 +304,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .ratingView(let mediaKind):
@@ -304,6 +323,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .statusView(let mediaKind):
@@ -322,6 +342,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .tagView(let mediaKind):
@@ -340,6 +361,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .collectionsView(let mediaKind):
@@ -358,6 +380,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .sourceView(let mediaKind):
@@ -376,6 +399,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .smartShelves:
@@ -392,6 +416,7 @@ public struct LibraryView: View {
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
                     showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .smartShelfDetail(let shelfId):
@@ -491,4 +516,34 @@ public struct LibraryView: View {
             content: .mediaGrid(config),
         )
     }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+                case .allowed:
+                    if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                        return
+                    }
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookIds: bookIds),
+                    )
+                case .denied:
+                    permissionErrorMessage =
+                        "Your account does not have permission to edit metadata on this server."
+                    showPermissionError = true
+                case .error(let message):
+                    permissionErrorMessage = "Could not verify server permissions: \(message)"
+                    showPermissionError = true
+            }
+        }
+    }
+    #endif
 }

@@ -26,6 +26,9 @@ struct SmartShelvesView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
     @State private var navigationPath = NavigationPath()
@@ -360,6 +363,13 @@ extension SmartShelvesView {
                 Task { await mediaViewModel.deleteSmartShelf(id: shelf.id) }
             } label: {
                 Label("Delete Shelf", systemImage: "trash")
+            }
+            if let onEditMetadata {
+                Divider()
+                CategoryGroupMetadataContextMenuContent(
+                    group: group,
+                    onEditMetadata: onEditMetadata,
+                )
             }
         }
     }

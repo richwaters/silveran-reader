@@ -13,6 +13,9 @@ struct AuthorView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
@@ -301,6 +304,7 @@ extension AuthorView {
                                     showBookCountBadge: $showBookCountBadge,
                                 )
                             },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid:
                         fanGridContent
@@ -325,6 +329,8 @@ extension AuthorView {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -338,6 +344,8 @@ extension AuthorView {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
@@ -362,6 +370,16 @@ extension AuthorView {
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
