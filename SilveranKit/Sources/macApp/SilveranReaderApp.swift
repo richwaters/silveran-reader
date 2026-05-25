@@ -209,10 +209,27 @@ struct SilveranReaderApp: App {
 
     private var metadataEditorScene: some Scene {
         WindowGroup("Edit Metadata", id: "MetadataEditor", for: MetadataEditorData.self) { data in
-            MetadataEditorView(initialBookIds: data.wrappedValue?.bookIds ?? [])
+            MetadataEditorSceneContent(data: data.wrappedValue)
                 .environment(mediaViewModel)
         }
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1340, height: 710)
         .disableWindowRestoration()
+    }
+}
+
+private struct MetadataEditorSceneContent: View {
+    @Environment(\.dismiss) private var dismiss
+    let data: MetadataEditorData?
+
+    var body: some View {
+        if let data {
+            MetadataEditorView(initialBookIds: data.bookIds)
+        } else {
+            Color.clear
+                .onAppear {
+                    dismiss()
+                }
+        }
     }
 }

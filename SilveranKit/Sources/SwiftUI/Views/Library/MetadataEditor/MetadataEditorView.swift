@@ -19,6 +19,8 @@ public struct MetadataEditorView: View {
     @State private var pendingRevertBookId: String?
     @State private var selectedSidebarBookIds: Set<String> = []
     @State private var sidebarSelectionAnchorId: String?
+    @State private var selectedSidebarListBookId: String?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var isSidebarFocused: Bool
 
     public init(initialBookIds: [String]) {
@@ -31,16 +33,14 @@ public struct MetadataEditorView: View {
                 warningBanner
             }
 
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 bookSidebar
-                    .navigationSplitViewColumnWidth(min: 86, ideal: 190, max: 260)
             } detail: {
                 sectionContent
                     .frame(minWidth: 460)
                     .clipped()
             }
             .navigationSplitViewStyle(.balanced)
-            .toolbar(removing: .sidebarToggle)
 
             Divider()
             bottomBar
@@ -63,6 +63,7 @@ public struct MetadataEditorView: View {
         )
         #endif
         .onAppear {
+            columnVisibility = .all
             viewModel.addBooks(ids: initialBookIds, from: mediaViewModel.library)
             viewModel.availableStatuses = mediaViewModel.availableStatuses
             if let selectedBookId = viewModel.selectedBookId {
@@ -186,33 +187,32 @@ public struct MetadataEditorView: View {
     // MARK: - Book Sidebar
 
     private var bookSidebar: some View {
-        GeometryReader { proxy in
-            let compact = proxy.size.width < 122
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.books) { book in
-                        MetadataEditorBookRailItem(
-                            book: book,
-                            image: mediaViewModel.coverImage(for: book.originalMetadata),
-                            compact: compact,
-                            isSelected: selectedSidebarBookIds.contains(book.id),
-                            saveResult: viewModel.saveResults[book.id],
-                            action: {
-                                selectSidebarBook(id: book.id)
-                            },
-                            removeAction: {
-                                removeSidebarBook(id: book.id)
-                            },
-                        )
-                    }
+        VStack(spacing: 0) {
+            List(selection: $selectedSidebarListBookId) {
+                ForEach(viewModel.books) { book in
+                    MetadataEditorBookRailItem(
+                        book: book,
+                        image: mediaViewModel.coverImage(for: book.originalMetadata),
+                        compact: false,
+                        isSelected: selectedSidebarBookIds.contains(book.id),
+                        saveResult: viewModel.saveResults[book.id],
+                        action: {
+                            selectSidebarBook(id: book.id)
+                        },
+                        removeAction: {
+                            removeSidebarBook(id: book.id)
+                        },
+                    )
+                        .tag(book.id)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                 }
-                .padding(.vertical, 14)
-                .padding(.horizontal, compact ? 8 : 10)
             }
         }
-        .focusable()
-        .focusEffectDisabled(true)
-        .focused($isSidebarFocused)
+        .onChange(of: selectedSidebarListBookId) { _, newValue in
+            guard let newValue else { return }
+            selectSidebarBook(id: newValue)
+        }
+        .navigationSplitViewColumnWidth(min: 180, ideal: 250)
     }
 
     private func selectSidebarBook(id: String) {
