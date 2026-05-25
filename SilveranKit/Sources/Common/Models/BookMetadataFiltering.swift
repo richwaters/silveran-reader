@@ -51,10 +51,9 @@ extension BookMetadata {
 
     public func matchesPublicationYear(_ filter: String) -> Bool {
         if filter == Self.unknownYearSentinel {
-            return publicationDate == nil || (publicationDate?.count ?? 0) < 4
+            return Self.publicationYear(from: publicationDate) == nil
         }
-        guard let pubDate = publicationDate, pubDate.count >= 4 else { return false }
-        return String(pubDate.prefix(4)) == filter
+        return Self.publicationYear(from: publicationDate) == filter
     }
 
     public func matchesRating(_ filter: String) -> Bool {

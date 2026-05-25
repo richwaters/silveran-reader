@@ -109,7 +109,7 @@ let package = Package(
         /// TODO: Tests would be nice...
         .testTarget(
             name: "SilveranKitTests",
-            dependencies: ["SilveranKitMacApp"],
+            dependencies: ["SilveranKitCommon", "SilveranKitMacApp"],
         ),
     ],
 )

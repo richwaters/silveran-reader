@@ -152,9 +152,9 @@ public enum ShelfCondition: Codable, Hashable, Sendable {
                 return matchesInclusion(mode: mode, bookValues: bookTranslators, targets: targets)
 
             case .publicationYear(let mode, let values):
-                let year = book.sortablePublicationYear.lowercased()
+                let year = book.sortablePublicationYear
                 let bookYears = year.isEmpty ? [String]() : [year]
-                let targets = values.map { $0.lowercased() }
+                let targets = values.compactMap { BookMetadata.publicationYear(from: $0) }
                 return matchesInclusion(mode: mode, bookValues: bookYears, targets: targets)
 
             case .publicationYearComparison(let comparison, let value):

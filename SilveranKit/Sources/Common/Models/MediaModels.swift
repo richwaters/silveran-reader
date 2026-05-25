@@ -812,7 +812,17 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     }
 
     public var sortablePublicationYear: String {
-        publicationDate ?? ""
+        Self.publicationYear(from: publicationDate) ?? ""
+    }
+
+    public static func publicationYear(from publicationDate: String?) -> String? {
+        guard let publicationDate else { return nil }
+        let trimmed = publicationDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 4 else { return nil }
+
+        let year = String(trimmed.prefix(4))
+        guard year.allSatisfy(\.isNumber) else { return nil }
+        return year
     }
 }
 

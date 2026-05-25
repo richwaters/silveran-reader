@@ -2122,8 +2122,8 @@ struct MediaGridView: View {
         var years = Set<String>()
         var hasUnknown = false
         for item in catalog {
-            if let pubDate = item.publicationDate, pubDate.count >= 4 {
-                years.insert(String(pubDate.prefix(4)))
+            if let year = BookMetadata.publicationYear(from: item.publicationDate) {
+                years.insert(year)
             } else {
                 hasUnknown = true
             }

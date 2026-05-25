@@ -763,12 +763,7 @@ public final class MediaViewModel {
         var yearMap: [String: [BookMetadata]] = [:]
 
         for book in allBooks {
-            let year: String
-            if let pubDate = book.publicationDate, pubDate.count >= 4 {
-                year = String(pubDate.prefix(4))
-            } else {
-                year = "Unknown"
-            }
+            let year = BookMetadata.publicationYear(from: book.publicationDate) ?? "Unknown"
             if var existing = yearMap[year] {
                 existing.append(book)
                 yearMap[year] = existing
