@@ -49,83 +49,104 @@ struct WorkMetadataLayout: View {
     }
 
     private var fullPageForm: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        fieldGroup("Work Details") {
-                            scalarField("Title", field: "title", text: scalarBinding(\.title))
-                            scalarField(
-                                "Subtitle",
-                                field: "subtitle",
-                                text: scalarBinding(\.subtitle),
-                            )
-                            expandedStringListField(
-                                "Author",
-                                field: "authors",
-                                suggestions: viewModel.libraryAuthorNames,
-                            )
-                            creatorsField()
-                            publicationDateField()
-                            scalarField(
-                                "Language",
-                                field: "language",
-                                text: scalarBinding(\.language),
-                            )
-                            seriesField()
-                            textAreaField(
-                                "Description",
-                                field: "description",
-                                text: scalarBinding(\.description),
-                            )
-                        }
+        GeometryReader { proxy in
+            let horizontalPadding: CGFloat = 20
+            let columnSpacing: CGFloat = 24
+            let contentWidth = max(proxy.size.width - (horizontalPadding * 2), 0)
+            let columnWidth = max((contentWidth - columnSpacing) / 2, 0)
+            ScrollView {
+                if proxy.size.width < 1120 {
+                    VStack(alignment: .leading, spacing: 24) {
+                        workDetailsColumn
+                        communityLibraryColumn
                     }
-                    .frame(maxWidth: .infinity, alignment: .top)
-
-                    VStack(alignment: .leading, spacing: 18) {
-                        fieldGroup("Community") {
-                            hardcoverSlugField()
-                            scalarField("Rating", field: "rating", text: scalarBinding(\.rating))
-                            expandedStringListField(
-                                "Tags",
-                                field: "tags",
-                                suggestions: viewModel.libraryTagNames,
-                            )
-                        }
-
-                        fieldGroup("Personal") {
-                            statusField()
-                            readOnlyField(
-                                "Date Last Read",
-                                value: book?.originalMetadata.position?.updatedAt ?? "",
-                                isPlaceholder: true,
-                            )
-                            readOnlyField(
-                                "Personal Rating",
-                                value: "Not exposed by Storyteller yet",
-                                isPlaceholder: true,
-                            )
-                            readOnlyField(
-                                "Static Shelves",
-                                value: "Not exposed by Storyteller yet",
-                                isPlaceholder: true,
-                            )
-                            smartShelvesField()
-                        }
-
-                        fieldGroup("Library") {
-                            collectionsField()
-                            readOnlyTextArea(
-                                "Note",
-                                value: "Library notes are not exposed by Storyteller yet.",
-                            )
-                        }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, 24)
+                } else {
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        workDetailsColumn
+                            .frame(width: columnWidth, alignment: .top)
+                        communityLibraryColumn
+                            .frame(width: columnWidth, alignment: .top)
                     }
-                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, 24)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 24)
+        }
+    }
+
+    private var workDetailsColumn: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            fieldGroup("Work Details") {
+                scalarField("Title", field: "title", text: scalarBinding(\.title))
+                scalarField(
+                    "Subtitle",
+                    field: "subtitle",
+                    text: scalarBinding(\.subtitle),
+                )
+                expandedStringListField(
+                    "Author",
+                    field: "authors",
+                    suggestions: viewModel.libraryAuthorNames,
+                )
+                creatorsField()
+                publicationDateField()
+                scalarField(
+                    "Language",
+                    field: "language",
+                    text: scalarBinding(\.language),
+                )
+                seriesField()
+                textAreaField(
+                    "Description",
+                    field: "description",
+                    text: scalarBinding(\.description),
+                )
+            }
+        }
+    }
+
+    private var communityLibraryColumn: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            fieldGroup("Community") {
+                hardcoverSlugField()
+                scalarField("Rating", field: "rating", text: scalarBinding(\.rating))
+                expandedStringListField(
+                    "Tags",
+                    field: "tags",
+                    suggestions: viewModel.libraryTagNames,
+                )
+            }
+
+            fieldGroup("Personal") {
+                statusField()
+                readOnlyField(
+                    "Date Last Read",
+                    value: book?.originalMetadata.position?.updatedAt ?? "",
+                    isPlaceholder: true,
+                )
+                readOnlyField(
+                    "Personal Rating",
+                    value: "Not exposed by Storyteller yet",
+                    isPlaceholder: true,
+                )
+                readOnlyField(
+                    "Static Shelves",
+                    value: "Not exposed by Storyteller yet",
+                    isPlaceholder: true,
+                )
+                smartShelvesField()
+            }
+
+            fieldGroup("Library") {
+                collectionsField()
+                readOnlyTextArea(
+                    "Note",
+                    value: "Library notes are not exposed by Storyteller yet.",
+                )
+            }
         }
     }
 
@@ -687,17 +708,34 @@ struct EditionMetadataLayout: View {
     }()
 
     var body: some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 32) {
-                editionDetailsColumn
-                    .frame(minWidth: 500, maxWidth: 760, alignment: .topLeading)
+        GeometryReader { proxy in
+            let horizontalPadding: CGFloat = 24
+            let columnSpacing: CGFloat = 32
+            let contentWidth = max(proxy.size.width - (horizontalPadding * 2), 0)
+            ScrollView {
+                if proxy.size.width < 980 {
+                    VStack(alignment: .leading, spacing: 24) {
+                        editionDetailsColumn
+                        coverManagementColumn
+                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                } else {
+                    let detailsWidth = max((contentWidth - columnSpacing) * 0.62, 0)
+                    let coverWidth = max(contentWidth - columnSpacing - detailsWidth, 0)
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        editionDetailsColumn
+                            .frame(width: detailsWidth, alignment: .topLeading)
 
-                coverManagementColumn
-                    .frame(minWidth: 320, maxWidth: 430, alignment: .top)
+                        coverManagementColumn
+                            .frame(width: coverWidth, alignment: .top)
+                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .onAppear {
             selectedCoverScope = scope.coverScope
@@ -1092,7 +1130,7 @@ struct EditionMetadataLayout: View {
         let hasDate = !dateString.isEmpty
         return HStack(alignment: .firstTextBaseline, spacing: 10) {
             editionFieldLabel(label: "Release Date", field: "", isEditable: false)
-            HStack(spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 #if os(macOS)
                 MetadataEditorDatePicker(
                     selection: Binding(
@@ -1137,8 +1175,10 @@ struct EditionMetadataLayout: View {
                 Text("(not editable by Storyteller yet)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .disabled(true)
             .padding(8)
             .metadataEditorBoundary()
@@ -1191,9 +1231,10 @@ struct EditionMetadataLayout: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
+                        .truncationMode(.tail)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .metadataEditorFieldBoundary()
         }
     }
@@ -1659,7 +1700,7 @@ struct SeriesExpandedEditor: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text("Name")
-                    .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 4) {
                     Text("Position")
                     Button {
@@ -1720,7 +1761,7 @@ struct SeriesExpandedEditor: View {
                             )
                         }
                     }
-                    .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     TextField("#", text: seriesBinding(item.id, \.position))
                         .textFieldStyle(.plain)

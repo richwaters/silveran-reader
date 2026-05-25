@@ -33,10 +33,10 @@ public struct MetadataEditorView: View {
 
             NavigationSplitView {
                 bookSidebar
-                    .navigationSplitViewColumnWidth(min: 74, ideal: 190, max: 260)
+                    .navigationSplitViewColumnWidth(min: 86, ideal: 190, max: 260)
             } detail: {
                 sectionContent
-                    .frame(minWidth: 850)
+                    .frame(minWidth: 460)
                     .clipped()
             }
             .navigationSplitViewStyle(.balanced)
@@ -45,7 +45,7 @@ public struct MetadataEditorView: View {
             Divider()
             bottomBar
         }
-        .frame(minWidth: 1450, minHeight: 620)
+        .frame(minWidth: 700, minHeight: 560)
         .navigationTitle(viewModel.selectedBook?.displayTitle ?? "Edit Metadata")
         #if os(macOS)
         .background(
@@ -187,7 +187,7 @@ public struct MetadataEditorView: View {
 
     private var bookSidebar: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < 118
+            let compact = proxy.size.width < 122
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.books) { book in
@@ -621,15 +621,15 @@ private struct MetadataEditorBookRailItem: View {
     private var content: some View {
         if compact {
             cover
-                .frame(width: 48, height: 68)
+                .frame(width: 62, height: 88)
                 .overlay(alignment: .bottomTrailing) {
                     statusGlyph
                         .padding(3)
                 }
         } else {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 cover
-                    .frame(width: 42, height: 58)
+                    .frame(width: 34, height: 48)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(book.displayTitle)
                         .lineLimit(2)
