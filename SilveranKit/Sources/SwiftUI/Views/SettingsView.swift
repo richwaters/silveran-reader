@@ -200,6 +200,8 @@ public struct SettingsView: View {
                     readaloudHighlightMode: newValue.reading.readaloudHighlightMode,
                     tabBarSlot1: newValue.library.tabBarSlot1,
                     tabBarSlot2: newValue.library.tabBarSlot2,
+                    tvSubtitleFontSize: newValue.reading.tvSubtitleFontSize,
+                    tvBackgroundStyle: newValue.reading.tvReaderAppearance.backgroundStyle,
                     selectedLightThemeId: newValue.themes.selectedLightThemeId,
                     selectedDarkThemeId: newValue.themes.selectedDarkThemeId,
                     customThemes: newValue.themes.customThemes,

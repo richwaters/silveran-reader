@@ -73,3 +73,11 @@ public let kDefaultAccentColorHex = "#EB722F"
 // MARK: - tvOS Settings
 
 public let kDefaultTVSubtitleFontSize: Double = 48
+public let kDefaultTVFontFamily = "serif"
+public let kDefaultTVBackgroundStyle = "cover"
+public let kDefaultTVActiveSentenceStyle = "whiteText"
+public let kDefaultTVHighlightColor = "yellow"
+public let kDefaultTVInactiveTextIntensity = "dim"
+public let kDefaultTVTextWidth = "medium"
+public let kDefaultTVLineSpacing = "medium"
+public let kDefaultTVTextAlignment = "leading"

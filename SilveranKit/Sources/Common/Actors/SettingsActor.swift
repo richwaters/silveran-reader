@@ -73,6 +73,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var userHighlightMode: String
         public var readaloudHighlightMode: String
         public var tvSubtitleFontSize: Double
+        public var tvReaderAppearance: TVReaderAppearance
 
         public init(
             fontSize: Double = kDefaultFontSize,
@@ -104,6 +105,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             userHighlightMode: String = kDefaultUserHighlightMode,
             readaloudHighlightMode: String = kDefaultReadaloudHighlightMode,
             tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize,
+            tvReaderAppearance: TVReaderAppearance = TVReaderAppearance(),
         ) {
             self.fontSize = fontSize
             self.fontFamily = fontFamily
@@ -138,6 +140,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             self.userHighlightMode = userHighlightMode
             self.readaloudHighlightMode = readaloudHighlightMode
             self.tvSubtitleFontSize = tvSubtitleFontSize
+            self.tvReaderAppearance = tvReaderAppearance
         }
 
         public init(from decoder: Decoder) throws {
@@ -233,6 +236,15 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             tvSubtitleFontSize =
                 (try? container?.decode(Double.self, forKey: .tvSubtitleFontSize))
                 ?? kDefaultTVSubtitleFontSize
+            tvReaderAppearance =
+                (try? container?.decode(TVReaderAppearance.self, forKey: .tvReaderAppearance))
+                ?? TVReaderAppearance(
+                    backgroundStyle: (try? legacyContainer?.decode(
+                        String.self,
+                        forKey: .tvBackgroundStyle,
+                    ))
+                        ?? kDefaultTVBackgroundStyle
+                )
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -245,10 +257,92 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             case userHighlightLabel1, userHighlightLabel2, userHighlightLabel3
             case userHighlightLabel4, userHighlightLabel5, userHighlightLabel6
             case userHighlightMode, readaloudHighlightMode, tvSubtitleFontSize
+            case tvReaderAppearance
         }
 
         private enum LegacyCodingKeys: String, CodingKey {
-            case readaloudHighlightUnderline
+            case readaloudHighlightUnderline, tvBackgroundStyle
+        }
+
+        public struct TVReaderAppearance: Codable, Equatable, Sendable {
+            public var fontFamily: String
+            public var backgroundStyle: String
+            public var activeSentenceStyle: String
+            public var highlightColor: String
+            public var inactiveTextIntensity: String
+            public var textWidth: String
+            public var lineSpacing: String
+            public var textAlignment: String
+
+            public init(
+                fontFamily: String = kDefaultTVFontFamily,
+                backgroundStyle: String = kDefaultTVBackgroundStyle,
+                activeSentenceStyle: String = kDefaultTVActiveSentenceStyle,
+                highlightColor: String = kDefaultTVHighlightColor,
+                inactiveTextIntensity: String = kDefaultTVInactiveTextIntensity,
+                textWidth: String = kDefaultTVTextWidth,
+                lineSpacing: String = kDefaultTVLineSpacing,
+                textAlignment: String = kDefaultTVTextAlignment,
+            ) {
+                self.fontFamily = fontFamily
+                self.backgroundStyle = Self.normalizedBackgroundStyle(backgroundStyle)
+                self.activeSentenceStyle = Self.normalizedActiveSentenceStyle(activeSentenceStyle)
+                self.highlightColor = highlightColor
+                self.inactiveTextIntensity = inactiveTextIntensity
+                self.textWidth = textWidth
+                self.lineSpacing = lineSpacing
+                self.textAlignment = textAlignment
+            }
+
+            public init(from decoder: Decoder) throws {
+                let container = try? decoder.container(keyedBy: CodingKeys.self)
+                fontFamily =
+                    (try? container?.decode(String.self, forKey: .fontFamily))
+                    ?? kDefaultTVFontFamily
+                backgroundStyle =
+                    Self.normalizedBackgroundStyle(
+                        (try? container?.decode(String.self, forKey: .backgroundStyle))
+                            ?? kDefaultTVBackgroundStyle
+                    )
+                activeSentenceStyle =
+                    Self.normalizedActiveSentenceStyle(
+                        (try? container?.decode(String.self, forKey: .activeSentenceStyle))
+                            ?? kDefaultTVActiveSentenceStyle
+                    )
+                highlightColor =
+                    (try? container?.decode(String.self, forKey: .highlightColor))
+                    ?? kDefaultTVHighlightColor
+                inactiveTextIntensity =
+                    (try? container?.decode(String.self, forKey: .inactiveTextIntensity))
+                    ?? kDefaultTVInactiveTextIntensity
+                textWidth =
+                    (try? container?.decode(String.self, forKey: .textWidth))
+                    ?? kDefaultTVTextWidth
+                lineSpacing =
+                    (try? container?.decode(String.self, forKey: .lineSpacing))
+                    ?? kDefaultTVLineSpacing
+                textAlignment =
+                    (try? container?.decode(String.self, forKey: .textAlignment))
+                    ?? kDefaultTVTextAlignment
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case fontFamily, backgroundStyle, activeSentenceStyle, highlightColor
+                case inactiveTextIntensity, textWidth, lineSpacing, textAlignment
+            }
+
+            private static func normalizedBackgroundStyle(_ value: String) -> String {
+                switch value {
+                    case "black", "oledBlack":
+                        return "highContrast"
+                    default:
+                        return value
+                }
+            }
+
+            private static func normalizedActiveSentenceStyle(_ value: String) -> String {
+                value == "brightText" ? "whiteText" : value
+            }
         }
     }
 
@@ -657,6 +751,8 @@ public actor SettingsActor {
         tabBarSlot1: String? = nil,
         tabBarSlot2: String? = nil,
         tvSubtitleFontSize: Double? = nil,
+        tvReaderAppearance: SilveranGlobalConfig.Reading.TVReaderAppearance? = nil,
+        tvBackgroundStyle: String? = nil,
         selectedLightThemeId: String? = nil,
         selectedDarkThemeId: String? = nil,
         customThemes: [ReaderTheme]? = nil,
@@ -787,6 +883,12 @@ public actor SettingsActor {
         }
         if let tvSubtitleFontSize {
             updated.reading.tvSubtitleFontSize = tvSubtitleFontSize
+        }
+        if let tvReaderAppearance {
+            updated.reading.tvReaderAppearance = tvReaderAppearance
+        }
+        if let tvBackgroundStyle {
+            updated.reading.tvReaderAppearance.backgroundStyle = tvBackgroundStyle
         }
         if let selectedLightThemeId {
             updated.themes.selectedLightThemeId = selectedLightThemeId
