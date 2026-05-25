@@ -396,6 +396,10 @@ struct MediaItemCardView: View {
                 #endif
             }
             .frame(height: metrics.coverContainerHeight - 7)
+            .overlay(
+                RoundedRectangle(cornerRadius: metrics.coverCornerRadius, style: .continuous)
+                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
 
             if progressStyle == .line {
                 MediaProgressBar(progress: mediaViewModel.progress(for: item.id))
