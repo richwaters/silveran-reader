@@ -755,12 +755,12 @@ public actor StorytellerActor {
         do {
             let requestURL = try urlWithQueryParameters(
                 fileURL,
-                queryParameters: ["format": format.rawValue],
+                queryParameters: ["format": downloadQueryValue(for: format)],
             )
 
             var request = URLRequest(url: requestURL)
             request.httpMethod = "GET"
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue(downloadAcceptHeader(for: format), forHTTPHeaderField: "Accept")
             request.setValue(
                 authorizationHeaderValue(for: token),
                 forHTTPHeaderField: "Authorization",
@@ -840,12 +840,12 @@ public actor StorytellerActor {
         do {
             let requestURL = try urlWithQueryParameters(
                 fileURL,
-                queryParameters: ["format": format.rawValue],
+                queryParameters: ["format": downloadQueryValue(for: format)],
             )
 
             var request = URLRequest(url: requestURL)
             request.httpMethod = "GET"
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue(downloadAcceptHeader(for: format), forHTTPHeaderField: "Accept")
             request.setValue(
                 authorizationHeaderValue(for: token),
                 forHTTPHeaderField: "Authorization",
@@ -1529,6 +1529,24 @@ public actor StorytellerActor {
                     "m4b"
             }
         return "\(bookId).\(fileExtension)"
+    }
+
+    private func downloadQueryValue(for format: StorytellerBookFormat) -> String {
+        switch format {
+            case .audiobook:
+                return "audiobook-rpf"
+            case .ebook, .readaloud:
+                return format.rawValue
+        }
+    }
+
+    private func downloadAcceptHeader(for format: StorytellerBookFormat) -> String {
+        switch format {
+            case .audiobook:
+                return "application/audiobook+zip"
+            case .ebook, .readaloud:
+                return "application/octet-stream"
+        }
     }
 
     private func defaultFilename(

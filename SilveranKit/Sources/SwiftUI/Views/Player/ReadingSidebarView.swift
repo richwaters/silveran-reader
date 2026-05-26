@@ -413,7 +413,7 @@ public struct ReadingSidebarView: View {
 
             ChaptersButton(
                 chapters: chapters,
-                selectedChapterId: progressData?.chapterLabel.flatMap { label in
+                selectedChapterId: progressData?.chapterId ?? progressData?.chapterLabel.flatMap { label in
                     chapters.first(where: { $0.label == label })?.id
                 },
                 onChapterSelected: onChapterSelected,

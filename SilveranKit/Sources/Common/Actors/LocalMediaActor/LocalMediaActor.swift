@@ -1,4 +1,9 @@
 import Foundation
+import ZIPFoundation
+
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 
 public struct MediaPaths: Sendable {
     public var ebookPath: URL?
@@ -416,15 +421,27 @@ public actor LocalMediaActor: GlobalActor {
                 case .ebook:
                     expectedExtensions = ["epub"]
                 case .audio:
-                    expectedExtensions = ["m4b", "zip", "audiobook"]
+                    expectedExtensions = ["json", "m4b", "zip", "audiobook"]
                 case .synced:
                     expectedExtensions = ["epub"]
+            }
+
+            if category == .audio {
+                if let manifestURL = try? await ensureAudiobookManifest(in: categoryDir) {
+                    paths.audioPath = manifestURL
+                    continue
+                }
             }
 
             if let firstFile = contents.first(where: { url in
                 guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
                     values.isDirectory != true
                 else {
+                    return false
+                }
+                if category == .audio && url.lastPathComponent != "manifest.json"
+                    && url.pathExtension.lowercased() == "json"
+                {
                     return false
                 }
                 return expectedExtensions.contains(url.pathExtension.lowercased())
@@ -795,6 +812,40 @@ public actor LocalMediaActor: GlobalActor {
                             )
                         }
 
+                        if category == .audio {
+                            if fm.fileExists(atPath: destinationDirectory.path) {
+                                try fm.removeItem(at: destinationDirectory)
+                            }
+                            try await filesystem.ensureDirectoryExists(at: destinationDirectory)
+                            try extractAudiobookPackage(from: tempURL, to: destinationDirectory)
+                            guard fm.fileExists(
+                                atPath: destinationDirectory.appendingPathComponent(
+                                    "manifest.json"
+                                ).path
+                            ) else {
+                                throw LocalMediaError.missingAudiobookManifest
+                            }
+                            try? fm.removeItem(at: tempURL)
+                            let destinationURL = destinationDirectory.appendingPathComponent(
+                                "manifest.json"
+                            )
+                            continuation.yield(
+                                .finished(
+                                    book: metadata,
+                                    category: category,
+                                    destination: destinationURL,
+                                )
+                            )
+                            do {
+                                try await scanForMedia()
+                            } catch {
+                                debugLog(
+                                    "[LocalMediaActor] scanForMedia post-download failed: \(error)"
+                                )
+                            }
+                            return
+                        }
+
                         let destinationURL = destinationDirectory.appendingPathComponent(
                             currentFilename
                         )
@@ -867,6 +918,33 @@ public actor LocalMediaActor: GlobalActor {
         try await filesystem.ensureDirectoryExists(at: destinationDirectory)
 
         let fm = FileManager.default
+        if category == .audio {
+            if fm.fileExists(atPath: destinationDirectory.path) {
+                try fm.removeItem(at: destinationDirectory)
+            }
+            try await filesystem.ensureDirectoryExists(at: destinationDirectory)
+
+            do {
+                try extractAudiobookPackage(from: tempURL, to: destinationDirectory)
+                try? fm.removeItem(at: tempURL)
+                guard fm.fileExists(
+                    atPath: destinationDirectory.appendingPathComponent("manifest.json").path
+                ) else {
+                    throw LocalMediaError.missingAudiobookManifest
+                }
+                debugLog(
+                    "[LMA] importDownloadedFile: extracted audiobook package to \(destinationDirectory.path)"
+                )
+                try await scanForMedia()
+                return
+            } catch {
+                if fm.fileExists(atPath: destinationDirectory.path) {
+                    try? fm.removeItem(at: destinationDirectory)
+                }
+                throw error
+            }
+        }
+
         let destinationURL = destinationDirectory.appendingPathComponent(filename)
 
         if fm.fileExists(atPath: destinationURL.path) {
@@ -903,6 +981,170 @@ public actor LocalMediaActor: GlobalActor {
         }
     }
 
+    private func ensureAudiobookManifest(in categoryDir: URL) async throws -> URL? {
+        let fm = FileManager.default
+        let manifestURL = categoryDir.appendingPathComponent("manifest.json", isDirectory: false)
+        if fm.fileExists(atPath: manifestURL.path) {
+            return manifestURL
+        }
+
+        guard
+            let contents = try? fm.contentsOfDirectory(
+                at: categoryDir,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles],
+            )
+        else {
+            return nil
+        }
+
+        let m4bFiles = contents.filter { url in
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
+                values.isDirectory != true
+            else {
+                return false
+            }
+            return url.pathExtension.lowercased() == "m4b"
+        }
+
+        guard m4bFiles.count == 1, let m4bURL = m4bFiles.first else {
+            return nil
+        }
+
+        try await writeLegacyM4BManifest(for: m4bURL, manifestURL: manifestURL)
+        debugLog("[LMA] Migrated legacy M4B audiobook to manifest package: \(categoryDir.path)")
+        return manifestURL
+    }
+
+    private func extractAudiobookPackage(from archiveURL: URL, to destinationDirectory: URL) throws {
+        let archive = try Archive(url: archiveURL, accessMode: .read)
+        let fm = FileManager.default
+
+        for entry in archive {
+            guard !entry.path.hasPrefix("/"), !entry.path.split(separator: "/").contains("..")
+            else {
+                continue
+            }
+            let destinationURL = destinationDirectory.appendingPathComponent(entry.path)
+            if entry.type == .directory {
+                try fm.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+                continue
+            }
+
+            try fm.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true,
+            )
+            _ = try archive.extract(entry, to: destinationURL)
+        }
+    }
+
+    private func writeLegacyM4BManifest(for m4bURL: URL, manifestURL: URL) async throws {
+        let duration = await audioDuration(for: m4bURL)
+        let title = await audioTitle(for: m4bURL) ?? m4bURL.deletingPathExtension().lastPathComponent
+        let mediaType = "audio/mp4"
+        let href = m4bURL.lastPathComponent
+
+        var readingOrderItem: [String: Any] = [
+            "href": href,
+            "type": mediaType,
+        ]
+        if let duration {
+            readingOrderItem["duration"] = duration
+        }
+        let readingOrder = [readingOrderItem]
+
+        let toc = await legacyM4BTOC(for: m4bURL, fallbackDuration: duration)
+        let manifest: [String: Any] = [
+            "metadata": [
+                "@type": "http://schema.org/Audiobook",
+                "title": title,
+            ],
+            "links": [
+                [
+                    "rel": "self",
+                    "href": "manifest.json",
+                    "type": "application/audiobook+json",
+                ]
+            ],
+            "readingOrder": readingOrder,
+            "toc": toc.isEmpty
+                ? [["href": "\(href)#t=0", "title": "Full Book"]]
+                : toc,
+        ]
+
+        let data = try JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.prettyPrinted, .sortedKeys],
+        )
+        let tmpURL = manifestURL.appendingPathExtension("tmp")
+        try data.write(to: tmpURL, options: .atomic)
+        if FileManager.default.fileExists(atPath: manifestURL.path) {
+            try FileManager.default.removeItem(at: manifestURL)
+        }
+        try FileManager.default.moveItem(at: tmpURL, to: manifestURL)
+    }
+
+    private func audioDuration(for url: URL) async -> Double? {
+        #if canImport(AVFoundation)
+        let asset = AVURLAsset(url: url)
+        guard let duration = try? await asset.load(.duration) else { return nil }
+        let seconds = CMTimeGetSeconds(duration)
+        return seconds.isFinite && seconds > 0 ? seconds : nil
+        #else
+        return nil
+        #endif
+    }
+
+    private func audioTitle(for url: URL) async -> String? {
+        #if canImport(AVFoundation)
+        let asset = AVURLAsset(url: url)
+        guard let metadata = try? await asset.load(.commonMetadata) else { return nil }
+        for item in metadata where item.commonKey == .commonKeyTitle {
+            if let value = try? await item.load(.stringValue), !value.isEmpty {
+                return value
+            }
+        }
+        return nil
+        #else
+        return nil
+        #endif
+    }
+
+    private func legacyM4BTOC(for url: URL, fallbackDuration: Double?) async -> [[String: Any]] {
+        #if canImport(AVFoundation)
+        let asset = AVURLAsset(url: url)
+        guard
+            let locales = try? await asset.load(.availableChapterLocales),
+            let locale = locales.first,
+            let groups = try? await asset.loadChapterMetadataGroups(
+                withTitleLocale: locale,
+                containingItemsWithCommonKeys: [.commonKeyTitle],
+            ),
+            !groups.isEmpty
+        else {
+            return []
+        }
+
+        var toc: [[String: Any]] = []
+        for (index, group) in groups.enumerated() {
+            let start = CMTimeGetSeconds(group.timeRange.start)
+            guard start.isFinite else { continue }
+            var title = "Chapter \(index + 1)"
+            for item in group.items where item.commonKey == .commonKeyTitle {
+                if let value = try? await item.load(.stringValue), !value.isEmpty {
+                    title = value
+                    break
+                }
+            }
+            toc.append(["href": "\(url.lastPathComponent)#t=\(start)", "title": title])
+        }
+        return toc
+        #else
+        return []
+        #endif
+    }
+
 }
 
 public enum LocalMediaDomain: String, CaseIterable, Sendable {
@@ -919,6 +1161,7 @@ public enum LocalMediaCategory: String, CaseIterable, Sendable, Codable {
 
 enum LocalMediaError: Error, Sendable {
     case unsupportedFileExtension(String)
+    case missingAudiobookManifest
 }
 
 extension LocalMediaError: LocalizedError {
@@ -926,6 +1169,8 @@ extension LocalMediaError: LocalizedError {
         switch self {
             case .unsupportedFileExtension(let ext):
                 "Unsupported media file extension: \(ext)"
+            case .missingAudiobookManifest:
+                "Audiobook package is missing manifest.json"
         }
     }
 }

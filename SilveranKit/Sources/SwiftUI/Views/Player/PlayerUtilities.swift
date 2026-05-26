@@ -1,6 +1,7 @@
 import Foundation
 
 public struct ProgressData {
+    public let chapterId: String?
     public let chapterLabel: String?
     public let chapterCurrentPage: Int?
     public let chapterTotalPages: Int?
@@ -11,6 +12,7 @@ public struct ProgressData {
     public let bookCurrentFraction: Double?
 
     public init(
+        chapterId: String? = nil,
         chapterLabel: String? = nil,
         chapterCurrentPage: Int? = nil,
         chapterTotalPages: Int? = nil,
@@ -20,6 +22,7 @@ public struct ProgressData {
         bookTotalSecondsAudio: Double? = nil,
         bookCurrentFraction: Double? = nil,
     ) {
+        self.chapterId = chapterId
         self.chapterLabel = chapterLabel
         self.chapterCurrentPage = chapterCurrentPage
         self.chapterTotalPages = chapterTotalPages

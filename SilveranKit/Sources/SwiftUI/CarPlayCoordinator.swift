@@ -208,7 +208,7 @@ public final class CarPlayCoordinator {
                         id: idx,
                         label: chapter.title,
                         sectionIndex: idx,
-                        href: chapter.href,
+                        href: chapter.id,
                     )
                 }
             case .smil, .none:
@@ -244,7 +244,7 @@ public final class CarPlayCoordinator {
                 case .audiobook:
                     guard sectionIndex < cachedAudiobookChapters.count else { return }
                     let chapter = cachedAudiobookChapters[sectionIndex]
-                    await AudiobookActor.shared.seekToChapter(href: chapter.href)
+                    await AudiobookActor.shared.seekToChapter(href: chapter.id)
                     if wasPlaying {
                         try? await AudiobookActor.shared.play()
                     }
@@ -300,7 +300,7 @@ public final class CarPlayCoordinator {
         activePlayer = .audiobook
         currentBookId = metadata.uuid
         currentBookTitle = metadata.title
-        currentAudiobookHref = localPath.lastPathComponent
+        currentAudiobookHref = nil
         wasPlaying = false
 
         audiobookObserverId = await AudiobookActor.shared.addStateObserver {
@@ -562,7 +562,7 @@ public final class CarPlayCoordinator {
                     : nil
 
                 let totalProgression = state.duration > 0 ? state.currentTime / state.duration : 0
-                let roundedTime = (state.currentTime * 100).rounded() / 100
+                let roundedTime = (state.currentTrackTime * 100).rounded() / 100
                 let timeFragment = "t=\(roundedTime)"
 
                 let locations = BookLocator.Locations(
@@ -576,8 +576,8 @@ public final class CarPlayCoordinator {
                 )
 
                 locator = BookLocator(
-                    href: currentAudiobookHref ?? "\(bookId).m4b",
-                    type: "audio/mp4",
+                    href: state.currentTrackHref ?? currentAudiobookHref ?? "audiobook",
+                    type: state.currentTrackType ?? "audio/mp4",
                     title: chapter?.title ?? "Chapter \(chapterIndex + 1)",
                     locations: locations,
                     text: nil,

@@ -174,6 +174,7 @@ public struct AudiobookPlayerView: View {
             chapters: chapters,
             progressData: progressMessage.map { msg in
                 ProgressData(
+                    chapterId: msg.chapterId,
                     chapterLabel: msg.chapterLabel,
                     chapterCurrentPage: msg.chapterCurrentPage,
                     chapterTotalPages: msg.chapterTotalPages,
@@ -262,9 +263,9 @@ public struct AudiobookPlayerView: View {
 
             chapters = loadedMetadata.chapters.map { chapter in
                 ChapterItem(
-                    id: chapter.href,
+                    id: chapter.id,
                     label: chapter.title,
-                    href: chapter.href,
+                    href: chapter.id,
                     level: 0,
                 )
             }
@@ -338,6 +339,7 @@ public struct AudiobookPlayerView: View {
 
             progressMessage = PlaybackProgressUpdateMessage(
                 chapterIndex: index,
+                chapterId: chapter.id,
                 chapterLabel: chapter.title,
                 chapterCurrentPage: nil,
                 chapterTotalPages: nil,
@@ -433,18 +435,18 @@ public struct AudiobookPlayerView: View {
                 debugLog(
                     "[AudiobookPlayerView] Restarting current chapter: \(currentChapter.title) (was at \(Int(currentProgress * 100))%)"
                 )
-                await AudiobookActor.shared.seekToChapter(href: currentChapter.href)
+                await AudiobookActor.shared.seekToChapter(href: currentChapter.id)
                 lastRestartTime = now
             } else if currentIndex > 0 {
                 let prevChapter = metadata.chapters[currentIndex - 1]
                 debugLog(
                     "[AudiobookPlayerView] Navigating to previous chapter: \(prevChapter.title)"
                 )
-                await AudiobookActor.shared.seekToChapter(href: prevChapter.href)
+                await AudiobookActor.shared.seekToChapter(href: prevChapter.id)
                 lastRestartTime = nil
             } else {
                 debugLog("[AudiobookPlayerView] Already at beginning of first chapter")
-                await AudiobookActor.shared.seekToChapter(href: currentChapter.href)
+                await AudiobookActor.shared.seekToChapter(href: currentChapter.id)
                 lastRestartTime = now
             }
         }
@@ -469,7 +471,7 @@ public struct AudiobookPlayerView: View {
 
             let nextChapter = metadata.chapters[currentIndex + 1]
             debugLog("[AudiobookPlayerView] Navigating to next chapter: \(nextChapter.title)")
-            await AudiobookActor.shared.seekToChapter(href: nextChapter.href)
+            await AudiobookActor.shared.seekToChapter(href: nextChapter.id)
         }
     }
 
@@ -504,12 +506,13 @@ public struct AudiobookPlayerView: View {
                 0.0
             }
 
-        let audioHref = bookData?.localMediaPath?.lastPathComponent ?? "audiobook.m4b"
-        let timeOffset = state.currentTime
+        let audioHref = state.currentTrackHref ?? "audiobook"
+        let audioType = state.currentTrackType ?? "audio/mp4"
+        let timeOffset = state.currentTrackTime
 
         let locator = BookLocator(
             href: audioHref,
-            type: "audio/mp4",
+            type: audioType,
             title: chapter?.title,
             locations: BookLocator.Locations(
                 fragments: ["t=\(timeOffset)"],
@@ -524,7 +527,7 @@ public struct AudiobookPlayerView: View {
         )
 
         debugLog(
-            "[AudiobookPlayerView] Syncing progress (reason: \(reason.rawValue)) - href: \(audioHref), type: audio/mp4, t=\(String(format: "%.1f", timeOffset))s, chapterProg: \(String(format: "%.1f%%", chapterProgression * 100)), totalProg: \(String(format: "%.1f%%", currentProgress * 100))"
+            "[AudiobookPlayerView] Syncing progress (reason: \(reason.rawValue)) - href: \(audioHref), type: \(audioType), t=\(String(format: "%.1f", timeOffset))s, chapterProg: \(String(format: "%.1f%%", chapterProgression * 100)), totalProg: \(String(format: "%.1f%%", currentProgress * 100))"
         )
 
         let timestamp = floor(Date().timeIntervalSince1970 * 1000)

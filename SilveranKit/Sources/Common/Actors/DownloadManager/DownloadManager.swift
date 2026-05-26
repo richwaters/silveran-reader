@@ -465,7 +465,7 @@ public actor DownloadManager {
             task = downloadSession.downloadTask(withResumeData: resumeData)
             await deleteResumeData(for: record.id)
         } else {
-            guard let book else {
+            guard book != nil else {
                 debugLog(
                     "[DownloadManager] Cannot start download: no metadata for \(record.bookTitle)"
                 )
@@ -529,7 +529,7 @@ public actor DownloadManager {
         let ext: String =
             switch format {
                 case .ebook, .readaloud: "epub"
-                case .audiobook: "m4b"
+                case .audiobook: "audiobook"
             }
         return "\(bookId).\(ext)"
     }

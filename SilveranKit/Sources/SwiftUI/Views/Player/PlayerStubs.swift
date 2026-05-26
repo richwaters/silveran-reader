@@ -2,6 +2,7 @@ import Foundation
 
 public struct PlaybackProgressUpdateMessage: Codable {
     public let chapterIndex: Int?
+    public let chapterId: String?
     public let chapterLabel: String?
     public let chapterCurrentPage: Int?
     public let chapterTotalPages: Int?
@@ -14,6 +15,7 @@ public struct PlaybackProgressUpdateMessage: Codable {
 
     public init(
         chapterIndex: Int? = nil,
+        chapterId: String? = nil,
         chapterLabel: String? = nil,
         chapterCurrentPage: Int? = nil,
         chapterTotalPages: Int? = nil,
@@ -25,6 +27,7 @@ public struct PlaybackProgressUpdateMessage: Codable {
         generatedAt: TimeInterval? = nil,
     ) {
         self.chapterIndex = chapterIndex
+        self.chapterId = chapterId
         self.chapterLabel = chapterLabel
         self.chapterCurrentPage = chapterCurrentPage
         self.chapterTotalPages = chapterTotalPages
