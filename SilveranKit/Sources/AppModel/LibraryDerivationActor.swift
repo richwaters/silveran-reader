@@ -388,7 +388,7 @@ public actor LibraryDerivationActor {
             for book in input.metadata where metadataMatchesKind(book, kind: kind) {
                 if let seriesList = book.series, !seriesList.isEmpty {
                     for series in seriesList {
-                        keys.insert(series.uuid ?? series.name)
+                        keys.insert(normalizedCategoryKey(series.name))
                     }
                 } else {
                     keys.insert("__no_series__")
@@ -402,7 +402,7 @@ public actor LibraryDerivationActor {
             for book in input.metadata where metadataMatchesKind(book, kind: kind) {
                 if let authors = book.authors, !authors.isEmpty {
                     for author in authors {
-                        keys.insert(author.uuid ?? author.name ?? "__unknown__")
+                        keys.insert(creatorGroupingKey(author, unknownKey: "__unknown__"))
                     }
                 } else {
                     keys.insert("__no_author__")
@@ -416,7 +416,7 @@ public actor LibraryDerivationActor {
             for book in input.metadata where metadataMatchesKind(book, kind: kind) {
                 if let collections = book.collections {
                     for collection in collections {
-                        keys.insert(collection.uuid ?? collection.name)
+                        keys.insert(normalizedCategoryKey(collection.name))
                     }
                 }
             }
@@ -428,7 +428,7 @@ public actor LibraryDerivationActor {
             for book in input.metadata where metadataMatchesKind(book, kind: kind) {
                 if let narrators = book.narrators, !narrators.isEmpty {
                     for narrator in narrators {
-                        keys.insert(narrator.uuid ?? narrator.name ?? "__unknown__")
+                        keys.insert(creatorGroupingKey(narrator, unknownKey: "__unknown__"))
                     }
                 } else {
                     keys.insert("__no_narrator__")
@@ -445,7 +445,7 @@ public actor LibraryDerivationActor {
                     keys.insert("__no_translator__")
                 } else {
                     for translator in translators {
-                        keys.insert(translator.uuid ?? translator.name ?? "__unknown__")
+                        keys.insert(creatorGroupingKey(translator, unknownKey: "__unknown__"))
                     }
                 }
             }
@@ -511,15 +511,36 @@ public actor LibraryDerivationActor {
             input.metadata
         }
 
+        private func creatorGroupingKey(_ creator: BookCreator, unknownKey: String) -> String {
+            let name = (creator.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                return normalizedCategoryKey(name)
+            }
+            return creator.uuid ?? unknownKey
+        }
+
+        private func normalizedCategoryKey(_ value: String) -> String {
+            value
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        }
+
         mutating func seriesGroups(_ kind: MediaKind) -> [LibrarySeriesGroup] {
             var seriesMap: [String: LibrarySeriesGroup] = [:]
             for book in books(matching: kind) {
                 if let seriesList = book.series, !seriesList.isEmpty {
                     for series in seriesList {
-                        let key = series.uuid ?? series.name
-                        seriesMap[key, default: LibrarySeriesGroup(series: series, books: [])]
-                            .books
-                            .append(book)
+                        let key = normalizedCategoryKey(series.name)
+                        var group =
+                            seriesMap[key]
+                            ?? LibrarySeriesGroup(series: series, books: [])
+                        if group.series?.uuid == nil, series.uuid != nil {
+                            group.series = series
+                        }
+                        if !group.books.contains(where: { $0.id == book.id }) {
+                            group.books.append(book)
+                        }
+                        seriesMap[key] = group
                     }
                 } else {
                     seriesMap[
@@ -621,10 +642,17 @@ public actor LibraryDerivationActor {
                     .append(book)
                 } else {
                     for creator in creatorList {
-                        let key = creator.uuid ?? creator.name ?? "__unknown__"
-                        creatorMap[key, default: LibraryCreatorGroup(creator: creator, books: [])]
-                            .books
-                            .append(book)
+                        let key = creatorGroupingKey(creator, unknownKey: "__unknown__")
+                        var group =
+                            creatorMap[key]
+                            ?? LibraryCreatorGroup(creator: creator, books: [])
+                        if group.creator?.uuid == nil, creator.uuid != nil {
+                            group.creator = creator
+                        }
+                        if !group.books.contains(where: { $0.id == book.id }) {
+                            group.books.append(book)
+                        }
+                        creatorMap[key] = group
                     }
                 }
             }
@@ -643,13 +671,17 @@ public actor LibraryDerivationActor {
             for book in books(matching: kind) {
                 guard let collections = book.collections else { continue }
                 for collection in collections {
-                    let key = collection.uuid ?? collection.name
-                    collectionMap[
-                        key,
-                        default: LibraryCollectionGroup(collection: collection, books: []),
-                    ]
-                    .books
-                    .append(book)
+                    let key = normalizedCategoryKey(collection.name)
+                    var group =
+                        collectionMap[key]
+                        ?? LibraryCollectionGroup(collection: collection, books: [])
+                    if group.collection?.uuid == nil, collection.uuid != nil {
+                        group.collection = collection
+                    }
+                    if !group.books.contains(where: { $0.id == book.id }) {
+                        group.books.append(book)
+                    }
+                    collectionMap[key] = group
                 }
             }
 
@@ -683,10 +715,14 @@ public actor LibraryDerivationActor {
             var tagMap: [String: LibraryNamedBooksGroup] = [:]
             for book in books(matching: kind) {
                 for tagName in book.tagNames {
-                    let key = tagName.lowercased()
-                    tagMap[key, default: LibraryNamedBooksGroup(name: tagName, books: [])]
-                        .books
-                        .append(book)
+                    let key = normalizedCategoryKey(tagName)
+                    var group =
+                        tagMap[key]
+                        ?? LibraryNamedBooksGroup(name: tagName, books: [])
+                    if !group.books.contains(where: { $0.id == book.id }) {
+                        group.books.append(book)
+                    }
+                    tagMap[key] = group
                 }
             }
             return sortedNamedGroups(Array(tagMap.values))

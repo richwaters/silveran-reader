@@ -2103,8 +2103,7 @@ struct MoreCollectionsView: View {
         let groups = mediaViewModel.booksByCollection(for: .ebook)
         return filterGroups(groups).map { group in
             let name = group.collection?.name ?? "Unknown Collection"
-            let id = group.collection?.uuid ?? group.collection?.name ?? ""
-            return CategoryGroup(id: id, name: name, books: group.books, pinId: nil)
+            return CategoryGroup(id: name, name: name, books: group.books, pinId: nil)
         }
     }
 

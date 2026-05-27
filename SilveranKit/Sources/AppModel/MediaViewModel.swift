@@ -751,6 +751,21 @@ public final class MediaViewModel {
                     && metadata.hasAvailableAudiobook
         }
     }
+
+    private static func creatorGroupingKey(_ creator: BookCreator, unknownKey: String) -> String {
+        let name = (creator.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty {
+            return normalizedCategoryKey(name)
+        }
+        return creator.uuid ?? unknownKey
+    }
+
+    private static func normalizedCategoryKey(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+
     public func items(for kind: MediaKind, narrationFilter: NarrationFilter, tagFilter: String?)
         -> [BookMetadata]
     {
@@ -843,9 +858,14 @@ public final class MediaViewModel {
         for book in allBooks {
             if let seriesList = book.series, !seriesList.isEmpty {
                 for series in seriesList {
-                    let key = series.uuid ?? series.name
+                    let key = Self.normalizedCategoryKey(series.name)
                     if var existing = seriesMap[key] {
-                        existing.books.append(book)
+                        if existing.series?.uuid == nil, series.uuid != nil {
+                            existing.series = series
+                        }
+                        if !existing.books.contains(where: { $0.id == book.id }) {
+                            existing.books.append(book)
+                        }
                         seriesMap[key] = existing
                     } else {
                         seriesMap[key] = (series: series, books: [book])
@@ -914,9 +934,14 @@ public final class MediaViewModel {
         for book in allBooks {
             if let authorsList = book.authors, !authorsList.isEmpty {
                 for author in authorsList {
-                    let key = author.uuid ?? author.name ?? "__unknown__"
+                    let key = Self.creatorGroupingKey(author, unknownKey: "__unknown__")
                     if var existing = authorMap[key] {
-                        existing.books.append(book)
+                        if existing.author?.uuid == nil, author.uuid != nil {
+                            existing.author = author
+                        }
+                        if !existing.books.contains(where: { $0.id == book.id }) {
+                            existing.books.append(book)
+                        }
                         authorMap[key] = existing
                     } else {
                         authorMap[key] = (author: author, books: [book])
@@ -981,9 +1006,14 @@ public final class MediaViewModel {
         for book in allBooks {
             if let collectionsList = book.collections {
                 for collection in collectionsList {
-                    let key = collection.uuid ?? collection.name
+                    let key = Self.normalizedCategoryKey(collection.name)
                     if var existing = collectionMap[key] {
-                        existing.books.append(book)
+                        if existing.collection?.uuid == nil, collection.uuid != nil {
+                            existing.collection = collection
+                        }
+                        if !existing.books.contains(where: { $0.id == book.id }) {
+                            existing.books.append(book)
+                        }
                         collectionMap[key] = existing
                     } else {
                         collectionMap[key] = (collection: collection, books: [book])
@@ -1039,9 +1069,14 @@ public final class MediaViewModel {
         for book in allBooks {
             if let narratorsList = book.narrators, !narratorsList.isEmpty {
                 for narrator in narratorsList {
-                    let key = narrator.uuid ?? narrator.name ?? "__unknown__"
+                    let key = Self.creatorGroupingKey(narrator, unknownKey: "__unknown__")
                     if var existing = narratorMap[key] {
-                        existing.books.append(book)
+                        if existing.narrator?.uuid == nil, narrator.uuid != nil {
+                            existing.narrator = narrator
+                        }
+                        if !existing.books.contains(where: { $0.id == book.id }) {
+                            existing.books.append(book)
+                        }
                         narratorMap[key] = existing
                     } else {
                         narratorMap[key] = (narrator: narrator, books: [book])
@@ -1106,9 +1141,14 @@ public final class MediaViewModel {
             let translators = (book.creators ?? []).filter { $0.role == "trl" }
             if !translators.isEmpty {
                 for translator in translators {
-                    let key = translator.uuid ?? translator.name ?? "__unknown__"
+                    let key = Self.creatorGroupingKey(translator, unknownKey: "__unknown__")
                     if var existing = translatorMap[key] {
-                        existing.books.append(book)
+                        if existing.translator?.uuid == nil, translator.uuid != nil {
+                            existing.translator = translator
+                        }
+                        if !existing.books.contains(where: { $0.id == book.id }) {
+                            existing.books.append(book)
+                        }
                         translatorMap[key] = existing
                     } else {
                         translatorMap[key] = (translator: translator, books: [book])
@@ -1223,9 +1263,11 @@ public final class MediaViewModel {
 
         for book in allBooks {
             for tagName in book.tagNames {
-                let key = tagName.lowercased()
+                let key = Self.normalizedCategoryKey(tagName)
                 if var existing = tagMap[key] {
-                    existing.books.append(book)
+                    if !existing.books.contains(where: { $0.id == book.id }) {
+                        existing.books.append(book)
+                    }
                     tagMap[key] = existing
                 } else {
                     tagMap[key] = (displayName: tagName, books: [book])

@@ -51,7 +51,9 @@ public enum LastOpenBookStore {
             route.bookId == bookId,
             route.category == category
         else { return }
-        debugLog("[LastOpenBookStore] clearIfMatching: matched bookId=\(bookId) category=\(category.rawValue)")
+        debugLog(
+            "[LastOpenBookStore] clearIfMatching: matched bookId=\(bookId) category=\(category.rawValue)"
+        )
         clear()
     }
 

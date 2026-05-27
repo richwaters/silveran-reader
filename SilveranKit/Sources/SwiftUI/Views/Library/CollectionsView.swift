@@ -55,9 +55,8 @@ struct CollectionsView: View {
         let filtered = filterGroups(groups)
         return filtered.map { group in
             let name = group.collection?.name ?? "Unknown Collection"
-            let id = group.collection?.uuid ?? group.collection?.name ?? "unknown"
             return CategoryGroup(
-                id: id,
+                id: name,
                 name: name,
                 books: group.books,
                 pinId: group.collection?.name != nil
