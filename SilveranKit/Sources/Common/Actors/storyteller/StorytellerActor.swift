@@ -1166,26 +1166,21 @@ public actor StorytellerActor {
         case failed
     }
 
-    /// Deletes a specific asset type from a book using `/api/v2/books/{bookId}/upload/{type}`.
-    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upload/[type]/[[...path]]/route.ts` (DELETE handler).
-    /// Returns `.notSupported` if the server doesn't have this endpoint (mainline servers).
+    /// Deletes a specific asset type from a book using `/api/v2/books/{bookId}/replace-asset`.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/replace-asset/route.ts` (DELETE handler).
+    /// Returns `.notSupported` if the server doesn't have this endpoint.
     public func deleteBookAsset(
         _ bookId: String,
         type: StorytellerBookFormat,
-        deleteFromDisk: Bool = false,
     ) async -> DeleteAssetResult {
         guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
         let deleteURL =
             baseURL
             .appendingPathComponent("books")
             .appendingPathComponent(bookId)
-            .appendingPathComponent("upload")
-            .appendingPathComponent(type.rawValue)
+            .appendingPathComponent("replace-asset")
 
-        var queryParameters: [String: String] = [:]
-        if deleteFromDisk {
-            queryParameters["deleteFromDisk"] = "true"
-        }
+        let queryParameters = ["format": type.rawValue]
 
         var allowedStatuses = Set(200..<300)
         allowedStatuses.insert(401)
@@ -1735,18 +1730,16 @@ public actor StorytellerActor {
         case failed
     }
 
-    /// Replaces a specific asset type on an existing book using `/api/v2/books/{bookId}/upload/{type}`.
-    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/upload/[type]/[[...path]]/route.ts`.
-    /// Returns `.notSupported` if the server doesn't have this endpoint (mainline servers).
+    /// Replaces a specific asset type on an existing book using `/api/v2/books/{bookId}/replace-asset/upload`.
+    /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/replace-asset/upload/[[...path]]/route.ts`.
+    /// Returns `.notSupported` if the server doesn't have this endpoint.
     /// - Parameters:
     ///   - asset: The asset to upload.
     ///   - bookUUID: The UUID of the book to replace the asset on.
-    ///   - deleteOldFile: If true, deletes the old file from disk when replacing. Defaults to true.
     ///   - replaceMetadata: If true, updates book metadata from the new file. Defaults to false.
     public func replaceBookAsset(
         _ asset: StorytellerUploadAsset,
         bookUUID: String,
-        deleteOldFile: Bool = true,
         replaceMetadata: Bool = false,
     ) async -> ReplaceAssetResult {
         guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
@@ -1755,14 +1748,16 @@ public actor StorytellerActor {
             baseURL
             .appendingPathComponent("books")
             .appendingPathComponent(bookUUID)
+            .appendingPathComponent("replace-asset")
             .appendingPathComponent("upload")
-            .appendingPathComponent(asset.format.rawValue)
+
+        let batchId = UUID().uuidString
 
         var metadata: [String: String] = [
             "bookUuid": bookUUID,
+            "format": asset.format.rawValue,
             "filename": asset.filename,
-            "deleteOldFile": deleteOldFile ? "true" : "false",
-            "replaceMetadata": replaceMetadata ? "true" : "false",
+            "batchId": batchId,
         ]
 
         if let contentType = asset.contentType {
@@ -1771,8 +1766,16 @@ public actor StorytellerActor {
             metadata["filetype"] = guessedType
         }
 
+        if asset.format == .audiobook {
+            metadata["totalAudioFiles"] = "1"
+        }
+
         if let relativePath = asset.relativePath {
             metadata["relativePath"] = relativePath
+        }
+
+        if !replaceMetadata {
+            metadata["metadataFieldOverrides"] = skipMetadataFieldOverridesJSONString()
         }
 
         let metadataHeader =
@@ -1881,6 +1884,27 @@ public actor StorytellerActor {
             logStorytellerError("replaceBookAsset", error: error)
             return .failed
         }
+    }
+
+    private func skipMetadataFieldOverridesJSONString() -> String {
+        let overrides = [
+            "authors": "skip",
+            "cover": "skip",
+            "creators": "skip",
+            "description": "skip",
+            "language": "skip",
+            "narrators": "skip",
+            "publicationDate": "skip",
+            "series": "skip",
+            "subtitle": "skip",
+            "tags": "skip",
+            "title": "skip",
+        ]
+        let data = try? JSONSerialization.data(
+            withJSONObject: overrides,
+            options: [.sortedKeys],
+        )
+        return data.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
     }
 
     /// Retrieves available reading statuses from `/api/v2/statuses`.

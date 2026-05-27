@@ -199,6 +199,7 @@ public struct LibraryView: View {
                     initialNarrationFilterOption: configuration.narrationFilter,
                     initialLocationFilter: locationFilter,
                     scrollPosition: scrollBinding,
+                    showAddBookButton: isRootAllBooksGrid(configuration),
                 )
                 .id(identity)
                 .toolbar {
@@ -455,6 +456,19 @@ public struct LibraryView: View {
 
     func gridIdentity(for config: MediaGridConfiguration) -> String {
         config.title
+    }
+
+    private func isRootAllBooksGrid(_ config: MediaGridConfiguration) -> Bool {
+        config.title == "All Books"
+            && config.tagFilter == nil
+            && config.seriesFilter == nil
+            && config.collectionFilter == nil
+            && config.authorFilter == nil
+            && config.narratorFilter == nil
+            && config.translatorFilter == nil
+            && config.publicationYearFilter == nil
+            && config.ratingFilter == nil
+            && config.statusFilter == nil
     }
 
     private func popMetadataNavStack() {

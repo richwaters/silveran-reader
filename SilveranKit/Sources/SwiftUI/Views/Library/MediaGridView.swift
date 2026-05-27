@@ -109,6 +109,7 @@ struct MediaGridView: View {
     private let headerScrollID = "media-grid-header"
     private let initialSelectedItem: BookMetadata?
     let filteredItems: [BookMetadata]?
+    let showAddBookButton: Bool
 
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
@@ -329,6 +330,7 @@ struct MediaGridView: View {
         scrollPosition: Binding<BookMetadata.ID?>? = nil,
         initialSelectedItem: BookMetadata? = nil,
         filteredItems: [BookMetadata]? = nil,
+        showAddBookButton: Bool = false,
     ) {
         _layoutStyleRaw = AppStorage(
             wrappedValue: LibraryLayoutStyle.grid.rawValue,
@@ -419,6 +421,7 @@ struct MediaGridView: View {
         #endif
         self.initialSelectedItem = initialSelectedItem
         self.filteredItems = filteredItems
+        self.showAddBookButton = showAddBookButton
     }
 
     private static func defaultColumnBreakpoints(preferredTileWidth: CGFloat) -> [ColumnBreakpoint]
@@ -860,6 +863,7 @@ struct MediaGridView: View {
                 filtersSummaryText: cachedFiltersSummary,
                 showLayoutOption: true,
                 showSortOption: false,
+                onAddBook: addBookAction,
                 columnCustomization: $columnCustomization,
                 availableCreatorRoles: cachedAvailableCreatorRoles,
                 enabledCreatorRoles: $enabledCreatorRoles,
@@ -931,7 +935,21 @@ struct MediaGridView: View {
             availableStatuses: cachedAvailableStatuses,
             filtersSummaryText: cachedFiltersSummary,
             showLayoutOption: true,
+            onAddBook: addBookAction,
         )
+    }
+
+    private var addBookAction: (() -> Void)? {
+        #if os(macOS)
+        guard showAddBookButton else {
+            return nil
+        }
+        return {
+            openWindow(id: "UploadNewBook", value: UploadNewBookData())
+        }
+        #else
+        return nil
+        #endif
     }
 
     #if os(macOS)

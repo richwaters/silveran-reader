@@ -27,8 +27,6 @@ public struct ServerMediaManagementView: View {
     @State private var isCancelingAlignment = false
     @State private var errorMessage: String?
     @State private var hoveredDownloadCategory: LocalMediaCategory?
-    @State private var experimentalModeEnabled = false
-    @State private var showExperimentalWarning = false
 
     public init(bookId: String) {
         self.bookId = bookId
@@ -72,22 +70,6 @@ public struct ServerMediaManagementView: View {
                         serverReadaloudRow(item: item)
                     }
 
-                    Section {
-                        Toggle(
-                            "Enable experimental server media modification",
-                            isOn: Binding(
-                                get: { experimentalModeEnabled },
-                                set: { newValue in
-                                    if newValue {
-                                        showExperimentalWarning = true
-                                    } else {
-                                        experimentalModeEnabled = false
-                                    }
-                                },
-                            ),
-                        )
-                        .toggleStyle(.checkbox)
-                    }
                 }
                 .formStyle(.grouped)
                 .scrollDisabled(true)
@@ -106,7 +88,7 @@ public struct ServerMediaManagementView: View {
                 invalidBookView
             }
         }
-        .frame(width: 480, height: 590)
+        .frame(width: 480, height: 520)
         .confirmationDialog(
             "Delete Book from Server?",
             isPresented: $showDeleteConfirmation,
@@ -139,20 +121,6 @@ public struct ServerMediaManagementView: View {
         } message: {
             Text(
                 "This will permanently delete the \(pendingDeleteAssetLabel.lowercased()) file from the server. This cannot be undone."
-            )
-        }
-        .confirmationDialog(
-            "Enable Experimental Features?",
-            isPresented: $showExperimentalWarning,
-            titleVisibility: .visible,
-        ) {
-            Button("Enable") {
-                experimentalModeEnabled = true
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(
-                "Server media modification is experimental and requires a server running the latest development branch. Please back up your server data before using these features."
             )
         }
     }
@@ -386,27 +354,19 @@ public struct ServerMediaManagementView: View {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(experimentalModeEnabled ? Color.red : Color.secondary)
-                        .disabled(isBusy || !experimentalModeEnabled)
-                        .help(
-                            experimentalModeEnabled
-                                ? "Delete" : "Enable experimental mode to delete"
-                        )
+                        .foregroundStyle(Color.red)
+                        .disabled(isBusy)
+                        .help("Delete")
                     }
 
                     Button {
                         selectAndUploadFile(format: format, types: types, item: item)
                     } label: {
                         Image(systemName: "icloud.and.arrow.up")
-                            .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
                     }
                     .buttonStyle(.plain)
-                    .disabled(isBusy || !experimentalModeEnabled)
-                    .help(
-                        experimentalModeEnabled
-                            ? (asset != nil ? "Replace" : "Upload")
-                            : "Enable experimental mode to upload"
-                    )
+                    .disabled(isBusy)
+                    .help(asset != nil ? "Replace" : "Upload")
                 }
             }
         }
@@ -564,11 +524,10 @@ public struct ServerMediaManagementView: View {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                 } label: {
                     Image(systemName: "icloud.and.arrow.up")
-                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
                 }
                 .buttonStyle(.plain)
-                .disabled(isBusy || !experimentalModeEnabled)
-                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+                .disabled(isBusy)
+                .help("Upload")
             } else if canStartAlignment(item: item) && !hasReadaloud {
                 alignmentMenu(item: item, restart: .none, isBusy: isBusy)
 
@@ -576,11 +535,10 @@ public struct ServerMediaManagementView: View {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                 } label: {
                     Image(systemName: "icloud.and.arrow.up")
-                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
                 }
                 .buttonStyle(.plain)
-                .disabled(isBusy || !experimentalModeEnabled)
-                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+                .disabled(isBusy)
+                .help("Upload")
             } else if hasReadaloud {
                 Button {
                     requestDeleteAsset(format: .readaloud)
@@ -588,29 +546,27 @@ public struct ServerMediaManagementView: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(experimentalModeEnabled ? Color.red : Color.secondary)
-                .disabled(isBusy || !experimentalModeEnabled)
-                .help(experimentalModeEnabled ? "Delete" : "Enable experimental mode to delete")
+                .foregroundStyle(Color.red)
+                .disabled(isBusy)
+                .help("Delete")
 
                 Button {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                 } label: {
                     Image(systemName: "icloud.and.arrow.up")
-                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
                 }
                 .buttonStyle(.plain)
-                .disabled(isBusy || !experimentalModeEnabled)
-                .help(experimentalModeEnabled ? "Replace" : "Enable experimental mode to replace")
+                .disabled(isBusy)
+                .help("Replace")
             } else {
                 Button {
                     selectAndUploadFile(format: .readaloud, types: [.epub], item: item)
                 } label: {
                     Image(systemName: "icloud.and.arrow.up")
-                        .foregroundStyle(experimentalModeEnabled ? .primary : .tertiary)
                 }
                 .buttonStyle(.plain)
-                .disabled(isBusy || !experimentalModeEnabled)
-                .help(experimentalModeEnabled ? "Upload" : "Enable experimental mode to upload")
+                .disabled(isBusy)
+                .help("Upload")
             }
         }
     }
@@ -792,7 +748,6 @@ public struct ServerMediaManagementView: View {
             let result = await StorytellerActor.shared.replaceBookAsset(
                 asset,
                 bookUUID: item.uuid,
-                deleteOldFile: isReplace,
                 replaceMetadata: false,
             )
             switch result {
@@ -849,7 +804,6 @@ public struct ServerMediaManagementView: View {
         let result = await StorytellerActor.shared.deleteBookAsset(
             item.uuid,
             type: format,
-            deleteFromDisk: true,
         )
         switch result {
             case .success:
@@ -886,7 +840,7 @@ public struct ServerMediaManagementView: View {
     }
 
     private func refreshBookMetadata() async {
-        await StorytellerActor.shared.fetchLibraryInformation()
+        _ = await StorytellerActor.shared.fetchLibraryInformation()
     }
 }
 #endif

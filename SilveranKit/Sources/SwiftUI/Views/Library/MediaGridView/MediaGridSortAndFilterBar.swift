@@ -30,6 +30,7 @@ struct MediaGridSortAndFilterBar: View {
     let filtersSummaryText: String
     let showLayoutOption: Bool
     var showSortOption: Bool = true
+    var onAddBook: (() -> Void)? = nil
     #if os(macOS)
     var columnCustomization: Binding<TableColumnCustomization<BookMetadata>>? = nil
     var availableCreatorRoles: Set<String> = []
@@ -46,6 +47,7 @@ struct MediaGridSortAndFilterBar: View {
             }
             formatMenu
             Spacer()
+            addBookButton
             #if os(macOS)
             if isTableLayout, columnCustomization != nil {
                 columnsMenu
@@ -54,6 +56,21 @@ struct MediaGridSortAndFilterBar: View {
             viewOptionsButton
         }
         .font(.callout)
+    }
+
+    @ViewBuilder
+    private var addBookButton: some View {
+        if let onAddBook {
+            Button {
+                onAddBook()
+            } label: {
+                Label("Add Book", systemImage: "plus")
+            }
+            #if os(macOS)
+            .buttonStyle(.borderless)
+            #endif
+            .help("Add book")
+        }
     }
 
     private var isTableLayout: Bool {
