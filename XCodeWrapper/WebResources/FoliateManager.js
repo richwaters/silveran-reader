@@ -76,7 +76,8 @@ const getCSS = ({
         letter-spacing: ${letterSpacing}em !important;
         ${foregroundColorCSS}
     }
-    span, em, strong, i, b {
+    span, font, em, strong, i, b {
+        font-size: inherit !important;
         line-height: ${lineSpacing} !important;
         ${fontFamilyCSS}
         word-spacing: ${wordSpacing}em !important;
