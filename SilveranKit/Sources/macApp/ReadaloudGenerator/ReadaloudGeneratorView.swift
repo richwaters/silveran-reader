@@ -40,9 +40,9 @@ public struct ReadaloudGeneratorView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
             }
-            if case .completed(let url) = viewModel.state {
+            if case .completed(let completion) = viewModel.state {
                 Divider()
-                completedSection(url: url)
+                completedSection(completion: completion)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
             }
@@ -288,15 +288,20 @@ public struct ReadaloudGeneratorView: View {
             Text("Output")
                 .font(.headline)
 
-            filePickerRow(
-                label: "Save to:",
-                url: viewModel.outputURL,
-                placeholder: "Select output location...",
-                allowedTypes: [.epub],
-                isSavePanel: true,
-                suggestedFilename: suggestedName,
-            ) { url in
-                viewModel.outputURL = url
+            Toggle("Upload them all to server", isOn: $viewModel.uploadAllToServer)
+                .disabled(viewModel.state == .processing)
+
+            if !viewModel.uploadAllToServer {
+                filePickerRow(
+                    label: "Save to:",
+                    url: viewModel.outputURL,
+                    placeholder: "Select output location...",
+                    allowedTypes: [.epub],
+                    isSavePanel: true,
+                    suggestedFilename: suggestedName,
+                ) { url in
+                    viewModel.outputURL = url
+                }
             }
         }
     }
@@ -342,7 +347,7 @@ public struct ReadaloudGeneratorView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func completedSection(url: URL) -> some View {
+    private func completedSection(completion: ReadaloudGeneratorCompletion) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
@@ -350,22 +355,33 @@ public struct ReadaloudGeneratorView: View {
                 Text("Completed")
                     .font(.headline)
             }
-            Text("Readaloud created successfully!")
+            Text(completionMessage(for: completion))
                 .font(.caption)
 
-            HStack {
-                Button("Show in Finder") {
-                    NSWorkspace.shared.selectFile(
-                        url.path,
-                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path,
-                    )
-                }
-                Button("Open") {
-                    NSWorkspace.shared.open(url)
+            if case .saved(let url) = completion {
+                HStack {
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.selectFile(
+                            url.path,
+                            inFileViewerRootedAtPath: url.deletingLastPathComponent().path,
+                        )
+                    }
+                    Button("Open") {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func completionMessage(for completion: ReadaloudGeneratorCompletion) -> String {
+        switch completion {
+            case .saved:
+                return "Readaloud created successfully!"
+            case .uploaded:
+                return "Readaloud created and uploaded to the server."
+        }
     }
 
     private var footerView: some View {
@@ -416,7 +432,7 @@ public struct ReadaloudGeneratorView: View {
         if viewModel.audioURL == nil {
             return "Select an audiobook file"
         }
-        if viewModel.outputURL == nil {
+        if !viewModel.uploadAllToServer && viewModel.outputURL == nil {
             return "Select output location"
         }
         if !viewModel.isModelDownloaded {

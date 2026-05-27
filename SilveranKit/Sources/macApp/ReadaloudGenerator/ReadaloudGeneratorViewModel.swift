@@ -72,8 +72,13 @@ public enum ReadaloudGeneratorState: Equatable {
     case idle
     case processing
     case downloading(Double)
-    case completed(URL)
+    case completed(ReadaloudGeneratorCompletion)
     case error(String)
+}
+
+public enum ReadaloudGeneratorCompletion: Equatable {
+    case saved(URL)
+    case uploaded
 }
 
 public enum WhisperModelSize: String, CaseIterable, Identifiable, Sendable {
@@ -122,6 +127,7 @@ public final class ReadaloudGeneratorViewModel {
     public var epubURL: URL?
     public var audioURL: URL?
     public var outputURL: URL?
+    public var uploadAllToServer = false
     public var selectedModelSize: WhisperModelSize = .tiny
     public var customModelPath: URL?
     public var selectedGranularity: Granularity = .group
@@ -146,7 +152,8 @@ public final class ReadaloudGeneratorViewModel {
     public init() {}
 
     public var canStart: Bool {
-        epubURL != nil && audioURL != nil && outputURL != nil && state != .processing
+        epubURL != nil && audioURL != nil && (uploadAllToServer || outputURL != nil)
+            && state != .processing
     }
 
     public var isModelDownloaded: Bool {
@@ -200,7 +207,9 @@ public final class ReadaloudGeneratorViewModel {
 
     public func startAlignment() {
         guard canStart else { return }
-        guard let epubURL, let audioURL, let outputURL else { return }
+        guard let epubURL, let audioURL else { return }
+        let outputURL = uploadAllToServer ? nil : self.outputURL
+        guard uploadAllToServer || outputURL != nil else { return }
 
         state = .processing
         currentStage = .epub
@@ -231,10 +240,11 @@ public final class ReadaloudGeneratorViewModel {
         }
     }
 
-    private nonisolated func runAlignment(epubURL: URL, audioURL: URL, outputURL: URL) async {
+    private nonisolated func runAlignment(epubURL: URL, audioURL: URL, outputURL: URL?) async {
         let customPath = await self.customModelPath
         let selectedSize = await self.selectedModelSize
         let builtInModelPath = await self.modelPath(for: selectedSize)
+        let uploadAllToServer = await self.uploadAllToServer
         let modelPath: String? = customPath?.path ?? builtInModelPath
         let granularity = await self.selectedGranularity
         let expanding = await self.expandingHighlight
@@ -262,11 +272,11 @@ public final class ReadaloudGeneratorViewModel {
         // Start accessing security-scoped resources for sandboxed app
         let epubAccess = epubURL.startAccessingSecurityScopedResource()
         let audioAccess = audioURL.startAccessingSecurityScopedResource()
-        let outputAccess = outputURL.startAccessingSecurityScopedResource()
+        let outputAccess = outputURL?.startAccessingSecurityScopedResource() ?? false
         defer {
             if epubAccess { epubURL.stopAccessingSecurityScopedResource() }
             if audioAccess { audioURL.stopAccessingSecurityScopedResource() }
-            if outputAccess { outputURL.stopAccessingSecurityScopedResource() }
+            if outputAccess { outputURL?.stopAccessingSecurityScopedResource() }
         }
 
         let logger = ReadaloudLogger(minLevel: .info)
@@ -310,15 +320,44 @@ public final class ReadaloudGeneratorViewModel {
 
             let result = try await StoryAligner().alignStory(session: session)
             let fileMgr = FileManager.default
-            if fileMgr.fileExists(atPath: outputURL.path()) {
-                try fileMgr.removeItem(at: outputURL)
-            }
-            try fileMgr.moveItem(at: result.alignedEpubURL, to: outputURL)
 
-            let messages = logger.messages
-            await MainActor.run {
-                self.logMessages = messages
-                self.state = .completed(outputURL)
+            if uploadAllToServer {
+                await MainActor.run {
+                    self.currentStage = .export
+                    self.currentMessage = "Uploading to server..."
+                }
+
+                let success = try await uploadGeneratedBook(
+                    epubURL: epubURL,
+                    audioURL: audioURL,
+                    readaloudURL: result.alignedEpubURL,
+                )
+                guard success else {
+                    await MainActor.run {
+                        self.state = .error(
+                            "Upload failed. Your server may not support this feature yet. Please ensure you're running the latest server version."
+                        )
+                    }
+                    return
+                }
+
+                let messages = logger.messages
+                await MainActor.run {
+                    self.logMessages = messages
+                    self.state = .completed(.uploaded)
+                }
+                _ = await StorytellerActor.shared.fetchLibraryInformation()
+            } else if let outputURL {
+                if fileMgr.fileExists(atPath: outputURL.path()) {
+                    try fileMgr.removeItem(at: outputURL)
+                }
+                try fileMgr.moveItem(at: result.alignedEpubURL, to: outputURL)
+
+                let messages = logger.messages
+                await MainActor.run {
+                    self.logMessages = messages
+                    self.state = .completed(.saved(outputURL))
+                }
             }
 
         } catch is CancellationError {
@@ -332,6 +371,47 @@ public final class ReadaloudGeneratorViewModel {
                 self.state = .error(errorMessage)
             }
         }
+    }
+
+    private nonisolated func uploadGeneratedBook(
+        epubURL: URL,
+        audioURL: URL,
+        readaloudURL: URL,
+    ) async throws -> Bool {
+        let ebookData = try Data(contentsOf: epubURL)
+        let audiobookData = try Data(contentsOf: audioURL)
+        let readaloudData = try Data(contentsOf: readaloudURL)
+        let audiobookContentType =
+            audioURL.pathExtension.lowercased() == "m4b" ? "audio/mp4" : "audio/mpeg"
+
+        return await StorytellerActor.shared.uploadBookAssets(
+            bookUUID: UUID().uuidString,
+            ebook: StorytellerUploadAsset(
+                format: .ebook,
+                filename: epubURL.lastPathComponent,
+                data: ebookData,
+                contentType: "application/epub+zip",
+                relativePath: nil,
+            ),
+            audiobook: StorytellerUploadAsset(
+                format: .audiobook,
+                filename: audioURL.lastPathComponent,
+                data: audiobookData,
+                contentType: audiobookContentType,
+                relativePath: nil,
+            ),
+            readaloud: StorytellerUploadAsset(
+                format: .readaloud,
+                filename: readaloudFilename(for: epubURL),
+                data: readaloudData,
+                contentType: "application/epub+zip",
+                relativePath: nil,
+            ),
+        )
+    }
+
+    private nonisolated func readaloudFilename(for epubURL: URL) -> String {
+        "\(epubURL.deletingPathExtension().lastPathComponent)-readaloud.epub"
     }
 
     private nonisolated func downloadModelFiles(for modelSize: WhisperModelSize) async {
