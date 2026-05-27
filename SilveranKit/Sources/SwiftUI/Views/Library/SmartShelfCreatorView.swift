@@ -424,6 +424,9 @@ struct SmartShelfCreatorView: View {
             .task {
                 mediaViewModel.ensureCoverLoaded(for: book, variant: variant)
             }
+            .onDisappear {
+                mediaViewModel.cancelCoverLoad(for: book, variant: variant)
+            }
 
             Text(book.title)
                 .font(.system(size: 10))

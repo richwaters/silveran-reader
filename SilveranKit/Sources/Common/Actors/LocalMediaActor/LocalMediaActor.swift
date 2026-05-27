@@ -818,11 +818,13 @@ public actor LocalMediaActor: GlobalActor {
                             }
                             try await filesystem.ensureDirectoryExists(at: destinationDirectory)
                             try extractAudiobookPackage(from: tempURL, to: destinationDirectory)
-                            guard fm.fileExists(
-                                atPath: destinationDirectory.appendingPathComponent(
-                                    "manifest.json"
-                                ).path
-                            ) else {
+                            guard
+                                fm.fileExists(
+                                    atPath: destinationDirectory.appendingPathComponent(
+                                        "manifest.json"
+                                    ).path
+                                )
+                            else {
                                 throw LocalMediaError.missingAudiobookManifest
                             }
                             try? fm.removeItem(at: tempURL)
@@ -927,9 +929,11 @@ public actor LocalMediaActor: GlobalActor {
             do {
                 try extractAudiobookPackage(from: tempURL, to: destinationDirectory)
                 try? fm.removeItem(at: tempURL)
-                guard fm.fileExists(
-                    atPath: destinationDirectory.appendingPathComponent("manifest.json").path
-                ) else {
+                guard
+                    fm.fileExists(
+                        atPath: destinationDirectory.appendingPathComponent("manifest.json").path
+                    )
+                else {
                     throw LocalMediaError.missingAudiobookManifest
                 }
                 debugLog(
@@ -1016,7 +1020,8 @@ public actor LocalMediaActor: GlobalActor {
         return manifestURL
     }
 
-    private func extractAudiobookPackage(from archiveURL: URL, to destinationDirectory: URL) throws {
+    private func extractAudiobookPackage(from archiveURL: URL, to destinationDirectory: URL) throws
+    {
         let archive = try Archive(url: archiveURL, accessMode: .read)
         let fm = FileManager.default
 
@@ -1041,7 +1046,8 @@ public actor LocalMediaActor: GlobalActor {
 
     private func writeLegacyM4BManifest(for m4bURL: URL, manifestURL: URL) async throws {
         let duration = await audioDuration(for: m4bURL)
-        let title = await audioTitle(for: m4bURL) ?? m4bURL.deletingPathExtension().lastPathComponent
+        let title =
+            await audioTitle(for: m4bURL) ?? m4bURL.deletingPathExtension().lastPathComponent
         let mediaType = "audio/mp4"
         let href = m4bURL.lastPathComponent
 

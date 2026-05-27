@@ -177,6 +177,9 @@ struct SeriesStackView: View {
         .task {
             mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
         }
+        .onDisappear {
+            mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
+        }
     }
 
     private func calculateLayout(for pageBooks: [BookMetadata], availableWidth: CGFloat)

@@ -624,10 +624,6 @@ struct MediaGridView: View {
                 dismissSidebar()
             }
             #if os(macOS)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in }
-            )
             .contentMargins(.top, 52, for: .scrollContent)
             #endif
             #if os(iOS)
@@ -691,11 +687,17 @@ struct MediaGridView: View {
             }
         }
         .onAppear {
+            debugLog(
+                "[PerfTrace][MediaGridView] tableContent onAppear title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) cached=\(cachedDisplayItems.count)"
+            )
             recomputeAllCaches()
             updateTableSortedItems()
             handleInitialSelectionIfNeeded()
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            debugLog(
+                "[PerfTrace][MediaGridView] tableContent libraryVersion changed version=\(mediaViewModel.libraryVersion) title='\(title)'"
+            )
             recomputeAllCaches()
         }
         .onChange(of: tableSortOrder) { _, _ in
@@ -728,17 +730,29 @@ struct MediaGridView: View {
                 searchText: searchText,
                 initialNarrationFilterOption: initialNarrationFilterOption,
                 onFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent filterChanged title='\(title)'"
+                    )
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
                 },
                 onMediaKindChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent mediaKindChanged title='\(title)'"
+                    )
                     recomputeAllCaches()
                     reconcileSelectionAfterFiltering()
                 },
                 onSearchChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent searchChanged title='\(title)' searchCount=\(searchText.count)"
+                    )
                     recomputeDisplayItems()
                 },
                 onNarrationFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent narrationChanged title='\(title)'"
+                    )
                     selectedFormatFilter =
                         MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
                     recomputeDisplayItems()
@@ -749,6 +763,13 @@ struct MediaGridView: View {
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
+        let started = CFAbsoluteTimeGetCurrent()
+        defer {
+            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+            debugLog(
+                "[PerfTrace][MediaGridView] updateTableSortedItems title='\(title)' force=\(forceResort) count=\(cachedDisplayItems.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+            )
+        }
         guard let comparator = tableSortOrder.first else {
             tableSortedItems = cachedDisplayItems
             lastSortKeyPath = nil
@@ -1152,6 +1173,9 @@ struct MediaGridView: View {
         }
         .padding(.vertical)
         .onAppear {
+            debugLog(
+                "[PerfTrace][MediaGridView] gridContent onAppear title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) cached=\(cachedDisplayItems.count) columns=\(columnCount)"
+            )
             lastKnownColumnCount = columnCount
             recomputeAllCaches()
             handleInitialSelectionIfNeeded()
@@ -1163,6 +1187,9 @@ struct MediaGridView: View {
             lastKnownColumnCount = newValue
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            debugLog(
+                "[PerfTrace][MediaGridView] gridContent libraryVersion changed version=\(mediaViewModel.libraryVersion) title='\(title)'"
+            )
             recomputeAllCaches()
         }
         .modifier(
@@ -1182,17 +1209,29 @@ struct MediaGridView: View {
                 searchText: searchText,
                 initialNarrationFilterOption: initialNarrationFilterOption,
                 onFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent filterChanged title='\(title)'"
+                    )
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
                 },
                 onMediaKindChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent mediaKindChanged title='\(title)'"
+                    )
                     recomputeAllCaches()
                     reconcileSelectionAfterFiltering()
                 },
                 onSearchChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent searchChanged title='\(title)' searchCount=\(searchText.count)"
+                    )
                     recomputeDisplayItems()
                 },
                 onNarrationFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent narrationChanged title='\(title)'"
+                    )
                     selectedFormatFilter =
                         MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
                     recomputeDisplayItems()
@@ -1380,6 +1419,7 @@ struct MediaGridView: View {
     private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID:
         ItemLocationInfo]
     {
+        let started = CFAbsoluteTimeGetCurrent()
         var info: [BookMetadata.ID: ItemLocationInfo] = [:]
         for item in items {
             let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
@@ -1393,11 +1433,21 @@ struct MediaGridView: View {
                 isLocalStandalone: isLocal,
             )
         }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] captureLocationInfo title='\(title)' items=\(items.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
         return info
     }
 
     private func recomputeDisplayItems() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeDisplayItems start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) layout=\(layoutStyle.rawValue)"
+        )
+        let baseStarted = CFAbsoluteTimeGetCurrent()
         let baseItems = itemsForCurrentFormatSelection()
+        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
         let locationInfo = captureLocationInfo(for: baseItems)
         let formatFilter = selectedFormatFilter
         let tagSel = selectedTag
@@ -1413,8 +1463,13 @@ struct MediaGridView: View {
         let search = searchText
         let sortOpt = selectedSortOption
         let filtersSummary = computeFiltersSummary()
+        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeDisplayItems setup title='\(title)' base=\(baseItems.count) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let result = Self.computeDisplayItemsOffThread(
                 base: baseItems,
                 locationInfo: locationInfo,
@@ -1432,17 +1487,34 @@ struct MediaGridView: View {
                 searchText: search,
                 sortOption: sortOpt,
             )
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedDisplayItems = result
                 self.cachedFiltersSummary = filtersSummary
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeDisplayItems end title='\(self.title)' result=\(result.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }
 
     private func recomputeFilterOptions() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeFilterOptions start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
+        )
+        let catalogStarted = CFAbsoluteTimeGetCurrent()
         let catalog = catalogItemsForFilters
+        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeFilterOptions setup title='\(title)' catalog=\(catalog.count) catalogMs=\(String(format: "%.1f", catalogElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let newTags = Self.computeAvailableTagsOffThread(from: catalog)
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
@@ -1452,7 +1524,9 @@ struct MediaGridView: View {
             let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
@@ -1463,13 +1537,26 @@ struct MediaGridView: View {
                 self.cachedAvailableStatuses = newStatuses
                 self.cachedAvailableCreatorRoles = newCreatorRoles
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeFilterOptions end title='\(self.title)' tags=\(newTags.count) series=\(newSeries.count) authors=\(newAuthors.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }
 
     private func recomputeAllCaches() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeAllCaches start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
+        )
+        let catalogStarted = CFAbsoluteTimeGetCurrent()
         let catalog = catalogItemsForFilters
+        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
+        let baseStarted = CFAbsoluteTimeGetCurrent()
         let baseItems = itemsForCurrentFormatSelection()
+        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
         let locationInfo = captureLocationInfo(for: baseItems)
         let formatFilter = selectedFormatFilter
         let tagSel = selectedTag
@@ -1485,8 +1572,13 @@ struct MediaGridView: View {
         let search = searchText
         let sortOpt = selectedSortOption
         let filtersSummary = computeFiltersSummary()
+        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeAllCaches setup title='\(title)' catalog=\(catalog.count) base=\(baseItems.count) catalogMs=\(String(format: "%.1f", catalogElapsed)) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let newTags = Self.computeAvailableTagsOffThread(from: catalog)
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
@@ -1513,7 +1605,9 @@ struct MediaGridView: View {
                 searchText: search,
                 sortOption: sortOpt,
             )
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
@@ -1526,6 +1620,11 @@ struct MediaGridView: View {
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
                 self.cachedDisplayItems = newDisplayItems
                 self.cachedFiltersSummary = filtersSummary
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeAllCaches end title='\(self.title)' catalog=\(catalog.count) base=\(baseItems.count) display=\(newDisplayItems.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }

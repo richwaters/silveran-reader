@@ -92,6 +92,7 @@ struct MediaItemCardView: View {
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
     var onEditMetadata: (([String]) -> Void)? = nil
+    var debugContext: String? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var isHovered = false
@@ -335,6 +336,7 @@ struct MediaItemCardView: View {
                                 return .constant(false)
                                 #endif
                             }(),
+                            debugContext: debugContext,
                         )
                         .frame(width: metrics.coverWidth)
                         .aspectRatio(containerAspectRatio, contentMode: .fit)
@@ -343,6 +345,7 @@ struct MediaItemCardView: View {
                             item: item,
                             placeholderColor: placeholderColor,
                             variant: coverVariant,
+                            debugContext: debugContext,
                         )
                         .frame(width: metrics.coverWidth)
                         .aspectRatio(containerAspectRatio, contentMode: .fit)
@@ -539,6 +542,7 @@ private struct MediaItemCoverImage: View {
     let item: BookMetadata
     let placeholderColor: Color
     let variant: MediaViewModel.CoverVariant
+    let debugContext: String?
 
     var body: some View {
         let coverState = mediaViewModel.coverState(for: item, variant: variant)
@@ -558,8 +562,30 @@ private struct MediaItemCoverImage: View {
         }
         .animation(.easeInOut(duration: 0.2), value: coverState.image != nil)
         .task(id: taskIdentifier) {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: variant)
+            debugCoverLog("task imageLoaded=\(coverState.image != nil)")
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: variant,
+                debugSource: debugContext,
+            )
         }
+        .onAppear {
+            debugCoverLog("appear imageLoaded=\(coverState.image != nil)")
+        }
+        .onChange(of: coverState.image != nil) { _, loaded in
+            debugCoverLog("imageLoaded changed=\(loaded)")
+        }
+        .onDisappear {
+            debugCoverLog("disappear imageLoaded=\(coverState.image != nil)")
+            mediaViewModel.cancelCoverLoad(for: item, variant: variant)
+        }
+    }
+
+    private func debugCoverLog(_ message: String) {
+        guard let debugContext else { return }
+        debugLog(
+            "[CoverPerf][\(debugContext)] view \(message) title='\(item.title)' id=\(item.id) variant=\(variant)"
+        )
     }
 
     private var taskIdentifier: String {
@@ -584,6 +610,7 @@ struct DoubleCoverView: View {
     let containerAspectRatio: CGFloat
     let cornerRadius: CGFloat
     @Binding var isSwapping: Bool
+    var debugContext: String? = nil
 
     #if os(macOS)
     @State private var isHovered = false
@@ -712,9 +739,45 @@ struct DoubleCoverView: View {
         }
         #endif
         .task {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: .standard)
-            mediaViewModel.ensureCoverLoaded(for: item, variant: .audioSquare)
+            debugCoverLog(
+                "task ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: .standard,
+                debugSource: debugContext,
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: .audioSquare,
+                debugSource: debugContext,
+            )
         }
+        .onAppear {
+            debugCoverLog(
+                "appear ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+        }
+        .onChange(of: ebookState.image != nil) { _, loaded in
+            debugCoverLog("ebookLoaded changed=\(loaded)")
+        }
+        .onChange(of: audioState.image != nil) { _, loaded in
+            debugCoverLog("audioLoaded changed=\(loaded)")
+        }
+        .onDisappear {
+            debugCoverLog(
+                "disappear ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+            mediaViewModel.cancelCoverLoad(for: item, variant: .standard)
+            mediaViewModel.cancelCoverLoad(for: item, variant: .audioSquare)
+        }
+    }
+
+    private func debugCoverLog(_ message: String) {
+        guard let debugContext else { return }
+        debugLog(
+            "[CoverPerf][\(debugContext)] doubleView \(message) title='\(item.title)' id=\(item.id)"
+        )
     }
 
     @ViewBuilder

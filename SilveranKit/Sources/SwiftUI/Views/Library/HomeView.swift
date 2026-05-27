@@ -17,7 +17,6 @@ struct HomeView: View {
     var showOfflineSheet: Binding<Bool>?
     #endif
     fileprivate struct HomeSection: Identifiable {
-        let id = UUID()
         let title: String
         let mediaKind: MediaKind
         let items: [BookMetadata]
@@ -25,6 +24,17 @@ struct HomeView: View {
         let tagFilter: String?
         let statusFilter: String?
         let sortOrder: MediaViewModel.StatusSortOrder?
+
+        var id: String {
+            [
+                title,
+                String(describing: mediaKind),
+                destination,
+                tagFilter ?? "",
+                statusFilter ?? "",
+                sortOrder.map(String.init(describing:)) ?? "",
+            ].joined(separator: "|")
+        }
     }
 
     struct Selection: Equatable {
@@ -346,6 +356,9 @@ struct HomeView: View {
         }
         #endif
         .onAppear {
+            debugLog(
+                "[PerfTrace][HomeLoad] onAppear isReady=\(mediaViewModel.isReady) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onAppear")
             }
@@ -358,11 +371,17 @@ struct HomeView: View {
             reconcileSidebarVisibility()
         }
         .onChange(of: mediaViewModel.isReady) {
+            debugLog(
+                "[PerfTrace][HomeLoad] onChange isReady=\(mediaViewModel.isReady) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onChange(isReady)")
             }
         }
         .onChange(of: mediaViewModel.libraryVersion) {
+            debugLog(
+                "[PerfTrace][HomeLoad] onChange libraryVersion=\(mediaViewModel.libraryVersion) isReady=\(mediaViewModel.isReady) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onChange(libraryVersion)")
             }
@@ -385,6 +404,10 @@ struct HomeView: View {
     }
 
     private func loadSections(source: String) {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][HomeLoad] loadSections start source=\(source) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+        )
         let config = HomeSectionConfigHelper.config
 
         let sectionBuilders: [String: () -> HomeSection] = [
@@ -428,11 +451,24 @@ struct HomeView: View {
             config
             .filter { $0.visible }
             .compactMap { item in
+                let sectionStarted = CFAbsoluteTimeGetCurrent()
+                let section: HomeSection?
                 if let builder = sectionBuilders[item.id] {
-                    return builder()
+                    section = builder()
+                } else {
+                    section = makePinnedSection(pinId: item.id)
                 }
-                return makePinnedSection(pinId: item.id)
+                let sectionElapsed = (CFAbsoluteTimeGetCurrent() - sectionStarted) * 1000
+                debugLog(
+                    "[PerfTrace][HomeLoad] section source=\(source) id=\(item.id) result=\(section?.items.count ?? 0) elapsedMs=\(String(format: "%.1f", sectionElapsed))"
+                )
+                return section
             }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        let summary = sections.map { "\($0.title)=\($0.items.count)" }.joined(separator: ", ")
+        debugLog(
+            "[PerfTrace][HomeLoad] loadSections end source=\(source) elapsedMs=\(String(format: "%.1f", elapsed)) sections=[\(summary)]"
+        )
     }
 
     private var selectedItem: BookMetadata? {
@@ -1190,6 +1226,7 @@ private struct HomeSectionRow: View {
                 openInfo(for: selected)
             },
             onEditMetadata: editMetadataHandler,
+            debugContext: "Home:\(section.title)",
         )
     }
 

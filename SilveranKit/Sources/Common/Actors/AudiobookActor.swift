@@ -26,8 +26,8 @@ public enum AudiobookError: Error, LocalizedError {
     }
 }
 
-private extension Array {
-    subscript(safe index: Index) -> Element? {
+extension Array {
+    fileprivate subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
 }
@@ -192,7 +192,8 @@ public actor AudiobookActor {
                     return string
                 }
                 if let strings = try? container.decode([String].self, forKey: key) {
-                    let joined = strings
+                    let joined =
+                        strings
                         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                         .filter { !$0.isEmpty }
                         .joined(separator: ", ")

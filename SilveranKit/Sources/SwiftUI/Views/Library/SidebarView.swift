@@ -364,11 +364,16 @@ struct SidebarView: View {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfigJSON =
                 UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            registerSidebarContents(config: config)
         }
         .onChange(of: sidebarConfigJSON) {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfigJSON =
                 UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            registerSidebarContents(config: config)
+        }
+        .onChange(of: mediaViewModel.smartShelves) {
+            registerSidebarContents(config: config)
         }
         #if !os(macOS)
         .searchable(
@@ -420,6 +425,13 @@ struct SidebarView: View {
             CustomizeSidebarView(showHomeSectionsOnAppear: true)
         }
         #endif
+    }
+
+    private func registerSidebarContents(config: [SidebarConfigGroup]) {
+        let contents = config.flatMap { group in
+            group.items.compactMap { resolveConfigItem($0)?.content }
+        }
+        mediaViewModel.updateVisibleSidebarContents(contents)
     }
 
     // MARK: - Data-driven section rendering

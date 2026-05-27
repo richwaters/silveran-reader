@@ -177,6 +177,9 @@ struct MediaCompactCardView: View {
         .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
         }
+        .onDisappear {
+            mediaViewModel.cancelCoverLoad(for: item, variant: coverVariant)
+        }
     }
 
     #if os(iOS)

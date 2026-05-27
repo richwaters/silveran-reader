@@ -2111,9 +2111,36 @@ private struct CoverCellContent: View {
         }
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-        .task(id: coverVariant) {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        .task(id: coverTaskIdentifier) {
+            debugLog(
+                "[CoverPerf][TableCoverCell] task imageLoaded=\(coverState.image != nil) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: coverVariant,
+                debugSource: "TableCoverCell",
+            )
         }
+        .onAppear {
+            debugLog(
+                "[CoverPerf][TableCoverCell] appear imageLoaded=\(coverState.image != nil) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+        }
+        .onChange(of: coverState.image != nil) { _, loaded in
+            debugLog(
+                "[CoverPerf][TableCoverCell] imageLoaded changed=\(loaded) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+        }
+        .onDisappear {
+            debugLog(
+                "[CoverPerf][TableCoverCell] disappear imageLoaded=\(coverState.image != nil) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+            mediaViewModel.cancelCoverLoad(for: item, variant: coverVariant)
+        }
+    }
+
+    private var coverTaskIdentifier: String {
+        "\(item.id)-\(coverVariant)"
     }
 
     @ViewBuilder

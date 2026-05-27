@@ -113,6 +113,9 @@ struct GroupedBooksCardView: View {
                     .task {
                         mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
                     }
+                    .onDisappear {
+                        mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
+                    }
                 }
             }
             .frame(width: availableWidth, height: availableHeight, alignment: .top)

@@ -413,9 +413,10 @@ public struct ReadingSidebarView: View {
 
             ChaptersButton(
                 chapters: chapters,
-                selectedChapterId: progressData?.chapterId ?? progressData?.chapterLabel.flatMap { label in
-                    chapters.first(where: { $0.label == label })?.id
-                },
+                selectedChapterId: progressData?.chapterId
+                    ?? progressData?.chapterLabel.flatMap { label in
+                        chapters.first(where: { $0.label == label })?.id
+                    },
                 onChapterSelected: onChapterSelected,
                 backgroundColor: .secondary,
                 foregroundColor: .primary,

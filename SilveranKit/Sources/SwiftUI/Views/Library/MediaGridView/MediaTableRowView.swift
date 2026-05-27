@@ -190,9 +190,20 @@ struct MediaTableRowView: View {
         }
         .frame(width: coverWidth, height: coverSize)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .task(id: coverVariant) {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        .task(id: coverTaskIdentifier(for: coverVariant)) {
+            debugLog(
+                "[CoverPerf][TableRowCover] task imageLoaded=\(coverState.image != nil) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: coverVariant,
+                debugSource: "TableRowCover",
+            )
         }
+    }
+
+    private func coverTaskIdentifier(for coverVariant: MediaViewModel.CoverVariant) -> String {
+        "\(item.id)-\(coverVariant)"
     }
 
     private var contentView: some View {

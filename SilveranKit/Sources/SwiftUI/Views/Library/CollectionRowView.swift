@@ -91,6 +91,9 @@ struct CollectionRowView: View {
                 .task {
                     mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
                 }
+                .onDisappear {
+                    mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
+                }
             }
         }
     }
