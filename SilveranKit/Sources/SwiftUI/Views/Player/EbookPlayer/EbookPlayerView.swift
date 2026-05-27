@@ -117,12 +117,27 @@ public struct EbookPlayerView: View {
             viewModel.handleOnAppear()
             #if os(iOS)
             CarPlayCoordinator.shared.isPlayerViewActive = true
+            debugLog(
+                "[LastOpenBookStore] EbookPlayerView onAppear scenePhase=\(scenePhase) bookId=\(viewModel.bookData?.metadata.uuid ?? "nil")"
+            )
+            if let bookData = viewModel.bookData {
+                LastOpenBookStore.save(bookData: bookData)
+            }
             #endif
         }
         .onDisappear {
             viewModel.handleOnDisappear()
             #if os(iOS)
+            debugLog(
+                "[LastOpenBookStore] EbookPlayerView onDisappear scenePhase=\(scenePhase) bookId=\(viewModel.bookData?.metadata.uuid ?? "nil")"
+            )
             CarPlayCoordinator.shared.isPlayerViewActive = false
+            if scenePhase == .active, let bookData = viewModel.bookData {
+                LastOpenBookStore.clearIfMatching(
+                    bookId: bookData.metadata.uuid,
+                    category: bookData.category,
+                )
+            }
             #endif
         }
         .onChange(of: colorScheme) { _, newScheme in

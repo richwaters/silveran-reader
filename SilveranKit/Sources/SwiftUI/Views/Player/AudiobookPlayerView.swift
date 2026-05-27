@@ -8,6 +8,7 @@ import UIKit
 
 public struct AudiobookPlayerView: View {
     private let bookData: PlayerBookData?
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var chapterProgress: Double = 0.0
     @State private var isPlaying = false
@@ -73,6 +74,12 @@ public struct AudiobookPlayerView: View {
             .onAppear {
                 #if os(iOS)
                 CarPlayCoordinator.shared.isPlayerViewActive = true
+                debugLog(
+                    "[LastOpenBookStore] AudiobookPlayerView onAppear scenePhase=\(scenePhase) bookId=\(bookData?.metadata.uuid ?? "nil")"
+                )
+                if let bookData {
+                    LastOpenBookStore.save(bookData: bookData)
+                }
                 #endif
 
                 if !settingsInitialized {
@@ -90,7 +97,16 @@ public struct AudiobookPlayerView: View {
             }
             .onDisappear {
                 #if os(iOS)
+                debugLog(
+                    "[LastOpenBookStore] AudiobookPlayerView onDisappear scenePhase=\(scenePhase) bookId=\(bookData?.metadata.uuid ?? "nil")"
+                )
                 CarPlayCoordinator.shared.isPlayerViewActive = false
+                if scenePhase == .active, let bookData {
+                    LastOpenBookStore.clearIfMatching(
+                        bookId: bookData.metadata.uuid,
+                        category: bookData.category,
+                    )
+                }
                 #endif
 
                 progressTimer?.invalidate()

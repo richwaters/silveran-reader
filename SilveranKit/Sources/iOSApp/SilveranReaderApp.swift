@@ -1,4 +1,5 @@
 import SilveranKitCommon
+import SilveranKitSwiftUI
 import SwiftUI
 import UIKit
 
@@ -72,7 +73,13 @@ struct SilveranReaderApp: App {
                 )
             }
 
-            await FilesystemActor.shared.cleanupExtractedEpubDirectories()
+            if LastOpenBookStore.hasSavedRoute {
+                debugLog(
+                    "[SilveranReaderApp] Skipping extracted EPUB cleanup because a last-open book route is pending"
+                )
+            } else {
+                await FilesystemActor.shared.cleanupExtractedEpubDirectories()
+            }
 
             await AppleWatchActor.shared.activate()
         }
