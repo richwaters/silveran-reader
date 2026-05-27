@@ -15,25 +15,42 @@ struct BookContextMenuContent: View {
             } label: {
                 Label("Show Book Information", systemImage: "info.circle")
             }
-            Divider()
         }
 
-        processingSection
-
-        epubUpgradeSection
-
-        deleteSection
-
-        serverMediaSection
-
         if let onEditMetadata {
-            Divider()
             Button {
                 onEditMetadata([item.uuid])
             } label: {
                 Label("Edit Metadata...", systemImage: "pencil")
             }
         }
+
+        deleteSection
+
+        if hasServerActions {
+            Divider()
+
+            Menu {
+                processingSection
+
+                epubUpgradeSection
+
+                serverMediaSection
+            } label: {
+                Label("Server Actions", systemImage: "server.rack")
+            }
+        }
+    }
+
+    private var hasServerActions: Bool {
+        mediaViewModel.isServerBook(item.id)
+    }
+
+    private var hasProcessingActions: Bool {
+        let status = item.readaloud?.status?.uppercased() ?? ""
+        return status == "PROCESSING" || status == "QUEUED" || status == "ALIGNED"
+            || status == "ERROR" || status == "STOPPED"
+            || (item.hasAvailableEbook && item.hasAvailableAudiobook)
     }
 
     @ViewBuilder
@@ -124,8 +141,10 @@ struct BookContextMenuContent: View {
 
     @ViewBuilder
     private var epubUpgradeSection: some View {
-        if item.hasAvailableEbook {
-            Divider()
+        if item.canUpgradeToEpub3 {
+            if hasProcessingActions {
+                Divider()
+            }
             Button {
                 Task {
                     _ = await StorytellerActor.shared.upgradeEpub(for: item.uuid)
@@ -175,7 +194,9 @@ struct BookContextMenuContent: View {
     @ViewBuilder
     private var serverMediaSection: some View {
         if mediaViewModel.isServerBook(item.id) {
-            Divider()
+            if hasProcessingActions || item.canUpgradeToEpub3 {
+                Divider()
+            }
             Button {
                 openWindow(
                     id: "ServerMediaManagement",

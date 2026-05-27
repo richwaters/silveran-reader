@@ -164,6 +164,7 @@ struct MediaTableView: NSViewRepresentable {
     let onInfo: (BookMetadata) -> Void
     var onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)?
     var onEditMetadata: (([String]) -> Void)?
+    var onManageServerMedia: ((String) -> Void)?
 
     init(
         items: [BookMetadata],
@@ -181,6 +182,7 @@ struct MediaTableView: NSViewRepresentable {
         onInfo: @escaping (BookMetadata) -> Void,
         onMetadataLinkClicked: ((MetadataLinkTarget) -> Void)? = nil,
         onEditMetadata: (([String]) -> Void)? = nil,
+        onManageServerMedia: ((String) -> Void)? = nil,
     ) {
         self.items = items
         self.coverPreference = coverPreference
@@ -197,6 +199,7 @@ struct MediaTableView: NSViewRepresentable {
         self.onInfo = onInfo
         self.onMetadataLinkClicked = onMetadataLinkClicked
         self.onEditMetadata = onEditMetadata
+        self.onManageServerMedia = onManageServerMedia
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1014,70 +1017,20 @@ struct MediaTableView: NSViewRepresentable {
             showInfo.target = self
             showInfo.representedObject = item
             menu.addItem(showInfo)
-            menu.addItem(.separator())
 
-            let status = item.readaloud?.status?.uppercased() ?? ""
-            let hasEbookAndAudio = item.hasAvailableEbook && item.hasAvailableAudiobook
-
-            if status == "PROCESSING" || status == "QUEUED" {
-                let cancel = NSMenuItem(
-                    title: "Cancel Processing",
-                    action: #selector(cancelProcessing(_:)),
-                    keyEquivalent: "",
-                )
-                cancel.target = self
-                cancel.representedObject = item.uuid
-                menu.addItem(cancel)
-            } else if status == "ALIGNED" {
-                addReprocessItems(to: menu, bookId: item.uuid)
-            } else if status == "ERROR" || status == "STOPPED" {
-                let retry = NSMenuItem(
-                    title: "Retry Processing",
-                    action: #selector(reprocessFull(_:)),
-                    keyEquivalent: "",
-                )
-                retry.target = self
-                retry.representedObject = item.uuid
-                menu.addItem(retry)
-
-                let realign = NSMenuItem(
-                    title: "Re-align Only",
-                    action: #selector(reprocessSync(_:)),
-                    keyEquivalent: "",
-                )
-                realign.target = self
-                realign.representedObject = item.uuid
-                menu.addItem(realign)
-            } else if hasEbookAndAudio {
-                let create = NSMenuItem(
-                    title: "Create Readaloud",
-                    action: #selector(createReadaloud(_:)),
-                    keyEquivalent: "",
-                )
-                create.target = self
-                create.representedObject = item.uuid
-                menu.addItem(create)
-            }
-
-            if item.hasAvailableEbook {
-                if menu.items.count > 0 {
-                    menu.addItem(.separator())
-                }
-                let upgrade = NSMenuItem(
-                    title: "Convert to EPUB 3",
-                    action: #selector(upgradeEpub(_:)),
-                    keyEquivalent: "",
-                )
-                upgrade.target = self
-                upgrade.representedObject = item.uuid
-                menu.addItem(upgrade)
-            }
+            let editMeta = NSMenuItem(
+                title: "Edit Metadata...",
+                action: #selector(editMetadata(_:)),
+                keyEquivalent: "",
+            )
+            editMeta.target = self
+            menu.addItem(editMeta)
 
             let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
             let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
             let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
 
-            if (ebookDownloaded || audioDownloaded || syncedDownloaded) && menu.items.count > 0 {
+            if ebookDownloaded || audioDownloaded || syncedDownloaded {
                 menu.addItem(.separator())
             }
 
@@ -1112,16 +1065,17 @@ struct MediaTableView: NSViewRepresentable {
                 menu.addItem(del)
             }
 
-            if menu.items.count > 0 {
+            let serverActions = NSMenu()
+            if addServerActionItems(to: serverActions, for: item) > 0 {
                 menu.addItem(.separator())
+                let serverActionsItem = NSMenuItem(
+                    title: "Server Actions",
+                    action: nil,
+                    keyEquivalent: "",
+                )
+                serverActionsItem.submenu = serverActions
+                menu.addItem(serverActionsItem)
             }
-            let editMeta = NSMenuItem(
-                title: "Edit Metadata...",
-                action: #selector(editMetadata(_:)),
-                keyEquivalent: "",
-            )
-            editMeta.target = self
-            menu.addItem(editMeta)
         }
 
         @objc private func editMetadata(_ sender: NSMenuItem) {
@@ -1176,6 +1130,83 @@ struct MediaTableView: NSViewRepresentable {
             menu.addItem(full)
         }
 
+        @discardableResult
+        private func addServerActionItems(to menu: NSMenu, for item: BookMetadata) -> Int {
+            guard mediaViewModel.isServerBook(item.id) else { return 0 }
+
+            let initialCount = menu.items.count
+            let status = item.readaloud?.status?.uppercased() ?? ""
+            let hasEbookAndAudio = item.hasAvailableEbook && item.hasAvailableAudiobook
+
+            if status == "PROCESSING" || status == "QUEUED" {
+                let cancel = NSMenuItem(
+                    title: "Cancel Processing",
+                    action: #selector(cancelProcessing(_:)),
+                    keyEquivalent: "",
+                )
+                cancel.target = self
+                cancel.representedObject = item.uuid
+                menu.addItem(cancel)
+            } else if status == "ALIGNED" {
+                addReprocessItems(to: menu, bookId: item.uuid)
+            } else if status == "ERROR" || status == "STOPPED" {
+                let retry = NSMenuItem(
+                    title: "Retry Processing",
+                    action: #selector(reprocessFull(_:)),
+                    keyEquivalent: "",
+                )
+                retry.target = self
+                retry.representedObject = item.uuid
+                menu.addItem(retry)
+
+                let realign = NSMenuItem(
+                    title: "Re-align Only",
+                    action: #selector(reprocessSync(_:)),
+                    keyEquivalent: "",
+                )
+                realign.target = self
+                realign.representedObject = item.uuid
+                menu.addItem(realign)
+            } else if hasEbookAndAudio {
+                let create = NSMenuItem(
+                    title: "Create Readaloud",
+                    action: #selector(createReadaloud(_:)),
+                    keyEquivalent: "",
+                )
+                create.target = self
+                create.representedObject = item.uuid
+                menu.addItem(create)
+            }
+
+            if item.canUpgradeToEpub3 {
+                if menu.items.count > initialCount {
+                    menu.addItem(.separator())
+                }
+                let upgrade = NSMenuItem(
+                    title: "Convert to EPUB 3",
+                    action: #selector(upgradeEpub(_:)),
+                    keyEquivalent: "",
+                )
+                upgrade.target = self
+                upgrade.representedObject = item.uuid
+                menu.addItem(upgrade)
+            }
+
+            if menu.items.count > initialCount {
+                menu.addItem(.separator())
+            }
+            let manage = NSMenuItem(
+                title: "Manage Server Media...",
+                action: #selector(manageServerMedia(_:)),
+                keyEquivalent: "",
+            )
+            manage.target = self
+            manage.representedObject = item.id
+            menu.addItem(manage)
+
+            return menu.items.count - initialCount
+        }
+
         @objc private func createReadaloud(_ sender: NSMenuItem) {
             guard let bookId = sender.representedObject as? String else { return }
             Task {
@@ -1225,6 +1256,11 @@ struct MediaTableView: NSViewRepresentable {
                 _ = await StorytellerActor.shared.upgradeEpub(for: bookId)
                 await StorytellerActor.shared.fetchLibraryInformation()
             }
+        }
+
+        @objc private func manageServerMedia(_ sender: NSMenuItem) {
+            guard let bookId = sender.representedObject as? String else { return }
+            parent.onManageServerMedia?(bookId)
         }
 
         @objc private func deleteLocalEbook(_ sender: NSMenuItem) {

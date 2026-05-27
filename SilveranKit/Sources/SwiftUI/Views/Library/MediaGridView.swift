@@ -685,6 +685,12 @@ struct MediaGridView: View {
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
                     onEditMetadata: handleEditMetadata,
+                    onManageServerMedia: { bookId in
+                        openWindow(
+                            id: "ServerMediaManagement",
+                            value: ServerMediaManagementData(bookId: bookId),
+                        )
+                    },
                 )
                 .padding(.top, 8)
             }

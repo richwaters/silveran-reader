@@ -203,6 +203,8 @@ public struct BookAsset: Codable, Sendable, Hashable {
     public let uuid: String?
     public let filepath: String
     public let missing: Int
+    public let isEpub2: Bool?
+    public let isEpub3: Bool?
     public let createdAt: String?
     public let updatedAt: String?
 
@@ -210,16 +212,26 @@ public struct BookAsset: Codable, Sendable, Hashable {
         return missing == 1
     }
 
+    public var canUpgradeToEpub3: Bool {
+        if isEpub3 == true { return false }
+        if isEpub2 == true { return true }
+        return isEpub3 == false
+    }
+
     public init(
         uuid: String?,
         filepath: String,
         missing: Int,
+        isEpub2: Bool? = nil,
+        isEpub3: Bool? = nil,
         createdAt: String?,
         updatedAt: String?,
     ) {
         self.uuid = uuid
         self.filepath = filepath
         self.missing = missing
+        self.isEpub2 = isEpub2
+        self.isEpub3 = isEpub3
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -231,6 +243,8 @@ public struct BookAsset: Codable, Sendable, Hashable {
         createdAt = container.decodeLenient(String.self, forKey: .createdAt)
         updatedAt = container.decodeLenient(String.self, forKey: .updatedAt)
         missing = container.decodeLenientBoolAsInt(forKey: .missing, defaultValue: 0)
+        isEpub2 = container.decodeLenientIntAsBool(forKey: .isEpub2)
+        isEpub3 = container.decodeLenientIntAsBool(forKey: .isEpub3)
     }
 }
 
@@ -734,6 +748,10 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
         let status = readaloud.status?.uppercased() ?? ""
         return status == "PROCESSING" || status == "QUEUED" || status == "ERROR"
             || status == "STOPPED"
+    }
+
+    public var canUpgradeToEpub3: Bool {
+        ebook?.canUpgradeToEpub3 == true
     }
 
     public var progress: Double {
