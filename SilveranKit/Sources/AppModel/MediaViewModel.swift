@@ -498,11 +498,19 @@ public final class MediaViewModel {
     }
 
     private func scheduleLibraryDerivation(reason: String) {
+        #if !os(iOS)
         guard !visibleSidebarContents.isEmpty else { return }
+        #endif
         libraryDerivationGeneration += 1
         let generation = libraryDerivationGeneration
+        #if os(iOS)
+        let deriveGroups = true
+        #else
+        let deriveGroups = false
+        #endif
         let input = LibraryDerivationInput(
             generation: generation,
+            deriveGroups: deriveGroups,
             metadata: library.bookMetaData,
             paths: cachedBookPaths,
             localStandaloneBookIds: localStandaloneBookIds,
@@ -815,6 +823,12 @@ public final class MediaViewModel {
     public func booksBySeries(for kind: MediaKind)
         -> [(series: BookSeries?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.series[kind] {
+            return groups.map { (series: $0.series, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = seriesGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksBySeries cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -874,11 +888,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksBySeries cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByAuthor(for kind: MediaKind)
         -> [(author: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.authors[kind] {
+            return groups.map { (author: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = authorGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByAuthor cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -933,11 +954,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByAuthor cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByCollection(for kind: MediaKind) -> [(
         collection: BookCollectionSummary?, books: [BookMetadata]
     )] {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.collections[kind] {
+            return groups.map { (collection: $0.collection, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = collectionGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByCollection cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -985,11 +1013,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByCollection cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByNarrator(for kind: MediaKind)
         -> [(narrator: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.narrators[kind] {
+            return groups.map { (narrator: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = narratorGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByNarrator cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1044,11 +1079,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByNarrator cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByTranslator(for kind: MediaKind)
         -> [(translator: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.translators[kind] {
+            return groups.map { (translator: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = translatorGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByTranslator cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1104,11 +1146,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByTranslator cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByPublicationYear(for kind: MediaKind)
         -> [(year: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.publicationYears[kind] {
+            return groups.map { (year: $0.name, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = publicationYearGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByPublicationYear cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1151,9 +1200,16 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByPublicationYear cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByTag(for kind: MediaKind) -> [(tag: String, books: [BookMetadata])] {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.tags[kind] {
+            return groups.map { (tag: $0.name, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = tagGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByTag cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1196,11 +1252,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByTag cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByRating(for kind: MediaKind)
         -> [(rating: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.ratings[kind] {
+            return groups.map { (rating: $0.name, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = ratingGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByRating cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1249,11 +1312,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByRating cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksByStatus(for kind: MediaKind)
         -> [(status: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.statuses[kind] {
+            return groups.map { (status: $0.name, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = statusGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksByStatus cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1298,11 +1368,18 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksByStatus cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public func booksBySource(for kind: MediaKind)
         -> [(source: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.sources[kind] {
+            return groups.map { (source: $0.name, books: $0.books) }
+        }
+        return []
+        #else
         if let cached = sourceGroupsCache[kind], cached.version == libraryVersion {
             debugLog(
                 "[PerfTrace][MediaViewModel] booksBySource cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
@@ -1355,6 +1432,7 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] booksBySource cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
         )
         return result
+        #endif
     }
 
     public enum StatusSortOrder {
@@ -1365,6 +1443,16 @@ public final class MediaViewModel {
     public func badgeCount(for content: SidebarContentKind) -> Int {
         libraryViewSnapshot.badgeCounts[content.stableIdentifier] ?? 0
     }
+
+    #if os(iOS)
+    private func currentGroupSnapshot() -> LibraryGroupSnapshot? {
+        let groups = libraryViewSnapshot.groups
+        guard groups.generation == libraryDerivationGeneration else {
+            return nil
+        }
+        return groups
+    }
+    #endif
 
     private func shouldIncludeAudiobookOnlyItems(for filter: NarrationFilter) -> Bool {
         switch filter {
