@@ -590,10 +590,10 @@ struct MediaGridView: View {
         } else {
             ZStack(alignment: .top) {
                 scrollableContent(for: contentWidth)
-                if showStickyControls {
-                    stickyControlsOverlay
-                        .transition(.opacity)
-                }
+                stickyControlsOverlay
+                    .opacity(showStickyControls ? 1 : 0)
+                    .allowsHitTesting(showStickyControls)
+                    .accessibilityHidden(!showStickyControls)
             }
             .frame(width: contentWidth, height: height)
         }
