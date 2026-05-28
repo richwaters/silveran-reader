@@ -1,0 +1,158 @@
+import Foundation
+
+public typealias BookSourceID = String
+
+public enum BookSourceKind: String, Codable, Sendable, Hashable {
+    case storyteller
+    case localFolder
+}
+
+public struct BookSourceCapabilities: Codable, Sendable, Hashable {
+    public var canEditMetadata: Bool
+    public var canManageMedia: Bool
+    public var canProcessReadaloud: Bool
+    public var canUploadBooks: Bool
+    public var canSyncProgress: Bool
+
+    public init(
+        canEditMetadata: Bool,
+        canManageMedia: Bool,
+        canProcessReadaloud: Bool,
+        canUploadBooks: Bool,
+        canSyncProgress: Bool,
+    ) {
+        self.canEditMetadata = canEditMetadata
+        self.canManageMedia = canManageMedia
+        self.canProcessReadaloud = canProcessReadaloud
+        self.canUploadBooks = canUploadBooks
+        self.canSyncProgress = canSyncProgress
+    }
+}
+
+public struct BookSourceRecord: Codable, Identifiable, Sendable, Hashable {
+    public static let sourceIDFilename = ".silveran_source_id"
+
+    public var id: BookSourceID
+    public var name: String
+    public var kind: BookSourceKind
+    public var capabilities: BookSourceCapabilities
+    public var createdAt: String?
+    public var updatedAt: String?
+    public var storagePath: String?
+    public var storageBookmarkData: Data?
+
+    public init(
+        id: BookSourceID,
+        name: String,
+        kind: BookSourceKind,
+        capabilities: BookSourceCapabilities,
+        createdAt: String? = nil,
+        updatedAt: String? = nil,
+        storagePath: String? = nil,
+        storageBookmarkData: Data? = nil,
+    ) {
+        self.id = id
+        self.name = name
+        self.kind = kind
+        self.capabilities = capabilities
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.storagePath = storagePath
+        self.storageBookmarkData = storageBookmarkData
+    }
+}
+
+public struct BookSourceConfiguration: Sendable, Hashable {
+    public var kind: BookSourceKind
+    public var name: String
+    public var serverURL: String?
+    public var username: String?
+    public var password: String?
+    public var storagePath: String?
+    public var storageBookmarkData: Data?
+
+    public init(
+        kind: BookSourceKind,
+        name: String,
+        serverURL: String? = nil,
+        username: String? = nil,
+        password: String? = nil,
+        storagePath: String? = nil,
+        storageBookmarkData: Data? = nil,
+    ) {
+        self.kind = kind
+        self.name = name
+        self.serverURL = serverURL
+        self.username = username
+        self.password = password
+        self.storagePath = storagePath
+        self.storageBookmarkData = storageBookmarkData
+    }
+}
+
+public extension BookSourceKind {
+    var displayName: String {
+        switch self {
+            case .storyteller:
+                return "Storyteller"
+            case .localFolder:
+                return "Folder Source"
+        }
+    }
+
+    var defaultName: String {
+        switch self {
+            case .storyteller:
+                return "My Storyteller Server"
+            case .localFolder:
+                return "Local Files"
+        }
+    }
+}
+
+public protocol BookSourceActor: Actor {
+    var sourceRecord: BookSourceRecord { get async }
+    var connectionStatus: ConnectionStatus { get async }
+
+    func fetchLibraryInformation() async -> [BookMetadata]?
+
+    func fetchCoverImage(
+        for bookId: String,
+        audio: Bool,
+        width: Int?,
+        height: Int?,
+        version: String?,
+        ifNoneMatch: String?,
+        ifModifiedSince: String?,
+    ) async -> BookCover?
+
+    func sendProgressToServer(
+        bookId: String,
+        locator: BookLocator,
+        timestamp: Double,
+    ) async -> HTTPResult
+
+    func fetchBookPosition(bookId: String) async -> BookReadingPosition?
+}
+
+public extension BookSourceCapabilities {
+    static var storyteller: BookSourceCapabilities {
+        BookSourceCapabilities(
+            canEditMetadata: true,
+            canManageMedia: true,
+            canProcessReadaloud: true,
+            canUploadBooks: true,
+            canSyncProgress: true,
+        )
+    }
+
+    static var localFolder: BookSourceCapabilities {
+        BookSourceCapabilities(
+            canEditMetadata: false,
+            canManageMedia: true,
+            canProcessReadaloud: false,
+            canUploadBooks: false,
+            canSyncProgress: true,
+        )
+    }
+}

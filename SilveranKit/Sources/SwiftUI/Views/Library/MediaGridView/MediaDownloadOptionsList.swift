@@ -156,11 +156,12 @@ struct CreateReadaloudRow: View {
                 Button {
                     Task {
                         isStartingAlignment = true
-                        _ = await StorytellerActor.shared.startAlignment(
+                        _ = await BookServiceActor.shared.startAlignment(
                             for: item.uuid,
+                            sourceID: item.sourceID,
                             restart: isErrorOrStopped ? .full : .none,
                         )
-                        await StorytellerActor.shared.fetchLibraryInformation()
+                        await BookServiceActor.shared.fetchLibraryInformation()
                         isStartingAlignment = false
                     }
                 } label: {
@@ -186,8 +187,11 @@ struct CreateReadaloudRow: View {
         Button {
             Task {
                 isCancelingAlignment = true
-                _ = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.cancelAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
                 isCancelingAlignment = false
             }
         } label: {

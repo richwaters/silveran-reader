@@ -160,7 +160,7 @@ struct WatchCollectionBooksView: View {
         isLoading = true
         errorMessage = nil
 
-        guard let library = await StorytellerActor.shared.fetchLibraryInformation() else {
+        guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
             isLoading = false
             errorMessage = "Cannot connect to server"
             return

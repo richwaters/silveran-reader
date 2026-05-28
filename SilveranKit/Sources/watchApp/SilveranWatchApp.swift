@@ -37,7 +37,7 @@ struct SilveranWatchApp: App {
             ContentView()
                 .environment(watchViewModel)
                 .task {
-                    await StorytellerActor.shared.setActive(true, source: .watch)
+                    await BookServiceActor.shared.setActive(true, source: .watch)
                     await initializeStorytellerConnection()
                     // Start DownloadManager init + retry loop. On iOS/macOS/tvOS this
                     // happens via MediaViewModel.setupDownloadManagerObserver() instead.
@@ -54,13 +54,13 @@ struct SilveranWatchApp: App {
             case .background:
                 debugLog("[WatchApp] App entering background")
                 Task {
-                    await StorytellerActor.shared.setActive(false, source: .watch)
+                    await BookServiceActor.shared.setActive(false, source: .watch)
                 }
 
             case .active:
                 debugLog("[WatchApp] App becoming active")
                 Task {
-                    await StorytellerActor.shared.setActive(true, source: .watch)
+                    await BookServiceActor.shared.setActive(true, source: .watch)
                 }
 
             case .inactive:
@@ -72,32 +72,15 @@ struct SilveranWatchApp: App {
     }
 
     private func initializeStorytellerConnection() async {
-        do {
-            if let credentials = try await AuthenticationActor.shared.loadCredentials() {
-                let success = await StorytellerActor.shared.setLogin(
-                    baseURL: credentials.url,
-                    username: credentials.username,
-                    password: credentials.password,
-                )
-                if success {
-                    debugLog("[WatchApp] Storyteller connected successfully")
-                    await syncOnLaunch()
-                } else {
-                    debugLog("[WatchApp] Storyteller connection failed")
-                }
-            } else {
-                debugLog("[WatchApp] No Storyteller credentials configured")
-            }
-        } catch {
-            debugLog("[WatchApp] Failed to load Storyteller credentials: \(error)")
-        }
+        await BookServiceActor.shared.reloadSourceRegistry()
+        await syncOnLaunch()
     }
 
     private func syncOnLaunch() async {
         let result = await ProgressSyncActor.shared.syncPendingQueue()
         debugLog("[WatchApp] Sync on launch: synced=\(result.synced), failed=\(result.failed)")
 
-        if let library = await StorytellerActor.shared.fetchLibraryInformation() {
+        if let library = await BookServiceActor.shared.fetchLibraryInformation() {
             try? await LocalMediaActor.shared.updateStorytellerMetadata(library)
             debugLog("[WatchApp] Library metadata updated: \(library.count) books")
         }

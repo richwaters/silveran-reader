@@ -155,9 +155,9 @@ struct TVHomeView: View {
     }
 
     private func refreshLibrary() async {
-        let status = await StorytellerActor.shared.connectionStatus
+        let status = await BookServiceActor.shared.connectionStatus
         if status == .connected {
-            let _ = await StorytellerActor.shared.fetchLibraryInformation()
+            let _ = await BookServiceActor.shared.fetchLibraryInformation()
         }
         await mediaViewModel.refreshMetadata(source: "TVHomeView")
     }

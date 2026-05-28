@@ -14,7 +14,7 @@ struct SyncStatusIndicators: View {
             }
         }
         .task {
-            storytellerConfigured = await StorytellerActor.shared.isConfigured
+            storytellerConfigured = await BookServiceActor.shared.isConfigured
         }
     }
 
@@ -55,18 +55,11 @@ struct SyncStatusIndicators: View {
     private func refreshMetadata() async {
         isRefreshing = true
 
-        if let library = await StorytellerActor.shared.fetchLibraryInformation() {
-            do {
-                try await LocalMediaActor.shared.updateStorytellerMetadata(library)
-                await mediaViewModel.refreshMetadata(source: "SyncStatusIndicators.refresh")
-                mediaViewModel.showSyncNotification(
-                    SyncNotification(message: "Metadata refreshed", type: .success)
-                )
-            } catch {
-                mediaViewModel.showSyncNotification(
-                    SyncNotification(message: "Failed to update metadata", type: .error)
-                )
-            }
+        if await BookServiceActor.shared.fetchLibraryInformation() != nil {
+            await mediaViewModel.refreshMetadata(source: "SyncStatusIndicators.refresh")
+            mediaViewModel.showSyncNotification(
+                SyncNotification(message: "Metadata refreshed", type: .success)
+            )
         } else {
             mediaViewModel.showSyncNotification(
                 SyncNotification(message: "Failed to fetch metadata from server", type: .error)

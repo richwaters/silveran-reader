@@ -673,6 +673,7 @@ class EbookPlayerViewModel {
             bridge: bridge,
             settingsVM: settingsVM,
             bookId: bookData?.metadata.uuid,
+            sourceID: bookData?.metadata.sourceID,
             initialLocator: bookData?.metadata.position?.locator,
         )
 

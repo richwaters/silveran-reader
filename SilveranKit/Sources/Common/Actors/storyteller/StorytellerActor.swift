@@ -35,10 +35,9 @@ public enum ActivitySource: String, Hashable, Sendable {
     case carPlay
 }
 
-@globalActor
 public actor StorytellerActor {
 
-    public static let shared = StorytellerActor()
+    private let sourceRecordValue: BookSourceRecord
     private var observers: (@Sendable @MainActor () -> Void)? = nil
 
     private var username: String?
@@ -82,8 +81,10 @@ public actor StorytellerActor {
     #endif
 
     public init(
+        sourceRecord: BookSourceRecord,
         session: URLSession? = nil
     ) {
+        self.sourceRecordValue = sourceRecord
         let delegate = StorytellerDownloadDelegate()
         let configuration: URLSessionConfiguration = {
             if let session {
@@ -109,6 +110,18 @@ public actor StorytellerActor {
         decoder = JSONDecoder()
         encoder = JSONEncoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+        delegate.recordNetworkError = { [weak self] error in
+            Task {
+                await self?.recordNetworkError(error)
+            }
+        }
+    }
+
+    private func logStorytellerError(_ message: String, error: Error) {
+        debugLog("[StorytellerActor] \(message): \(error)")
+        Task {
+            await self.recordNetworkError(error)
+        }
     }
 
     public func request_notify(callback: @Sendable @MainActor @escaping () -> Void) {
@@ -386,15 +399,14 @@ public actor StorytellerActor {
         username: String,
         password: String,
     ) async -> Bool {
-        self.username = username
-        self.password = password
-        self.accessToken = nil
-        guard let baseURL = URL(string: baseURLString) else {
-            debugLog("[StorytellerActor] Invalid base URL: \(baseURLString)")
-            await updateConnectionStatus(.error("Invalid server URL"))
+        guard await configureCredentials(
+            baseURL: baseURLString,
+            username: username,
+            password: password,
+        ) else {
             return false
         }
-        apiBaseURL = StorytellerActor.resolveAPIBaseURL(from: baseURL)
+        _ = try? await FilesystemActor.shared.loadOrCreateBookSources()
 
         await updateConnectionStatus(.connecting)
         let success = await ensureAuthentication() != nil
@@ -409,6 +421,23 @@ public actor StorytellerActor {
             await ProgressSyncActor.shared.startPolling()
         }
         return success
+    }
+
+    public func configureCredentials(
+        baseURL baseURLString: String,
+        username: String,
+        password: String,
+    ) async -> Bool {
+        self.username = username
+        self.password = password
+        self.accessToken = nil
+        guard let baseURL = URL(string: baseURLString) else {
+            debugLog("[StorytellerActor] Invalid base URL: \(baseURLString)")
+            await updateConnectionStatus(.error("Invalid server URL"))
+            return false
+        }
+        apiBaseURL = StorytellerActor.resolveAPIBaseURL(from: baseURL)
+        return true
     }
 
     /// Calls Storyteller's `/api/v2/token` endpoint to exchange credentials for a bearer token.
@@ -600,7 +629,12 @@ public actor StorytellerActor {
                     LenientArrayWrapper<BookMetadata>.self,
                     from: response.data,
                 )
-                libraryMetadata = wrapper.values
+                libraryMetadata = wrapper.values.map { book in
+                    var stamped = book
+                    stamped.sourceID =
+                        stamped.sourceID ?? sourceRecordValue.id
+                    return stamped
+                }
 
                 if let jsonArray = try? JSONSerialization.jsonObject(with: response.data) as? [Any]
                 {
@@ -621,7 +655,10 @@ public actor StorytellerActor {
                 throw error
             }
 
-            try? await LocalMediaActor.shared.updateStorytellerMetadata(libraryMetadata)
+            try? await LocalMediaActor.shared.updateStorytellerMetadata(
+                libraryMetadata,
+                replacingSourceID: sourceRecordValue.id,
+            )
 
             await recordNetworkSuccess()
             return libraryMetadata
@@ -2648,7 +2685,7 @@ public actor StorytellerActor {
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
     }
 
-    private nonisolated func jsonFragment(from value: (some Encodable)?) -> String? {
+    private func jsonFragment(from value: (some Encodable)?) -> String? {
         if let value {
             do {
                 let data = try encoder.encode(value)
@@ -2858,6 +2895,12 @@ public actor StorytellerActor {
     // - `/api/v2/validate` (storyteller/web/src/app/api/v2/validate/route.ts) – session validation helper.
 }
 
+extension StorytellerActor: BookSourceActor {
+    public var sourceRecord: BookSourceRecord {
+        sourceRecordValue
+    }
+}
+
 private enum StorytellerDownloadError: Error, Sendable {
     case missingTaskState
     case fileMoveFailed(underlying: Error)
@@ -2866,6 +2909,8 @@ private enum StorytellerDownloadError: Error, Sendable {
 private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     URLSessionTaskDelegate
 {
+    var recordNetworkError: (@Sendable (Error) -> Void)?
+
     struct TaskState: Sendable {
         var continuation: AsyncThrowingStream<StorytellerDownloadEvent, Error>.Continuation
         let fallbackFilename: String
@@ -3049,9 +3094,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         guard let error else { return }
 
         if let urlError = error as? URLError {
-            Task {
-                await StorytellerActor.shared.recordNetworkError(urlError)
-            }
+            recordNetworkError?(urlError)
         }
 
         if let state = removeState(for: task) {
@@ -3087,9 +3130,6 @@ extension StorytellerDownloadDelegate: @unchecked Sendable {}
 
 func logStorytellerError(_ message: String, error: Error) {
     debugLog("[StorytellerActor] \(message): \(error)")
-    Task {
-        await StorytellerActor.shared.recordNetworkError(error)
-    }
 }
 
 func logDetailedDecodingError(_ error: DecodingError, data: Data) {

@@ -43,6 +43,7 @@ public final class CarPlayCoordinator {
     private var syncTimer: Timer?
     private var activePlayer: ActivePlayer?
     private var currentBookId: String?
+    private var currentSourceID: BookSourceID?
     private var currentBookTitle: String?
     private var currentAudiobookHref: String?
     private var isInitialized = false
@@ -59,7 +60,7 @@ public final class CarPlayCoordinator {
 
     private func ensureLocalMediaScanned() async {
         do {
-            try await LocalMediaActor.shared.scanForMedia()
+            try await BookServiceActor.shared.scanCachedMedia()
             debugLog("[CarPlayCoordinator] Local media scan complete")
         } catch {
             debugLog("[CarPlayCoordinator] Failed to scan local media: \(error)")
@@ -67,7 +68,7 @@ public final class CarPlayCoordinator {
     }
 
     private func observeLocalMediaActor() async {
-        lmaObserverId = await LocalMediaActor.shared.addObserver { @MainActor [weak self] in
+        lmaObserverId = await BookServiceActor.shared.addCachedMediaObserver { @MainActor [weak self] in
             debugLog("[CarPlayCoordinator] Library updated, notifying CarPlay")
             self?.onLibraryUpdated?()
         }
@@ -111,6 +112,7 @@ public final class CarPlayCoordinator {
             } else if previousBookId != nil {
                 debugLog("[CarPlayCoordinator] SMIL book unloaded")
                 self.currentBookId = nil
+                self.currentSourceID = nil
                 self.activePlayer = nil
                 self.currentAudiobookHref = nil
                 self.isPositionRestored = false
@@ -159,13 +161,11 @@ public final class CarPlayCoordinator {
     // MARK: - Public API for CarPlay
 
     public func getDownloadedBooks(category: LocalMediaCategory) async -> [BookMetadata] {
-        let storytellerMeta = await LocalMediaActor.shared.localStorytellerMetadata
-        let standaloneMeta = await LocalMediaActor.shared.localStandaloneMetadata
-        let allMetadata = storytellerMeta + standaloneMeta
+        let allMetadata = await BookServiceActor.shared.libraryMetadata
 
         var result: [BookMetadata] = []
         for book in allMetadata {
-            let downloaded = await LocalMediaActor.shared.downloadedCategories(for: book.uuid)
+            let downloaded = await BookServiceActor.shared.downloadedCategories(for: book.uuid)
             if downloaded.contains(category) {
                 // If requesting audiobooks, skip books that also have readaloud (prefer readaloud)
                 if category == .audio && downloaded.contains(.synced) {
@@ -194,7 +194,10 @@ public final class CarPlayCoordinator {
             return UIImage(data: data)
         }
         // Last resort: extract from local file (for standalone imports)
-        if let data = await LocalMediaActor.shared.extractLocalCover(for: bookId) {
+        if let data = await BookServiceActor.shared.cachedFolderCover(
+            for: bookId,
+            sourceID: nil,
+        ) {
             return UIImage(data: data)
         }
         return nil
@@ -269,7 +272,7 @@ public final class CarPlayCoordinator {
         debugLog("[CarPlayCoordinator] loadAndPlayBook: \(metadata.title), category: \(category)")
 
         guard
-            let localPath = await LocalMediaActor.shared.mediaFilePath(
+            let localPath = await BookServiceActor.shared.mediaFilePath(
                 for: metadata.uuid,
                 category: category,
             )
@@ -299,6 +302,7 @@ public final class CarPlayCoordinator {
         }
         activePlayer = .audiobook
         currentBookId = metadata.uuid
+        currentSourceID = metadata.sourceID
         currentBookTitle = metadata.title
         currentAudiobookHref = nil
         wasPlaying = false
@@ -366,6 +370,7 @@ public final class CarPlayCoordinator {
         }
         activePlayer = .smil
         currentBookId = metadata.uuid
+        currentSourceID = metadata.sourceID
         currentBookTitle = metadata.title
         currentAudiobookHref = nil
         wasPlaying = false
@@ -659,6 +664,7 @@ public final class CarPlayCoordinator {
 
         let result = await ProgressSyncActor.shared.syncProgress(
             bookId: bookId,
+            sourceID: currentSourceID,
             locator: locator,
             timestamp: timestampMs,
             reason: reason,

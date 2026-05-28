@@ -1360,7 +1360,8 @@ struct MediaGridView: View {
             return
         }
         Task {
-            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            let sourceIDs = mediaViewModel.sourceIDs(for: bookIds)
+            let result = await checkMetadataEditPermission(sourceIDs: sourceIDs)
             switch result {
                 case .allowed:
                     if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
@@ -1379,6 +1380,22 @@ struct MediaGridView: View {
                     showPermissionError = true
             }
         }
+    }
+
+    private func checkMetadataEditPermission(sourceIDs: [BookSourceID]) async
+        -> StorytellerActor.PermissionCheckResult
+    {
+        let idsToCheck: [BookSourceID?] = sourceIDs.isEmpty ? [nil] : sourceIDs.map { $0 }
+        for sourceID in idsToCheck {
+            let result = await BookServiceActor.shared.checkBookUpdatePermission(
+                sourceID: sourceID,
+            )
+            if case .allowed = result {
+                continue
+            }
+            return result
+        }
+        return .allowed
     }
     #endif
 

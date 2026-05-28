@@ -61,8 +61,11 @@ struct BookContextMenuContent: View {
         if status == "PROCESSING" || status == "QUEUED" {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    _ = await BookServiceActor.shared.cancelAlignment(
+                        for: item.uuid,
+                        sourceID: item.sourceID,
+                    )
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Cancel Processing", systemImage: "xmark.circle")
@@ -70,11 +73,12 @@ struct BookContextMenuContent: View {
         } else if status == "ALIGNED" {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: .sync,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Re-align (Fast)", systemImage: "arrow.triangle.2.circlepath")
@@ -82,11 +86,12 @@ struct BookContextMenuContent: View {
 
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: .transcription,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Re-transcribe & Align", systemImage: "waveform")
@@ -94,11 +99,12 @@ struct BookContextMenuContent: View {
 
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: .full,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Full Reprocess", systemImage: "arrow.counterclockwise")
@@ -106,11 +112,12 @@ struct BookContextMenuContent: View {
         } else if status == "ERROR" || status == "STOPPED" {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: .full,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Retry Processing", systemImage: "arrow.counterclockwise")
@@ -118,11 +125,12 @@ struct BookContextMenuContent: View {
 
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: .sync,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Re-align Only", systemImage: "arrow.triangle.2.circlepath")
@@ -130,8 +138,11 @@ struct BookContextMenuContent: View {
         } else if hasEbookAndAudio {
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.startAlignment(for: item.uuid)
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    _ = await BookServiceActor.shared.startAlignment(
+                        for: item.uuid,
+                        sourceID: item.sourceID,
+                    )
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Create Readaloud", systemImage: "text.bubble")
@@ -147,8 +158,11 @@ struct BookContextMenuContent: View {
             }
             Button {
                 Task {
-                    _ = await StorytellerActor.shared.upgradeEpub(for: item.uuid)
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    _ = await BookServiceActor.shared.upgradeEpub(
+                        for: item.uuid,
+                        sourceID: item.sourceID,
+                    )
+                    await BookServiceActor.shared.fetchLibraryInformation()
                 }
             } label: {
                 Label("Convert to EPUB 3", systemImage: "doc.badge.arrow.up")

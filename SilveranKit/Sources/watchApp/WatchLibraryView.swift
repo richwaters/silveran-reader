@@ -87,7 +87,7 @@ struct WatchLibraryView: View {
         let result = await ProgressSyncActor.shared.syncPendingQueue()
 
         var gotServerMetadata = false
-        if let library = await StorytellerActor.shared.fetchLibraryInformation() {
+        if let library = await BookServiceActor.shared.fetchLibraryInformation() {
             try? await LocalMediaActor.shared.updateStorytellerMetadata(library)
             gotServerMetadata = true
         }

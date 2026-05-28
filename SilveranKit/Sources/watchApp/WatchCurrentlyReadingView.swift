@@ -195,16 +195,16 @@ struct WatchCurrentlyReadingView: View {
         errorMessage = nil
         needsServerSetup = false
 
-        let isConfigured = await StorytellerActor.shared.isConfigured
+        let isConfigured = await BookServiceActor.shared.isConfigured
         if !isConfigured {
             isLoading = false
             needsServerSetup = true
             return
         }
 
-        let status = await StorytellerActor.shared.connectionStatus
+        let status = await BookServiceActor.shared.connectionStatus
         if status != .connected {
-            guard let library = await StorytellerActor.shared.fetchLibraryInformation() else {
+            guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
                 isLoading = false
                 errorMessage = "Cannot connect to server"
                 return
@@ -214,7 +214,7 @@ struct WatchCurrentlyReadingView: View {
             return
         }
 
-        guard let library = await StorytellerActor.shared.fetchLibraryInformation() else {
+        guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
             isLoading = false
             errorMessage = "Failed to load library"
             return

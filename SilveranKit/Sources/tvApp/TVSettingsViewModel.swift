@@ -33,7 +33,7 @@ public final class TVSettingsViewModel {
         isTesting = true
         connectionError = nil
 
-        let success = await StorytellerActor.shared.setLogin(
+        let success = await BookServiceActor.shared.setLogin(
             baseURL: serverURL,
             username: username,
             password: password,
@@ -68,7 +68,7 @@ public final class TVSettingsViewModel {
             serverURL = ""
             username = ""
             password = ""
-            _ = await StorytellerActor.shared.logout()
+            _ = await BookServiceActor.shared.logout()
             debugLog("[TVSettingsViewModel] Logged out")
         } catch {
             debugLog("[TVSettingsViewModel] Failed to logout: \(error)")

@@ -57,6 +57,9 @@ public struct ReadaloudGeneratorView: View {
             .padding(.bottom, 12)
         }
         .frame(width: 500, height: 750)
+        .task {
+            await viewModel.loadStorytellerSources()
+        }
     }
 
     private var headerView: some View {
@@ -291,7 +294,14 @@ public struct ReadaloudGeneratorView: View {
             Toggle("Upload them all to server", isOn: $viewModel.uploadAllToServer)
                 .disabled(viewModel.state == .processing)
 
-            if !viewModel.uploadAllToServer {
+            if viewModel.uploadAllToServer {
+                Picker("Upload to:", selection: uploadSourceBinding) {
+                    ForEach(viewModel.storytellerSources) { source in
+                        Text(source.name).tag(source.id)
+                    }
+                }
+                .disabled(viewModel.state == .processing || viewModel.storytellerSources.isEmpty)
+            } else {
                 filePickerRow(
                     label: "Save to:",
                     url: viewModel.outputURL,
@@ -304,6 +314,15 @@ public struct ReadaloudGeneratorView: View {
                 }
             }
         }
+    }
+
+    private var uploadSourceBinding: Binding<BookSourceID> {
+        Binding(
+            get: {
+                viewModel.selectedUploadSourceID ?? viewModel.storytellerSources.first?.id ?? ""
+            },
+            set: { viewModel.selectedUploadSourceID = $0 },
+        )
     }
 
     private var progressSection: some View {

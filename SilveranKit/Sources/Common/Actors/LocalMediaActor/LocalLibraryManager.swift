@@ -25,8 +25,18 @@ public final class LocalLibraryManager: Sendable {
         public let paths: [String: MediaPaths]
     }
 
-    public func scanLocalMedia(filesystem: FilesystemActor) async throws -> ScanResult {
-        let localDir = await filesystem.getDomainDirectory(for: .local)
+    public func scanLocalMedia(
+        filesystem: FilesystemActor,
+        sourceID: BookSourceID,
+    ) async throws -> ScanResult {
+        let localDir = await filesystem.getDomainDirectory(for: .local, sourceID: sourceID)
+        return try await scanLocalMedia(folderURL: localDir, sourceID: sourceID)
+    }
+
+    public func scanLocalMedia(
+        folderURL localDir: URL,
+        sourceID _: BookSourceID,
+    ) async throws -> ScanResult {
         let fm = FileManager.default
 
         guard

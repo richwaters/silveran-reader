@@ -83,22 +83,26 @@ public final class MediaViewModel {
     public var syncNotification: SyncNotification?
     public var smartShelves: [SmartShelf] = []
     public var libraryViewSnapshot = LibraryViewSnapshot()
+    public var bookSources: [BookSourceRecord] = []
     var bookProgressCache: [String: BookProgress] = [:]
     @ObservationIgnored private var readBookIds: Set<String> = []
 
-    private let lma: LocalMediaActor = LocalMediaActor.shared
-    private let sta: StorytellerActor = StorytellerActor.shared
     @ObservationIgnored private let libraryDerivationActor = LibraryDerivationActor()
     @ObservationIgnored private var libraryDerivationTask: Task<Void, Never>?
     @ObservationIgnored private var libraryDerivationGeneration = 0
     @ObservationIgnored private var visibleSidebarContents: [SidebarContentKind] = []
 
     @ObservationIgnored private var downloadManagerObserverId: UUID?
+    @ObservationIgnored private var cachedMediaObserverId: UUID?
     var downloadStatuses: [String: DownloadProgressState] = [:]
     private var cachedBookPaths: [String: MediaPaths] = [:]
-    private var localStandaloneBookIds: Set<String> = []
+    private var folderSourceBookIds: Set<String> = []
     private var storytellerBookIds: Set<String> = []
     @ObservationIgnored private var metadataRefreshTask: Task<Void, Never>?
+
+    private var sourceNamesByID: [BookSourceID: String] {
+        Dictionary(uniqueKeysWithValues: bookSources.map { ($0.id, $0.name) })
+    }
 
     public struct DownloadProgressState: Equatable {
         public struct CategoryState: Equatable {
@@ -302,7 +306,7 @@ public final class MediaViewModel {
                     }
                 }
 
-                let initialStatus = await StorytellerActor.shared.connectionStatus
+                let initialStatus = await BookServiceActor.shared.connectionStatus
                 debugLog(
                     "[MediaViewModel] init: Setting initial connectionStatus to \(initialStatus)"
                 )
@@ -313,12 +317,12 @@ public final class MediaViewModel {
                     )
                 }
 
-                await StorytellerActor.shared.request_notify { @MainActor [weak self] in
+                await BookServiceActor.shared.request_notify { @MainActor [weak self] in
                     guard let self else { return }
                     Task { @MainActor [weak self] in
                         guard let self else { return }
-                        let status = await StorytellerActor.shared.connectionStatus
-                        let networkOp = await StorytellerActor.shared.lastNetworkOpSucceeded
+                        let status = await BookServiceActor.shared.connectionStatus
+                        let networkOp = await BookServiceActor.shared.lastNetworkOpSucceeded
                         let wasConnected = self.connectionStatus == .connected
                         self.connectionStatus = status
                         self.lastNetworkOpSucceeded = networkOp
@@ -326,7 +330,7 @@ public final class MediaViewModel {
                             "[MediaViewModel] StorytellerActor notify: connectionStatus=\(status), lastNetworkOpSucceeded=\(String(describing: networkOp))"
                         )
                         if !wasConnected && status == .connected && self.availableStatuses.isEmpty {
-                            let statuses = await StorytellerActor.shared.getAvailableStatuses()
+                            let statuses = await BookServiceActor.shared.getAvailableStatuses()
                             self.availableStatuses = statuses
                         }
                     }
@@ -387,10 +391,9 @@ public final class MediaViewModel {
             await loadSmartShelves()
         }
         logPerfCheckpoint("refreshMetadata smartShelves", source: source, checkpoint: &checkpoint)
-        let status = await StorytellerActor.shared.connectionStatus
-        let storytellerPaths = await LocalMediaActor.shared.localStorytellerBookPaths
-        let standalonePaths = await LocalMediaActor.shared.localStandaloneBookPaths
-        let paths = storytellerPaths.merging(standalonePaths) { _, new in new }
+        let libraryMetadata = await BookServiceActor.shared.cachedLibraryInformation()
+        let status = await BookServiceActor.shared.connectionStatus
+        let paths = await BookServiceActor.shared.cachedMediaPaths()
         let pendingSyncs = await ProgressSyncActor.shared.getPendingProgressSyncs()
         logPerfCheckpoint(
             "refreshMetadata status/paths/pending",
@@ -406,26 +409,14 @@ public final class MediaViewModel {
             debugLog("[PerfTrace][MediaViewModel] refreshMetadata pendingBookIds=[\(bookIds)]")
         }
 
-        let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
-        let standaloneMetadata = await LocalMediaActor.shared.localStandaloneMetadata
+        bookSources = await BookServiceActor.shared.bookSources
         logPerfCheckpoint(
-            "refreshMetadata load local metadata",
+            "refreshMetadata load source metadata",
             source: source,
             checkpoint: &checkpoint,
         )
-        let metadata =
-            storytellerMetadata.map {
-                var book = $0
-                book.source = "Storyteller"
-                return book
-            }
-            + standaloneMetadata.map {
-                var book = $0
-                book.source = "Local File"
-                return book
-            }
         debugLog(
-            "[PerfTrace][MediaViewModel] refreshMetadata metadataCounts storyteller=\(storytellerMetadata.count) standalone=\(standaloneMetadata.count) total=\(metadata.count)"
+            "[PerfTrace][MediaViewModel] refreshMetadata metadataCount=\(libraryMetadata.count)"
         )
 
         pendingSyncsByBook = Dictionary(uniqueKeysWithValues: pendingSyncs.map { ($0.bookId, $0) })
@@ -443,19 +434,28 @@ public final class MediaViewModel {
             "[PerfTrace][MediaViewModel] refreshMetadata progressEntries=\(bookProgressCache.count)"
         )
 
-        applyLibraryMetadata(metadata)
+        applyLibraryMetadata(libraryMetadata)
         logPerfCheckpoint(
             "refreshMetadata applyLibraryMetadata",
             source: source,
             checkpoint: &checkpoint,
         )
         cachedBookPaths = paths
-        localStandaloneBookIds = Set(standaloneMetadata.map { $0.uuid })
-        storytellerBookIds = Set(storytellerMetadata.map { $0.uuid })
+        let sourceKindsByID = Dictionary(uniqueKeysWithValues: bookSources.map { ($0.id, $0.kind) })
+        folderSourceBookIds = Set(
+            libraryMetadata.filter { book in
+                sourceKindsByID[book.sourceID ?? ""] == .localFolder
+            }.map(\.uuid)
+        )
+        storytellerBookIds = Set(
+            libraryMetadata.filter { book in
+                sourceKindsByID[book.sourceID ?? ""] == .storyteller
+            }.map(\.uuid)
+        )
         sourceGroupsCache.removeAll()
         scheduleLibraryDerivation(reason: "refreshMetadata(\(source))")
         connectionStatus = status
-        lastNetworkOpSucceeded = await StorytellerActor.shared.lastNetworkOpSucceeded
+        lastNetworkOpSucceeded = await BookServiceActor.shared.lastNetworkOpSucceeded
         isReady = true
         logPerfCheckpoint(
             "refreshMetadata publish remaining state",
@@ -513,7 +513,7 @@ public final class MediaViewModel {
             deriveGroups: deriveGroups,
             metadata: library.bookMetaData,
             paths: cachedBookPaths,
-            localStandaloneBookIds: localStandaloneBookIds,
+            folderSourceBookIds: folderSourceBookIds,
             storytellerBookIds: storytellerBookIds,
             progress: bookProgressCache,
             smartShelves: smartShelves,
@@ -579,12 +579,12 @@ public final class MediaViewModel {
                     "[MediaViewModel] Periodic metadata refresh (interval: \(Int(refreshInterval))s, min of metadata/progress sync)"
                 )
 
-                let status = await StorytellerActor.shared.connectionStatus
-                if status == .connected {
-                    let _ = await StorytellerActor.shared.fetchLibraryInformation()
+                let hasConnectedSource = await BookServiceActor.shared.hasConnectedSource()
+                if hasConnectedSource {
+                    let _ = await BookServiceActor.shared.fetchLibraryInformation()
                 } else {
                     debugLog(
-                        "[MediaViewModel] Skipping Storyteller refresh - not connected to server"
+                        "[MediaViewModel] Skipping source refresh - no connected book source"
                     )
                 }
             }
@@ -612,10 +612,11 @@ public final class MediaViewModel {
 
     private func setupPathCacheSync() {
         Task {
-            await LocalMediaActor.shared.addObserver { @MainActor [weak self] in
+            cachedMediaObserverId = await BookServiceActor.shared.addCachedMediaObserver {
+                @MainActor [weak self] in
                 Task { @MainActor in
                     await self?.syncPathCache()
-                    await self?.refreshMetadata(source: "LocalMediaActor.observer")
+                    await self?.refreshMetadata(source: "BookServiceActor.cachedMediaObserver")
                 }
             }
 
@@ -630,9 +631,7 @@ public final class MediaViewModel {
     }
 
     private func syncPathCache() async {
-        let storytellerPaths = await LocalMediaActor.shared.localStorytellerBookPaths
-        let standalonePaths = await LocalMediaActor.shared.localStandaloneBookPaths
-        cachedBookPaths = storytellerPaths.merging(standalonePaths) { _, new in new }
+        cachedBookPaths = await BookServiceActor.shared.cachedMediaPaths()
     }
 
     private func applyLibraryMetadata(_ metadata: [BookMetadata]) {
@@ -1434,14 +1433,7 @@ public final class MediaViewModel {
         var sourceMap: [String: [BookMetadata]] = [:]
 
         for book in allBooks {
-            let key: String
-            if localStandaloneBookIds.contains(book.id) {
-                key = "Local Files"
-            } else if storytellerBookIds.contains(book.id) {
-                key = "Storyteller"
-            } else {
-                key = "Unknown"
-            }
+            let key = book.source ?? sourceNamesByID[book.sourceID ?? ""] ?? "Unknown"
 
             if var existing = sourceMap[key] {
                 existing.append(book)
@@ -1457,7 +1449,7 @@ public final class MediaViewModel {
             }
         }
 
-        let sourceOrder = ["Storyteller", "Local Files", "Unknown"]
+        let sourceOrder = bookSources.map(\.name) + ["Storyteller", "Local Files", "Unknown"]
         var result: [(source: String, books: [BookMetadata])] = sourceMap.map {
             (source: $0.key, books: $0.value)
         }
@@ -1611,11 +1603,26 @@ public final class MediaViewModel {
     }
 
     public func isLocalStandaloneBook(_ bookID: String) -> Bool {
-        localStandaloneBookIds.contains(bookID)
+        folderSourceBookIds.contains(bookID)
     }
 
     public func sourceLabel(for bookID: String) -> String {
         library.bookMetaData.first { $0.id == bookID }?.source ?? "Unknown"
+    }
+
+    public func sourceIDs(for bookIDs: [String]) -> [BookSourceID] {
+        let requested = Set(bookIDs)
+        var seen: Set<BookSourceID> = []
+        var sourceIDs: [BookSourceID] = []
+
+        for book in library.bookMetaData where requested.contains(book.id) {
+            guard let sourceID = book.sourceID else { continue }
+            if seen.insert(sourceID).inserted {
+                sourceIDs.append(sourceID)
+            }
+        }
+
+        return sourceIDs
     }
 
     public func isServerBook(_ bookID: String) -> Bool {
@@ -1665,7 +1672,7 @@ public final class MediaViewModel {
         #if canImport(AppKit)
         Task { [weak self] in
             guard
-                let directory = await LocalMediaActor.shared.mediaDirectory(
+                let directory = await BookServiceActor.shared.mediaDirectory(
                     for: item.id,
                     category: category,
                 )
@@ -1684,7 +1691,7 @@ public final class MediaViewModel {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await LocalMediaActor.shared.deleteMedia(for: item.id, category: category)
+                try await BookServiceActor.shared.deleteCachedMedia(for: item.id, category: category)
                 await MainActor.run {
                     if var state = downloadStatuses[item.id] {
                         state.categories[category] = nil
@@ -2046,9 +2053,11 @@ public final class MediaViewModel {
             )
         }
 
-        let isLocalBook = await LocalMediaActor.shared.isLocalStandaloneBook(item.id)
-        if isLocalBook {
-            guard let data = await LocalMediaActor.shared.extractLocalCover(for: item.id) else {
+        if await BookServiceActor.shared.isFolderSource(item.sourceID) {
+            guard let data = await BookServiceActor.shared.cachedFolderCover(
+                for: item.id,
+                sourceID: item.sourceID,
+            ) else {
                 return .missing
             }
             guard let payload = makeCoverPayload(from: data) else {
@@ -2136,9 +2145,12 @@ public final class MediaViewModel {
         for item: BookMetadata,
         variant: CoverVariant,
     ) async -> BookCover? {
+        guard let sourceID = item.sourceID else { return nil }
+
         let params = variant.requestParameters
-        if let cover = await StorytellerActor.shared.fetchCoverImage(
+        if let cover = await BookServiceActor.shared.fetchCoverImage(
             for: item.id,
+            sourceID: sourceID,
             audio: params.audio,
             width: params.width,
             height: params.height,
@@ -2151,8 +2163,9 @@ public final class MediaViewModel {
             "[MediaViewModel] Sized cover fetch returned nil for '\(item.title)' (\(item.id)), variant=\(variant), size=\(params.width)x\(params.height), updatedAt=\(item.updatedAt ?? "nil"). Falling back to raw cover."
         )
 
-        let cover = await StorytellerActor.shared.fetchCoverImage(
+        let cover = await BookServiceActor.shared.fetchCoverImage(
             for: item.id,
+            sourceID: sourceID,
             audio: params.audio,
             width: nil,
             height: nil,

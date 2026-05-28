@@ -474,11 +474,18 @@ public struct MetadataEditorView: View {
     }
 
     private func loadAvailableStatusesIfNeeded() async {
+        if let sourceID = viewModel.selectedBook?.originalMetadata.sourceID {
+            viewModel.availableStatuses = await BookServiceActor.shared.getAvailableStatuses(
+                sourceID: sourceID,
+            )
+            return
+        }
+
         if !mediaViewModel.availableStatuses.isEmpty {
             viewModel.availableStatuses = mediaViewModel.availableStatuses
             return
         }
-        viewModel.availableStatuses = await StorytellerActor.shared.getAvailableStatuses()
+        viewModel.availableStatuses = await BookServiceActor.shared.getAvailableStatuses()
     }
 
     private func resetEditorSession() {

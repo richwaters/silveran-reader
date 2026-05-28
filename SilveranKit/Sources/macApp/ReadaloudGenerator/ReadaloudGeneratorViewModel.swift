@@ -128,6 +128,8 @@ public final class ReadaloudGeneratorViewModel {
     public var audioURL: URL?
     public var outputURL: URL?
     public var uploadAllToServer = false
+    public var selectedUploadSourceID: BookSourceID?
+    public private(set) var storytellerSources: [BookSourceRecord] = []
     public var selectedModelSize: WhisperModelSize = .tiny
     public var customModelPath: URL?
     public var selectedGranularity: Granularity = .group
@@ -150,6 +152,12 @@ public final class ReadaloudGeneratorViewModel {
     private var alignmentTask: Task<Void, Never>?
 
     public init() {}
+
+    public func loadStorytellerSources() async {
+        let sources = await BookServiceActor.shared.bookSources.filter { $0.kind == .storyteller }
+        storytellerSources = sources
+        selectedUploadSourceID = selectedUploadSourceID ?? sources.first?.id
+    }
 
     public var canStart: Bool {
         epubURL != nil && audioURL != nil && (uploadAllToServer || outputURL != nil)
@@ -346,7 +354,7 @@ public final class ReadaloudGeneratorViewModel {
                     self.logMessages = messages
                     self.state = .completed(.uploaded)
                 }
-                _ = await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.fetchLibraryInformation()
             } else if let outputURL {
                 if fileMgr.fileExists(atPath: outputURL.path()) {
                     try fileMgr.removeItem(at: outputURL)
@@ -384,8 +392,9 @@ public final class ReadaloudGeneratorViewModel {
         let audiobookContentType =
             audioURL.pathExtension.lowercased() == "m4b" ? "audio/mp4" : "audio/mpeg"
 
-        return await StorytellerActor.shared.uploadBookAssets(
+        return await BookServiceActor.shared.uploadBookAssets(
             bookUUID: UUID().uuidString,
+            sourceID: await MainActor.run { self.selectedUploadSourceID },
             ebook: StorytellerUploadAsset(
                 format: .ebook,
                 filename: epubURL.lastPathComponent,

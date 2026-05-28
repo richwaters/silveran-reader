@@ -1,21 +1,148 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct StorytellerServerSettingsView: View {
-    @State private var serverURL: String = ""
-    @State private var username: String = ""
-    @State private var password: String = ""
-
+    @State private var sources: [BookSourceRecord] = []
+    @State private var sourceURLs: [BookSourceID: String] = [:]
     @State private var isLoading = false
-    @State private var connectionStatus: ConnectionTestStatus = .notTested
-    @State private var hasLoadedCredentials = false
-    @State private var isPasswordVisible = false
-    @State private var showRemoveDataConfirmation = false
-    @State private var hasSavedCredentials = false
+    @State private var showingAddServer = false
 
-    @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
+
+    public init() {}
+
+    public var body: some View {
+        Form {
+            Section("Servers") {
+                if isLoading && sources.isEmpty {
+                    HStack {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Loading Servers")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(sources) { source in
+                        NavigationLink {
+                            BookSourceEditorView(source: source) {
+                                await loadSources()
+                            }
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(source.name)
+                                    Text(sourceDetail(for: source))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                            } icon: {
+                                Image(systemName: iconName(for: source.kind))
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    showingAddServer = true
+                } label: {
+                    Label("Add Server", systemImage: "plus")
+                }
+            }
+
+            #if os(macOS)
+            Section {
+                Button("Upload New Book to Server...") {
+                    openWindow(id: "UploadNewBook", value: UploadNewBookData())
+                }
+            } header: {
+                Text("Upload")
+            } footer: {
+                Text("Choose the destination server in the upload window.")
+            }
+            #endif
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .modifier(SoftScrollEdgeModifier())
+        .frame(maxWidth: 700)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .navigationTitle("Servers")
+        .task {
+            await loadSources()
+        }
+        .sheet(isPresented: $showingAddServer) {
+            NavigationStack {
+                BookSourceEditorView(source: nil) {
+                    await loadSources()
+                    await MainActor.run {
+                        showingAddServer = false
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadSources() async {
+        await MainActor.run {
+            isLoading = true
+        }
+        let loadedSources = await BookServiceActor.shared.bookSources
+        var urls: [BookSourceID: String] = [:]
+        for source in loadedSources where source.kind == .storyteller {
+            if let credentials = await BookServiceActor.shared.credentials(for: source.id) {
+                urls[source.id] = credentials.url
+            }
+        }
+        await MainActor.run {
+            sources = loadedSources
+            sourceURLs = urls
+            isLoading = false
+        }
+    }
+
+    private func sourceDetail(for source: BookSourceRecord) -> String {
+        switch source.kind {
+            case .storyteller:
+                return sourceURLs[source.id] ?? "No URL saved"
+            case .localFolder:
+                return source.storagePath ?? "No folder selected"
+        }
+    }
+
+    private func iconName(for kind: BookSourceKind) -> String {
+        switch kind {
+            case .storyteller:
+                return "server.rack"
+            case .localFolder:
+                return "folder"
+        }
+    }
+}
+
+private struct BookSourceEditorView: View {
+    let source: BookSourceRecord?
+    let onSaved: () async -> Void
+
+    @State private var kind: BookSourceKind = .storyteller
+    @State private var name = ""
+    @State private var serverURL = ""
+    @State private var username = ""
+    @State private var password = ""
+    @State private var folderPath = ""
+    @State private var folderBookmarkData: Data?
+    @State private var hasLoadedCredentials = false
+    @State private var hasSavedCredentials = false
+    @State private var isLoading = false
+    @State private var isPasswordVisible = false
+    @State private var showingFolderImporter = false
+    @State private var connectionStatus: ConnectionTestStatus = .notTested
+    @State private var showRemoveDataConfirmation = false
+
+    @Environment(\.dismiss) private var dismiss
 
     private enum ConnectionTestStatus: Equatable {
         case notTested
@@ -24,177 +151,166 @@ public struct StorytellerServerSettingsView: View {
         case failure(String)
     }
 
-    public init() {}
+    private var sourceID: BookSourceID? {
+        source?.id
+    }
 
-    public var body: some View {
+    private var isExistingSource: Bool {
+        source != nil
+    }
+
+    private var canSave: Bool {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isLoading else {
+            return false
+        }
+        switch kind {
+            case .storyteller:
+                return !serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && !password.isEmpty
+            case .localFolder:
+                return !folderPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var body: some View {
         Form {
             Section("Server Configuration") {
-                TextField("Server URL", text: $serverURL)
-                    .textContentType(.URL)
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.URL)
-                    #endif
-                    .help("e.g., https://storyteller.example.com")
+                Picker("Type", selection: $kind) {
+                    Text(BookSourceKind.storyteller.displayName).tag(BookSourceKind.storyteller)
+                    Text(BookSourceKind.localFolder.displayName).tag(BookSourceKind.localFolder)
+                }
+                .disabled(isExistingSource)
 
-                TextField("Username", text: $username)
-                    .textContentType(.username)
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                .textInputAutocapitalization(.never)
-                    #endif
+                TextField("Name", text: $name)
+                    .textContentType(.name)
 
-                HStack {
-                    if isPasswordVisible {
-                        TextField("Password", text: $password)
-                            .textContentType(.password)
+                switch kind {
+                    case .storyteller:
+                        TextField("Server URL", text: $serverURL)
+                            .textContentType(.URL)
                             .autocorrectionDisabled()
-                    } else {
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                    }
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.URL)
+                            #endif
+                            .help("e.g., https://storyteller.example.com")
 
-                    Button {
-                        isPasswordVisible.toggle()
-                    } label: {
-                        Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(isPasswordVisible ? "Hide password" : "Show password")
+                        TextField("Username", text: $username)
+                            .textContentType(.username)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+
+                        HStack {
+                            if isPasswordVisible {
+                                TextField("Password", text: $password)
+                                    .textContentType(.password)
+                                    .autocorrectionDisabled()
+                            } else {
+                                SecureField("Password", text: $password)
+                                    .textContentType(.password)
+                            }
+
+                            Button {
+                                isPasswordVisible.toggle()
+                            } label: {
+                                Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(isPasswordVisible ? "Hide password" : "Show password")
+                        }
+                    case .localFolder:
+                        HStack {
+                            TextField("Folder", text: $folderPath)
+                                .textContentType(.URL)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+
+                            Button {
+                                showingFolderImporter = true
+                            } label: {
+                                Image(systemName: "folder")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Choose folder")
+                        }
+                        .fileImporter(
+                            isPresented: $showingFolderImporter,
+                            allowedContentTypes: [.folder],
+                            allowsMultipleSelection: false,
+                        ) { result in
+                            if case .success(let urls) = result, let url = urls.first {
+                                setFolderURL(url)
+                            }
+                        }
                 }
             }
 
             Section {
                 HStack {
-                    Button("Save Credentials and Connect") {
+                    Button(primaryActionTitle) {
                         Task {
-                            await testConnectionAndSave()
+                            await saveSource()
                         }
                     }
-                    .disabled(
-                        serverURL.isEmpty || username.isEmpty || password.isEmpty || isLoading
-                    )
+                    .disabled(!canSave)
 
                     Spacer()
 
-                    switch connectionStatus {
-                        case .notTested:
-                            if hasSavedCredentials && mediaViewModel.lastNetworkOpSucceeded == true
-                            {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                    Text("Connected")
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        case .testing:
-                            ProgressView()
-                                .controlSize(.small)
-                        case .success:
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Connected")
-                                    .foregroundStyle(.secondary)
-                            }
-                        case .failure:
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                Text("Failed")
-                                    .foregroundStyle(.secondary)
-                            }
-                    }
+                    connectionStatusView
                 }
 
-                if hasSavedCredentials {
-                    Button("Remove Server", role: .destructive) {
+                if isExistingSource && hasSavedCredentials {
+                    Button(role: .destructive) {
                         showRemoveDataConfirmation = true
+                    } label: {
+                        Label("Remove Server", systemImage: "trash")
+                            .foregroundStyle(.red)
                     }
                     .disabled(isLoading)
                 }
             }
 
             if case .failure(let message) = connectionStatus {
-                if message.lowercased().contains("credentials") {
-                    Section {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.title2)
-                            Text(
-                                "Invalid username or password. Please check your credentials and try again."
-                            )
-                            .font(.body)
-                        }
-                    }
-                } else {
-                    Section {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.title2)
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Connection failed. This could be because:")
-                                    .font(.body)
-                                Text("- The server is down or unreachable")
-                                    .font(.body)
-                                    .foregroundStyle(.secondary)
-                                Text("- Local network access permission was denied")
-                                    .font(.body)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                    Section {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundStyle(.blue)
-                            Text("If you just allowed local network access, try connecting again.")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Section {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundStyle(.blue)
-                            #if os(iOS)
-                            Text(
-                                "If you previously denied local network access, you may need to enable it in Settings > Privacy & Security > Local Network."
-                            )
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            #else
-                            Text(
-                                "If you previously denied local network access, you may need to enable it in System Settings > Privacy & Security > Local Network."
-                            )
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            #endif
-                        }
-                    }
-                }
-            }
-
-            #if os(macOS)
-            if isConnected {
                 Section {
-                    Button("Upload New Book to Server...") {
-                        openWindow(id: "UploadNewBook", value: UploadNewBookData())
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.title2)
+                        failureMessage(message)
                     }
-                } header: {
-                    Text("Upload")
                 }
             }
-            #endif
+
+            if let sourceID {
+                Section("Details") {
+                    LabeledContent("Source ID", value: sourceID)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .modifier(SoftScrollEdgeModifier())
+        .frame(maxWidth: 600)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .navigationTitle(isExistingSource ? name : "Add Server")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            if !isExistingSource {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
         .confirmationDialog(
             "Remove this server?",
             isPresented: $showRemoveDataConfirmation,
@@ -208,120 +324,203 @@ public struct StorytellerServerSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "This will delete your saved credentials and all downloaded media, covers, and library metadata from this server. This action cannot be undone."
+                "This will delete saved credentials, cached metadata, downloaded media, and covers for books from this server."
             )
         }
-        .scrollContentBackground(.hidden)
-        .modifier(SoftScrollEdgeModifier())
-        .frame(maxWidth: 600)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .navigationTitle("Storyteller Server")
         .task {
-            await loadExistingCredentials()
+            await loadExistingSource()
+        }
+    }
+
+    private var primaryActionTitle: String {
+        switch kind {
+            case .storyteller:
+                return isExistingSource ? "Save Credentials and Connect" : "Add and Connect"
+            case .localFolder:
+                return isExistingSource ? "Save Folder Source" : "Add Folder Source"
+        }
+    }
+
+    @ViewBuilder
+    private var connectionStatusView: some View {
+        switch connectionStatus {
+            case .notTested:
+                if hasSavedCredentials {
+                    HStack {
+                        Image(systemName: "checkmark.circle")
+                            .foregroundStyle(.secondary)
+                        Text("Saved")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            case .testing:
+                ProgressView()
+                    .controlSize(.small)
+            case .success:
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Connected")
+                        .foregroundStyle(.secondary)
+                }
+            case .failure:
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text("Failed")
+                        .foregroundStyle(.secondary)
+                }
+        }
+    }
+
+    @ViewBuilder
+    private func failureMessage(_ message: String) -> some View {
+        if message.lowercased().contains("credentials") {
+            Text("Invalid username or password. Please check your credentials and try again.")
+                .font(.body)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(message)
+                    .font(.body)
+                Text("If you just allowed local network access, try connecting again.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     private func loadExistingCredentials() async {
+        await loadExistingSource()
+    }
+
+    private func loadExistingSource() async {
         guard !hasLoadedCredentials else { return }
         hasLoadedCredentials = true
 
-        do {
-            if let credentials = try await AuthenticationActor.shared.loadCredentials() {
-                await MainActor.run {
-                    serverURL = credentials.url
-                    username = credentials.username
-                    password = credentials.password
-                    hasSavedCredentials = true
-                }
-            } else {
-                await MainActor.run {
-                    hasSavedCredentials = false
-                }
+        await MainActor.run {
+            kind = source?.kind ?? .storyteller
+            name = source?.name ?? ""
+            folderPath = source?.storagePath ?? ""
+            folderBookmarkData = source?.storageBookmarkData
+        }
+
+        guard let sourceID, source?.kind == .storyteller else { return }
+
+        if let credentials = await BookServiceActor.shared.credentials(for: sourceID) {
+            await MainActor.run {
+                serverURL = credentials.url
+                username = credentials.username
+                password = credentials.password
+                hasSavedCredentials = true
             }
-        } catch {
-            debugLog(
-                "[StorytellerServerSettingsView] Failed to load credentials: \(error.localizedDescription)"
-            )
+        } else {
             await MainActor.run {
                 hasSavedCredentials = false
             }
         }
     }
 
-    private func testConnectionAndSave() async {
+    private func saveSource() async {
         await MainActor.run {
             isLoading = true
             connectionStatus = .testing
         }
 
-        let success = await StorytellerActor.shared.setLogin(
-            baseURL: serverURL,
+        let configuration = BookSourceConfiguration(
+            kind: kind,
+            name: name,
+            serverURL: serverURL,
             username: username,
             password: password,
+            storagePath: folderPath,
+            storageBookmarkData: folderBookmarkData,
         )
+        let success: Bool
+        if let sourceID {
+            success = await BookServiceActor.shared.updateBookSource(
+                id: sourceID,
+                configuration: configuration,
+            )
+        } else {
+            let record = await BookServiceActor.shared.createBookSource(configuration)
+            success = record != nil
+        }
 
         if success {
-            do {
-                try await AuthenticationActor.shared.saveCredentials(
-                    url: serverURL,
-                    username: username,
-                    password: password,
-                )
-                await MainActor.run {
-                    hasSavedCredentials = true
-                    isLoading = false
-                    connectionStatus = .success
-                }
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                    connectionStatus = .failure(
-                        "Connected but failed to save: \(error.localizedDescription)"
-                    )
-                }
+            await onSaved()
+            await MainActor.run {
+                hasSavedCredentials = true
+                isLoading = false
+                connectionStatus = kind == .storyteller ? .success : .notTested
             }
         } else {
-            let storytellerStatus = await StorytellerActor.shared.connectionStatus
+            let message = await failureMessageForCurrentSource()
             await MainActor.run {
                 isLoading = false
-                if case .error(let message) = storytellerStatus {
-                    connectionStatus = .failure(message)
-                } else {
-                    connectionStatus = .failure("Connection failed")
-                }
+                connectionStatus = .failure(message)
             }
         }
     }
 
     private func removeServer() async {
+        guard let sourceID else { return }
+
         await MainActor.run {
             isLoading = true
         }
 
-        do {
-            try await LocalMediaActor.shared.removeAllStorytellerData()
-            try await AuthenticationActor.shared.deleteCredentials()
-            _ = await StorytellerActor.shared.logout()
-
+        let success = await BookServiceActor.shared.removeBookSource(id: sourceID)
+        if success {
+            await onSaved()
             await MainActor.run {
-                serverURL = ""
-                username = ""
-                password = ""
-                connectionStatus = .notTested
-                hasSavedCredentials = false
                 isLoading = false
+                dismiss()
             }
-        } catch {
+        } else {
             await MainActor.run {
                 isLoading = false
-                connectionStatus = .failure("Failed to remove: \(error.localizedDescription)")
+                connectionStatus = .failure("Failed to remove server.")
             }
         }
     }
 
-    private var isConnected: Bool {
-        if connectionStatus == .success { return true }
-        if hasSavedCredentials && mediaViewModel.lastNetworkOpSucceeded == true { return true }
-        return false
+    private func failureMessageForCurrentSource() async -> String {
+        guard let sourceID else { return "Connection failed." }
+        let storytellerStatus = await BookServiceActor.shared.connectionStatus(sourceID: sourceID)
+        if case .error(let message) = storytellerStatus {
+            return message
+        }
+        return "Connection failed."
+    }
+
+    private func setFolderURL(_ url: URL) {
+        folderPath = url.path
+        #if os(macOS)
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        folderBookmarkData = try? url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil,
+        )
+        #elseif os(iOS)
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        folderBookmarkData = try? url.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil,
+        )
+        #else
+        folderBookmarkData = nil
+        #endif
     }
 }

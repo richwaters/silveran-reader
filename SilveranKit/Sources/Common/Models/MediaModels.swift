@@ -515,17 +515,20 @@ public enum SyncReason: String, Sendable, Codable {
 
 public struct PendingProgressSync: Codable, Sendable, Hashable {
     public let bookId: String
+    public let sourceID: BookSourceID?
     public let locator: BookLocator
     public let timestamp: Double
     public var syncedToStoryteller: Bool
 
     public init(
         bookId: String,
+        sourceID: BookSourceID? = nil,
         locator: BookLocator,
         timestamp: Double,
         syncedToStoryteller: Bool = false,
     ) {
         self.bookId = bookId
+        self.sourceID = sourceID
         self.locator = locator
         self.timestamp = timestamp
         self.syncedToStoryteller = syncedToStoryteller
@@ -706,6 +709,7 @@ public struct BookMetadata: Codable, Sendable, Identifiable, Hashable {
     public var alignedAt: String? = nil
     public var alignedByStorytellerVersion: String? = nil
     public var alignedWith: String? = nil
+    public var sourceID: BookSourceID? = nil
     public var source: String? = nil
     public var id: String { uuid }
 

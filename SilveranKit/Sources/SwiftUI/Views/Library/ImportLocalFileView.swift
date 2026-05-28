@@ -44,7 +44,7 @@ struct ImportLocalFileView: View {
     }
 
     private func refreshLocalFiles() async {
-        let metadata = await LocalMediaActor.shared.localStandaloneMetadata
+        let metadata = await BookServiceActor.shared.folderSourceMetadata()
         await MainActor.run {
             localFiles = metadata.sorted {
                 $0.title.articleStrippedCompare($1.title) == .orderedAscending
@@ -67,9 +67,8 @@ struct ImportLocalFileView: View {
                 if bookName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     bookName = sourceURL.lastPathComponent
                 }
-                _ = try await LocalMediaActor.shared.importMedia(
+                _ = try await BookServiceActor.shared.importFolderSourceMedia(
                     from: sourceURL,
-                    domain: .local,
                     category: category,
                     bookName: bookName,
                 )
@@ -100,7 +99,7 @@ struct ImportLocalFileView: View {
     private func deleteLocalFile(_ book: BookMetadata) {
         Task {
             do {
-                try await LocalMediaActor.shared.deleteLocalStandaloneMedia(for: book.id)
+                try await BookServiceActor.shared.deleteFolderSourceBook(book.id)
                 await refreshLocalFiles()
             } catch {
                 debugLog(
@@ -168,8 +167,7 @@ struct ImportLocalFileView: View {
         private func openLocalMediaDirectory() {
             Task {
                 do {
-                    try await LocalMediaActor.shared.ensureLocalStorageDirectories()
-                    let url = await LocalMediaActor.shared.getDomainDirectory(for: .local)
+                    let url = try await BookServiceActor.shared.folderSourceDirectory()
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } catch {
                     debugLog(
@@ -436,9 +434,8 @@ private func importSelectedFileMac(from sourceURL: URL) {
             if bookName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 bookName = sourceURL.lastPathComponent
             }
-            _ = try await LocalMediaActor.shared.importMedia(
+            _ = try await BookServiceActor.shared.importFolderSourceMedia(
                 from: sourceURL,
-                domain: .local,
                 category: category,
                 bookName: bookName,
             )

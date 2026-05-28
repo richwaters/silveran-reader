@@ -23,19 +23,7 @@ struct SilveranReaderApp: App {
         StorytellerFontRegistration.registerBundledFonts()
         SidebarSelectionColor.install()
         Task {
-            do {
-                if let credentials = try await AuthenticationActor.shared.loadCredentials() {
-                    let _ = await StorytellerActor.shared.setLogin(
-                        baseURL: credentials.url,
-                        username: credentials.username,
-                        password: credentials.password,
-                    )
-                }
-            } catch {
-                debugLog(
-                    "[SilveranReaderApp] Failed to load credentials: \(error.localizedDescription)"
-                )
-            }
+            await BookServiceActor.shared.reloadSourceRegistry()
 
             do {
                 try await FilesystemActor.shared.copyWebResourcesFromBundle()
@@ -73,12 +61,12 @@ struct SilveranReaderApp: App {
             case .background:
                 debugLog("[macApp] App entering background")
                 Task {
-                    await StorytellerActor.shared.setActive(false, source: .mac)
+                    await BookServiceActor.shared.setActive(false, source: .mac)
                 }
             case .active:
                 debugLog("[macApp] App becoming active")
                 Task {
-                    await StorytellerActor.shared.setActive(true, source: .mac)
+                    await BookServiceActor.shared.setActive(true, source: .mac)
                 }
             case .inactive:
                 break
@@ -121,7 +109,7 @@ struct SilveranReaderApp: App {
         .background(Color(uiColor: .systemBackground))
             #endif
             .task {
-                await StorytellerActor.shared.setActive(true, source: .mac)
+                await BookServiceActor.shared.setActive(true, source: .mac)
                 guard !didOpenSecondaryWindows else { return }
                 didOpenSecondaryWindows = true
             }

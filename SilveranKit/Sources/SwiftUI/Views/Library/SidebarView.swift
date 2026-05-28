@@ -688,18 +688,11 @@ struct SidebarView: View {
     private func refreshMetadata() async {
         isRefreshing = true
 
-        if let library = await StorytellerActor.shared.fetchLibraryInformation() {
-            do {
-                try await LocalMediaActor.shared.updateStorytellerMetadata(library)
-                await mediaViewModel.refreshMetadata(source: "SidebarView.refresh")
-                mediaViewModel.showSyncNotification(
-                    SyncNotification(message: "Library refreshed", type: .success)
-                )
-            } catch {
-                mediaViewModel.showSyncNotification(
-                    SyncNotification(message: "Failed to update metadata", type: .error)
-                )
-            }
+        if await BookServiceActor.shared.fetchLibraryInformation() != nil {
+            await mediaViewModel.refreshMetadata(source: "SidebarView.refresh")
+            mediaViewModel.showSyncNotification(
+                SyncNotification(message: "Library refreshed", type: .success)
+            )
         } else {
             mediaViewModel.showSyncNotification(
                 SyncNotification(message: "Failed to fetch metadata from server", type: .error)

@@ -261,8 +261,10 @@ final class MetadataEditorViewModel {
         deletedCollectionUuids.removeAll()
     }
 
-    func refreshLibraryCollectionsFromServer() async {
-        guard let collections = await StorytellerActor.shared.fetchCollections() else { return }
+    func refreshLibraryCollectionsFromServer(for bookId: String) async {
+        guard let sourceID = sourceID(forBookID: bookId),
+            let collections = await BookServiceActor.shared.fetchCollections(sourceID: sourceID)
+        else { return }
 
         libraryCollections =
             collections
@@ -281,17 +283,18 @@ final class MetadataEditorViewModel {
         rebuildLibraryCollectionCaches()
     }
 
-    func createCollection(named name: String) async -> String? {
+    func createCollection(named name: String, for bookId: String) async -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
+        guard !trimmed.isEmpty, let sourceID = sourceID(forBookID: bookId) else { return nil }
 
-        let created = await StorytellerActor.shared.createCollection(
+        let created = await BookServiceActor.shared.createCollection(
             StorytellerCollectionCreatePayload(
                 name: trimmed,
                 description: "",
                 isPublic: false,
                 users: nil,
-            )
+            ),
+            sourceID: sourceID,
         )
         guard let created else { return nil }
 
@@ -305,19 +308,21 @@ final class MetadataEditorViewModel {
             updatedAt: created.updatedAt,
         )
         deletedCollectionUuids.remove(created.uuid)
-        await StorytellerActor.shared.fetchLibraryInformation()
+        await BookServiceActor.shared.fetchLibraryInformation()
         return created.uuid
     }
 
-    func deleteCollection(uuid: String) async -> Bool {
-        guard await StorytellerActor.shared.deleteCollection(uuid: uuid) else { return false }
+    func deleteCollection(uuid: String, for bookId: String) async -> Bool {
+        guard let sourceID = sourceID(forBookID: bookId),
+            await BookServiceActor.shared.deleteCollection(uuid: uuid, sourceID: sourceID)
+        else { return false }
 
         deletedCollectionUuids.insert(uuid)
         removeLibraryCollection(uuid: uuid)
         for index in books.indices {
             books[index].collectionUuids.removeAll { $0 == uuid }
         }
-        await StorytellerActor.shared.fetchLibraryInformation()
+        await BookServiceActor.shared.fetchLibraryInformation()
         return true
     }
 
@@ -851,13 +856,15 @@ final class MetadataEditorViewModel {
                 )
             } else {
                 saveResults[book.id] = false
-                let serverError = await StorytellerActor.shared.lastUpdateBookError
+                let serverError = await BookServiceActor.shared.lastUpdateBookError(
+                    sourceID: sourceID(for: book),
+                )
                 saveError =
                     "\(book.displayTitle): \(serverError ?? "Unknown error")"
             }
         }
 
-        await StorytellerActor.shared.fetchLibraryInformation()
+        await BookServiceActor.shared.fetchLibraryInformation()
         isSaving = false
     }
 
@@ -889,12 +896,14 @@ final class MetadataEditorViewModel {
             )
         } else {
             saveResults[bookId] = false
-            let serverError = await StorytellerActor.shared.lastUpdateBookError
+            let serverError = await BookServiceActor.shared.lastUpdateBookError(
+                sourceID: sourceID(for: book),
+            )
             saveError =
                 "\(book.displayTitle): \(serverError ?? "Unknown error")"
         }
 
-        await StorytellerActor.shared.fetchLibraryInformation()
+        await BookServiceActor.shared.fetchLibraryInformation()
         isSaving = false
     }
 
@@ -914,8 +923,9 @@ final class MetadataEditorViewModel {
         let hasMetadataChanges = !book.dirtyFields.isEmpty
 
         let payload = buildPayload(for: book) ?? StorytellerBookUpdatePayload(uuid: book.id)
-        let result = await StorytellerActor.shared.updateBook(
+        let result = await BookServiceActor.shared.updateBook(
             payload,
+            sourceID: sourceID(for: book),
             textCover: covers.text,
             audioCover: covers.audio,
         )
@@ -925,6 +935,14 @@ final class MetadataEditorViewModel {
             textCoverSaved: covers.text != nil && result != nil,
             audioCoverSaved: covers.audio != nil && result != nil,
         )
+    }
+
+    private func sourceID(for book: EditableBook) -> BookSourceID? {
+        book.originalMetadata.sourceID
+    }
+
+    private func sourceID(forBookID bookId: String) -> BookSourceID? {
+        books.first(where: { $0.id == bookId })?.originalMetadata.sourceID
     }
 
     private func refreshSavedCovers(

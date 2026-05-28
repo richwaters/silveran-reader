@@ -105,6 +105,7 @@ class EbookProgressManager {
     /// Timer for periodic progress syncs to server
     private var syncTimer: Timer? = nil
     private var bookId: String? = nil
+    private var sourceID: BookSourceID? = nil
 
     /// Debounced sync task - cancelled and recreated on each page flip to avoid sync spam
     private var debouncedSyncTask: Task<Void, Never>? = nil
@@ -125,11 +126,13 @@ class EbookProgressManager {
         bridge: WebViewCommsBridge,
         settingsVM: SettingsViewModel,
         bookId: String? = nil,
+        sourceID: BookSourceID? = nil,
         initialLocator: BookLocator? = nil,
     ) {
         self.commsBridge = bridge
         self.settingsVM = settingsVM
         self.bookId = bookId
+        self.sourceID = sourceID
         self.initialLocator = initialLocator
         debugLog(
             "[EPM] EbookProgressManager initialized with bookId: \(bookId ?? "none"), locator: \(initialLocator?.href ?? "none")"
@@ -1132,6 +1135,7 @@ class EbookProgressManager {
 
         let result = await ProgressSyncActor.shared.syncProgress(
             bookId: bookId,
+            sourceID: sourceID,
             locator: finalLocator,
             timestamp: timestampMs,
             reason: reason,

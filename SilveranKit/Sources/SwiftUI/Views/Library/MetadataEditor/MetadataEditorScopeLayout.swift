@@ -689,13 +689,13 @@ struct WorkMetadataLayout: View {
                 choices: viewModel.libraryCollectionChoices,
                 namesByUuid: viewModel.libraryCollectionNamesByUuid,
                 createCollection: { name in
-                    await viewModel.createCollection(named: name) != nil
+                    await viewModel.createCollection(named: name, for: bookId) != nil
                 },
                 deleteCollection: { uuid in
-                    await viewModel.deleteCollection(uuid: uuid)
+                    await viewModel.deleteCollection(uuid: uuid, for: bookId)
                 },
                 refreshCollections: {
-                    await viewModel.refreshLibraryCollectionsFromServer()
+                    await viewModel.refreshLibraryCollectionsFromServer(for: bookId)
                 },
                 onChange: { viewModel.markDirty(field: "collections", for: bookId) },
             )

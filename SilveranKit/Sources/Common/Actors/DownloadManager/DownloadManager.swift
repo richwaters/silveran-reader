@@ -141,9 +141,14 @@ public actor DownloadManager {
             debugLog("[DownloadManager] No available format for \(book.title) / \(category)")
             return
         }
+        guard let sourceID = book.sourceID else {
+            debugLog("[DownloadManager] Cannot download \(book.title): missing source ID")
+            return
+        }
 
         let record = DownloadRecord(
             bookId: book.id,
+            sourceID: sourceID,
             category: category,
             bookTitle: book.title,
             format: format,
@@ -197,7 +202,10 @@ public actor DownloadManager {
 
         var book = bookMetadataCache[bookId]
         if book == nil && !hasResume {
-            book = await StorytellerActor.shared.fetchBookDetails(for: bookId)
+            book = await BookServiceActor.shared.fetchBookDetails(
+                for: bookId,
+                sourceID: record.sourceID,
+            )
         }
 
         if book == nil && !hasResume {
@@ -346,7 +354,10 @@ public actor DownloadManager {
 
         var book = bookMetadataCache[record.bookId]
         if book == nil {
-            book = await StorytellerActor.shared.fetchBookDetails(for: record.bookId)
+            book = await BookServiceActor.shared.fetchBookDetails(
+                for: record.bookId,
+                sourceID: record.sourceID,
+            )
         }
 
         guard let book else {
@@ -430,7 +441,10 @@ public actor DownloadManager {
 
             var book = bookMetadataCache[record.bookId]
             if book == nil {
-                book = await StorytellerActor.shared.fetchBookDetails(for: record.bookId)
+                book = await BookServiceActor.shared.fetchBookDetails(
+                    for: record.bookId,
+                    sourceID: record.sourceID,
+                )
             }
 
             if let book {
@@ -479,8 +493,9 @@ public actor DownloadManager {
             }
 
             guard
-                let request = await StorytellerActor.shared.createAuthenticatedDownloadRequest(
+                let request = await BookServiceActor.shared.createAuthenticatedDownloadRequest(
                     for: record.bookId,
+                    sourceID: record.sourceID,
                     format: record.format,
                 )
             else {

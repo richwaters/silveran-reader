@@ -82,7 +82,7 @@ public struct LibraryDerivationInput: Sendable {
     public var deriveGroups: Bool
     public var metadata: [BookMetadata]
     public var paths: [String: MediaPaths]
-    public var localStandaloneBookIds: Set<String>
+    public var folderSourceBookIds: Set<String>
     public var storytellerBookIds: Set<String>
     public var progress: [String: BookProgress]
     public var smartShelves: [SmartShelf]
@@ -93,7 +93,7 @@ public struct LibraryDerivationInput: Sendable {
         deriveGroups: Bool = false,
         metadata: [BookMetadata],
         paths: [String: MediaPaths],
-        localStandaloneBookIds: Set<String>,
+        folderSourceBookIds: Set<String>,
         storytellerBookIds: Set<String>,
         progress: [String: BookProgress],
         smartShelves: [SmartShelf],
@@ -103,7 +103,7 @@ public struct LibraryDerivationInput: Sendable {
         self.deriveGroups = deriveGroups
         self.metadata = metadata
         self.paths = paths
-        self.localStandaloneBookIds = localStandaloneBookIds
+        self.folderSourceBookIds = folderSourceBookIds
         self.storytellerBookIds = storytellerBookIds
         self.progress = progress
         self.smartShelves = smartShelves
@@ -229,7 +229,7 @@ public actor LibraryDerivationActor {
                     }
                     return input.metadata.filter { book in
                         let progress = input.progress[book.id]?.progressFraction ?? book.progress
-                        let isLocal = input.localStandaloneBookIds.contains(book.id)
+                        let isLocal = input.folderSourceBookIds.contains(book.id)
                         let isDownloaded = hasDownloadedContent(book) && !isLocal
                         return shelf.matchesAll(
                             book,
@@ -356,12 +356,12 @@ public actor LibraryDerivationActor {
                     return true
                 case .downloaded:
                     return hasDownloadedContent(item)
-                        && !input.localStandaloneBookIds.contains(item.id)
+                        && !input.folderSourceBookIds.contains(item.id)
                 case .serverOnly:
                     return !hasDownloadedContent(item)
-                        && !input.localStandaloneBookIds.contains(item.id)
+                        && !input.folderSourceBookIds.contains(item.id)
                 case .localFiles:
-                    return input.localStandaloneBookIds.contains(item.id)
+                    return input.folderSourceBookIds.contains(item.id)
             }
         }
 
@@ -496,13 +496,7 @@ public actor LibraryDerivationActor {
                 input.metadata
                     .filter { metadataMatchesKind($0, kind: kind) }
                     .map { book -> String in
-                        if input.localStandaloneBookIds.contains(book.id) {
-                            return "Local Files"
-                        }
-                        if input.storytellerBookIds.contains(book.id) {
-                            return "Storyteller"
-                        }
-                        return "Unknown"
+                        book.source ?? "Unknown"
                     }
             ).count
         }
@@ -755,15 +749,7 @@ public actor LibraryDerivationActor {
 
         mutating func sourceGroups(_ kind: MediaKind) -> [LibraryNamedBooksGroup] {
             let sourceOrder = ["Storyteller", "Local Files", "Unknown"]
-            return namedGroups(kind) { book in
-                if input.localStandaloneBookIds.contains(book.id) {
-                    return "Local Files"
-                }
-                if input.storytellerBookIds.contains(book.id) {
-                    return "Storyteller"
-                }
-                return "Unknown"
-            }
+            return namedGroups(kind) { $0.source ?? "Unknown" }
             .sorted { a, b in
                 let indexA = sourceOrder.firstIndex(of: a.name) ?? sourceOrder.count
                 let indexB = sourceOrder.firstIndex(of: b.name) ?? sourceOrder.count

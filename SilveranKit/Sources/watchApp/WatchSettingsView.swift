@@ -285,7 +285,7 @@ struct WatchSettingsView: View {
                 password = credentials.password
                 hasCredentials = true
 
-                connectionStatus = await StorytellerActor.shared.connectionStatus
+                connectionStatus = await BookServiceActor.shared.connectionStatus
             }
         } catch {
             debugLog("[WatchSettingsView] Failed to load credentials: \(error)")
@@ -332,7 +332,7 @@ struct WatchSettingsView: View {
                 password: password,
             )
 
-            let success = await StorytellerActor.shared.setLogin(
+            let success = await BookServiceActor.shared.setLogin(
                 baseURL: serverURL,
                 username: username,
                 password: password,
@@ -357,7 +357,7 @@ struct WatchSettingsView: View {
     private func removeServer() async {
         do {
             try await AuthenticationActor.shared.deleteCredentials()
-            _ = await StorytellerActor.shared.logout()
+            _ = await BookServiceActor.shared.logout()
 
             serverURL = ""
             username = ""

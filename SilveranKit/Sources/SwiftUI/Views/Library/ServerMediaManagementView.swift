@@ -745,9 +745,10 @@ public struct ServerMediaManagementView: View {
 
             let isReplace = hasExistingAsset(format: format, item: item)
 
-            let result = await StorytellerActor.shared.replaceBookAsset(
+            let result = await BookServiceActor.shared.replaceBookAsset(
                 asset,
                 bookUUID: item.uuid,
+                sourceID: item.sourceID,
                 replaceMetadata: false,
             )
             switch result {
@@ -772,8 +773,9 @@ public struct ServerMediaManagementView: View {
         isStartingAlignment = true
         errorMessage = nil
 
-        let success = await StorytellerActor.shared.startAlignment(
+        let success = await BookServiceActor.shared.startAlignment(
             for: item.uuid,
+            sourceID: item.sourceID,
             restart: restart,
         )
         if !success {
@@ -788,7 +790,10 @@ public struct ServerMediaManagementView: View {
         isCancelingAlignment = true
         errorMessage = nil
 
-        let success = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
+        let success = await BookServiceActor.shared.cancelAlignment(
+            for: item.uuid,
+            sourceID: item.sourceID,
+        )
         if !success {
             errorMessage = "Failed to cancel alignment"
         }
@@ -801,8 +806,9 @@ public struct ServerMediaManagementView: View {
         deletingAssetFormat = format
         errorMessage = nil
 
-        let result = await StorytellerActor.shared.deleteBookAsset(
+        let result = await BookServiceActor.shared.deleteBookAsset(
             item.uuid,
+            sourceID: item.sourceID,
             type: format,
         )
         switch result {
@@ -828,7 +834,11 @@ public struct ServerMediaManagementView: View {
             }
         }
 
-        let success = await StorytellerActor.shared.deleteBook(item.uuid, includeAssets: .all)
+        let success = await BookServiceActor.shared.deleteBook(
+            item.uuid,
+            sourceID: item.sourceID,
+            includeAssets: .all,
+        )
         await refreshBookMetadata()
 
         if success {
@@ -840,7 +850,7 @@ public struct ServerMediaManagementView: View {
     }
 
     private func refreshBookMetadata() async {
-        _ = await StorytellerActor.shared.fetchLibraryInformation()
+        _ = await BookServiceActor.shared.fetchLibraryInformation()
     }
 }
 #endif

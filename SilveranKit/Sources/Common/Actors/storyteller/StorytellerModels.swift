@@ -142,7 +142,7 @@ public struct StorytellerBookUpdatePayload: Sendable {
     }
 }
 
-public struct StorytellerCollectionCreatePayload: Codable {
+public struct StorytellerCollectionCreatePayload: Codable, Sendable {
     public let name: String
     public let description: String
     public let isPublic: Bool
@@ -163,7 +163,7 @@ public struct StorytellerCollectionCreatePayload: Codable {
     }
 }
 
-struct StorytellerCollectionUpdatePayload: Codable {
+struct StorytellerCollectionUpdatePayload: Codable, Sendable {
     var name: String?
     var description: String?
     var isPublic: Bool?
@@ -177,7 +177,7 @@ struct StorytellerCollectionUpdatePayload: Codable {
     }
 }
 
-public enum StorytellerIncludeAssetsOption: String {
+public enum StorytellerIncludeAssetsOption: String, Sendable {
     case internalOnly = "internal"
     case all
 }
@@ -213,7 +213,7 @@ public enum StorytellerBookFormat: String, Sendable {
     case readaloud
 }
 
-public struct StorytellerUploadAsset {
+public struct StorytellerUploadAsset: Sendable {
     public let format: StorytellerBookFormat
     public let filename: String
     public let data: Data

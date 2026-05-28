@@ -107,6 +107,7 @@ public actor ProgressSyncActor {
     ///   - locationDescription: Human-readable position like "Chapter 3, 22%"
     public func syncProgress(
         bookId: String,
+        sourceID: BookSourceID? = nil,
         locator: BookLocator,
         timestamp: Double,
         reason: SyncReason,
@@ -119,30 +120,9 @@ public actor ProgressSyncActor {
 
         let locatorSummary = buildLocatorSummary(locator)
 
-        let isLocalBook = await LocalMediaActor.shared.isLocalStandaloneBook(bookId)
-        if isLocalBook {
-            debugLog("[PSA] syncProgress: local-only book, updating state without server sync")
-            updateServerPositionIfNewer(bookId: bookId, locator: locator, timestamp: timestamp)
-            await updateLocalMetadataProgress(
-                bookId: bookId,
-                locator: locator,
-                timestamp: timestamp,
-            )
-            await addHistoryEntry(
-                bookId: bookId,
-                timestamp: timestamp,
-                sourceIdentifier: sourceIdentifier,
-                locationDescription: locationDescription,
-                reason: reason,
-                result: .queued,
-                locatorSummary: locatorSummary,
-                locator: locator,
-            )
-            return .success
-        }
-
         let queueResult = await queueOfflineProgress(
             bookId: bookId,
+            sourceID: sourceID,
             locator: locator,
             timestamp: timestamp,
             syncedToStoryteller: false,
@@ -189,12 +169,13 @@ public actor ProgressSyncActor {
             locator: locator,
         )
 
-        let storytellerStatus = await StorytellerActor.shared.connectionStatus
-        debugLog("[PSA] syncProgress: storytellerStatus=\(storytellerStatus)")
+        let sourceStatus = await BookServiceActor.shared.connectionStatus(sourceID: sourceID)
+        debugLog("[PSA] syncProgress: sourceStatus=\(sourceStatus), sourceID=\(sourceID ?? "nil")")
 
-        if storytellerStatus == .connected {
-            let result = await StorytellerActor.shared.sendProgressToServer(
+        if sourceStatus == .connected, let sourceID {
+            let result = await BookServiceActor.shared.sendProgressToServer(
                 bookId: bookId,
+                sourceID: sourceID,
                 locator: locator,
                 timestamp: timestamp,
             )
@@ -240,31 +221,30 @@ public actor ProgressSyncActor {
             return (0, 0)
         }
 
-        let storytellerStatus = await StorytellerActor.shared.connectionStatus
-        guard storytellerStatus == .connected else {
-            debugLog("[PSA] syncPendingQueue: server not connected, skipping")
-            return (0, 0)
-        }
-
         var syncedCount = 0
         var failedBookIds: [String] = []
 
         let queueSnapshot = pendingProgressQueue
         for var pending in queueSnapshot {
-            let isLocalBook = await LocalMediaActor.shared.isLocalStandaloneBook(pending.bookId)
-            if isLocalBook {
-                debugLog(
-                    "[PSA] syncPendingQueue: \(pending.bookId) is local-only, removing from queue"
-                )
-                await removeFromQueue(bookId: pending.bookId)
-                syncedCount += 1
-                continue
-            }
-
             if !pending.syncedToStoryteller {
+                let sourceStatus = await BookServiceActor.shared.connectionStatus(
+                    sourceID: pending.sourceID,
+                )
+                guard sourceStatus == .connected else {
+                    debugLog(
+                        "[PSA] syncPendingQueue: source not connected, skipping \(pending.bookId), sourceID=\(pending.sourceID ?? "nil")"
+                    )
+                    continue
+                }
+
                 debugLog("[PSA] syncPendingQueue: sending \(pending.bookId)")
-                let result = await StorytellerActor.shared.sendProgressToServer(
+                guard let sourceID = pending.sourceID else {
+                    debugLog("[PSA] syncPendingQueue: missing sourceID for \(pending.bookId)")
+                    continue
+                }
+                let result = await BookServiceActor.shared.sendProgressToServer(
                     bookId: pending.bookId,
+                    sourceID: sourceID,
                     locator: pending.locator,
                     timestamp: pending.timestamp,
                 )
@@ -326,21 +306,24 @@ public actor ProgressSyncActor {
     // MARK: - Position Fetch
 
     /// Fetch current position for a book, refreshing from server if connected
-    public func fetchCurrentPosition(for bookId: String) async -> BookReadingPosition? {
+    public func fetchCurrentPosition(
+        for bookId: String,
+        sourceID: BookSourceID? = nil,
+    ) async -> BookReadingPosition? {
         debugLog("[PSA] fetchCurrentPosition: bookId=\(bookId)")
 
-        let connectionStatus = await StorytellerActor.shared.connectionStatus
-        if connectionStatus == .connected {
+        let connectionStatus = await BookServiceActor.shared.connectionStatus(sourceID: sourceID)
+        if connectionStatus == .connected, let sourceID {
             debugLog("[PSA] fetchCurrentPosition: connected, refreshing from server")
-            let _ = await StorytellerActor.shared.fetchLibraryInformation()
+            let _ = await BookServiceActor.shared.fetchLibraryInformation(
+                sourceID: sourceID,
+            )
         }
 
-        let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
-        let standaloneMetadata = await LocalMediaActor.shared.localStandaloneMetadata
-        let allMetadata = storytellerMetadata + standaloneMetadata
+        let allMetadata = await BookServiceActor.shared.libraryMetadata
 
         guard let book = allMetadata.first(where: { $0.uuid == bookId }) else {
-            debugLog("[PSA] fetchCurrentPosition: book not found in LMA")
+            debugLog("[PSA] fetchCurrentPosition: book not found in source library")
             return nil
         }
 
@@ -618,9 +601,9 @@ public actor ProgressSyncActor {
         pollingTask = Task {
             while !Task.isCancelled {
                 await pollServerPositions()
-                let status = await StorytellerActor.shared.connectionStatus
+                let hasConnectedSource = await BookServiceActor.shared.hasConnectedSource()
                 let sleepInterval: Duration =
-                    status == .connected
+                    hasConnectedSource
                     ? .seconds(3)
                     : .seconds(15)
                 try? await Task.sleep(for: sleepInterval)
@@ -637,14 +620,25 @@ public actor ProgressSyncActor {
     }
 
     private func pollServerPositions() async {
-        let allPaths = await LocalMediaActor.shared.localStorytellerBookPaths
-        let downloadedBookIds = allPaths.filter { _, paths in
-            paths.ebookPath != nil || paths.audioPath != nil || paths.syncedPath != nil
-        }.keys
+        let allPaths = await BookServiceActor.shared.cachedMediaPaths()
+        let downloadedBookIds = Set(
+            allPaths.filter { _, paths in
+                paths.ebookPath != nil || paths.audioPath != nil || paths.syncedPath != nil
+            }.keys
+        )
         guard !downloadedBookIds.isEmpty else { return }
 
+        let storytellerMetadata = await BookServiceActor.shared.libraryMetadata
+        let metadataByID = Dictionary(
+            uniqueKeysWithValues: storytellerMetadata.map { ($0.uuid, $0) },
+        )
+
         for bookId in downloadedBookIds {
-            if let position = await StorytellerActor.shared.fetchBookPosition(bookId: bookId) {
+            guard let sourceID = metadataByID[bookId]?.sourceID else { continue }
+            if let position = await BookServiceActor.shared.fetchBookPosition(
+                bookId: bookId,
+                sourceID: sourceID,
+            ) {
                 await updateServerPositions([bookId: position])
             }
         }
@@ -695,6 +689,7 @@ public actor ProgressSyncActor {
 
     private func queueOfflineProgress(
         bookId: String,
+        sourceID: BookSourceID?,
         locator: BookLocator,
         timestamp: Double,
         syncedToStoryteller: Bool = false,
@@ -734,6 +729,7 @@ public actor ProgressSyncActor {
 
             let pending = PendingProgressSync(
                 bookId: bookId,
+                sourceID: sourceID,
                 locator: locator,
                 timestamp: timestamp,
                 syncedToStoryteller: syncedToStoryteller,
@@ -751,6 +747,7 @@ public actor ProgressSyncActor {
 
         let pending = PendingProgressSync(
             bookId: bookId,
+            sourceID: sourceID,
             locator: locator,
             timestamp: timestamp,
             syncedToStoryteller: syncedToStoryteller,
@@ -904,12 +901,18 @@ public actor ProgressSyncActor {
         await saveHistoryToDisk()
     }
 
-    public func restorePosition(bookId: String, locator: BookLocator, locationDescription: String)
+    public func restorePosition(
+        bookId: String,
+        sourceID: BookSourceID? = nil,
+        locator: BookLocator,
+        locationDescription: String,
+    )
         async -> SyncResult
     {
         let timestamp = floor(Date().timeIntervalSince1970 * 1000)
         return await syncProgress(
             bookId: bookId,
+            sourceID: sourceID,
             locator: locator,
             timestamp: timestamp,
             reason: .userRestoredFromHistory,

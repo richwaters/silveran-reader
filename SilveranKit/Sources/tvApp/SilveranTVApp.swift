@@ -11,7 +11,7 @@ struct SilveranTVApp: App {
             TVContentView()
                 .environment(mediaViewModel)
                 .task {
-                    await StorytellerActor.shared.setActive(true, source: .tv)
+                    await BookServiceActor.shared.setActive(true, source: .tv)
                     await initializeStorytellerConnection()
                 }
         }
@@ -25,12 +25,12 @@ struct SilveranTVApp: App {
             case .background:
                 debugLog("[TVApp] App entering background")
                 Task {
-                    await StorytellerActor.shared.setActive(false, source: .tv)
+                    await BookServiceActor.shared.setActive(false, source: .tv)
                 }
             case .active:
                 debugLog("[TVApp] App becoming active")
                 Task {
-                    await StorytellerActor.shared.setActive(true, source: .tv)
+                    await BookServiceActor.shared.setActive(true, source: .tv)
                 }
             case .inactive:
                 break
@@ -40,33 +40,16 @@ struct SilveranTVApp: App {
     }
 
     private func initializeStorytellerConnection() async {
-        do {
-            if let credentials = try await AuthenticationActor.shared.loadCredentials() {
-                let success = await StorytellerActor.shared.setLogin(
-                    baseURL: credentials.url,
-                    username: credentials.username,
-                    password: credentials.password,
-                )
-                if success {
-                    debugLog("[TVApp] Storyteller connected successfully")
-                    await syncOnLaunch()
-                    await mediaViewModel.refreshMetadata(source: "tvApp.login")
-                } else {
-                    debugLog("[TVApp] Storyteller connection failed")
-                }
-            } else {
-                debugLog("[TVApp] No Storyteller credentials configured")
-            }
-        } catch {
-            debugLog("[TVApp] Failed to load Storyteller credentials: \(error)")
-        }
+        await BookServiceActor.shared.reloadSourceRegistry()
+        await syncOnLaunch()
+        await mediaViewModel.refreshMetadata(source: "tvApp.registry")
     }
 
     private func syncOnLaunch() async {
         let result = await ProgressSyncActor.shared.syncPendingQueue()
         debugLog("[TVApp] Sync on launch: synced=\(result.synced), failed=\(result.failed)")
 
-        if let library = await StorytellerActor.shared.fetchLibraryInformation() {
+        if let library = await BookServiceActor.shared.fetchLibraryInformation() {
             try? await LocalMediaActor.shared.updateStorytellerMetadata(library)
             debugLog("[TVApp] Library metadata updated: \(library.count) books")
         }

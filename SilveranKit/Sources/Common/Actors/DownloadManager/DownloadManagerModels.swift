@@ -12,6 +12,7 @@ public enum DownloadState: Codable, Sendable, Equatable {
 public struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
     public let id: String
     public let bookId: String
+    public let sourceID: BookSourceID?
     public let category: LocalMediaCategory
     public let bookTitle: String
     public let format: StorytellerBookFormat
@@ -25,12 +26,14 @@ public struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
 
     public init(
         bookId: String,
+        sourceID: BookSourceID? = nil,
         category: LocalMediaCategory,
         bookTitle: String,
         format: StorytellerBookFormat,
     ) {
         self.id = "\(bookId)-\(category.rawValue)"
         self.bookId = bookId
+        self.sourceID = sourceID
         self.category = category
         self.bookTitle = bookTitle
         self.format = format

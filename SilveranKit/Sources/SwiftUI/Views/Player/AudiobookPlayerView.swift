@@ -552,6 +552,7 @@ public struct AudiobookPlayerView: View {
 
         let result = await ProgressSyncActor.shared.syncProgress(
             bookId: bookId,
+            sourceID: bookData?.metadata.sourceID,
             locator: locator,
             timestamp: timestamp,
             reason: reason,

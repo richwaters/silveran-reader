@@ -19,6 +19,8 @@ public struct UploadNewBookView: View {
     @State private var uploadProgress: String?
     @State private var uploadResult: UploadResult?
     @State private var bookUUID = UUID().uuidString
+    @State private var storytellerSources: [BookSourceRecord] = []
+    @State private var selectedSourceID: BookSourceID?
 
     private enum UploadResult {
         case success
@@ -30,6 +32,15 @@ public struct UploadNewBookView: View {
     public var body: some View {
         VStack(spacing: 0) {
             Form {
+                Section("Server") {
+                    Picker("Upload To", selection: selectedSourceBinding) {
+                        ForEach(storytellerSources) { source in
+                            Text(source.name).tag(source.id)
+                        }
+                    }
+                    .disabled(isUploading || uploadResult != nil || storytellerSources.isEmpty)
+                }
+
                 Section {
                     fileRow(
                         label: "Ebook",
@@ -116,12 +127,27 @@ public struct UploadNewBookView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isUploading || !hasAnyFileSelected || uploadResult != nil)
+                .disabled(
+                    isUploading || !hasAnyFileSelected || uploadResult != nil
+                        || selectedSourceID == nil,
+                )
                 .keyboardShortcut(.defaultAction)
             }
             .padding()
         }
         .frame(width: 500, height: 340)
+        .task {
+            await loadSources()
+        }
+    }
+
+    private var selectedSourceBinding: Binding<BookSourceID> {
+        Binding(
+            get: {
+                selectedSourceID ?? storytellerSources.first?.id ?? ""
+            },
+            set: { selectedSourceID = $0 },
+        )
     }
 
     @ViewBuilder
@@ -169,6 +195,14 @@ public struct UploadNewBookView: View {
         bookUUID = UUID().uuidString
     }
 
+    private func loadSources() async {
+        let sources = await BookServiceActor.shared.bookSources.filter { $0.kind == .storyteller }
+        await MainActor.run {
+            storytellerSources = sources
+            selectedSourceID = selectedSourceID ?? sources.first?.id
+        }
+    }
+
     private func selectEbook() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.epub]
@@ -206,7 +240,7 @@ public struct UploadNewBookView: View {
     }
 
     private func uploadBook() async {
-        guard hasAnyFileSelected else { return }
+        guard hasAnyFileSelected, let sourceID = selectedSourceID else { return }
 
         await MainActor.run {
             isUploading = true
@@ -258,8 +292,9 @@ public struct UploadNewBookView: View {
 
             await MainActor.run { uploadProgress = "Uploading..." }
 
-            let success = await StorytellerActor.shared.uploadBookAssets(
+            let success = await BookServiceActor.shared.uploadBookAssets(
                 bookUUID: bookUUID,
+                sourceID: sourceID,
                 ebook: ebookAsset,
                 audiobook: audiobookAsset,
                 readaloud: readaloudAsset,
@@ -275,14 +310,14 @@ public struct UploadNewBookView: View {
                         "Upload failed. Your server may not support this feature yet. Please ensure you're running the latest server version."
                     )
             }
-            await StorytellerActor.shared.fetchLibraryInformation()
+            await BookServiceActor.shared.fetchLibraryInformation()
         } catch {
             await MainActor.run {
                 isUploading = false
                 uploadProgress = nil
                 uploadResult = .failure("Failed to read files: \(error.localizedDescription)")
             }
-            await StorytellerActor.shared.fetchLibraryInformation()
+            await BookServiceActor.shared.fetchLibraryInformation()
         }
     }
 }

@@ -132,10 +132,10 @@ public final class WatchViewModel {
 
                 guard !Task.isCancelled else { return }
 
-                let status = await StorytellerActor.shared.connectionStatus
+                let status = await BookServiceActor.shared.connectionStatus
                 if status == .connected {
                     debugLog("[WatchViewModel] Periodic metadata refresh")
-                    let _ = await StorytellerActor.shared.fetchLibraryInformation()
+                    let _ = await BookServiceActor.shared.fetchLibraryInformation()
                     self?.loadBooks()
                 } else {
                     debugLog("[WatchViewModel] Skipping refresh - not connected to server")

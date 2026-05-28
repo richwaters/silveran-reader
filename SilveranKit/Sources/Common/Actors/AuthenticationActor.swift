@@ -27,11 +27,37 @@ public actor AuthenticationActor {
         try saveString(password, for: passwordKey)
     }
 
+    public func saveCredentials(
+        url: String,
+        username: String,
+        password: String,
+        sourceID: BookSourceID,
+    ) async throws {
+        try await deleteCredentials(sourceID: sourceID)
+
+        try saveString(url, for: accountKey(serverURLKey, sourceID: sourceID))
+        try saveString(username, for: accountKey(usernameKey, sourceID: sourceID))
+        try saveString(password, for: accountKey(passwordKey, sourceID: sourceID))
+    }
+
     public func loadCredentials() async throws -> (url: String, username: String, password: String)?
     {
         guard let url = try loadString(for: serverURLKey),
             let username = try loadString(for: usernameKey),
             let password = try loadString(for: passwordKey)
+        else {
+            return nil
+        }
+
+        return (url, username, password)
+    }
+
+    public func loadCredentials(sourceID: BookSourceID) async throws
+        -> (url: String, username: String, password: String)?
+    {
+        guard let url = try loadString(for: accountKey(serverURLKey, sourceID: sourceID)),
+            let username = try loadString(for: accountKey(usernameKey, sourceID: sourceID)),
+            let password = try loadString(for: accountKey(passwordKey, sourceID: sourceID))
         else {
             return nil
         }
@@ -56,9 +82,35 @@ public actor AuthenticationActor {
         }
     }
 
+    public func deleteCredentials(sourceID: BookSourceID) async throws {
+        for key in [serverURLKey, usernameKey, passwordKey] {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: accountKey(key, sourceID: sourceID),
+                kSecAttrAccessGroup as String: accessGroup,
+                kSecUseDataProtectionKeychain as String: true,
+            ]
+
+            let status = SecItemDelete(query as CFDictionary)
+            if status != errSecSuccess && status != errSecItemNotFound {
+                throw KeychainError.unableToDelete(status: status)
+            }
+        }
+    }
+
     public func hasCredentials() async -> Bool {
         do {
             let creds = try await loadCredentials()
+            return creds != nil
+        } catch {
+            return false
+        }
+    }
+
+    public func hasCredentials(sourceID: BookSourceID) async -> Bool {
+        do {
+            let creds = try await loadCredentials(sourceID: sourceID)
             return creds != nil
         } catch {
             return false
@@ -147,6 +199,10 @@ public actor AuthenticationActor {
         }
 
         return string
+    }
+
+    private func accountKey(_ key: String, sourceID: BookSourceID) -> String {
+        return "bookSource.\(sourceID).\(key)"
     }
 
     nonisolated private static func infoValue(for key: String) -> String? {

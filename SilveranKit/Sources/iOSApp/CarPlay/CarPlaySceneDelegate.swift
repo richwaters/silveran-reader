@@ -30,7 +30,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         }
 
         Task {
-            await StorytellerActor.shared.setActive(true, source: .carPlay)
+            await BookServiceActor.shared.setActive(true, source: .carPlay)
         }
     }
 
@@ -46,7 +46,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             CarPlayCoordinator.shared.onChaptersUpdated = nil
         }
         Task {
-            await StorytellerActor.shared.setActive(false, source: .carPlay)
+            await BookServiceActor.shared.setActive(false, source: .carPlay)
         }
     }
 

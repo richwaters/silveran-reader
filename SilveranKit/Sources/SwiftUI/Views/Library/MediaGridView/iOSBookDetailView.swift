@@ -135,8 +135,9 @@ struct iOSBookDetailView: View {
         isUpdatingStatus = true
         defer { isUpdatingStatus = false }
 
-        let success = await StorytellerActor.shared.updateStatus(
+        let success = await BookServiceActor.shared.updateStatus(
             forBooks: [item.uuid],
+            sourceID: item.sourceID,
             toStatusNamed: statusName,
         )
 
@@ -144,8 +145,8 @@ struct iOSBookDetailView: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await LocalMediaActor.shared.updateBookStatus(
-                    bookId: item.uuid,
+                await BookServiceActor.shared.updateCachedBookStatus(
+                    bookID: item.uuid,
                     status: newStatus,
                 )
             }
@@ -798,11 +799,12 @@ private struct iOSCreateReadaloudButton: View {
             Button("Create") {
                 Task {
                     isStartingAlignment = true
-                    _ = await StorytellerActor.shared.startAlignment(
+                    _ = await BookServiceActor.shared.startAlignment(
                         for: item.uuid,
+                        sourceID: item.sourceID,
                         restart: isErrorOrStopped ? .full : .none,
                     )
-                    await StorytellerActor.shared.fetchLibraryInformation()
+                    await BookServiceActor.shared.fetchLibraryInformation()
                     isStartingAlignment = false
                 }
             }
@@ -850,8 +852,11 @@ private struct iOSCreateReadaloudButton: View {
         Button {
             Task {
                 isCancelingAlignment = true
-                _ = await StorytellerActor.shared.cancelAlignment(for: item.uuid)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.cancelAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
                 isCancelingAlignment = false
             }
         } label: {
@@ -969,8 +974,9 @@ private struct CompactStatusPicker: View {
         isUpdating = true
         defer { isUpdating = false }
 
-        let success = await StorytellerActor.shared.updateStatus(
+        let success = await BookServiceActor.shared.updateStatus(
             forBooks: [item.uuid],
+            sourceID: item.sourceID,
             toStatusNamed: statusName,
         )
 
@@ -978,8 +984,8 @@ private struct CompactStatusPicker: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await LocalMediaActor.shared.updateBookStatus(
-                    bookId: item.uuid,
+                await BookServiceActor.shared.updateCachedBookStatus(
+                    bookID: item.uuid,
                     status: newStatus,
                 )
             }
@@ -1110,8 +1116,9 @@ private struct StatusPickerView: View {
         isUpdatingStatus = true
         defer { isUpdatingStatus = false }
 
-        let success = await StorytellerActor.shared.updateStatus(
+        let success = await BookServiceActor.shared.updateStatus(
             forBooks: [item.uuid],
+            sourceID: item.sourceID,
             toStatusNamed: statusName,
         )
 
@@ -1119,8 +1126,8 @@ private struct StatusPickerView: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await LocalMediaActor.shared.updateBookStatus(
-                    bookId: item.uuid,
+                await BookServiceActor.shared.updateCachedBookStatus(
+                    bookID: item.uuid,
                     status: newStatus,
                 )
                 selectedStatusName = statusName

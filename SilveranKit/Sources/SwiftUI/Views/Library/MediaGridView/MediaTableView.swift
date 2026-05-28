@@ -1101,14 +1101,14 @@ struct MediaTableView: NSViewRepresentable {
             parent.onInfo(item)
         }
 
-        private func addReprocessItems(to menu: NSMenu, bookId: String) {
+        private func addReprocessItems(to menu: NSMenu, item: BookMetadata) {
             let sync = NSMenuItem(
                 title: "Re-align (Fast)",
                 action: #selector(reprocessSync(_:)),
                 keyEquivalent: "",
             )
             sync.target = self
-            sync.representedObject = bookId
+            sync.representedObject = item
             menu.addItem(sync)
 
             let transcribe = NSMenuItem(
@@ -1117,7 +1117,7 @@ struct MediaTableView: NSViewRepresentable {
                 keyEquivalent: "",
             )
             transcribe.target = self
-            transcribe.representedObject = bookId
+            transcribe.representedObject = item
             menu.addItem(transcribe)
 
             let full = NSMenuItem(
@@ -1126,7 +1126,7 @@ struct MediaTableView: NSViewRepresentable {
                 keyEquivalent: "",
             )
             full.target = self
-            full.representedObject = bookId
+            full.representedObject = item
             menu.addItem(full)
         }
 
@@ -1145,10 +1145,10 @@ struct MediaTableView: NSViewRepresentable {
                     keyEquivalent: "",
                 )
                 cancel.target = self
-                cancel.representedObject = item.uuid
+                cancel.representedObject = item
                 menu.addItem(cancel)
             } else if status == "ALIGNED" {
-                addReprocessItems(to: menu, bookId: item.uuid)
+                addReprocessItems(to: menu, item: item)
             } else if status == "ERROR" || status == "STOPPED" {
                 let retry = NSMenuItem(
                     title: "Retry Processing",
@@ -1156,7 +1156,7 @@ struct MediaTableView: NSViewRepresentable {
                     keyEquivalent: "",
                 )
                 retry.target = self
-                retry.representedObject = item.uuid
+                retry.representedObject = item
                 menu.addItem(retry)
 
                 let realign = NSMenuItem(
@@ -1165,7 +1165,7 @@ struct MediaTableView: NSViewRepresentable {
                     keyEquivalent: "",
                 )
                 realign.target = self
-                realign.representedObject = item.uuid
+                realign.representedObject = item
                 menu.addItem(realign)
             } else if hasEbookAndAudio {
                 let create = NSMenuItem(
@@ -1174,7 +1174,7 @@ struct MediaTableView: NSViewRepresentable {
                     keyEquivalent: "",
                 )
                 create.target = self
-                create.representedObject = item.uuid
+                create.representedObject = item
                 menu.addItem(create)
             }
 
@@ -1188,7 +1188,7 @@ struct MediaTableView: NSViewRepresentable {
                     keyEquivalent: "",
                 )
                 upgrade.target = self
-                upgrade.representedObject = item.uuid
+                upgrade.representedObject = item
                 menu.addItem(upgrade)
             }
 
@@ -1208,53 +1208,71 @@ struct MediaTableView: NSViewRepresentable {
         }
 
         @objc private func createReadaloud(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.startAlignment(for: bookId)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.startAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 
         @objc private func reprocessSync(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .sync)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.startAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                    restart: .sync,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 
         @objc private func reprocessTranscription(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.startAlignment(
-                    for: bookId,
+                _ = await BookServiceActor.shared.startAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
                     restart: .transcription,
                 )
-                await StorytellerActor.shared.fetchLibraryInformation()
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 
         @objc private func reprocessFull(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.startAlignment(for: bookId, restart: .full)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.startAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                    restart: .full,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 
         @objc private func cancelProcessing(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.cancelAlignment(for: bookId)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.cancelAlignment(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 
         @objc private func upgradeEpub(_ sender: NSMenuItem) {
-            guard let bookId = sender.representedObject as? String else { return }
+            guard let item = sender.representedObject as? BookMetadata else { return }
             Task {
-                _ = await StorytellerActor.shared.upgradeEpub(for: bookId)
-                await StorytellerActor.shared.fetchLibraryInformation()
+                _ = await BookServiceActor.shared.upgradeEpub(
+                    for: item.uuid,
+                    sourceID: item.sourceID,
+                )
+                await BookServiceActor.shared.fetchLibraryInformation()
             }
         }
 

@@ -51,19 +51,7 @@ struct SilveranReaderApp: App {
         _mediaViewModel = State(initialValue: vm)
 
         Task {
-            do {
-                if let credentials = try await AuthenticationActor.shared.loadCredentials() {
-                    let _ = await StorytellerActor.shared.setLogin(
-                        baseURL: credentials.url,
-                        username: credentials.username,
-                        password: credentials.password,
-                    )
-                }
-            } catch {
-                debugLog(
-                    "[SilveranReaderApp] Failed to load credentials: \(error.localizedDescription)"
-                )
-            }
+            await BookServiceActor.shared.reloadSourceRegistry()
 
             do {
                 try await FilesystemActor.shared.copyWebResourcesFromBundle()
@@ -117,14 +105,14 @@ struct SilveranReaderApp: App {
         )
         NotificationCenter.default.post(name: .appWillResignActive, object: nil)
         Task {
-            await StorytellerActor.shared.setActive(false, source: .app)
+            await BookServiceActor.shared.setActive(false, source: .app)
         }
     }
 
     private func handleDidBecomeActive() {
         debugLog("[SilveranReaderApp] App becoming active")
         Task {
-            await StorytellerActor.shared.setActive(true, source: .app)
+            await BookServiceActor.shared.setActive(true, source: .app)
         }
     }
 }

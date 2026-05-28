@@ -59,6 +59,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
     public var pendingServerPosition: IncomingServerPosition? = nil
     private var incomingPositionObserverId: UUID? = nil
     private var positionObserverRegistrationTask: Task<Void, Never>? = nil
+    private var currentSourceID: BookSourceID? = nil
 
     #if os(tvOS)
     private let logPrefix = "TVPlayerViewModel"
@@ -215,6 +216,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
 
         bookTitle = book.title
         currentBookId = book.uuid
+        currentSourceID = book.sourceID
         hasRestoredPosition = false
         hasUserProgress = false
         isLoadingPosition = true
@@ -845,6 +847,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
         Task {
             let _ = await ProgressSyncActor.shared.syncProgress(
                 bookId: bookId,
+                sourceID: currentSourceID,
                 locator: locator,
                 timestamp: timestamp,
                 reason: .userPausedPlayback,

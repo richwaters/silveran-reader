@@ -784,7 +784,7 @@ extension AppleWatchActor: WCSessionDelegate {
             case "requestLibraryMetadata":
                 let sendableReply = SendableReplyHandler(replyHandler)
                 Task {
-                    let metadata = await StorytellerActor.shared.libraryMetadata
+                    let metadata = await BookServiceActor.shared.libraryMetadata
                     if metadata.isEmpty {
                         sendableReply.reply(["error": "No library metadata available"])
                     } else if let data = try? JSONEncoder().encode(metadata) {

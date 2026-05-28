@@ -193,7 +193,7 @@ public struct iOSLibraryView: View {
             OfflineStatusSheet(
                 errorType: connectionErrorType,
                 onRetry: {
-                    let _ = await StorytellerActor.shared.fetchLibraryInformation()
+                    let _ = await BookServiceActor.shared.fetchLibraryInformation()
                     if !hasConnectionError {
                         await MainActor.run {
                             showOfflineSheet = false
@@ -324,7 +324,8 @@ public struct iOSLibraryView: View {
         }
 
         Task {
-            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            let sourceIDs = mediaViewModel.sourceIDs(for: bookIds)
+            let result = await checkMetadataEditPermission(sourceIDs: sourceIDs)
             await MainActor.run {
                 switch result {
                     case .allowed:
@@ -343,6 +344,22 @@ public struct iOSLibraryView: View {
                 }
             }
         }
+    }
+
+    private func checkMetadataEditPermission(sourceIDs: [BookSourceID]) async
+        -> StorytellerActor.PermissionCheckResult
+    {
+        let idsToCheck: [BookSourceID?] = sourceIDs.isEmpty ? [nil] : sourceIDs.map { $0 }
+        for sourceID in idsToCheck {
+            let result = await BookServiceActor.shared.checkBookUpdatePermission(
+                sourceID: sourceID,
+            )
+            if case .allowed = result {
+                continue
+            }
+            return result
+        }
+        return .allowed
     }
 
     private func restoreLastOpenBookIfAvailable() {
