@@ -9,6 +9,12 @@ public final class LocalLibraryManager: Sendable {
 
     public init() {}
 
+    private struct ScannedLocalFile: Sendable {
+        let metadata: BookMetadata
+        let category: LocalMediaCategory
+        let fileURL: URL
+    }
+
     public func extractMetadata(from fileURL: URL, category: LocalMediaCategory) async throws
         -> BookMetadata
     {
@@ -60,6 +66,10 @@ public final class LocalLibraryManager: Sendable {
                 continue
             }
 
+            let existingFolderUUID = uuidSuffix(fromFolderName: bookFolder.lastPathComponent)
+            let bookUUID = existingFolderUUID ?? UUID().uuidString
+            var scannedFiles: [ScannedLocalFile] = []
+
             for category in LocalMediaCategory.allCases {
                 let categoryDir = bookFolder.appendingPathComponent(
                     category.rawValue,
@@ -86,22 +96,14 @@ public final class LocalLibraryManager: Sendable {
                     seenFiles.insert(fullPath)
 
                     do {
-                        let metadata = try await extractMetadata(from: fileURL, category: category)
-                        allMetadata.append(metadata)
-
-                        var mediaPaths = allPaths[metadata.uuid] ?? MediaPaths()
-
-                        if metadata.hasAvailableReadaloud {
-                            mediaPaths.syncedPath = fileURL
-                        } else if metadata.hasAvailableAudiobook {
-                            mediaPaths.audioPath = fileURL
-                        } else {
-                            mediaPaths.ebookPath = fileURL
-                        }
-                        allPaths[metadata.uuid] = mediaPaths
-
-                        debugLog(
-                            "[LocalLibraryManager] Discovered local file: \(fileURL.lastPathComponent) (readaloud: \(metadata.hasAvailableReadaloud))"
+                        let extracted = try await extractMetadata(from: fileURL, category: category)
+                        let metadata = metadata(extracted, withUUID: bookUUID)
+                        scannedFiles.append(
+                            ScannedLocalFile(
+                                metadata: metadata,
+                                category: category,
+                                fileURL: fileURL,
+                            )
                         )
                     } catch {
                         debugLog(
@@ -110,9 +112,213 @@ public final class LocalLibraryManager: Sendable {
                     }
                 }
             }
+
+            guard !scannedFiles.isEmpty else { continue }
+
+            let effectiveBookFolder: URL
+            if existingFolderUUID == nil {
+                effectiveBookFolder =
+                    normalizedBookFolder(
+                        currentFolder: bookFolder,
+                        rootFolder: localDir,
+                        title: scannedFiles[0].metadata.title,
+                        uuid: bookUUID,
+                    ) ?? bookFolder
+            } else {
+                effectiveBookFolder = bookFolder
+            }
+
+            for scanned in scannedFiles {
+                merge(scanned.metadata, into: &allMetadata)
+
+                let finalFileURL = effectiveBookFolder
+                    .appendingPathComponent(scanned.category.rawValue, isDirectory: true)
+                    .appendingPathComponent(scanned.fileURL.lastPathComponent, isDirectory: false)
+                var mediaPaths = allPaths[scanned.metadata.uuid] ?? MediaPaths()
+
+                if scanned.metadata.hasAvailableReadaloud {
+                    mediaPaths.syncedPath = finalFileURL
+                } else if scanned.metadata.hasAvailableAudiobook {
+                    mediaPaths.audioPath = finalFileURL
+                } else {
+                    mediaPaths.ebookPath = finalFileURL
+                }
+                allPaths[scanned.metadata.uuid] = mediaPaths
+
+                debugLog(
+                    "[LocalLibraryManager] Discovered local file: \(finalFileURL.lastPathComponent) (readaloud: \(scanned.metadata.hasAvailableReadaloud))"
+                )
+            }
         }
 
         return ScanResult(metadata: allMetadata, paths: allPaths)
+    }
+
+    private func merge(_ metadata: BookMetadata, into metadataList: inout [BookMetadata]) {
+        guard let index = metadataList.firstIndex(where: { $0.uuid == metadata.uuid }) else {
+            metadataList.append(metadata)
+            return
+        }
+
+        let existing = metadataList[index]
+        var merged = BookMetadata(
+            uuid: existing.uuid,
+            title: existing.title,
+            subtitle: existing.subtitle ?? metadata.subtitle,
+            description: existing.description ?? metadata.description,
+            language: existing.language ?? metadata.language,
+            createdAt: existing.createdAt ?? metadata.createdAt,
+            updatedAt: existing.updatedAt ?? metadata.updatedAt,
+            publicationDate: existing.publicationDate ?? metadata.publicationDate,
+            authors: existing.authors ?? metadata.authors,
+            narrators: existing.narrators ?? metadata.narrators,
+            creators: existing.creators ?? metadata.creators,
+            series: existing.series ?? metadata.series,
+            tags: existing.tags ?? metadata.tags,
+            collections: existing.collections ?? metadata.collections,
+            ebook: existing.ebook ?? metadata.ebook,
+            audiobook: existing.audiobook ?? metadata.audiobook,
+            readaloud: existing.readaloud ?? metadata.readaloud,
+            status: existing.status ?? metadata.status,
+            position: existing.position ?? metadata.position,
+            rating: existing.rating ?? metadata.rating,
+        )
+        merged.alignedAt = existing.alignedAt ?? metadata.alignedAt
+        merged.alignedByStorytellerVersion =
+            existing.alignedByStorytellerVersion ?? metadata.alignedByStorytellerVersion
+        merged.alignedWith = existing.alignedWith ?? metadata.alignedWith
+        merged.sourceID = existing.sourceID ?? metadata.sourceID
+        merged.source = existing.source ?? metadata.source
+        metadataList[index] = merged
+    }
+
+    private func uuidSuffix(fromFolderName folderName: String) -> String? {
+        guard let range = folderName.range(of: " - ", options: .backwards) else { return nil }
+        let suffix = String(folderName[range.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return UUID(uuidString: suffix)?.uuidString
+    }
+
+    private func normalizedBookFolder(
+        currentFolder: URL,
+        rootFolder: URL,
+        title: String,
+        uuid: String,
+    ) -> URL? {
+        let destination = rootFolder.appendingPathComponent(
+            folderName(title: title, uuid: uuid),
+            isDirectory: true,
+        )
+        guard destination.standardizedFileURL.path != currentFolder.standardizedFileURL.path else {
+            return currentFolder
+        }
+
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: destination.path) else {
+            debugLog(
+                "[LocalLibraryManager] Cannot normalize \(currentFolder.lastPathComponent): destination exists"
+            )
+            return nil
+        }
+
+        do {
+            try fm.moveItem(at: currentFolder, to: destination)
+            debugLog(
+                "[LocalLibraryManager] Normalized local folder \(currentFolder.lastPathComponent) -> \(destination.lastPathComponent)"
+            )
+            return destination
+        } catch {
+            debugLog(
+                "[LocalLibraryManager] Failed to normalize local folder \(currentFolder.lastPathComponent): \(error)"
+            )
+            return nil
+        }
+    }
+
+    private func folderName(title: String, uuid: String) -> String {
+        let sanitizedTitle = sanitizedPathComponent(title)
+        let sanitizedUUID = sanitizedPathComponent(uuid)
+        guard !sanitizedTitle.isEmpty else { return sanitizedUUID.isEmpty ? "Book" : sanitizedUUID }
+        guard !sanitizedUUID.isEmpty else { return sanitizedTitle }
+        if sanitizedTitle.caseInsensitiveCompare(sanitizedUUID) == .orderedSame {
+            return sanitizedTitle
+        }
+        return "\(sanitizedTitle) - \(sanitizedUUID)"
+    }
+
+    private func sanitizedPathComponent(_ input: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+            .union(.newlines)
+            .union(.controlCharacters)
+        let sanitized = input
+            .components(separatedBy: invalid)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return sanitized.isEmpty ? "Book" : sanitized
+    }
+
+    private func metadata(_ metadata: BookMetadata, withUUID uuid: String) -> BookMetadata {
+        var stamped = BookMetadata(
+            uuid: uuid,
+            title: metadata.title,
+            subtitle: metadata.subtitle,
+            description: metadata.description,
+            language: metadata.language,
+            createdAt: metadata.createdAt,
+            updatedAt: metadata.updatedAt,
+            publicationDate: metadata.publicationDate,
+            authors: metadata.authors,
+            narrators: metadata.narrators,
+            creators: metadata.creators,
+            series: metadata.series,
+            tags: metadata.tags,
+            collections: metadata.collections,
+            ebook: metadata.ebook.map { asset in
+                BookAsset(
+                    uuid: uuid,
+                    filepath: asset.filepath,
+                    missing: asset.missing,
+                    isEpub2: asset.isEpub2,
+                    isEpub3: asset.isEpub3,
+                    createdAt: asset.createdAt,
+                    updatedAt: asset.updatedAt,
+                )
+            },
+            audiobook: metadata.audiobook.map { asset in
+                BookAsset(
+                    uuid: uuid,
+                    filepath: asset.filepath,
+                    missing: asset.missing,
+                    isEpub2: asset.isEpub2,
+                    isEpub3: asset.isEpub3,
+                    createdAt: asset.createdAt,
+                    updatedAt: asset.updatedAt,
+                )
+            },
+            readaloud: metadata.readaloud.map { asset in
+                BookReadaloud(
+                    uuid: uuid,
+                    filepath: asset.filepath,
+                    missing: asset.missing,
+                    status: asset.status,
+                    currentStage: asset.currentStage,
+                    stageProgress: asset.stageProgress,
+                    queuePosition: asset.queuePosition,
+                    restartPending: asset.restartPending,
+                    createdAt: asset.createdAt,
+                    updatedAt: asset.updatedAt,
+                )
+            },
+            status: metadata.status,
+            position: metadata.position,
+            rating: metadata.rating,
+        )
+        stamped.alignedAt = metadata.alignedAt
+        stamped.alignedByStorytellerVersion = metadata.alignedByStorytellerVersion
+        stamped.alignedWith = metadata.alignedWith
+        stamped.sourceID = metadata.sourceID
+        stamped.source = metadata.source
+        return stamped
     }
 
     public func isReadaloudEpub(at epubURL: URL) -> Bool {

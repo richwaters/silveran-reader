@@ -51,20 +51,42 @@ struct SourceView: View {
     #endif
 
     private var categoryGroups: [CategoryGroup] {
-        let groups = mediaViewModel.booksBySource(for: mediaKind)
+        let sourceBooks = booksBySourceID()
+        let groups = mediaViewModel.bookSources.map { source in
+            (source: source, books: sourceBooks[source.id] ?? [])
+        }
         let filtered = filterGroups(groups)
         return filtered.map { group in
-            CategoryGroup(id: group.source, name: group.source, books: group.books, pinId: nil)
+            CategoryGroup(
+                id: group.source.id,
+                name: group.source.name,
+                books: group.books,
+                pinId: nil,
+            )
         }
     }
 
-    private func filterGroups(_ groups: [(source: String, books: [BookMetadata])]) -> [(
-        source: String, books: [BookMetadata]
+    private func booksBySourceID() -> [BookSourceID: [BookMetadata]] {
+        var grouped: [BookSourceID: [BookMetadata]] = [:]
+        for book in mediaViewModel.library.bookMetaData {
+            guard let sourceID = book.sourceID else { continue }
+            grouped[sourceID, default: []].append(book)
+        }
+        for sourceID in grouped.keys {
+            grouped[sourceID]?.sort {
+                $0.title.articleStrippedCompare($1.title) == .orderedAscending
+            }
+        }
+        return grouped
+    }
+
+    private func filterGroups(_ groups: [(source: BookSourceRecord, books: [BookMetadata])]) -> [(
+        source: BookSourceRecord, books: [BookMetadata]
     )] {
         guard !searchText.isEmpty else { return groups }
         let searchLower = searchText.lowercased()
         return groups.compactMap { group in
-            let sourceMatches = group.source.lowercased().contains(searchLower)
+            let sourceMatches = group.source.name.lowercased().contains(searchLower)
             let filteredBooks = group.books.filter { $0.title.lowercased().contains(searchLower) }
             if sourceMatches { return group }
             guard !filteredBooks.isEmpty else { return nil }
@@ -72,19 +94,18 @@ struct SourceView: View {
         }
     }
 
-    private func iconName(for source: String) -> String {
-        switch source {
-            case "Storyteller": return "server.rack"
-            case "Local Files": return "folder.fill"
-            default: return "questionmark.circle.fill"
-        }
+    private func sourceRecord(for sourceID: BookSourceID) -> BookSourceRecord? {
+        mediaViewModel.bookSources.first { $0.id == sourceID }
     }
 
-    private func locationFilter(for source: String) -> MediaGridView.LocationFilterOption {
-        switch source {
-            case "Storyteller": return .serverOnly
-            case "Local Files": return .localFiles
-            default: return .all
+    private func iconName(for sourceID: BookSourceID) -> String {
+        switch sourceRecord(for: sourceID)?.kind {
+            case .storyteller:
+                return "server.rack"
+            case .localFolder:
+                return "folder.fill"
+            case nil:
+                return "questionmark.circle.fill"
         }
     }
 
@@ -98,13 +119,13 @@ struct SourceView: View {
 
     private func handleNavigation(_ group: CategoryGroup, _ book: BookMetadata?) {
         navigationPath.append(
-            SourceDetailNavigation(sourceName: group.id, initialSelectedBook: book)
+            SourceDetailNavigation(sourceID: group.id, initialSelectedBook: book)
         )
     }
 }
 
 struct SourceDetailNavigation: Hashable {
-    let sourceName: String
+    let sourceID: BookSourceID
     let initialSelectedBook: BookMetadata?
 }
 
@@ -143,7 +164,7 @@ extension SourceView {
                 prompt: "Search",
             )
             .navigationDestination(for: SourceDetailNavigation.self) { nav in
-                sourceDetailView(for: nav.sourceName, initialSelectedItem: nav.initialSelectedBook)
+                sourceDetailView(for: nav.sourceID, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
                         showOfflineSheet: showOfflineSheet ?? .constant(false),
@@ -170,7 +191,7 @@ extension SourceView {
                             handleNavigation(group, nil)
                         } label: {
                             CategoryRowContent(
-                                iconName: iconName(for: group.name),
+                                iconName: iconName(for: group.id),
                                 name: group.name,
                                 bookCount: group.books.count,
                                 isSelected: false,
@@ -248,7 +269,7 @@ extension SourceView {
                             sortByCount: $sortByCount,
                             rowContent: { group, isSelected, isHovered in
                                 CategoryRowContent(
-                                    iconName: iconName(for: group.name),
+                                    iconName: iconName(for: group.id),
                                     name: group.name,
                                     bookCount: group.books.count,
                                     isSelected: isSelected,
@@ -262,14 +283,14 @@ extension SourceView {
                                     title: group.name,
                                     searchText: searchText,
                                     mediaKind: mediaKind,
-                                    viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
+                                    viewOptionsKey: "sourceView.\(mediaKind.rawValue).\(group.id)",
                                     defaultSort: "title",
                                     tableContext: "category",
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    initialLocationFilter: locationFilter(for: group.name),
                                     scrollPosition: nil,
+                                    filteredItems: group.books,
                                 )
                             },
                             toolbarContent: {
@@ -290,7 +311,7 @@ extension SourceView {
                     case .fan, .grid: fanGridContent
                 }
             }.navigationDestination(for: SourceDetailNavigation.self) { nav in
-                sourceDetailView(for: nav.sourceName, initialSelectedItem: nav.initialSelectedBook)
+                sourceDetailView(for: nav.sourceID, initialSelectedItem: nav.initialSelectedBook)
             }
         }
     }
@@ -365,37 +386,40 @@ extension SourceView {
 
 extension SourceView {
     @ViewBuilder fileprivate func sourceDetailView(
-        for sourceName: String,
+        for sourceID: BookSourceID,
         initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
+        let source = sourceRecord(for: sourceID)
+        let sourceName = source?.name ?? "Unknown Source"
+        let books = booksBySourceID()[sourceID] ?? []
         #if os(iOS)
         MediaGridView(
             title: sourceName,
             searchText: "",
             mediaKind: mediaKind,
-            viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
+            viewOptionsKey: "sourceView.\(mediaKind.rawValue).\(sourceID)",
             defaultSort: "title",
             preferredTileWidth: 110,
             minimumTileWidth: 90,
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
-            initialLocationFilter: locationFilter(for: sourceName),
             scrollPosition: nil,
             initialSelectedItem: initialSelectedItem,
+            filteredItems: books,
         ).navigationTitle(sourceName)
         #else
         MediaGridView(
             title: sourceName,
             searchText: "",
             mediaKind: mediaKind,
-            viewOptionsKey: "sourceView.\(mediaKind.rawValue)",
+            viewOptionsKey: "sourceView.\(mediaKind.rawValue).\(sourceID)",
             defaultSort: "title",
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
-            initialLocationFilter: locationFilter(for: sourceName),
             scrollPosition: nil,
             initialSelectedItem: initialSelectedItem,
+            filteredItems: books,
         ).navigationTitle(sourceName)
         #endif
     }

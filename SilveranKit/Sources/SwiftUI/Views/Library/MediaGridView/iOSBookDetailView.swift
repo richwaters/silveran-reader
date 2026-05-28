@@ -145,8 +145,8 @@ struct iOSBookDetailView: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await BookServiceActor.shared.updateCachedBookStatus(
-                    bookID: item.uuid,
+                await LocalMediaActor.shared.updateBookStatus(
+                    bookId: item.uuid,
                     status: newStatus,
                 )
             }
@@ -984,8 +984,8 @@ private struct CompactStatusPicker: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await BookServiceActor.shared.updateCachedBookStatus(
-                    bookID: item.uuid,
+                await LocalMediaActor.shared.updateBookStatus(
+                    bookId: item.uuid,
                     status: newStatus,
                 )
             }
@@ -1126,8 +1126,8 @@ private struct StatusPickerView: View {
             if let newStatus = mediaViewModel.availableStatuses.first(where: {
                 $0.name == statusName
             }) {
-                await BookServiceActor.shared.updateCachedBookStatus(
-                    bookID: item.uuid,
+                await LocalMediaActor.shared.updateBookStatus(
+                    bookId: item.uuid,
                     status: newStatus,
                 )
                 selectedStatusName = statusName

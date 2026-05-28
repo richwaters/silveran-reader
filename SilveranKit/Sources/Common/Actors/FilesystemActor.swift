@@ -47,6 +47,28 @@ public actor FilesystemActor {
         return directory
     }
 
+    public func sourceIDMarker(in directory: URL) throws -> BookSourceID? {
+        let marker = directory.appendingPathComponent(
+            BookSourceRecord.sourceIDFilename,
+            isDirectory: false,
+        )
+        guard FileManager.default.fileExists(atPath: marker.path) else {
+            return nil
+        }
+        let sourceID = try String(contentsOf: marker, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return sourceID.isEmpty ? nil : sourceID
+    }
+
+    public func ensureSourceIDMarker(in directory: URL, sourceID: BookSourceID) throws {
+        try ensureDirectoryExists(at: directory)
+        let marker = directory.appendingPathComponent(
+            BookSourceRecord.sourceIDFilename,
+            isDirectory: false,
+        )
+        try sourceID.write(to: marker, atomically: true, encoding: .utf8)
+    }
+
     public func getMediaDirectory(
         domain: LocalMediaDomain,
         category: LocalMediaCategory,
@@ -289,6 +311,37 @@ public actor FilesystemActor {
         return try decoder.decode([BookMetadata].self, from: data)
     }
 
+    public func saveFolderSourceLibraryMetadata(_ metadata: [BookMetadata], in directory: URL)
+        throws
+    {
+        try ensureDirectoryExists(at: directory)
+        let metadataURL = directory.appendingPathComponent(
+            "library_metadata.json",
+            isDirectory: false,
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(metadata)
+        try write(data: data, to: metadataURL)
+    }
+
+    public func loadFolderSourceLibraryMetadata(in directory: URL) throws -> [BookMetadata]? {
+        let metadataURL = directory.appendingPathComponent(
+            "library_metadata.json",
+            isDirectory: false,
+        )
+
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: metadataURL.path) else {
+            return nil
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let data = try Data(contentsOf: metadataURL)
+        return try decoder.decode([BookMetadata].self, from: data)
+    }
+
     public func getConfigDirectory() -> URL {
         applicationSupportBaseDirectory()
             .appendingPathComponent("Config", isDirectory: true)
@@ -344,7 +397,7 @@ public actor FilesystemActor {
         )
         let localFolderID = try migrateLegacyDomainDirectory(
             domain: .local,
-            preferredName: "Local Files",
+            preferredName: BookSourceKind.localFolder.defaultName,
         )
 
         return [
@@ -359,7 +412,7 @@ public actor FilesystemActor {
             ),
             BookSourceRecord(
                 id: localFolderID,
-                name: "Local Files",
+                name: BookSourceKind.localFolder.defaultName,
                 kind: .localFolder,
                 capabilities: .localFolder,
                 createdAt: now,

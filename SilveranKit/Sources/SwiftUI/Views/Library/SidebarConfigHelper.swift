@@ -39,20 +39,44 @@ enum SidebarConfigHelper {
                 let groups = try? JSONDecoder().decode([SidebarConfigGroup].self, from: data),
                 !groups.isEmpty
             {
-                return groups
+                let normalized = normalize(groups)
+                if normalized != groups {
+                    saveConfig(normalized)
+                }
+                return normalized
             }
             let migrated = migrateFromLegacy()
             if !migrated.isEmpty {
-                config = migrated
+                saveConfig(migrated)
                 return migrated
             }
             return defaultConfig()
         }
         set {
-            guard let data = try? JSONEncoder().encode(newValue),
-                let json = String(data: data, encoding: .utf8)
-            else { return }
-            UserDefaults.standard.set(json, forKey: configKey)
+            saveConfig(newValue)
+        }
+    }
+
+    private static func saveConfig(_ value: [SidebarConfigGroup]) {
+        guard let data = try? JSONEncoder().encode(value),
+            let json = String(data: data, encoding: .utf8)
+        else { return }
+        UserDefaults.standard.set(json, forKey: configKey)
+    }
+
+    private static func normalize(_ groups: [SidebarConfigGroup]) -> [SidebarConfigGroup] {
+        groups.map { group in
+            var normalized = group
+            normalized.items.removeAll { $0.id == "importLocalFile" }
+            if normalized.name == "Media Sources",
+                !normalized.items.contains(where: { $0.id == "storytellerServer" })
+            {
+                normalized.items.insert(
+                    SidebarConfigItem(id: "storytellerServer", permanent: true),
+                    at: 0,
+                )
+            }
+            return normalized
         }
     }
 

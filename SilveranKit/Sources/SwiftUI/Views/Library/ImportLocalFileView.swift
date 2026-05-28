@@ -44,12 +44,34 @@ struct ImportLocalFileView: View {
     }
 
     private func refreshLocalFiles() async {
-        let metadata = await BookServiceActor.shared.folderSourceMetadata()
+        let folderSources = await folderSourceActors()
+        var metadata: [BookMetadata] = []
+        for actor in folderSources {
+            metadata.append(contentsOf: await actor.fetchLibraryInformation() ?? [])
+        }
         await MainActor.run {
             localFiles = metadata.sorted {
                 $0.title.articleStrippedCompare($1.title) == .orderedAscending
             }
         }
+    }
+
+    private func folderSourceActors() async -> [FolderSourceActor] {
+        let records = await BookServiceActor.shared.bookSources
+        return records
+            .filter { $0.kind == .localFolder }
+            .map { FolderSourceActor(sourceRecord: $0) }
+    }
+
+    private func defaultFolderSourceActor() async throws -> FolderSourceActor {
+        if let actor = await folderSourceActors().first {
+            return actor
+        }
+        throw NSError(
+            domain: "ImportLocalFileView",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Folder source is not configured"],
+        )
     }
 
     private func importSelectedFile(from sourceURL: URL) {
@@ -67,7 +89,8 @@ struct ImportLocalFileView: View {
                 if bookName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     bookName = sourceURL.lastPathComponent
                 }
-                _ = try await BookServiceActor.shared.importFolderSourceMedia(
+                let folderSource = try await defaultFolderSourceActor()
+                _ = try await folderSource.importMedia(
                     from: sourceURL,
                     category: category,
                     bookName: bookName,
@@ -99,7 +122,13 @@ struct ImportLocalFileView: View {
     private func deleteLocalFile(_ book: BookMetadata) {
         Task {
             do {
-                try await BookServiceActor.shared.deleteFolderSourceBook(book.id)
+                let records = await BookServiceActor.shared.bookSources
+                guard let sourceID = book.sourceID,
+                    let record = records.first(where: { $0.id == sourceID })
+                else {
+                    return
+                }
+                try await FolderSourceActor(sourceRecord: record).deleteBook(book.id)
                 await refreshLocalFiles()
             } catch {
                 debugLog(
@@ -167,7 +196,18 @@ struct ImportLocalFileView: View {
         private func openLocalMediaDirectory() {
             Task {
                 do {
-                    let url = try await BookServiceActor.shared.folderSourceDirectory()
+                    let records = await BookServiceActor.shared.bookSources
+                    guard let record = records.first(where: { $0.kind == .localFolder }) else {
+                        throw NSError(
+                            domain: "ImportLocalFileView",
+                            code: 1,
+                            userInfo: [
+                                NSLocalizedDescriptionKey: "Folder source is not configured"
+                            ],
+                        )
+                    }
+                    let folderSource = FolderSourceActor(sourceRecord: record)
+                    let url = try await folderSource.folderDirectory()
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } catch {
                     debugLog(
@@ -434,7 +474,15 @@ private func importSelectedFileMac(from sourceURL: URL) {
             if bookName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 bookName = sourceURL.lastPathComponent
             }
-            _ = try await BookServiceActor.shared.importFolderSourceMedia(
+            let records = await BookServiceActor.shared.bookSources
+            guard let record = records.first(where: { $0.kind == .localFolder }) else {
+                throw NSError(
+                    domain: "ImportLocalFileView",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Folder source is not configured"],
+                )
+            }
+            _ = try await FolderSourceActor(sourceRecord: record).importMedia(
                 from: sourceURL,
                 category: category,
                 bookName: bookName,

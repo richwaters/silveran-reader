@@ -100,22 +100,10 @@ public class LibrarySidebarModel {
                 name: "Media Sources",
                 items: [
                     SidebarItemDescription(
-                        name: "Storyteller Server",
-                        systemImage: "server.rack",
+                        name: "Sources",
+                        systemImage: "externaldrive",
                         badge: -1,
-                        content: .placeholder(title: "Storyteller Server"),
-                    ),
-                    SidebarItemDescription(
-                        name: "Audiobookshelf Server",
-                        systemImage: "server.rack",
-                        badge: -1,
-                        content: .placeholder(title: "Audiobookshelf Server"),
-                    ),
-                    SidebarItemDescription(
-                        name: "Local Files",
-                        systemImage: "folder",
-                        badge: -1,
-                        content: .importLocalFile,
+                        content: .storytellerServer,
                     ),
                 ],
             ),

@@ -60,7 +60,7 @@ public final class CarPlayCoordinator {
 
     private func ensureLocalMediaScanned() async {
         do {
-            try await BookServiceActor.shared.scanCachedMedia()
+            try await LocalMediaActor.shared.scanForMedia()
             debugLog("[CarPlayCoordinator] Local media scan complete")
         } catch {
             debugLog("[CarPlayCoordinator] Failed to scan local media: \(error)")
@@ -68,7 +68,7 @@ public final class CarPlayCoordinator {
     }
 
     private func observeLocalMediaActor() async {
-        lmaObserverId = await BookServiceActor.shared.addCachedMediaObserver { @MainActor [weak self] in
+        lmaObserverId = await LocalMediaActor.shared.addObserver { @MainActor [weak self] in
             debugLog("[CarPlayCoordinator] Library updated, notifying CarPlay")
             self?.onLibraryUpdated?()
         }
@@ -165,7 +165,10 @@ public final class CarPlayCoordinator {
 
         var result: [BookMetadata] = []
         for book in allMetadata {
-            let downloaded = await BookServiceActor.shared.downloadedCategories(for: book.uuid)
+            let downloaded = await LocalMediaActor.shared.downloadedCategories(
+                for: book.uuid,
+                sourceID: book.sourceID,
+            )
             if downloaded.contains(category) {
                 // If requesting audiobooks, skip books that also have readaloud (prefer readaloud)
                 if category == .audio && downloaded.contains(.synced) {
@@ -194,12 +197,6 @@ public final class CarPlayCoordinator {
             return UIImage(data: data)
         }
         // Last resort: extract from local file (for standalone imports)
-        if let data = await BookServiceActor.shared.cachedFolderCover(
-            for: bookId,
-            sourceID: nil,
-        ) {
-            return UIImage(data: data)
-        }
         return nil
     }
 
@@ -272,9 +269,10 @@ public final class CarPlayCoordinator {
         debugLog("[CarPlayCoordinator] loadAndPlayBook: \(metadata.title), category: \(category)")
 
         guard
-            let localPath = await BookServiceActor.shared.mediaFilePath(
+            let localPath = await LocalMediaActor.shared.mediaFilePath(
                 for: metadata.uuid,
                 category: category,
+                sourceID: metadata.sourceID,
             )
         else {
             debugLog("[CarPlayCoordinator] No local path for book \(metadata.uuid)")

@@ -416,7 +416,7 @@ public final class MediaViewModel {
         logPerfCheckpoint("refreshMetadata smartShelves", source: source, checkpoint: &checkpoint)
         let libraryMetadata = await BookServiceActor.shared.cachedLibraryInformation()
         let status = await BookServiceActor.shared.connectionStatus
-        let paths = await BookServiceActor.shared.cachedMediaPaths()
+        let paths = await LocalMediaActor.shared.cachedMediaPaths(for: libraryMetadata)
         let pendingSyncs = await ProgressSyncActor.shared.getPendingProgressSyncs()
         logPerfCheckpoint(
             "refreshMetadata status/paths/pending",
@@ -671,11 +671,11 @@ public final class MediaViewModel {
 
     private func setupPathCacheSync() {
         Task {
-            cachedMediaObserverId = await BookServiceActor.shared.addCachedMediaObserver {
+            cachedMediaObserverId = await LocalMediaActor.shared.addObserver {
                 @MainActor [weak self] in
                 Task { @MainActor in
                     await self?.syncPathCache()
-                    await self?.refreshMetadata(source: "BookServiceActor.cachedMediaObserver")
+                    await self?.refreshMetadata(source: "LocalMediaActor.cachedMediaObserver")
                 }
             }
 
@@ -690,7 +690,8 @@ public final class MediaViewModel {
     }
 
     private func syncPathCache() async {
-        cachedBookPaths = await BookServiceActor.shared.cachedMediaPaths()
+        let metadata = await BookServiceActor.shared.libraryMetadata
+        cachedBookPaths = await LocalMediaActor.shared.cachedMediaPaths(for: metadata)
     }
 
     private func applyLibraryMetadata(_ metadata: [BookMetadata]) {
@@ -1731,9 +1732,10 @@ public final class MediaViewModel {
         #if canImport(AppKit)
         Task { [weak self] in
             guard
-                let directory = await BookServiceActor.shared.mediaDirectory(
+                let directory = await LocalMediaActor.shared.mediaDirectory(
                     for: item.id,
                     category: category,
+                    sourceID: item.sourceID,
                 )
             else { return }
             await MainActor.run {
@@ -1750,7 +1752,11 @@ public final class MediaViewModel {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await BookServiceActor.shared.deleteCachedMedia(for: item.id, category: category)
+                try await LocalMediaActor.shared.deleteMedia(
+                    for: item.id,
+                    category: category,
+                    sourceID: item.sourceID,
+                )
                 await MainActor.run {
                     if var state = downloadStatuses[item.id] {
                         state.categories[category] = nil
@@ -2112,14 +2118,22 @@ public final class MediaViewModel {
             )
         }
 
-        if await BookServiceActor.shared.isFolderSource(item.sourceID) {
-            guard let data = await BookServiceActor.shared.cachedFolderCover(
-                for: item.id,
-                sourceID: item.sourceID,
-            ) else {
+        if await BookServiceActor.shared.sourceKind(for: item.sourceID) == .localFolder {
+            guard let sourceID = item.sourceID,
+                let cover = await BookServiceActor.shared.fetchCoverImage(
+                    for: item.id,
+                    sourceID: sourceID,
+                    audio: false,
+                    width: nil,
+                    height: nil,
+                    version: nil,
+                    ifNoneMatch: nil,
+                    ifModifiedSince: nil,
+                )
+            else {
                 return .missing
             }
-            guard let payload = makeCoverPayload(from: data) else {
+            guard let payload = makeCoverPayload(from: cover.data) else {
                 return .missing
             }
             return .found(

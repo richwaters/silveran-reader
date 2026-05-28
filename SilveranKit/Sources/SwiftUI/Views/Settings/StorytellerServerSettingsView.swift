@@ -1,6 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+#if os(macOS)
+import AppKit
+#endif
+
 public struct StorytellerServerSettingsView: View {
     @State private var sources: [BookSourceRecord] = []
     @State private var sourceURLs: [BookSourceID: String] = [:]
@@ -134,6 +138,8 @@ private struct BookSourceEditorView: View {
     @State private var password = ""
     @State private var folderPath = ""
     @State private var folderBookmarkData: Data?
+    @State private var originalFolderPath = ""
+    @State private var originalFolderBookmarkData: Data?
     @State private var hasLoadedCredentials = false
     @State private var hasSavedCredentials = false
     @State private var isLoading = false
@@ -173,6 +179,10 @@ private struct BookSourceEditorView: View {
         }
     }
 
+    private var hasFolderChanges: Bool {
+        folderPath != originalFolderPath || folderBookmarkData != originalFolderBookmarkData
+    }
+
     var body: some View {
         Form {
             Section("Server Configuration") {
@@ -181,6 +191,10 @@ private struct BookSourceEditorView: View {
                     Text(BookSourceKind.localFolder.displayName).tag(BookSourceKind.localFolder)
                 }
                 .disabled(isExistingSource)
+                .onChange(of: kind) { _, newKind in
+                    guard !isExistingSource else { return }
+                    name = defaultName(for: newKind)
+                }
 
                 TextField("Name", text: $name)
                     .textContentType(.name)
@@ -229,10 +243,32 @@ private struct BookSourceEditorView: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
 
+                            if hasFolderChanges {
+                                Button {
+                                    folderPath = originalFolderPath
+                                    folderBookmarkData = originalFolderBookmarkData
+                                } label: {
+                                    Image(systemName: "arrow.uturn.backward")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Revert folder")
+                            }
+
+                            #if os(macOS)
+                            Button {
+                                revealFolderInFinder()
+                            } label: {
+                                Image(systemName: "folder")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Show in Finder")
+                            .disabled(folderPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            #endif
+
                             Button {
                                 showingFolderImporter = true
                             } label: {
-                                Image(systemName: "folder")
+                                Image(systemName: "pencil")
                             }
                             .buttonStyle(.borderless)
                             .help("Choose folder")
@@ -263,11 +299,11 @@ private struct BookSourceEditorView: View {
                     connectionStatusView
                 }
 
-                if isExistingSource && hasSavedCredentials {
+                if isExistingSource {
                     Button(role: .destructive) {
                         showRemoveDataConfirmation = true
                     } label: {
-                        Label("Remove Server", systemImage: "trash")
+                        Label(removeActionTitle, systemImage: "trash")
                             .foregroundStyle(.red)
                     }
                     .disabled(isLoading)
@@ -292,6 +328,17 @@ private struct BookSourceEditorView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            if kind == .localFolder {
+                Section {
+                    Text("How do I add files to this folder?")
+                        .font(.headline)
+                    Text(
+                        "Go to All Books, click Add Book, and choose this folder source as the destination."
+                    )
+                    .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -312,20 +359,18 @@ private struct BookSourceEditorView: View {
             }
         }
         .confirmationDialog(
-            "Remove this server?",
+            removeConfirmationTitle,
             isPresented: $showRemoveDataConfirmation,
             titleVisibility: .visible,
         ) {
-            Button("Remove Server", role: .destructive) {
+            Button(removeActionTitle, role: .destructive) {
                 Task {
-                    await removeServer()
+                    await removeSource()
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(
-                "This will delete saved credentials, cached metadata, downloaded media, and covers for books from this server."
-            )
+            Text(removeConfirmationMessage)
         }
         .task {
             await loadExistingSource()
@@ -338,6 +383,35 @@ private struct BookSourceEditorView: View {
                 return isExistingSource ? "Save Credentials and Connect" : "Add and Connect"
             case .localFolder:
                 return isExistingSource ? "Save Folder Source" : "Add Folder Source"
+        }
+    }
+
+    private var removeActionTitle: String {
+        switch kind {
+            case .storyteller:
+                return "Remove Server"
+            case .localFolder:
+                return "Remove Folder Source"
+        }
+    }
+
+    private var removeConfirmationTitle: String {
+        switch kind {
+            case .storyteller:
+                return "Remove this server?"
+            case .localFolder:
+                return "Remove this folder source?"
+        }
+    }
+
+    private var removeConfirmationMessage: String {
+        switch kind {
+            case .storyteller:
+                return
+                    "This will delete saved credentials, cached metadata, downloaded media, and covers for books from this server."
+            case .localFolder:
+                return
+                    "This removes the source from Silveran Reader. Files in the selected folder are not deleted."
         }
     }
 
@@ -398,10 +472,13 @@ private struct BookSourceEditorView: View {
         hasLoadedCredentials = true
 
         await MainActor.run {
-            kind = source?.kind ?? .storyteller
-            name = source?.name ?? ""
+            let sourceKind = source?.kind ?? .storyteller
+            kind = sourceKind
+            name = source?.name ?? defaultName(for: sourceKind)
             folderPath = source?.storagePath ?? ""
             folderBookmarkData = source?.storageBookmarkData
+            originalFolderPath = source?.storagePath ?? ""
+            originalFolderBookmarkData = source?.storageBookmarkData
         }
 
         guard let sourceID, source?.kind == .storyteller else { return }
@@ -452,6 +529,8 @@ private struct BookSourceEditorView: View {
                 hasSavedCredentials = true
                 isLoading = false
                 connectionStatus = kind == .storyteller ? .success : .notTested
+                originalFolderPath = folderPath
+                originalFolderBookmarkData = folderBookmarkData
             }
         } else {
             let message = await failureMessageForCurrentSource()
@@ -462,7 +541,7 @@ private struct BookSourceEditorView: View {
         }
     }
 
-    private func removeServer() async {
+    private func removeSource() async {
         guard let sourceID else { return }
 
         await MainActor.run {
@@ -479,12 +558,16 @@ private struct BookSourceEditorView: View {
         } else {
             await MainActor.run {
                 isLoading = false
-                connectionStatus = .failure("Failed to remove server.")
+                connectionStatus = .failure("Failed to remove source.")
             }
         }
     }
 
     private func failureMessageForCurrentSource() async -> String {
+        if kind == .localFolder {
+            return
+                "Could not save folder source. The selected folder may already belong to another source."
+        }
         guard let sourceID else { return "Connection failed." }
         let storytellerStatus = await BookServiceActor.shared.connectionStatus(sourceID: sourceID)
         if case .error(let message) = storytellerStatus {
@@ -522,5 +605,23 @@ private struct BookSourceEditorView: View {
         #else
         folderBookmarkData = nil
         #endif
+    }
+
+    #if os(macOS)
+    private func revealFolderInFinder() {
+        let trimmed = folderPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let url = URL(fileURLWithPath: trimmed, isDirectory: true)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+    #endif
+
+    private func defaultName(for kind: BookSourceKind) -> String {
+        switch kind {
+            case .storyteller:
+                return BookSourceKind.storyteller.defaultName
+            case .localFolder:
+                return "File Storage"
+        }
     }
 }

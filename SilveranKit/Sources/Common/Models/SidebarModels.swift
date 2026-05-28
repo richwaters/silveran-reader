@@ -296,16 +296,10 @@ public enum LibrarySidebarDefaults {
                 name: "Media Sources",
                 items: [
                     SidebarItemDescription(
-                        name: "Storyteller Server",
-                        systemImage: "server.rack",
+                        name: "Sources",
+                        systemImage: "externaldrive",
                         badge: -1,
                         content: .storytellerServer,
-                    ),
-                    SidebarItemDescription(
-                        name: "Local Files",
-                        systemImage: "folder",
-                        badge: -1,
-                        content: .importLocalFile,
                     ),
                     SidebarItemDescription(
                         name: "Downloaded",

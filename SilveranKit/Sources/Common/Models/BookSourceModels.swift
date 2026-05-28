@@ -105,7 +105,7 @@ public extension BookSourceKind {
             case .storyteller:
                 return "My Storyteller Server"
             case .localFolder:
-                return "Local Files"
+                return "Internal Storage"
         }
     }
 }

@@ -58,19 +58,7 @@ public actor BookServiceActor {
             return cachedLibraryMetadata
         }
 
-        let sourceNames = Dictionary(uniqueKeysWithValues: sourceRecords.map { ($0.id, $0.name) })
-        let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
-        let folderMetadata = await LocalMediaActor.shared.localStandaloneMetadata
-        let metadata = storytellerMetadata + folderMetadata
-        let stamped = metadata.map { book in
-            var stamped = book
-            if let sourceID = stamped.sourceID {
-                stamped.source = stamped.source ?? sourceNames[sourceID]
-            }
-            return stamped
-        }
-        cachedLibraryMetadata = stamped
-        return stamped
+        return await fetchLibraryInformation() ?? []
     }
 
     public var bookSources: [BookSourceRecord] {
@@ -255,7 +243,10 @@ public actor BookServiceActor {
         await ensureSourceRegistryLoaded()
 
         let now = ISO8601DateFormatter().string(from: Date())
-        let sourceID = UUID().uuidString
+        let sourceID = await sourceIDForNewSource(kind: configuration.kind, configuredPath: configuration.storagePath)
+        if sourceRecords.contains(where: { $0.id == sourceID }) {
+            return nil
+        }
         let storageURL = await storageURLForNewSource(
             kind: configuration.kind,
             sourceID: sourceID,
@@ -306,6 +297,12 @@ public actor BookServiceActor {
                 }
             case .localFolder:
                 guard record.storagePath != nil else { return nil }
+                if let storageURL {
+                    try? await FilesystemActor.shared.ensureSourceIDMarker(
+                        in: storageURL,
+                        sourceID: record.id,
+                    )
+                }
                 sourcesByID[record.id] = FolderSourceActor(sourceRecord: record)
         }
 
@@ -393,6 +390,18 @@ public actor BookServiceActor {
                 }
             case .localFolder:
                 guard updatedRecord.storagePath != nil else { return false }
+                if let storagePath = updatedRecord.storagePath {
+                    let storageURL = URL(fileURLWithPath: storagePath, isDirectory: true)
+                    if let marker = try? await FilesystemActor.shared.sourceIDMarker(in: storageURL),
+                        marker != sourceID
+                    {
+                        return false
+                    }
+                    try? await FilesystemActor.shared.ensureSourceIDMarker(
+                        in: storageURL,
+                        sourceID: sourceID,
+                    )
+                }
                 sourcesByID[sourceID] = FolderSourceActor(sourceRecord: updatedRecord)
                 await upsertSourceRecord(updatedRecord)
                 if let metadata = await sourcesByID[sourceID]?.fetchLibraryInformation() {
@@ -849,6 +858,25 @@ public actor BookServiceActor {
         }
     }
 
+    private func sourceIDForNewSource(
+        kind: BookSourceKind,
+        configuredPath: String?,
+    ) async -> BookSourceID {
+        guard kind == .localFolder,
+            let configuredPath = configuredPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !configuredPath.isEmpty
+        else {
+            return UUID().uuidString
+        }
+        let url = URL(fileURLWithPath: configuredPath, isDirectory: true)
+        if let sourceID = try? await FilesystemActor.shared.sourceIDMarker(in: url),
+            !sourceID.isEmpty
+        {
+            return sourceID
+        }
+        return UUID().uuidString
+    }
+
     private func updatedStoragePath(
         existing: BookSourceRecord,
         configuration: BookSourceConfiguration,
@@ -885,84 +913,10 @@ public actor BookServiceActor {
         cachedLibraryMetadata.append(contentsOf: metadata)
     }
 
-    public func cachedMediaPaths() async -> [String: MediaPaths] {
-        let storytellerPaths = await LocalMediaActor.shared.localStorytellerBookPaths
-        let folderPaths = await LocalMediaActor.shared.localStandaloneBookPaths
-        return storytellerPaths.merging(folderPaths) { _, new in new }
-    }
-
-    public func mediaFilePath(for bookID: String, category: LocalMediaCategory) async -> URL? {
-        await LocalMediaActor.shared.mediaFilePath(for: bookID, category: category)
-    }
-
-    public func mediaDirectory(for bookID: String, category: LocalMediaCategory) async -> URL? {
-        await LocalMediaActor.shared.mediaDirectory(for: bookID, category: category)
-    }
-
-    public func downloadedCategories(for bookID: String) async -> Set<LocalMediaCategory> {
-        await LocalMediaActor.shared.downloadedCategories(for: bookID)
-    }
-
-    public func deleteCachedMedia(for bookID: String, category: LocalMediaCategory) async throws {
-        try await LocalMediaActor.shared.deleteMedia(for: bookID, category: category)
-    }
-
-    public func updateCachedBookStatus(bookID: String, status: BookStatus) async {
-        await LocalMediaActor.shared.updateBookStatus(bookId: bookID, status: status)
-    }
-
-    public func cachedFolderCover(for bookID: String, sourceID: BookSourceID?) async -> Data? {
-        await LocalMediaActor.shared.extractLocalCover(for: bookID, sourceID: sourceID)
-    }
-
-    public func isFolderSource(_ sourceID: BookSourceID?) async -> Bool {
+    public func sourceKind(for sourceID: BookSourceID?) async -> BookSourceKind? {
         await ensureSourceRegistryLoaded()
-        guard let sourceID else { return false }
-        return sourceRecords.first(where: { $0.id == sourceID })?.kind == .localFolder
-    }
-
-    public func addCachedMediaObserver(_ callback: @escaping @Sendable @MainActor () -> Void)
-        async -> UUID
-    {
-        await LocalMediaActor.shared.addObserver(callback)
-    }
-
-    public func scanCachedMedia() async throws {
-        try await LocalMediaActor.shared.scanForMedia()
-    }
-
-    public func folderSourceMetadata() async -> [BookMetadata] {
-        await ensureSourceRegistryLoaded()
-        _ = await fetchLibraryInformation()
-        let folderSourceIDs = Set(
-            sourceRecords.filter { $0.kind == .localFolder }.map(\.id)
-        )
-        return cachedLibraryMetadata.filter { book in
-            guard let sourceID = book.sourceID else { return false }
-            return folderSourceIDs.contains(sourceID)
-        }
-    }
-
-    public func importFolderSourceMedia(
-        from sourceFileURL: URL,
-        category: LocalMediaCategory,
-        bookName: String,
-    ) async throws -> URL {
-        try await LocalMediaActor.shared.importMedia(
-            from: sourceFileURL,
-            domain: .local,
-            category: category,
-            bookName: bookName,
-        )
-    }
-
-    public func deleteFolderSourceBook(_ bookID: String) async throws {
-        try await LocalMediaActor.shared.deleteLocalStandaloneMedia(for: bookID)
-    }
-
-    public func folderSourceDirectory() async throws -> URL {
-        try await LocalMediaActor.shared.ensureLocalStorageDirectories()
-        return await LocalMediaActor.shared.getDomainDirectory(for: .local)
+        guard let sourceID else { return nil }
+        return sourceRecords.first(where: { $0.id == sourceID })?.kind
     }
 }
 

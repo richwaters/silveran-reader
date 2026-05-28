@@ -32,10 +32,8 @@ public enum LocalMediaImportEvent: Sendable {
 @globalActor
 public actor LocalMediaActor: GlobalActor {
     public static let shared = LocalMediaActor()
-    private(set) public var localStandaloneMetadata: [BookMetadata] = []
     private(set) public var localStorytellerMetadata: [BookMetadata] = []
     private(set) public var localStorytellerBookPaths: [String: MediaPaths] = [:]
-    private(set) public var localStandaloneBookPaths: [String: MediaPaths] = [:]
     private let filesystem: FilesystemActor
     private let localLibrary: LocalLibraryManager
     private var periodicScanTask: Task<Void, Never>?
@@ -226,66 +224,8 @@ public actor LocalMediaActor: GlobalActor {
             }
         }
 
-        if let index = localStandaloneMetadata.firstIndex(where: { $0.uuid == bookId }) {
-            let existing = localStandaloneMetadata[index]
-            let existingTimestamp = existing.position?.timestamp ?? 0
-
-            if timestamp <= existingTimestamp {
-                debugLog(
-                    "[LocalMediaActor] updateBookProgress: skipping standalone update, existing is newer (incoming: \(timestamp), existing: \(existingTimestamp))"
-                )
-            } else {
-                let newPosition = BookReadingPosition(
-                    uuid: existing.position?.uuid,
-                    locator: locator,
-                    timestamp: timestamp,
-                    createdAt: existing.position?.createdAt,
-                    updatedAt: updatedAtString,
-                )
-                var updatedMetadata = BookMetadata(
-                    uuid: existing.uuid,
-                    title: existing.title,
-                    subtitle: existing.subtitle,
-                    description: existing.description,
-                    language: existing.language,
-                    createdAt: existing.createdAt,
-                    updatedAt: existing.updatedAt,
-                    publicationDate: existing.publicationDate,
-                    authors: existing.authors,
-                    narrators: existing.narrators,
-                    creators: existing.creators,
-                    series: existing.series,
-                    tags: existing.tags,
-                    collections: existing.collections,
-                    ebook: existing.ebook,
-                    audiobook: existing.audiobook,
-                    readaloud: existing.readaloud,
-                    status: existing.status,
-                    position: newPosition,
-                    rating: existing.rating,
-                )
-                updatedMetadata.sourceID =
-                    existing.sourceID
-                updatedMetadata.source = existing.source
-                localStandaloneMetadata[index] = updatedMetadata
-                debugLog("[LocalMediaActor] updateBookProgress: updated standalone metadata")
-                do {
-                    if let sourceID = updatedMetadata.sourceID {
-                        try await filesystem.saveLocalLibraryMetadata(
-                            localStandaloneMetadata,
-                            sourceID: sourceID,
-                        )
-                    }
-                    debugLog(
-                        "[LocalMediaActor] updateBookProgress: saved standalone metadata to disk"
-                    )
-                } catch {
-                    debugLog(
-                        "[LocalMediaActor] updateBookProgress: failed to save standalone metadata: \(error)"
-                    )
-                }
-            }
-        }
+        // Folder sources persist progress through FolderSourceActor. LocalMediaActor only tracks
+        // client-owned cache state.
     }
 
     public func updateBookStatus(bookId: String, status: BookStatus) async {
@@ -364,23 +304,8 @@ public actor LocalMediaActor: GlobalActor {
         }
         localStorytellerBookPaths = storytellerPaths
 
-        var folderMetadata: [BookMetadata] = []
-        var folderPaths: [String: MediaPaths] = [:]
-        for source in bookSources.filter({ $0.kind == .localFolder }) {
-            let localLibrary = try await scanFolderSource(sourceRecord: source)
-            folderMetadata.append(contentsOf: localLibrary.metadata)
-            folderPaths.merge(localLibrary.paths) { _, new in new }
-        }
-        localStandaloneMetadata = folderMetadata
-        localStandaloneBookPaths = folderPaths
-
         var allPositions: [String: BookReadingPosition] = [:]
         for book in storytellerMetadata {
-            if let pos = book.position {
-                allPositions[book.uuid] = pos
-            }
-        }
-        for book in localStandaloneMetadata {
             if let pos = book.position {
                 allPositions[book.uuid] = pos
             }
@@ -388,234 +313,6 @@ public actor LocalMediaActor: GlobalActor {
         await ProgressSyncActor.shared.updateServerPositions(allPositions)
 
         await notifyObservers()
-    }
-
-    public func fetchFolderSourceLibrary(sourceRecord: BookSourceRecord) async throws
-        -> [BookMetadata]
-    {
-        try await filesystem.ensureLocalStorageDirectories()
-        let library = try await scanFolderSource(sourceRecord: sourceRecord)
-        let stampedMetadata = library.metadata.map { book in
-            var stamped = book
-            stamped.source = sourceRecord.name
-            return stamped
-        }
-        let replacedBookIDs = Set(
-            localStandaloneMetadata.filter { $0.sourceID == sourceRecord.id }.map(\.uuid)
-        )
-        localStandaloneMetadata.removeAll { $0.sourceID == sourceRecord.id }
-        localStandaloneMetadata.append(contentsOf: stampedMetadata)
-        for bookID in replacedBookIDs {
-            localStandaloneBookPaths[bookID] = nil
-        }
-        localStandaloneBookPaths.merge(library.paths) { _, new in new }
-        return stampedMetadata
-    }
-
-    public func bookPosition(bookId: String, sourceID: BookSourceID) -> BookReadingPosition? {
-        localStandaloneMetadata.first {
-            $0.uuid == bookId && $0.sourceID == sourceID
-        }?.position
-    }
-
-    private func scanFolderSource(sourceID localFolderSourceID: BookSourceID) async throws
-        -> LocalLibraryManager.ScanResult
-    {
-        let sourceRecord = BookSourceRecord(
-            id: localFolderSourceID,
-            name: BookSourceKind.localFolder.defaultName,
-            kind: .localFolder,
-            capabilities: .localFolder,
-            storagePath: await filesystem.getDomainDirectory(
-                for: .local,
-                sourceID: localFolderSourceID,
-            )
-                .path,
-        )
-        return try await scanFolderSource(sourceRecord: sourceRecord)
-    }
-
-    private func scanFolderSource(sourceRecord: BookSourceRecord) async throws
-        -> LocalLibraryManager.ScanResult
-    {
-        let localFolderSourceID = sourceRecord.id
-        let folderURL: URL
-        let stopAccessing: (() -> Void)?
-        if let resolved = sourceFolderURL(sourceRecord) {
-            folderURL = resolved.url
-            stopAccessing = resolved.stopAccessing
-            try await filesystem.ensureDirectoryExists(at: folderURL)
-        } else {
-            folderURL = try await filesystem.ensureSourceDirectory(
-                for: .local,
-                sourceID: localFolderSourceID,
-            )
-            stopAccessing = nil
-        }
-        defer { stopAccessing?() }
-        let localScanResult = try await localLibrary.scanLocalMedia(
-            folderURL: folderURL,
-            sourceID: localFolderSourceID,
-        )
-
-        // Load saved local library metadata to preserve UUIDs and positions
-        let savedLocalMetadata = metadata(
-            (try? await filesystem.loadLocalLibraryMetadata(sourceID: localFolderSourceID)) ?? [],
-            stampedWith: localFolderSourceID,
-        )
-
-        // Build lookup by filename for matching scanned books to saved metadata
-        var savedByFilename: [String: BookMetadata] = [:]
-        for saved in savedLocalMetadata {
-            if let filepath = saved.ebook?.filepath {
-                savedByFilename[filepath] = saved
-            }
-            if let filepath = saved.audiobook?.filepath {
-                savedByFilename[filepath] = saved
-            }
-            if let filepath = saved.readaloud?.filepath {
-                savedByFilename[filepath] = saved
-            }
-        }
-
-        // Merge scan results with saved metadata to preserve UUIDs and positions
-        var mergedMetadata: [BookMetadata] = []
-        var mergedPaths: [String: MediaPaths] = [:]
-
-        for scanned in localScanResult.metadata {
-            let scannedFilepath =
-                scanned.ebook?.filepath ?? scanned.audiobook?.filepath
-                ?? scanned.readaloud?.filepath
-
-            if let filepath = scannedFilepath, let saved = savedByFilename[filepath] {
-                // Found match - preserve UUID and position from saved metadata
-                var merged = BookMetadata(
-                    uuid: saved.uuid,
-                    title: scanned.title,
-                    subtitle: scanned.subtitle,
-                    description: scanned.description,
-                    language: scanned.language,
-                    createdAt: saved.createdAt,
-                    updatedAt: saved.updatedAt,
-                    publicationDate: scanned.publicationDate,
-                    authors: scanned.authors,
-                    narrators: scanned.narrators,
-                    creators: scanned.creators,
-                    series: scanned.series,
-                    tags: scanned.tags,
-                    collections: scanned.collections,
-                    ebook: scanned.ebook.map { asset in
-                        BookAsset(
-                            uuid: saved.uuid,
-                            filepath: asset.filepath,
-                            missing: asset.missing,
-                            createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt,
-                        )
-                    },
-                    audiobook: scanned.audiobook.map { asset in
-                        BookAsset(
-                            uuid: saved.uuid,
-                            filepath: asset.filepath,
-                            missing: asset.missing,
-                            createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt,
-                        )
-                    },
-                    readaloud: scanned.readaloud.map { asset in
-                        BookReadaloud(
-                            uuid: saved.uuid,
-                            filepath: asset.filepath,
-                            missing: asset.missing,
-                            status: asset.status,
-                            currentStage: asset.currentStage,
-                            stageProgress: asset.stageProgress,
-                            queuePosition: asset.queuePosition,
-                            restartPending: asset.restartPending,
-                            createdAt: asset.createdAt,
-                            updatedAt: asset.updatedAt,
-                        )
-                    },
-                    status: saved.status,
-                    position: saved.position,
-                    rating: saved.rating,
-                )
-                merged.sourceID = saved.sourceID ?? localFolderSourceID
-                mergedMetadata.append(merged)
-
-                // Map paths from scanned UUID to preserved UUID
-                if let scannedPaths = localScanResult.paths[scanned.uuid] {
-                    mergedPaths[saved.uuid] = scannedPaths
-                }
-
-                debugLog(
-                    "[LocalMediaActor] Matched local book '\(scanned.title)' to saved UUID \(saved.uuid)"
-                )
-            } else {
-                // New book - use scanned metadata as-is
-                var stamped = scanned
-                stamped.sourceID = stamped.sourceID ?? localFolderSourceID
-                mergedMetadata.append(stamped)
-                if let scannedPaths = localScanResult.paths[scanned.uuid] {
-                    mergedPaths[scanned.uuid] = scannedPaths
-                }
-                debugLog(
-                    "[LocalMediaActor] New local book '\(scanned.title)' with UUID \(scanned.uuid)"
-                )
-            }
-        }
-
-        try await filesystem.saveLocalLibraryMetadata(mergedMetadata, sourceID: localFolderSourceID)
-
-        return LocalLibraryManager.ScanResult(metadata: mergedMetadata, paths: mergedPaths)
-    }
-
-    private func sourceFolderURL(_ sourceRecord: BookSourceRecord) -> (
-        url: URL,
-        stopAccessing: (() -> Void)?
-    )? {
-        #if os(macOS)
-        if let bookmarkData = sourceRecord.storageBookmarkData {
-            var stale = false
-            if let url = try? URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &stale,
-            ) {
-                let didStartAccessing = url.startAccessingSecurityScopedResource()
-                return (
-                    url,
-                    didStartAccessing
-                        ? { url.stopAccessingSecurityScopedResource() }
-                        : nil
-                )
-            }
-        }
-        #elseif os(iOS)
-        if let bookmarkData = sourceRecord.storageBookmarkData {
-            var stale = false
-            if let url = try? URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [],
-                relativeTo: nil,
-                bookmarkDataIsStale: &stale,
-            ) {
-                let didStartAccessing = url.startAccessingSecurityScopedResource()
-                return (
-                    url,
-                    didStartAccessing
-                        ? { url.stopAccessingSecurityScopedResource() }
-                        : nil
-                )
-            }
-        }
-        #endif
-
-        guard let storagePath = sourceRecord.storagePath, !storagePath.isEmpty else {
-            return nil
-        }
-        return (URL(fileURLWithPath: storagePath, isDirectory: true), nil)
     }
 
     private func scanBookPaths(
@@ -720,15 +417,12 @@ public actor LocalMediaActor: GlobalActor {
         }
     }
 
-    public func downloadedCategories(for uuid: String) async -> Set<LocalMediaCategory> {
-        let sourceID: BookSourceID?
-        if let metadataSourceID = localStorytellerMetadata.first(where: { $0.uuid == uuid })?.sourceID
-        {
-            sourceID = metadataSourceID
-        } else {
-            sourceID = await migratedSourceID(for: .storyteller)
-        }
-        guard let sourceID else { return [] }
+    public func downloadedCategories(
+        for uuid: String,
+        sourceID explicitSourceID: BookSourceID? = nil,
+    ) async -> Set<LocalMediaCategory> {
+        guard let sourceID = await cacheSourceID(for: uuid, explicitSourceID: explicitSourceID)
+        else { return [] }
         return await filesystem.downloadedCategories(
             for: uuid,
             in: .storyteller,
@@ -736,15 +430,48 @@ public actor LocalMediaActor: GlobalActor {
         )
     }
 
-    public func mediaDirectory(for uuid: String, category: LocalMediaCategory) async -> URL? {
-        let sourceID: BookSourceID?
-        if let metadataSourceID = localStorytellerMetadata.first(where: { $0.uuid == uuid })?.sourceID
-        {
-            sourceID = metadataSourceID
-        } else {
-            sourceID = await migratedSourceID(for: .storyteller)
+    public func cachedMediaPaths(for metadata: [BookMetadata]) async -> [String: MediaPaths] {
+        var paths = localStorytellerBookPaths
+        for book in metadata {
+            guard let sourceID = book.sourceID else { continue }
+            var mediaPaths = paths[book.uuid] ?? MediaPaths()
+            if mediaPaths.ebookPath == nil {
+                mediaPaths.ebookPath = await mediaFilePath(
+                    for: book.uuid,
+                    category: .ebook,
+                    sourceID: sourceID,
+                )
+            }
+            if mediaPaths.audioPath == nil {
+                mediaPaths.audioPath = await mediaFilePath(
+                    for: book.uuid,
+                    category: .audio,
+                    sourceID: sourceID,
+                )
+            }
+            if mediaPaths.syncedPath == nil {
+                mediaPaths.syncedPath = await mediaFilePath(
+                    for: book.uuid,
+                    category: .synced,
+                    sourceID: sourceID,
+                )
+            }
+            if mediaPaths.ebookPath != nil || mediaPaths.audioPath != nil
+                || mediaPaths.syncedPath != nil
+            {
+                paths[book.uuid] = mediaPaths
+            }
         }
-        guard let sourceID else { return nil }
+        return paths
+    }
+
+    public func mediaDirectory(
+        for uuid: String,
+        category: LocalMediaCategory,
+        sourceID explicitSourceID: BookSourceID? = nil,
+    ) async -> URL? {
+        guard let sourceID = await cacheSourceID(for: uuid, explicitSourceID: explicitSourceID)
+        else { return nil }
         return await filesystem.mediaDirectory(
             for: uuid,
             category: category,
@@ -753,7 +480,11 @@ public actor LocalMediaActor: GlobalActor {
         )
     }
 
-    public func mediaFilePath(for uuid: String, category: LocalMediaCategory) -> URL? {
+    public func mediaFilePath(
+        for uuid: String,
+        category: LocalMediaCategory,
+        sourceID explicitSourceID: BookSourceID? = nil,
+    ) async -> URL? {
         if let paths = localStorytellerBookPaths[uuid] {
             switch category {
                 case .ebook: return paths.ebookPath
@@ -761,25 +492,91 @@ public actor LocalMediaActor: GlobalActor {
                 case .synced: return paths.syncedPath
             }
         }
-        if let paths = localStandaloneBookPaths[uuid] {
-            switch category {
-                case .ebook: return paths.ebookPath
-                case .audio: return paths.audioPath
-                case .synced: return paths.syncedPath
-            }
+        guard let sourceID = await cacheSourceID(for: uuid, explicitSourceID: explicitSourceID)
+        else { return nil }
+        guard
+            let categoryDir = await filesystem.mediaDirectory(
+                for: uuid,
+                category: category,
+                in: .storyteller,
+                sourceID: sourceID,
+            )
+        else { return nil }
+
+        var paths = await scanBookPaths(for: uuid, domain: .storyteller, sourceID: sourceID)
+        localStorytellerBookPaths[uuid] = paths
+        switch category {
+            case .ebook:
+                if paths.ebookPath == nil {
+                    paths.ebookPath = firstCachedMediaFile(in: categoryDir, category: category)
+                }
+                return paths.ebookPath
+            case .audio:
+                if paths.audioPath == nil {
+                    paths.audioPath = firstCachedMediaFile(in: categoryDir, category: category)
+                }
+                return paths.audioPath
+            case .synced:
+                if paths.syncedPath == nil {
+                    paths.syncedPath = firstCachedMediaFile(in: categoryDir, category: category)
+                }
+                return paths.syncedPath
         }
-        return nil
     }
 
-    public func deleteMedia(for uuid: String, category: LocalMediaCategory) async throws {
-        let sourceID: BookSourceID?
+    private func cacheSourceID(
+        for uuid: String,
+        explicitSourceID: BookSourceID?,
+    ) async -> BookSourceID? {
+        if let explicitSourceID {
+            return explicitSourceID
+        }
         if let metadataSourceID = localStorytellerMetadata.first(where: { $0.uuid == uuid })?.sourceID
         {
-            sourceID = metadataSourceID
-        } else {
-            sourceID = await migratedSourceID(for: .storyteller)
+            return metadataSourceID
         }
-        guard let sourceID else { return }
+        return await migratedSourceID(for: .storyteller)
+    }
+
+    private func firstCachedMediaFile(in categoryDir: URL, category: LocalMediaCategory) -> URL? {
+        let expectedExtensions: Set<String>
+        switch category {
+            case .ebook, .synced:
+                expectedExtensions = ["epub"]
+            case .audio:
+                expectedExtensions = ["json", "m4b", "zip", "audiobook"]
+        }
+        guard
+            let contents = try? FileManager.default.contentsOfDirectory(
+                at: categoryDir,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles],
+            )
+        else {
+            return nil
+        }
+        return contents.first { url in
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
+                values.isDirectory != true
+            else {
+                return false
+            }
+            if category == .audio && url.lastPathComponent != "manifest.json"
+                && url.pathExtension.lowercased() == "json"
+            {
+                return false
+            }
+            return expectedExtensions.contains(url.pathExtension.lowercased())
+        }
+    }
+
+    public func deleteMedia(
+        for uuid: String,
+        category: LocalMediaCategory,
+        sourceID explicitSourceID: BookSourceID? = nil,
+    ) async throws {
+        guard let sourceID = await cacheSourceID(for: uuid, explicitSourceID: explicitSourceID)
+        else { return }
         try await filesystem.deleteMedia(
             for: uuid,
             category: category,
@@ -792,45 +589,13 @@ public actor LocalMediaActor: GlobalActor {
             domain: .storyteller,
             sourceID: sourceID,
         )
-        localStorytellerBookPaths[uuid] = updatedPaths
-
-        await notifyObservers()
-    }
-
-    public func deleteLocalStandaloneMedia(for uuid: String) async throws {
-        guard let localFolderSourceID = await migratedSourceID(for: .localFolder) else { return }
-        guard let paths = localStandaloneBookPaths[uuid] else {
-            localStandaloneMetadata.removeAll { $0.uuid == uuid }
-            try await filesystem.saveLocalLibraryMetadata(
-                localStandaloneMetadata,
-                sourceID: localFolderSourceID,
-            )
-            await notifyObservers()
-            return
+        if updatedPaths.ebookPath == nil && updatedPaths.audioPath == nil
+            && updatedPaths.syncedPath == nil
+        {
+            localStorytellerBookPaths.removeValue(forKey: uuid)
+        } else {
+            localStorytellerBookPaths[uuid] = updatedPaths
         }
-
-        var bookFolder: URL?
-        if let ebookPath = paths.ebookPath {
-            bookFolder = ebookPath.deletingLastPathComponent().deletingLastPathComponent()
-        } else if let audioPath = paths.audioPath {
-            bookFolder = audioPath.deletingLastPathComponent().deletingLastPathComponent()
-        } else if let syncedPath = paths.syncedPath {
-            bookFolder = syncedPath.deletingLastPathComponent().deletingLastPathComponent()
-        }
-
-        if let folder = bookFolder {
-            let fm = FileManager.default
-            if fm.fileExists(atPath: folder.path) {
-                try fm.removeItem(at: folder)
-            }
-        }
-
-        localStandaloneBookPaths.removeValue(forKey: uuid)
-        localStandaloneMetadata.removeAll { $0.uuid == uuid }
-        try await filesystem.saveLocalLibraryMetadata(
-            localStandaloneMetadata,
-            sourceID: localFolderSourceID,
-        )
 
         await notifyObservers()
     }
@@ -869,142 +634,6 @@ public actor LocalMediaActor: GlobalActor {
             throw LocalMediaError.unsupportedFileExtension(ext)
         }
         return category
-    }
-
-    public func extractLocalCover(for bookId: String, sourceID: BookSourceID? = nil) async -> Data? {
-        if let sourceID,
-            !localStandaloneMetadata.contains(where: {
-                $0.uuid == bookId && $0.sourceID == sourceID
-            })
-        {
-            return nil
-        }
-        guard let paths = localStandaloneBookPaths[bookId] else {
-            debugLog("[LocalMediaActor] extractLocalCover failed: no paths for bookId=\(bookId)")
-            return nil
-        }
-
-        if let ebookPath = paths.ebookPath {
-            if let data = localLibrary.extractCoverFromEpub(at: ebookPath) {
-                return data
-            }
-        }
-
-        if let syncedPath = paths.syncedPath {
-            if let data = localLibrary.extractCoverFromEpub(at: syncedPath) {
-                return data
-            }
-        }
-
-        if let audioPath = paths.audioPath {
-            if let data = await localLibrary.extractCoverFromAudiobook(at: audioPath) {
-                return data
-            }
-        }
-
-        debugLog(
-            "[LocalMediaActor] extractLocalCover failed: ebookPath=\(paths.ebookPath?.lastPathComponent ?? "nil"), syncedPath=\(paths.syncedPath?.lastPathComponent ?? "nil"), audioPath=\(paths.audioPath?.lastPathComponent ?? "nil")"
-        )
-        return nil
-    }
-
-    public func isLocalStandaloneBook(_ bookId: String) -> Bool {
-        localStandaloneMetadata.contains { $0.uuid == bookId }
-    }
-
-    public func importMedia(
-        from sourceFileURL: URL,
-        domain: LocalMediaDomain,
-        category: LocalMediaCategory,
-        bookName: String,
-    ) async throws -> URL {
-        let shouldStopAccessing = sourceFileURL.startAccessingSecurityScopedResource()
-        defer { if shouldStopAccessing { sourceFileURL.stopAccessingSecurityScopedResource() } }
-
-        let fm = FileManager.default
-        try await filesystem.ensureLocalStorageDirectories()
-
-        if domain == .local {
-            guard let localFolderSourceID = await migratedSourceID(for: .localFolder) else {
-                throw LocalMediaError.importFailed("Local folder source is not configured")
-            }
-            var metadata = try await localLibrary.extractMetadata(
-                from: sourceFileURL,
-                category: category,
-            )
-            metadata.sourceID = metadata.sourceID ?? localFolderSourceID
-
-            // Use the correct category based on actual content type
-            let effectiveCategory: LocalMediaCategory
-            if metadata.hasAvailableReadaloud {
-                effectiveCategory = .synced
-            } else if metadata.hasAvailableAudiobook {
-                effectiveCategory = .audio
-            } else {
-                effectiveCategory = category
-            }
-
-            let destinationDirectory = await filesystem.getMediaDirectory(
-                domain: domain,
-                category: effectiveCategory,
-                bookName: metadata.title,
-                uuidIdentifier: metadata.uuid,
-                sourceID: localFolderSourceID,
-            )
-            let bookRoot = destinationDirectory.deletingLastPathComponent()
-            try await filesystem.ensureDirectoryExists(at: bookRoot)
-            try await filesystem.ensureDirectoryExists(at: destinationDirectory)
-
-            let destinationURL = destinationDirectory.appendingPathComponent(
-                sourceFileURL.lastPathComponent
-            )
-            if fm.fileExists(atPath: destinationURL.path) {
-                try fm.removeItem(at: destinationURL)
-            }
-
-            try fm.copyItem(at: sourceFileURL, to: destinationURL)
-
-            localStandaloneMetadata.removeAll { $0.uuid == metadata.uuid }
-            localStandaloneMetadata.append(metadata)
-            try await filesystem.saveLocalLibraryMetadata(
-                localStandaloneMetadata,
-                sourceID: localFolderSourceID,
-            )
-
-            let mediaPaths = await scanBookPaths(
-                for: metadata.uuid,
-                domain: .local,
-                sourceID: localFolderSourceID,
-            )
-            localStandaloneBookPaths[metadata.uuid] = mediaPaths
-
-            await notifyObservers()
-
-            return destinationURL
-        } else {
-            let destinationDirectory = await filesystem.getMediaDirectory(
-                domain: domain,
-                category: category,
-                bookName: bookName,
-                uuidIdentifier: nil,
-            )
-            let bookRoot = destinationDirectory.deletingLastPathComponent()
-            try await filesystem.ensureDirectoryExists(at: bookRoot)
-            try await filesystem.ensureDirectoryExists(at: destinationDirectory)
-
-            let destinationURL = destinationDirectory.appendingPathComponent(
-                sourceFileURL.lastPathComponent
-            )
-            if fm.fileExists(atPath: destinationURL.path) {
-                try fm.removeItem(at: destinationURL)
-            }
-
-            try fm.copyItem(at: sourceFileURL, to: destinationURL)
-
-            await notifyObservers()
-
-            return destinationURL
-        }
     }
 
     public func importMedia(
@@ -1228,6 +857,7 @@ public actor LocalMediaActor: GlobalActor {
         metadata: BookMetadata,
         category: LocalMediaCategory,
         filename: String,
+        audioIsPackage: Bool = true,
     ) async throws {
         try await filesystem.ensureLocalStorageDirectories()
         let storytellerSourceID: BookSourceID
@@ -1251,7 +881,7 @@ public actor LocalMediaActor: GlobalActor {
         try await filesystem.ensureDirectoryExists(at: destinationDirectory)
 
         let fm = FileManager.default
-        if category == .audio {
+        if category == .audio && audioIsPackage {
             if fm.fileExists(atPath: destinationDirectory.path) {
                 try fm.removeItem(at: destinationDirectory)
             }

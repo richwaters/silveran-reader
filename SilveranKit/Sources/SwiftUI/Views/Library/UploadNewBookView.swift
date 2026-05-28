@@ -19,7 +19,7 @@ public struct UploadNewBookView: View {
     @State private var uploadProgress: String?
     @State private var uploadResult: UploadResult?
     @State private var bookUUID = UUID().uuidString
-    @State private var storytellerSources: [BookSourceRecord] = []
+    @State private var bookSources: [BookSourceRecord] = []
     @State private var selectedSourceID: BookSourceID?
 
     private enum UploadResult {
@@ -32,13 +32,14 @@ public struct UploadNewBookView: View {
     public var body: some View {
         VStack(spacing: 0) {
             Form {
-                Section("Server") {
+                Section("Destination") {
                     Picker("Upload To", selection: selectedSourceBinding) {
-                        ForEach(storytellerSources) { source in
-                            Text(source.name).tag(source.id)
+                        ForEach(bookSources) { source in
+                            Label(source.name, systemImage: iconName(for: source.kind))
+                                .tag(source.id)
                         }
                     }
-                    .disabled(isUploading || uploadResult != nil || storytellerSources.isEmpty)
+                    .disabled(isUploading || uploadResult != nil || bookSources.isEmpty)
                 }
 
                 Section {
@@ -66,7 +67,7 @@ public struct UploadNewBookView: View {
                     Text("Select Files")
                 } footer: {
                     Text(
-                        "Select up to three formats to upload. The book will be created from the uploaded media. Other formats can be added later."
+                        "Select up to three formats. Storyteller destinations upload to the server; folder destinations copy files into that folder source."
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -79,7 +80,7 @@ public struct UploadNewBookView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
-                                    Text("Upload complete")
+                                    Text("Book added")
                                 }
                             case .failure(let message):
                                 HStack(alignment: .top, spacing: 8) {
@@ -121,7 +122,7 @@ public struct UploadNewBookView: View {
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
 
-                Button("Upload") {
+                Button(primaryActionTitle) {
                     Task {
                         await uploadBook()
                     }
@@ -144,7 +145,7 @@ public struct UploadNewBookView: View {
     private var selectedSourceBinding: Binding<BookSourceID> {
         Binding(
             get: {
-                selectedSourceID ?? storytellerSources.first?.id ?? ""
+                selectedSourceID ?? bookSources.first?.id ?? ""
             },
             set: { selectedSourceID = $0 },
         )
@@ -186,6 +187,15 @@ public struct UploadNewBookView: View {
         selectedEbookURL != nil || selectedAudiobookURL != nil || selectedReadaloudURL != nil
     }
 
+    private var selectedSource: BookSourceRecord? {
+        guard let selectedSourceID else { return nil }
+        return bookSources.first { $0.id == selectedSourceID }
+    }
+
+    private var primaryActionTitle: String {
+        selectedSource?.kind == .localFolder ? "Add" : "Upload"
+    }
+
     private func resetForNewUpload() {
         selectedEbookURL = nil
         selectedAudiobookURL = nil
@@ -196,10 +206,19 @@ public struct UploadNewBookView: View {
     }
 
     private func loadSources() async {
-        let sources = await BookServiceActor.shared.bookSources.filter { $0.kind == .storyteller }
+        let sources = await BookServiceActor.shared.bookSources
         await MainActor.run {
-            storytellerSources = sources
+            bookSources = sources
             selectedSourceID = selectedSourceID ?? sources.first?.id
+        }
+    }
+
+    private func iconName(for kind: BookSourceKind) -> String {
+        switch kind {
+            case .storyteller:
+                return "server.rack"
+            case .localFolder:
+                return "folder"
         }
     }
 
@@ -241,10 +260,16 @@ public struct UploadNewBookView: View {
 
     private func uploadBook() async {
         guard hasAnyFileSelected, let sourceID = selectedSourceID else { return }
+        guard let source = bookSources.first(where: { $0.id == sourceID }) else { return }
 
         await MainActor.run {
             isUploading = true
             uploadProgress = "Preparing..."
+        }
+
+        if source.kind == .localFolder {
+            await importIntoFolderSource(source)
+            return
         }
 
         var ebookAsset: StorytellerUploadAsset?
@@ -318,6 +343,59 @@ public struct UploadNewBookView: View {
                 uploadResult = .failure("Failed to read files: \(error.localizedDescription)")
             }
             await BookServiceActor.shared.fetchLibraryInformation()
+        }
+    }
+
+    private func importIntoFolderSource(_ source: BookSourceRecord) async {
+        let folderSource = FolderSourceActor(sourceRecord: source)
+        let importTitle = selectedEbookURL?.deletingPathExtension().lastPathComponent
+            ?? selectedReadaloudURL?.deletingPathExtension().lastPathComponent
+            ?? selectedAudiobookURL?.deletingPathExtension().lastPathComponent
+            ?? "Book"
+
+        do {
+            if let url = selectedEbookURL {
+                await MainActor.run { uploadProgress = "Copying ebook..." }
+                _ = try await folderSource.importMedia(
+                    from: url,
+                    category: .ebook,
+                    bookName: importTitle,
+                    bookUUID: bookUUID,
+                )
+            }
+
+            if let url = selectedAudiobookURL {
+                await MainActor.run { uploadProgress = "Copying audiobook..." }
+                _ = try await folderSource.importMedia(
+                    from: url,
+                    category: .audio,
+                    bookName: importTitle,
+                    bookUUID: bookUUID,
+                )
+            }
+
+            if let url = selectedReadaloudURL {
+                await MainActor.run { uploadProgress = "Copying readaloud..." }
+                _ = try await folderSource.importMedia(
+                    from: url,
+                    category: .synced,
+                    bookName: importTitle,
+                    bookUUID: bookUUID,
+                )
+            }
+
+            _ = await BookServiceActor.shared.fetchLibraryInformation(sourceID: source.id)
+            await MainActor.run {
+                isUploading = false
+                uploadProgress = nil
+                uploadResult = .success
+            }
+        } catch {
+            await MainActor.run {
+                isUploading = false
+                uploadProgress = nil
+                uploadResult = .failure("Failed to add files: \(error.localizedDescription)")
+            }
         }
     }
 }
