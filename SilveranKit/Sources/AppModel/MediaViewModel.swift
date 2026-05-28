@@ -72,6 +72,28 @@ private final class SendableCGImage: @unchecked Sendable {
 @MainActor
 @Observable
 public final class MediaViewModel {
+    public struct LibraryRenderContext: Sendable {
+        public let metadata: [BookMetadata]
+        public let paths: [String: MediaPaths]
+        public let folderSourceBookIds: Set<String>
+        public let progress: [String: BookProgress]
+        public let smartShelves: [SmartShelf]
+
+        public init(
+            metadata: [BookMetadata],
+            paths: [String: MediaPaths],
+            folderSourceBookIds: Set<String>,
+            progress: [String: BookProgress],
+            smartShelves: [SmartShelf],
+        ) {
+            self.metadata = metadata
+            self.paths = paths
+            self.folderSourceBookIds = folderSourceBookIds
+            self.progress = progress
+            self.smartShelves = smartShelves
+        }
+    }
+
     public var library: BookLibrary
     public var libraryVersion: Int = 0
     public var isReady: Bool = false
@@ -91,6 +113,7 @@ public final class MediaViewModel {
     @ObservationIgnored private var libraryDerivationTask: Task<Void, Never>?
     @ObservationIgnored private var libraryDerivationGeneration = 0
     @ObservationIgnored private var visibleSidebarContents: [SidebarContentKind] = []
+    @ObservationIgnored private var smartShelfBooksCache: [UUID: [BookMetadata]] = [:]
 
     @ObservationIgnored private var downloadManagerObserverId: UUID?
     @ObservationIgnored private var cachedMediaObserverId: UUID?
@@ -497,6 +520,41 @@ public final class MediaViewModel {
         scheduleLibraryDerivation(reason: "visibleSidebarContents")
     }
 
+    public func mediaGridSnapshot(for request: MediaGridRenderRequest) async
+        -> MediaGridRenderSnapshot
+    {
+        let input = MediaGridRenderInput(
+            request: request,
+            metadata: library.bookMetaData,
+            paths: cachedBookPaths,
+            folderSourceBookIds: folderSourceBookIds,
+        )
+        return await libraryDerivationActor.deriveMediaGridSnapshot(from: input)
+    }
+
+    public func smartShelfBooks(for shelf: SmartShelf) async -> [BookMetadata] {
+        if let cached = smartShelfBooksCache[shelf.id] {
+            return cached
+        }
+        let input = SmartShelfBooksInput(
+            metadata: library.bookMetaData,
+            paths: cachedBookPaths,
+            folderSourceBookIds: folderSourceBookIds,
+            progress: bookProgressCache,
+        )
+        return await libraryDerivationActor.deriveBooksForShelf(shelf, from: input)
+    }
+
+    public func libraryRenderContext() -> LibraryRenderContext {
+        LibraryRenderContext(
+            metadata: library.bookMetaData,
+            paths: cachedBookPaths,
+            folderSourceBookIds: folderSourceBookIds,
+            progress: bookProgressCache,
+            smartShelves: smartShelves,
+        )
+    }
+
     private func scheduleLibraryDerivation(reason: String) {
         #if !os(iOS)
         guard !visibleSidebarContents.isEmpty else { return }
@@ -535,6 +593,7 @@ public final class MediaViewModel {
                     return
                 }
                 self.libraryViewSnapshot = snapshot
+                self.smartShelfBooksCache = snapshot.smartShelfBooks
                 debugLog(
                     "[PerfTrace][MediaViewModel] publish libraryViewSnapshot generation=\(snapshot.generation) badges=\(snapshot.badgeCounts.count)"
                 )
@@ -1469,7 +1528,7 @@ public final class MediaViewModel {
         #endif
     }
 
-    public enum StatusSortOrder {
+    public enum StatusSortOrder: Sendable {
         case recentPositionUpdate
         case recentlyAdded
     }
@@ -2262,6 +2321,7 @@ public final class MediaViewModel {
         do {
             let shelves = try await FilesystemActor.shared.loadSmartShelves()
             self.smartShelves = shelves
+            scheduleLibraryDerivation(reason: "loadSmartShelves")
         } catch {
             debugLog("[MediaViewModel] Failed to load smart shelves: \(error)")
         }
@@ -2273,6 +2333,8 @@ public final class MediaViewModel {
         } else {
             smartShelves.append(shelf)
         }
+        smartShelfBooksCache.removeValue(forKey: shelf.id)
+        scheduleLibraryDerivation(reason: "saveSmartShelf")
         do {
             try await FilesystemActor.shared.saveSmartShelves(smartShelves)
         } catch {
@@ -2282,6 +2344,8 @@ public final class MediaViewModel {
 
     public func deleteSmartShelf(id: UUID) async {
         smartShelves.removeAll { $0.id == id }
+        smartShelfBooksCache.removeValue(forKey: id)
+        scheduleLibraryDerivation(reason: "deleteSmartShelf")
         do {
             try await FilesystemActor.shared.saveSmartShelves(smartShelves)
         } catch {
@@ -2290,21 +2354,7 @@ public final class MediaViewModel {
     }
 
     public func booksForShelf(_ shelf: SmartShelf) -> [BookMetadata] {
-        library.bookMetaData.filter { book in
-            let prog = progress(for: book.id)
-            let isLocal = isLocalStandaloneBook(book.id)
-            let hasDownloadedContent =
-                isCategoryDownloaded(.ebook, for: book)
-                || isCategoryDownloaded(.audio, for: book)
-                || isCategoryDownloaded(.synced, for: book)
-            let locationInfo = ShelfLocationInfo(
-                isDownloaded: hasDownloadedContent && !isLocal,
-                isLocalStandalone: isLocal,
-            )
-            return shelf.matchesAll(book, progress: prog, locationInfo: locationInfo)
-        }.sorted {
-            $0.title.articleStrippedCompare($1.title) == .orderedAscending
-        }
+        smartShelfBooksCache[shelf.id] ?? []
     }
 
     public func showSyncNotification(_ notification: SyncNotification) {

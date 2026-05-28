@@ -1,3 +1,8 @@
 import SilveranKitAppModel
 
 public typealias MediaViewModel = SilveranKitAppModel.MediaViewModel
+public typealias MediaGridSortOption = SilveranKitAppModel.MediaGridSortOption
+public typealias MediaGridFormatFilterOption = SilveranKitAppModel.MediaGridFormatFilterOption
+public typealias MediaGridLocationFilterOption = SilveranKitAppModel.MediaGridLocationFilterOption
+public typealias MediaGridRenderRequest = SilveranKitAppModel.MediaGridRenderRequest
+public typealias MediaGridRenderSnapshot = SilveranKitAppModel.MediaGridRenderSnapshot

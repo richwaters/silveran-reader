@@ -5,15 +5,18 @@ public struct LibraryViewSnapshot: Sendable {
     public var generation: Int
     public var badgeCounts: [String: Int]
     public var groups: LibraryGroupSnapshot
+    public var smartShelfBooks: [UUID: [BookMetadata]]
 
     public init(
         generation: Int = 0,
         badgeCounts: [String: Int] = [:],
         groups: LibraryGroupSnapshot = LibraryGroupSnapshot(),
+        smartShelfBooks: [UUID: [BookMetadata]] = [:],
     ) {
         self.generation = generation
         self.badgeCounts = badgeCounts
         self.groups = groups
+        self.smartShelfBooks = smartShelfBooks
     }
 }
 
@@ -77,6 +80,244 @@ public struct LibraryNamedBooksGroup: Sendable {
     public var books: [BookMetadata]
 }
 
+public enum MediaGridSortOption: String, CaseIterable, Identifiable, Sendable {
+    case titleAZ
+    case titleZA
+    case authorAZ
+    case authorZA
+    case progressHighToLow
+    case progressLowToHigh
+    case recentlyRead
+    case recentlyAdded
+    case seriesPosition
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+            case .titleAZ: "Title A-Z"
+            case .titleZA: "Title Z-A"
+            case .authorAZ: "Author A-Z"
+            case .authorZA: "Author Z-A"
+            case .progressHighToLow: "Progress High-Low"
+            case .progressLowToHigh: "Progress Low-High"
+            case .recentlyRead: "Recently Read"
+            case .recentlyAdded: "Recently Added"
+            case .seriesPosition: "Series Position"
+        }
+    }
+
+    public var shortLabel: String { label }
+
+    public var sortField: SortField {
+        switch self {
+            case .titleAZ, .titleZA: return .title
+            case .authorAZ, .authorZA: return .author
+            case .progressHighToLow, .progressLowToHigh: return .progress
+            case .recentlyRead: return .recentlyRead
+            case .recentlyAdded: return .recentlyAdded
+            case .seriesPosition: return .seriesPosition
+        }
+    }
+
+    public var isAscending: Bool {
+        switch self {
+            case .titleAZ, .authorAZ, .progressLowToHigh, .seriesPosition: return true
+            case .titleZA, .authorZA, .progressHighToLow, .recentlyRead, .recentlyAdded:
+                return false
+        }
+    }
+
+    public var toggled: MediaGridSortOption {
+        switch self {
+            case .titleAZ: return .titleZA
+            case .titleZA: return .titleAZ
+            case .authorAZ: return .authorZA
+            case .authorZA: return .authorAZ
+            case .progressHighToLow: return .progressLowToHigh
+            case .progressLowToHigh: return .progressHighToLow
+            case .recentlyRead, .recentlyAdded, .seriesPosition: return self
+        }
+    }
+
+    public static var menuFields: [SortField] {
+        [.title, .author, .progress, .recentlyRead, .recentlyAdded, .seriesPosition]
+    }
+
+    public static func defaultOption(for field: SortField) -> MediaGridSortOption {
+        switch field {
+            case .title: return .titleAZ
+            case .author: return .authorAZ
+            case .progress: return .progressHighToLow
+            case .recentlyRead: return .recentlyRead
+            case .recentlyAdded: return .recentlyAdded
+            case .seriesPosition: return .seriesPosition
+        }
+    }
+
+    public enum SortField: String, CaseIterable, Sendable {
+        case title, author, progress, recentlyRead, recentlyAdded, seriesPosition
+
+        public var label: String {
+            switch self {
+                case .title: return "Title"
+                case .author: return "Author"
+                case .progress: return "Progress"
+                case .recentlyRead: return "Recently Read"
+                case .recentlyAdded: return "Recently Added"
+                case .seriesPosition: return "Series Position"
+            }
+        }
+
+        public var isToggleable: Bool {
+            switch self {
+                case .title, .author, .progress: return true
+                case .recentlyRead, .recentlyAdded, .seriesPosition: return false
+            }
+        }
+    }
+
+    public func comparison(_ lhs: BookMetadata, _ rhs: BookMetadata) -> ComparisonResult {
+        switch self {
+            case .titleAZ:
+                return lhs.title.articleStrippedCompare(rhs.title)
+            case .titleZA:
+                return rhs.title.articleStrippedCompare(lhs.title)
+            case .authorAZ:
+                let lhsAuthor = lhs.authors?.first?.name ?? ""
+                let rhsAuthor = rhs.authors?.first?.name ?? ""
+                let result = lhsAuthor.localizedCaseInsensitiveCompare(rhsAuthor)
+                return result == .orderedSame ? lhs.title.articleStrippedCompare(rhs.title) : result
+            case .authorZA:
+                let lhsAuthor = lhs.authors?.first?.name ?? ""
+                let rhsAuthor = rhs.authors?.first?.name ?? ""
+                let result = rhsAuthor.localizedCaseInsensitiveCompare(lhsAuthor)
+                return result == .orderedSame ? lhs.title.articleStrippedCompare(rhs.title) : result
+            case .progressHighToLow:
+                if lhs.progress == rhs.progress { return lhs.title.articleStrippedCompare(rhs.title) }
+                return lhs.progress > rhs.progress ? .orderedAscending : .orderedDescending
+            case .progressLowToHigh:
+                if lhs.progress == rhs.progress { return lhs.title.articleStrippedCompare(rhs.title) }
+                return lhs.progress < rhs.progress ? .orderedAscending : .orderedDescending
+            case .recentlyRead:
+                let lhsDate = lhs.position?.updatedAt ?? ""
+                let rhsDate = rhs.position?.updatedAt ?? ""
+                if lhsDate == rhsDate { return lhs.title.articleStrippedCompare(rhs.title) }
+                return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
+            case .recentlyAdded:
+                let lhsDate = lhs.createdAt ?? ""
+                let rhsDate = rhs.createdAt ?? ""
+                if lhsDate == rhsDate { return lhs.title.articleStrippedCompare(rhs.title) }
+                return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
+            case .seriesPosition:
+                let lhsSeriesName = lhs.series?.first?.name ?? ""
+                let rhsSeriesName = rhs.series?.first?.name ?? ""
+                if lhsSeriesName.isEmpty && rhsSeriesName.isEmpty {
+                    return lhs.title.articleStrippedCompare(rhs.title)
+                }
+                if lhsSeriesName.isEmpty { return .orderedDescending }
+                if rhsSeriesName.isEmpty { return .orderedAscending }
+                let seriesResult = lhsSeriesName.articleStrippedCompare(rhsSeriesName)
+                if seriesResult != .orderedSame { return seriesResult }
+                let lhsPosition = lhs.series?.first?.position ?? .greatestFiniteMagnitude
+                let rhsPosition = rhs.series?.first?.position ?? .greatestFiniteMagnitude
+                if lhsPosition == rhsPosition { return lhs.title.articleStrippedCompare(rhs.title) }
+                return lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
+        }
+    }
+}
+
+public enum MediaGridFormatFilterOption: String, CaseIterable, Identifiable, Sendable {
+    case all
+    case readaloud
+    case ebook
+    case audiobook
+    case ebookOnly
+    case audiobookOnly
+    case missingReadaloud
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+            case .all: "All Titles"
+            case .readaloud: "Readaloud"
+            case .ebook: "Ebook Without Audio"
+            case .audiobook: "Audiobook"
+            case .ebookOnly: "Ebook Only"
+            case .audiobookOnly: "Audiobook Only"
+            case .missingReadaloud: "Missing Readaloud"
+        }
+    }
+
+    public var shortLabel: String {
+        switch self {
+            case .all: "All"
+            case .readaloud: "Readaloud"
+            case .ebook: "Ebook"
+            case .audiobook: "Audiobook"
+            case .ebookOnly: "Ebook Only"
+            case .audiobookOnly: "Audiobook Only"
+            case .missingReadaloud: "Missing Readaloud"
+        }
+    }
+
+    public var includesAudiobookOnlyItems: Bool {
+        switch self {
+            case .all, .audiobook, .audiobookOnly: true
+            default: false
+        }
+    }
+
+    public func matches(_ item: BookMetadata) -> Bool {
+        switch self {
+            case .all: true
+            case .readaloud: item.hasAvailableReadaloud
+            case .ebook: item.hasAvailableEbook
+            case .audiobook: item.hasAvailableAudiobook || item.hasAvailableReadaloud
+            case .ebookOnly: item.isEbookOnly
+            case .audiobookOnly: item.isAudiobookOnly
+            case .missingReadaloud: item.isMissingReadaloud
+        }
+    }
+}
+
+public enum MediaGridLocationFilterOption: String, CaseIterable, Identifiable, Sendable {
+    case all
+    case downloaded
+    case serverOnly
+    case localFiles
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+            case .all: "All Locations"
+            case .downloaded: "Downloaded"
+            case .serverOnly: "Server Only"
+            case .localFiles: "Local Files"
+        }
+    }
+
+    public var shortLabel: String {
+        switch self {
+            case .all: "All"
+            case .downloaded: "Downloaded"
+            case .serverOnly: "Server Only"
+            case .localFiles: "Local Files"
+        }
+    }
+
+    public var iconName: String {
+        switch self {
+            case .all: "square.grid.2x2"
+            case .downloaded: "play.circle"
+            case .serverOnly: "arrow.down.circle"
+            case .localFiles: "folder"
+        }
+    }
+}
+
 public struct LibraryDerivationInput: Sendable {
     public var generation: Int
     public var deriveGroups: Bool
@@ -111,8 +352,209 @@ public struct LibraryDerivationInput: Sendable {
     }
 }
 
+public struct SmartShelfBooksInput: Sendable {
+    public var metadata: [BookMetadata]
+    public var paths: [String: MediaPaths]
+    public var folderSourceBookIds: Set<String>
+    public var progress: [String: BookProgress]
+
+    public init(
+        metadata: [BookMetadata],
+        paths: [String: MediaPaths],
+        folderSourceBookIds: Set<String>,
+        progress: [String: BookProgress],
+    ) {
+        self.metadata = metadata
+        self.paths = paths
+        self.folderSourceBookIds = folderSourceBookIds
+        self.progress = progress
+    }
+}
+
+public struct MediaGridRenderRequest: Sendable {
+    public var mediaKind: MediaKind
+    public var baseTagFilter: String?
+    public var selectedFormatFilter: MediaGridFormatFilterOption
+    public var selectedTag: String?
+    public var selectedSeries: String?
+    public var selectedCollection: String?
+    public var selectedAuthor: String?
+    public var selectedNarrator: String?
+    public var selectedTranslator: String?
+    public var selectedPublicationYear: String?
+    public var selectedRating: String?
+    public var selectedStatus: String?
+    public var selectedLocation: MediaGridLocationFilterOption
+    public var searchText: String
+    public var sortOption: MediaGridSortOption
+    public var filteredItems: [BookMetadata]?
+    public var includeFilterOptions: Bool
+
+    public init(
+        mediaKind: MediaKind,
+        baseTagFilter: String?,
+        selectedFormatFilter: MediaGridFormatFilterOption,
+        selectedTag: String?,
+        selectedSeries: String?,
+        selectedCollection: String?,
+        selectedAuthor: String?,
+        selectedNarrator: String?,
+        selectedTranslator: String?,
+        selectedPublicationYear: String?,
+        selectedRating: String?,
+        selectedStatus: String?,
+        selectedLocation: MediaGridLocationFilterOption,
+        searchText: String,
+        sortOption: MediaGridSortOption,
+        filteredItems: [BookMetadata]?,
+        includeFilterOptions: Bool,
+    ) {
+        self.mediaKind = mediaKind
+        self.baseTagFilter = baseTagFilter
+        self.selectedFormatFilter = selectedFormatFilter
+        self.selectedTag = selectedTag
+        self.selectedSeries = selectedSeries
+        self.selectedCollection = selectedCollection
+        self.selectedAuthor = selectedAuthor
+        self.selectedNarrator = selectedNarrator
+        self.selectedTranslator = selectedTranslator
+        self.selectedPublicationYear = selectedPublicationYear
+        self.selectedRating = selectedRating
+        self.selectedStatus = selectedStatus
+        self.selectedLocation = selectedLocation
+        self.searchText = searchText
+        self.sortOption = sortOption
+        self.filteredItems = filteredItems
+        self.includeFilterOptions = includeFilterOptions
+    }
+}
+
+public struct MediaGridRenderInput: Sendable {
+    public var request: MediaGridRenderRequest
+    public var metadata: [BookMetadata]
+    public var paths: [String: MediaPaths]
+    public var folderSourceBookIds: Set<String>
+
+    public init(
+        request: MediaGridRenderRequest,
+        metadata: [BookMetadata],
+        paths: [String: MediaPaths],
+        folderSourceBookIds: Set<String>,
+    ) {
+        self.request = request
+        self.metadata = metadata
+        self.paths = paths
+        self.folderSourceBookIds = folderSourceBookIds
+    }
+}
+
+public struct MediaGridRenderSnapshot: Sendable {
+    public var displayItems: [BookMetadata]
+    public var availableTags: [String]
+    public var availableSeries: [String]
+    public var availableAuthors: [String]
+    public var availableNarrators: [String]
+    public var availableTranslators: [String]
+    public var availablePublicationYears: [String]
+    public var availableRatings: [String]
+    public var availableStatuses: [String]
+    public var availableCreatorRoles: Set<String>
+    public var filtersSummary: String
+
+    public init(
+        displayItems: [BookMetadata],
+        availableTags: [String] = [],
+        availableSeries: [String] = [],
+        availableAuthors: [String] = [],
+        availableNarrators: [String] = [],
+        availableTranslators: [String] = [],
+        availablePublicationYears: [String] = [],
+        availableRatings: [String] = [],
+        availableStatuses: [String] = [],
+        availableCreatorRoles: Set<String> = [],
+        filtersSummary: String,
+    ) {
+        self.displayItems = displayItems
+        self.availableTags = availableTags
+        self.availableSeries = availableSeries
+        self.availableAuthors = availableAuthors
+        self.availableNarrators = availableNarrators
+        self.availableTranslators = availableTranslators
+        self.availablePublicationYears = availablePublicationYears
+        self.availableRatings = availableRatings
+        self.availableStatuses = availableStatuses
+        self.availableCreatorRoles = availableCreatorRoles
+        self.filtersSummary = filtersSummary
+    }
+}
+
 public actor LibraryDerivationActor {
     public init() {}
+
+    public func deriveBooksForShelf(_ shelf: SmartShelf, from input: SmartShelfBooksInput)
+        -> [BookMetadata]
+    {
+        input.metadata.filter { book in
+            let progress = input.progress[book.id]?.progressFraction ?? book.progress
+            let mediaPaths = input.paths[book.id]
+            let hasDownloadedContent =
+                mediaPaths?.ebookPath != nil
+                || mediaPaths?.audioPath != nil
+                || mediaPaths?.syncedPath != nil
+            let isLocal = input.folderSourceBookIds.contains(book.id)
+            return shelf.matchesAll(
+                book,
+                progress: progress,
+                locationInfo: ShelfLocationInfo(
+                    isDownloaded: hasDownloadedContent && !isLocal,
+                    isLocalStandalone: isLocal,
+                ),
+            )
+        }.sorted {
+            $0.title.articleStrippedCompare($1.title) == .orderedAscending
+        }
+    }
+
+    public func deriveMediaGridSnapshot(from input: MediaGridRenderInput)
+        -> MediaGridRenderSnapshot
+    {
+        let request = input.request
+        let baseItems = baseItems(for: request, metadata: input.metadata)
+        let catalog = request.includeFilterOptions
+            ? catalogItems(for: request, metadata: input.metadata)
+            : []
+        let locationInfo = locationInfo(
+            for: baseItems,
+            paths: input.paths,
+            folderSourceBookIds: input.folderSourceBookIds,
+        )
+        let displayItems = displayItems(
+            base: baseItems,
+            locationInfo: locationInfo,
+            request: request,
+        )
+
+        guard request.includeFilterOptions else {
+            return MediaGridRenderSnapshot(
+                displayItems: displayItems,
+                filtersSummary: filtersSummary(for: request),
+            )
+        }
+
+        return MediaGridRenderSnapshot(
+            displayItems: displayItems,
+            availableTags: availableTags(from: catalog),
+            availableSeries: availableSeries(from: catalog),
+            availableAuthors: availableAuthors(from: catalog),
+            availableNarrators: availableNarrators(from: catalog),
+            availableTranslators: availableTranslators(from: catalog),
+            availablePublicationYears: availablePublicationYears(from: catalog),
+            availableRatings: availableRatings(from: catalog),
+            availableStatuses: availableStatuses(from: catalog),
+            availableCreatorRoles: availableCreatorRoles(from: catalog),
+            filtersSummary: filtersSummary(for: request),
+        )
+    }
 
     public func deriveSnapshot(from input: LibraryDerivationInput) -> LibraryViewSnapshot {
         let started = CFAbsoluteTimeGetCurrent()
@@ -122,6 +564,11 @@ public actor LibraryDerivationActor {
         for content in input.sidebarContents {
             badgeCounts[content.stableIdentifier] = context.badgeCount(for: content)
         }
+        let smartShelfBooks = Dictionary(
+            uniqueKeysWithValues: input.smartShelves.map { shelf in
+                (shelf.id, context.booksForShelf(shelf))
+            },
+        )
 
         var groups = LibraryGroupSnapshot()
         if input.deriveGroups {
@@ -148,7 +595,351 @@ public actor LibraryDerivationActor {
             generation: input.generation,
             badgeCounts: badgeCounts,
             groups: groups,
+            smartShelfBooks: smartShelfBooks,
         )
+    }
+
+    private struct MediaGridLocationInfo: Sendable {
+        let isDownloaded: Bool
+        let isLocalStandalone: Bool
+    }
+
+    private func baseItems(
+        for request: MediaGridRenderRequest,
+        metadata: [BookMetadata],
+    ) -> [BookMetadata] {
+        if let filteredItems = request.filteredItems {
+            return filteredItems
+        }
+        var primary = items(
+            metadata,
+            for: request.mediaKind,
+            tagFilter: request.baseTagFilter,
+        )
+        if request.selectedFormatFilter.includesAudiobookOnlyItems {
+            primary = merge(
+                primary,
+                with: items(metadata, for: .audiobook, tagFilter: request.baseTagFilter),
+            )
+        }
+        return primary
+    }
+
+    private func catalogItems(
+        for request: MediaGridRenderRequest,
+        metadata: [BookMetadata],
+    ) -> [BookMetadata] {
+        if let filteredItems = request.filteredItems {
+            return filteredItems
+        }
+        if request.mediaKind == .audiobook {
+            return items(metadata, for: .audiobook, tagFilter: request.baseTagFilter)
+        }
+        return merge(
+            items(metadata, for: request.mediaKind, tagFilter: request.baseTagFilter),
+            with: items(metadata, for: .audiobook, tagFilter: request.baseTagFilter),
+        )
+    }
+
+    private func items(
+        _ metadata: [BookMetadata],
+        for kind: MediaKind,
+        tagFilter: String?,
+    ) -> [BookMetadata] {
+        var base = metadata.filter { metadataMatchesKind($0, kind: kind) }
+        if let tagFilter, !tagFilter.isEmpty {
+            let target = tagFilter.lowercased()
+            base = base.filter { item in
+                item.tagNames.contains(where: { $0.lowercased() == target })
+            }
+        }
+        return base
+    }
+
+    private func merge(_ primary: [BookMetadata], with supplemental: [BookMetadata])
+        -> [BookMetadata]
+    {
+        guard !supplemental.isEmpty else { return primary }
+        var result = primary
+        var seen = Set(result.map(\.id))
+        for item in supplemental where !seen.contains(item.id) {
+            seen.insert(item.id)
+            result.append(item)
+        }
+        return result
+    }
+
+    private func locationInfo(
+        for items: [BookMetadata],
+        paths: [String: MediaPaths],
+        folderSourceBookIds: Set<String>,
+    ) -> [BookMetadata.ID: MediaGridLocationInfo] {
+        Dictionary(
+            uniqueKeysWithValues: items.map { item in
+                let mediaPaths = paths[item.id]
+                let hasDownloadedContent =
+                    mediaPaths?.ebookPath != nil
+                    || mediaPaths?.audioPath != nil
+                    || mediaPaths?.syncedPath != nil
+                let isLocal = folderSourceBookIds.contains(item.id)
+                return (
+                    item.id,
+                    MediaGridLocationInfo(
+                        isDownloaded: hasDownloadedContent && !isLocal,
+                        isLocalStandalone: isLocal,
+                    )
+                )
+            },
+        )
+    }
+
+    private func displayItems(
+        base: [BookMetadata],
+        locationInfo: [BookMetadata.ID: MediaGridLocationInfo],
+        request: MediaGridRenderRequest,
+    ) -> [BookMetadata] {
+        var filtered = base.filter { request.selectedFormatFilter.matches($0) }
+
+        if let tag = request.selectedTag { filtered = filtered.filter { $0.matchesTag(tag) } }
+        if let series = request.selectedSeries {
+            filtered = filtered.filter { $0.matchesSeries(series) }
+        }
+        if let collection = request.selectedCollection {
+            filtered = filtered.filter { $0.matchesCollection(collection) }
+        }
+        if let author = request.selectedAuthor {
+            filtered = filtered.filter { $0.matchesAuthor(author) }
+        }
+        if let narrator = request.selectedNarrator {
+            filtered = filtered.filter { $0.matchesNarrator(narrator) }
+        }
+        if let translator = request.selectedTranslator {
+            filtered = filtered.filter { $0.matchesTranslator(translator) }
+        }
+        if let year = request.selectedPublicationYear {
+            filtered = filtered.filter { $0.matchesPublicationYear(year) }
+        }
+        if let rating = request.selectedRating {
+            filtered = filtered.filter { $0.matchesRating(rating) }
+        }
+        if let status = request.selectedStatus {
+            filtered = filtered.filter { $0.matchesStatus(status) }
+        }
+
+        switch request.selectedLocation {
+            case .all:
+                break
+            case .downloaded:
+                filtered = filtered.filter { locationInfo[$0.id]?.isDownloaded ?? false }
+            case .serverOnly:
+                filtered = filtered.filter {
+                    let info = locationInfo[$0.id]
+                    return !(info?.isDownloaded ?? false) && !(info?.isLocalStandalone ?? false)
+                }
+            case .localFiles:
+                filtered = filtered.filter { locationInfo[$0.id]?.isLocalStandalone ?? false }
+        }
+
+        if request.searchText.count >= 2 {
+            let terms = request.searchText.lowercased().split(separator: " ").map(String.init)
+            filtered = filtered.filter { item in
+                let title = item.title.lowercased()
+                let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
+                let seriesNames = (item.series ?? []).compactMap { $0.name.lowercased() }
+                return terms.allSatisfy { term in
+                    title.contains(term)
+                        || authorNames.contains { $0.contains(term) }
+                        || seriesNames.contains { $0.contains(term) }
+                }
+            }
+        }
+
+        return filtered.sorted { lhs, rhs in
+            if lhs.id == rhs.id { return false }
+            let result: ComparisonResult
+            if request.sortOption == .seriesPosition, let filter = request.selectedSeries {
+                let normalizedFilter = filter.lowercased()
+                let lhsPosition =
+                    lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
+                    ?? .greatestFiniteMagnitude
+                let rhsPosition =
+                    rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
+                    ?? .greatestFiniteMagnitude
+                if lhsPosition == rhsPosition {
+                    result = lhs.title.articleStrippedCompare(rhs.title)
+                } else {
+                    result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
+                }
+            } else {
+                result = request.sortOption.comparison(lhs, rhs)
+            }
+            return result == .orderedSame ? lhs.id < rhs.id : result == .orderedAscending
+        }
+    }
+
+    private func filtersSummary(for request: MediaGridRenderRequest) -> String {
+        var parts = [request.selectedFormatFilter.shortLabel]
+        if let status = request.selectedStatus { parts.append(status) }
+        if let tag = request.selectedTag { parts.append(tag) }
+        if let series = request.selectedSeries { parts.append(series) }
+        if let author = request.selectedAuthor { parts.append(author) }
+        if let narrator = request.selectedNarrator { parts.append(narrator) }
+        if let translator = request.selectedTranslator { parts.append(translator) }
+        if let year = request.selectedPublicationYear { parts.append(year) }
+        if let rating = request.selectedRating {
+            parts.append(rating == "Unrated" ? "Unrated" : "\(rating) Stars")
+        }
+        if request.selectedLocation != .all {
+            parts.append(request.selectedLocation.shortLabel)
+        }
+        return parts.joined(separator: " • ")
+    }
+
+    private func availableTags(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            for rawTag in item.tagNames {
+                let trimmed = rawTag.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                unique[trimmed.lowercased()] = unique[trimmed.lowercased()] ?? trimmed
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func availableSeries(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            for series in item.series ?? [] {
+                let trimmed = series.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                unique[trimmed.lowercased()] = unique[trimmed.lowercased()] ?? trimmed
+            }
+        }
+        return unique.values.sorted { $0.articleStrippedCompare($1) == .orderedAscending }
+    }
+
+    private func availableAuthors(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            for author in item.authors ?? [] {
+                guard let name = author.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !name.isEmpty
+                else { continue }
+                unique[name.lowercased()] = unique[name.lowercased()] ?? name
+            }
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func availableNarrators(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        var hasUnknown = false
+        for item in catalog {
+            if let narrators = item.narrators, !narrators.isEmpty {
+                for narrator in narrators {
+                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                        !name.isEmpty
+                    {
+                        unique[name.lowercased()] = unique[name.lowercased()] ?? name
+                    } else {
+                        hasUnknown = true
+                    }
+                }
+            } else {
+                hasUnknown = true
+            }
+        }
+        var result = unique.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        if hasUnknown { result.append("Unknown Narrator") }
+        return result
+    }
+
+    private func availableTranslators(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        var hasUnknown = false
+        for item in catalog {
+            let translators = (item.creators ?? []).filter { $0.role == "trl" }
+            for translator in translators {
+                if let name = translator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !name.isEmpty
+                {
+                    unique[name.lowercased()] = unique[name.lowercased()] ?? name
+                } else {
+                    hasUnknown = true
+                }
+            }
+        }
+        var result = unique.values.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        if hasUnknown { result.append("Unknown Translator") }
+        return result
+    }
+
+    private func availableCreatorRoles(from catalog: [BookMetadata]) -> Set<String> {
+        var roles = Set<String>()
+        for item in catalog {
+            for creator in item.creators ?? [] {
+                if let role = creator.role, !role.isEmpty {
+                    roles.insert(role)
+                }
+            }
+        }
+        return roles
+    }
+
+    private func availablePublicationYears(from catalog: [BookMetadata]) -> [String] {
+        var years = Set<String>()
+        var hasUnknown = false
+        for item in catalog {
+            if let year = BookMetadata.publicationYear(from: item.publicationDate) {
+                years.insert(year)
+            } else {
+                hasUnknown = true
+            }
+        }
+        var result = years.sorted(by: >)
+        if hasUnknown { result.append("Unknown") }
+        return result
+    }
+
+    private func availableRatings(from catalog: [BookMetadata]) -> [String] {
+        var ratings = Set<Int>()
+        var hasUnrated = false
+        for item in catalog {
+            if let rating = item.rating, rating > 0 {
+                ratings.insert(Int(rating.rounded()))
+            } else {
+                hasUnrated = true
+            }
+        }
+        var result = ratings.sorted(by: >).map { "\($0)" }
+        if hasUnrated { result.append("Unrated") }
+        return result
+    }
+
+    private func availableStatuses(from catalog: [BookMetadata]) -> [String] {
+        var unique: [String: String] = [:]
+        for item in catalog {
+            guard let status = item.status?.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                !status.isEmpty
+            else { continue }
+            unique[status.lowercased()] = unique[status.lowercased()] ?? status
+        }
+        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func metadataMatchesKind(_ metadata: BookMetadata, kind: MediaKind) -> Bool {
+        switch kind {
+            case .ebook:
+                return metadata.hasAvailableEbook || metadata.hasAvailableReadaloud
+            case .audiobook:
+                return !metadata.hasAvailableEbook && !metadata.hasAvailableReadaloud
+                    && metadata.hasAvailableAudiobook
+        }
     }
 
     private struct Context {
@@ -227,24 +1018,30 @@ public actor LibraryDerivationActor {
                     guard let shelf = input.smartShelves.first(where: { $0.id == shelfId }) else {
                         return 0
                     }
-                    return input.metadata.filter { book in
-                        let progress = input.progress[book.id]?.progressFraction ?? book.progress
-                        let isLocal = input.folderSourceBookIds.contains(book.id)
-                        let isDownloaded = hasDownloadedContent(book) && !isLocal
-                        return shelf.matchesAll(
-                            book,
-                            progress: progress,
-                            locationInfo: ShelfLocationInfo(
-                                isDownloaded: isDownloaded,
-                                isLocalStandalone: isLocal,
-                            ),
-                        )
-                    }.count
+                    return booksForShelf(shelf).count
                 case .downloaded:
                     return input.metadata.filter {
                         metadataMatchesKind($0, kind: .ebook)
                             && matchesLocationFilter($0, .downloaded)
                     }.count
+            }
+        }
+
+        func booksForShelf(_ shelf: SmartShelf) -> [BookMetadata] {
+            input.metadata.filter { book in
+                let progress = input.progress[book.id]?.progressFraction ?? book.progress
+                let isLocal = input.folderSourceBookIds.contains(book.id)
+                let isDownloaded = hasDownloadedContent(book) && !isLocal
+                return shelf.matchesAll(
+                    book,
+                    progress: progress,
+                    locationInfo: ShelfLocationInfo(
+                        isDownloaded: isDownloaded,
+                        isLocalStandalone: isLocal,
+                    ),
+                )
+            }.sorted {
+                $0.title.articleStrippedCompare($1.title) == .orderedAscending
             }
         }
 

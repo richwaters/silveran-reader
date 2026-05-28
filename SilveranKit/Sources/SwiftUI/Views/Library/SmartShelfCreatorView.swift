@@ -28,6 +28,10 @@ struct SmartShelfCreatorView: View {
     @State private var editingConditionIndex: Int?
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
+    @State private var matchingBooks: [BookMetadata] = []
+    @State private var matchingBooksTask: Task<Void, Never>?
+    @State private var matchingBooksGeneration = 0
+    @State private var draftShelfID: UUID
     @AppStorage("coverPref.smartShelfCreator") private var coverPrefRaw: String = CoverPreference
         .storytellerDouble.rawValue
 
@@ -46,17 +50,17 @@ struct SmartShelfCreatorView: View {
         _identifiedConditions = State(
             initialValue: (existingShelf?.conditions ?? []).map { IdentifiedCondition($0) }
         )
+        _draftShelfID = State(initialValue: existingShelf?.id ?? UUID())
     }
 
-    private var matchingBooks: [BookMetadata] {
+    private var previewShelf: SmartShelf? {
         let raw = conditions
-        guard !raw.isEmpty else { return [] }
-        let shelf = SmartShelf(
-            id: existingShelf?.id ?? UUID(),
+        guard !raw.isEmpty else { return nil }
+        return SmartShelf(
+            id: draftShelfID,
             name: shelfName,
             conditions: raw,
         )
-        return mediaViewModel.booksForShelf(shelf)
     }
 
     private var hasName: Bool {
@@ -112,6 +116,16 @@ struct SmartShelfCreatorView: View {
             debugLog(
                 "[SmartShelfCreator] appeared, vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)"
             )
+            requestMatchingBooks()
+        }
+        .onChange(of: identifiedConditions) { _, _ in
+            requestMatchingBooks()
+        }
+        .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            requestMatchingBooks()
+        }
+        .onDisappear {
+            matchingBooksTask?.cancel()
         }
     }
 
@@ -466,7 +480,7 @@ struct SmartShelfCreatorView: View {
             Button(existingShelf != nil ? "Save Changes" : "Create Smart Shelf") {
                 if canSave {
                     let shelf = SmartShelf(
-                        id: existingShelf?.id ?? UUID(),
+                        id: draftShelfID,
                         name: shelfName.trimmingCharacters(in: .whitespacesAndNewlines),
                         conditions: conditions,
                         createdAt: existingShelf?.createdAt ?? Date(),
@@ -481,6 +495,21 @@ struct SmartShelfCreatorView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func requestMatchingBooks() {
+        matchingBooksTask?.cancel()
+        guard let shelf = previewShelf else {
+            matchingBooks = []
+            return
+        }
+        matchingBooksGeneration += 1
+        let generation = matchingBooksGeneration
+        matchingBooksTask = Task { @MainActor in
+            let books = await mediaViewModel.smartShelfBooks(for: shelf)
+            guard !Task.isCancelled, generation == matchingBooksGeneration else { return }
+            matchingBooks = books
+        }
     }
 }
 #endif

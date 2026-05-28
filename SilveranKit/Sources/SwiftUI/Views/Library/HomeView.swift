@@ -16,7 +16,7 @@ struct HomeView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
-    fileprivate struct HomeSection: Identifiable {
+    fileprivate struct HomeSection: Identifiable, Sendable {
         let title: String
         let mediaKind: MediaKind
         let items: [BookMetadata]
@@ -53,6 +53,8 @@ struct HomeView: View {
     @State private var selection: Selection? = nil
     @State private var isSidebarVisible: Bool = false
     @State private var sections: [HomeSection] = []
+    @State private var loadSectionsTask: Task<Void, Never>?
+    @State private var loadSectionsGeneration: Int = 0
     @State private var settingsViewModel = SettingsViewModel()
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
@@ -408,67 +410,84 @@ struct HomeView: View {
         debugLog(
             "[PerfTrace][HomeLoad] loadSections start source=\(source) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
         )
-        let config = HomeSectionConfigHelper.config
-
-        let sectionBuilders: [String: () -> HomeSection] = [
-            "currentlyReading": {
-                makeStatusSection(
-                    title: "Currently Reading",
-                    statusName: "Reading",
-                    sortBy: .recentPositionUpdate,
-                    limit: 12,
-                    destination: "Currently Reading",
-                )
-            },
-            "startReading": {
-                makeStatusSection(
-                    title: "Start Reading",
-                    statusName: "To read",
-                    sortBy: .recentlyAdded,
-                    limit: 12,
-                    destination: "Start Reading",
-                )
-            },
-            "recentlyAdded": {
-                makeRecentlyAddedSection(
-                    title: "Recently Added",
-                    limit: 12,
-                    destination: "Recently Added",
-                )
-            },
-            "completed": {
-                makeStatusSection(
-                    title: "Completed",
-                    statusName: "Read",
-                    sortBy: .recentPositionUpdate,
-                    limit: 12,
-                    destination: "Completed",
-                )
-            },
-        ]
-
-        sections =
-            config
-            .filter { $0.visible }
-            .compactMap { item in
-                let sectionStarted = CFAbsoluteTimeGetCurrent()
-                let section: HomeSection?
-                if let builder = sectionBuilders[item.id] {
-                    section = builder()
-                } else {
-                    section = makePinnedSection(pinId: item.id)
-                }
-                let sectionElapsed = (CFAbsoluteTimeGetCurrent() - sectionStarted) * 1000
+        let visibleSectionIDs = HomeSectionConfigHelper.config.filter(\.visible).map(\.id)
+        let context = mediaViewModel.libraryRenderContext()
+        let search = searchText
+        loadSectionsGeneration += 1
+        let generation = loadSectionsGeneration
+        loadSectionsTask?.cancel()
+        loadSectionsTask = Task.detached(priority: .userInitiated) {
+            let newSections = Self.deriveHomeSections(
+                visibleSectionIDs: visibleSectionIDs,
+                context: context,
+                searchText: search,
+            )
+            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+            await MainActor.run {
+                guard !Task.isCancelled, generation == loadSectionsGeneration else { return }
+                sections = newSections
+                let summary = newSections.map { "\($0.title)=\($0.items.count)" }
+                    .joined(separator: ", ")
                 debugLog(
-                    "[PerfTrace][HomeLoad] section source=\(source) id=\(item.id) result=\(section?.items.count ?? 0) elapsedMs=\(String(format: "%.1f", sectionElapsed))"
+                    "[PerfTrace][HomeLoad] loadSections end source=\(source) elapsedMs=\(String(format: "%.1f", elapsed)) sections=[\(summary)]"
                 )
-                return section
             }
-        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-        let summary = sections.map { "\($0.title)=\($0.items.count)" }.joined(separator: ", ")
-        debugLog(
-            "[PerfTrace][HomeLoad] loadSections end source=\(source) elapsedMs=\(String(format: "%.1f", elapsed)) sections=[\(summary)]"
-        )
+        }
+    }
+
+    private static nonisolated func deriveHomeSections(
+        visibleSectionIDs: [String],
+        context: MediaViewModel.LibraryRenderContext,
+        searchText: String,
+    ) -> [HomeSection] {
+        visibleSectionIDs.compactMap { itemID in
+            switch itemID {
+                case "currentlyReading":
+                    return makeStatusSection(
+                        title: "Currently Reading",
+                        statusName: "Reading",
+                        sortBy: .recentPositionUpdate,
+                        limit: 12,
+                        destination: "Currently Reading",
+                        context: context,
+                        searchText: searchText,
+                    )
+                case "startReading":
+                    return makeStatusSection(
+                        title: "Start Reading",
+                        statusName: "To read",
+                        sortBy: .recentlyAdded,
+                        limit: 12,
+                        destination: "Start Reading",
+                        context: context,
+                        searchText: searchText,
+                    )
+                case "recentlyAdded":
+                    return makeRecentlyAddedSection(
+                        title: "Recently Added",
+                        limit: 12,
+                        destination: "Recently Added",
+                        context: context,
+                        searchText: searchText,
+                    )
+                case "completed":
+                    return makeStatusSection(
+                        title: "Completed",
+                        statusName: "Read",
+                        sortBy: .recentPositionUpdate,
+                        limit: 12,
+                        destination: "Completed",
+                        context: context,
+                        searchText: searchText,
+                    )
+                default:
+                    return makePinnedSection(
+                        pinId: itemID,
+                        context: context,
+                        searchText: searchText,
+                    )
+            }
+        }
     }
 
     private var selectedItem: BookMetadata? {
@@ -640,24 +659,21 @@ struct HomeView: View {
 
     #endif
 
-    private func makeSection(
+    private static nonisolated func makeSection(
         title: String,
         mediaKind: MediaKind,
         tagFilter: String?,
         limit: Int,
         destination: String,
+        context: MediaViewModel.LibraryRenderContext,
+        searchText: String,
     ) -> HomeSection {
-        let baseItems = mediaViewModel.items(
-            for: mediaKind,
-            narrationFilter: .both,
-            tagFilter: tagFilter,
-        )
-        let filtered = baseItems.filter { matchesSearchText($0) }
-        let limited = Array(filtered.prefix(limit))
+        let baseItems = items(context.metadata, for: mediaKind, tagFilter: tagFilter)
+        let filtered = baseItems.filter { matchesSearchText($0, searchText: searchText) }
         return HomeSection(
             title: title,
             mediaKind: mediaKind,
-            items: limited,
+            items: Array(filtered.prefix(limit)),
             destination: destination,
             tagFilter: tagFilter,
             statusFilter: nil,
@@ -665,19 +681,34 @@ struct HomeView: View {
         )
     }
 
-    private func makeStatusSection(
+    private static nonisolated func makeStatusSection(
         title: String,
         statusName: String,
         sortBy: MediaViewModel.StatusSortOrder,
         limit: Int,
         destination: String,
+        context: MediaViewModel.LibraryRenderContext,
+        searchText: String,
     ) -> HomeSection {
-        let baseItems = mediaViewModel.itemsByStatus(statusName, sortBy: sortBy, limit: limit)
-        let filtered = baseItems.filter { matchesSearchText($0) }
+        let filtered = context.metadata.filter { $0.status?.name == statusName }
+        let sorted: [BookMetadata]
+        switch sortBy {
+            case .recentPositionUpdate:
+                sorted = filtered.sorted { a, b in
+                    let tsA = context.progress[a.id]?.timestamp ?? 0
+                    let tsB = context.progress[b.id]?.timestamp ?? 0
+                    return tsA > tsB
+                }
+            case .recentlyAdded:
+                sorted = filtered.sorted { ($0.createdAt ?? "") > ($1.createdAt ?? "") }
+        }
+        let searched = Array(sorted.prefix(limit)).filter {
+            matchesSearchText($0, searchText: searchText)
+        }
         return HomeSection(
             title: title,
             mediaKind: .ebook,
-            items: filtered,
+            items: searched,
             destination: destination,
             tagFilter: nil,
             statusFilter: statusName,
@@ -685,17 +716,21 @@ struct HomeView: View {
         )
     }
 
-    private func makeRecentlyAddedSection(
+    private static nonisolated func makeRecentlyAddedSection(
         title: String,
         limit: Int,
         destination: String,
+        context: MediaViewModel.LibraryRenderContext,
+        searchText: String,
     ) -> HomeSection {
-        let baseItems = mediaViewModel.recentlyAddedItems(limit: limit)
-        let filtered = baseItems.filter { matchesSearchText($0) }
+        let sorted = context.metadata.sorted { ($0.createdAt ?? "") > ($1.createdAt ?? "") }
+        let searched = Array(sorted.prefix(limit)).filter {
+            matchesSearchText($0, searchText: searchText)
+        }
         return HomeSection(
             title: title,
             mediaKind: .ebook,
-            items: filtered,
+            items: searched,
             destination: destination,
             tagFilter: nil,
             statusFilter: nil,
@@ -703,8 +738,12 @@ struct HomeView: View {
         )
     }
 
-    private func makePinnedSection(pinId: String) -> HomeSection? {
-        let allBooks = mediaViewModel.library.bookMetaData
+    private static nonisolated func makePinnedSection(
+        pinId: String,
+        context: MediaViewModel.LibraryRenderContext,
+        searchText: String,
+    ) -> HomeSection? {
+        let allBooks = context.metadata
         let title: String
         var matched: [BookMetadata] = []
 
@@ -743,12 +782,12 @@ struct HomeView: View {
         } else if pinId.hasPrefix("pin.smartShelf:") {
             let uuidString = String(pinId.dropFirst("pin.smartShelf:".count))
             guard let uuid = UUID(uuidString: uuidString),
-                let shelf = mediaViewModel.smartShelves.first(where: { $0.id == uuid })
+                let shelf = context.smartShelves.first(where: { $0.id == uuid })
             else {
                 return nil
             }
             title = shelf.name
-            matched = mediaViewModel.booksForShelf(shelf)
+            matched = booksForShelf(shelf, context: context)
         } else if pinId.hasPrefix("pin.sidebar:") {
             let stableId = String(pinId.dropFirst("pin.sidebar:".count))
             guard let item = SidebarConfigHelper.defaultItemLookup[stableId] else { return nil }
@@ -756,9 +795,7 @@ struct HomeView: View {
             switch item.content {
                 case .mediaGrid(let config):
                     matched = allBooks
-                    if let tag = config.tagFilter {
-                        matched = matched.filter { $0.matchesTag(tag) }
-                    }
+                    if let tag = config.tagFilter { matched = matched.filter { $0.matchesTag(tag) } }
                     if let series = config.seriesFilter {
                         matched = matched.filter { $0.matchesSeries(series) }
                     }
@@ -772,16 +809,10 @@ struct HomeView: View {
                         matched = matched.filter { $0.matchesStatus(status) }
                     }
                     if config.locationFilter == .downloaded {
-                        matched = matched.filter {
-                            mediaViewModel.isCategoryDownloaded(.synced, for: $0)
-                                || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
-                        }
+                        matched = matched.filter { isDownloaded($0, context: context) }
                     }
                 case .downloaded:
-                    matched = allBooks.filter {
-                        mediaViewModel.isCategoryDownloaded(.synced, for: $0)
-                            || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
-                    }
+                    matched = allBooks.filter { isDownloaded($0, context: context) }
                 default:
                     matched = allBooks
             }
@@ -789,12 +820,11 @@ struct HomeView: View {
             return nil
         }
 
-        let filtered = matched.filter { matchesSearchText($0) }
-        let limited = Array(filtered.prefix(12))
+        let searched = matched.filter { matchesSearchText($0, searchText: searchText) }
         return HomeSection(
             title: title,
             mediaKind: .ebook,
-            items: limited,
+            items: Array(searched.prefix(12)),
             destination: pinId,
             tagFilter: nil,
             statusFilter: nil,
@@ -802,25 +832,64 @@ struct HomeView: View {
         )
     }
 
-    private func matchesSearchText(_ item: BookMetadata) -> Bool {
-        guard searchText.count >= 2 else { return true }
-
-        let terms = searchText.lowercased().split(separator: " ").map(String.init)
-        guard !terms.isEmpty else { return true }
-
-        let title = item.title.lowercased()
-        let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
-
-        for term in terms {
-            let matchesTitle = title.contains(term)
-            let matchesAuthor = authorNames.contains { $0.contains(term) }
-
-            if !matchesTitle && !matchesAuthor {
-                return false
+    private static nonisolated func items(
+        _ metadata: [BookMetadata],
+        for kind: MediaKind,
+        tagFilter: String?,
+    ) -> [BookMetadata] {
+        var base = metadata.filter { item in
+            switch kind {
+                case .ebook:
+                    return item.hasAvailableEbook || item.hasAvailableReadaloud
+                case .audiobook:
+                    return !item.hasAvailableEbook && !item.hasAvailableReadaloud
+                        && item.hasAvailableAudiobook
             }
         }
+        if let tagFilter, !tagFilter.isEmpty {
+            let target = tagFilter.lowercased()
+            base = base.filter { $0.tagNames.contains { $0.lowercased() == target } }
+        }
+        return base
+    }
 
-        return true
+    private static nonisolated func booksForShelf(
+        _ shelf: SmartShelf,
+        context: MediaViewModel.LibraryRenderContext,
+    ) -> [BookMetadata] {
+        context.metadata.filter { book in
+            let progress = context.progress[book.id]?.progressFraction ?? book.progress
+            let isLocal = context.folderSourceBookIds.contains(book.id)
+            let locationInfo = ShelfLocationInfo(
+                isDownloaded: isDownloaded(book, context: context) && !isLocal,
+                isLocalStandalone: isLocal,
+            )
+            return shelf.matchesAll(book, progress: progress, locationInfo: locationInfo)
+        }.sorted {
+            $0.title.articleStrippedCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private static nonisolated func isDownloaded(
+        _ book: BookMetadata,
+        context: MediaViewModel.LibraryRenderContext,
+    ) -> Bool {
+        guard !context.folderSourceBookIds.contains(book.id) else { return false }
+        let paths = context.paths[book.id]
+        return paths?.ebookPath != nil || paths?.audioPath != nil || paths?.syncedPath != nil
+    }
+
+    private static nonisolated func matchesSearchText(
+        _ item: BookMetadata,
+        searchText: String,
+    ) -> Bool {
+        guard searchText.count >= 2 else { return true }
+        let terms = searchText.lowercased().split(separator: " ").map(String.init)
+        let title = item.title.lowercased()
+        let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
+        return terms.allSatisfy { term in
+            title.contains(term) || authorNames.contains { $0.contains(term) }
+        }
     }
 
     private func navigateToSection(_ section: HomeSection) {

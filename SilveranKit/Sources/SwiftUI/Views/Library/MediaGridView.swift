@@ -70,6 +70,10 @@ struct CollectionDetailNavigation: Hashable {
 }
 
 struct MediaGridView: View {
+    typealias SortOption = MediaGridSortOption
+    typealias FormatFilterOption = MediaGridFormatFilterOption
+    typealias LocationFilterOption = MediaGridLocationFilterOption
+
     public struct ColumnBreakpoint: Hashable {
         public let columns: Int
         public let minWidth: CGFloat
@@ -285,6 +289,9 @@ struct MediaGridView: View {
     @State private var cachedAvailableCreatorRoles: Set<String> = []
     @State private var cachedFiltersSummary: String = ""
     @State private var lastCachedLibraryVersion: Int = -1
+    @State private var renderSnapshotTask: Task<Void, Never>?
+    @State private var tableSortTask: Task<Void, Never>?
+    @State private var renderRequestGeneration: Int = 0
 
     private static let defaultHorizontalSpacing: CGFloat = 16
     private let horizontalSpacing: CGFloat = MediaGridView.defaultHorizontalSpacing
@@ -773,12 +780,6 @@ struct MediaGridView: View {
 
     private func updateTableSortedItems(forceResort: Bool = false) {
         let started = CFAbsoluteTimeGetCurrent()
-        defer {
-            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-            debugLog(
-                "[PerfTrace][MediaGridView] updateTableSortedItems title='\(title)' force=\(forceResort) count=\(cachedDisplayItems.count) elapsedMs=\(String(format: "%.1f", elapsed))"
-            )
-        }
         guard let comparator = tableSortOrder.first else {
             tableSortedItems = cachedDisplayItems
             lastSortKeyPath = nil
@@ -790,17 +791,38 @@ struct MediaGridView: View {
 
         if sameKeyPath && !tableSortedItems.isEmpty && !forceResort {
             tableSortedItems = Array(tableSortedItems.reversed())
-        } else if let roleCode = creatorSortRoleCode {
-            let ascending = comparator.order == .forward
-            tableSortedItems = cachedDisplayItems.sorted { a, b in
-                let aVal = a.sortableCreator(role: roleCode)
-                let bVal = b.sortableCreator(role: roleCode)
-                return ascending
-                    ? aVal.localizedCaseInsensitiveCompare(bVal) == .orderedAscending
-                    : aVal.localizedCaseInsensitiveCompare(bVal) == .orderedDescending
-            }
+            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+            debugLog(
+                "[PerfTrace][MediaGridView] updateTableSortedItems reversed title='\(title)' count=\(cachedDisplayItems.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+            )
         } else {
-            tableSortedItems = cachedDisplayItems.sorted(using: comparator)
+            let items = cachedDisplayItems
+            let roleCode = creatorSortRoleCode
+            let ascending = comparator.order == .forward
+            let title = title
+            tableSortTask?.cancel()
+            tableSortTask = Task.detached(priority: .userInitiated) {
+                let sorted: [BookMetadata]
+                if let roleCode {
+                    sorted = items.sorted { a, b in
+                        let aVal = a.sortableCreator(role: roleCode)
+                        let bVal = b.sortableCreator(role: roleCode)
+                        return ascending
+                            ? aVal.localizedCaseInsensitiveCompare(bVal) == .orderedAscending
+                            : aVal.localizedCaseInsensitiveCompare(bVal) == .orderedDescending
+                    }
+                } else {
+                    sorted = items.sorted(using: comparator)
+                }
+                let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    tableSortedItems = sorted
+                    debugLog(
+                        "[PerfTrace][MediaGridView] updateTableSortedItems title='\(title)' force=\(forceResort) count=\(items.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+                    )
+                }
+            }
         }
         lastSortKeyPath = currentKeyPath
     }
@@ -1452,94 +1474,12 @@ struct MediaGridView: View {
         isSidebarVisible = false
     }
 
-    private struct ItemLocationInfo: Sendable {
-        let isDownloaded: Bool
-        let isLocalStandalone: Bool
-    }
-
-    private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID:
-        ItemLocationInfo]
-    {
-        let started = CFAbsoluteTimeGetCurrent()
-        var info: [BookMetadata.ID: ItemLocationInfo] = [:]
-        for item in items {
-            let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
-            let hasDownloadedContent =
-                mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-                || mediaViewModel.isCategoryDownloaded(.audio, for: item)
-                || mediaViewModel.isCategoryDownloaded(.synced, for: item)
-            let isDownloaded = hasDownloadedContent && !isLocal
-            info[item.id] = ItemLocationInfo(
-                isDownloaded: isDownloaded,
-                isLocalStandalone: isLocal,
-            )
-        }
-        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-        debugLog(
-            "[PerfTrace][MediaGridView] captureLocationInfo title='\(title)' items=\(items.count) elapsedMs=\(String(format: "%.1f", elapsed))"
-        )
-        return info
-    }
-
     private func recomputeDisplayItems() {
         let started = CFAbsoluteTimeGetCurrent()
         debugLog(
             "[PerfTrace][MediaGridView] recomputeDisplayItems start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) layout=\(layoutStyle.rawValue)"
         )
-        let baseStarted = CFAbsoluteTimeGetCurrent()
-        let baseItems = itemsForCurrentFormatSelection()
-        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
-        let locationInfo = captureLocationInfo(for: baseItems)
-        let formatFilter = selectedFormatFilter
-        let tagSel = selectedTag
-        let seriesSel = selectedSeries
-        let collectionSel = selectedCollection
-        let authorSel = selectedAuthor
-        let narratorSel = selectedNarrator
-        let translatorSel = selectedTranslator
-        let publicationYearSel = selectedPublicationYear
-        let ratingSel = selectedRating
-        let statusSel = selectedStatus
-        let locationSel = selectedLocation
-        let search = searchText
-        let sortOpt = selectedSortOption
-        let filtersSummary = computeFiltersSummary()
-        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-        debugLog(
-            "[PerfTrace][MediaGridView] recomputeDisplayItems setup title='\(title)' base=\(baseItems.count) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
-        )
-
-        Task.detached(priority: .userInitiated) {
-            let detachedStarted = CFAbsoluteTimeGetCurrent()
-            let result = Self.computeDisplayItemsOffThread(
-                base: baseItems,
-                locationInfo: locationInfo,
-                formatFilter: formatFilter,
-                tagFilter: tagSel,
-                seriesFilter: seriesSel,
-                collectionFilter: collectionSel,
-                authorFilter: authorSel,
-                narratorFilter: narratorSel,
-                translatorFilter: translatorSel,
-                publicationYearFilter: publicationYearSel,
-                ratingFilter: ratingSel,
-                statusFilter: statusSel,
-                locationFilter: locationSel,
-                searchText: search,
-                sortOption: sortOpt,
-            )
-            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
-            await MainActor.run {
-                let publishStarted = CFAbsoluteTimeGetCurrent()
-                self.cachedDisplayItems = result
-                self.cachedFiltersSummary = filtersSummary
-                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
-                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-                debugLog(
-                    "[PerfTrace][MediaGridView] recomputeDisplayItems end title='\(self.title)' result=\(result.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
-                )
-            }
-        }
+        requestRenderSnapshot(includeFilterOptions: false, started: started)
     }
 
     private func recomputeFilterOptions() {
@@ -1547,44 +1487,7 @@ struct MediaGridView: View {
         debugLog(
             "[PerfTrace][MediaGridView] recomputeFilterOptions start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
         )
-        let catalogStarted = CFAbsoluteTimeGetCurrent()
-        let catalog = catalogItemsForFilters
-        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
-        debugLog(
-            "[PerfTrace][MediaGridView] recomputeFilterOptions setup title='\(title)' catalog=\(catalog.count) catalogMs=\(String(format: "%.1f", catalogElapsed))"
-        )
-
-        Task.detached(priority: .userInitiated) {
-            let detachedStarted = CFAbsoluteTimeGetCurrent()
-            let newTags = Self.computeAvailableTagsOffThread(from: catalog)
-            let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
-            let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
-            let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
-            let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
-            let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
-            let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
-            let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
-            let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
-            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
-            await MainActor.run {
-                let publishStarted = CFAbsoluteTimeGetCurrent()
-                self.cachedAvailableTags = newTags
-                self.cachedAvailableSeries = newSeries
-                self.cachedAvailableAuthors = newAuthors
-                self.cachedAvailableNarrators = newNarrators
-                self.cachedAvailableTranslators = newTranslators
-                self.cachedAvailablePublicationYears = newPublicationYears
-                self.cachedAvailableRatings = newRatings
-                self.cachedAvailableStatuses = newStatuses
-                self.cachedAvailableCreatorRoles = newCreatorRoles
-                self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
-                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
-                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-                debugLog(
-                    "[PerfTrace][MediaGridView] recomputeFilterOptions end title='\(self.title)' tags=\(newTags.count) series=\(newSeries.count) authors=\(newAuthors.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
-                )
-            }
-        }
+        requestRenderSnapshot(includeFilterOptions: true, started: started)
     }
 
     private func recomputeAllCaches() {
@@ -1592,81 +1495,54 @@ struct MediaGridView: View {
         debugLog(
             "[PerfTrace][MediaGridView] recomputeAllCaches start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
         )
-        let catalogStarted = CFAbsoluteTimeGetCurrent()
-        let catalog = catalogItemsForFilters
-        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
-        let baseStarted = CFAbsoluteTimeGetCurrent()
-        let baseItems = itemsForCurrentFormatSelection()
-        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
-        let locationInfo = captureLocationInfo(for: baseItems)
-        let formatFilter = selectedFormatFilter
-        let tagSel = selectedTag
-        let seriesSel = selectedSeries
-        let collectionSel = selectedCollection
-        let authorSel = selectedAuthor
-        let narratorSel = selectedNarrator
-        let translatorSel = selectedTranslator
-        let publicationYearSel = selectedPublicationYear
-        let ratingSel = selectedRating
-        let statusSel = selectedStatus
-        let locationSel = selectedLocation
-        let search = searchText
-        let sortOpt = selectedSortOption
-        let filtersSummary = computeFiltersSummary()
-        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-        debugLog(
-            "[PerfTrace][MediaGridView] recomputeAllCaches setup title='\(title)' catalog=\(catalog.count) base=\(baseItems.count) catalogMs=\(String(format: "%.1f", catalogElapsed)) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
-        )
+        requestRenderSnapshot(includeFilterOptions: true, started: started)
+    }
 
-        Task.detached(priority: .userInitiated) {
-            let detachedStarted = CFAbsoluteTimeGetCurrent()
-            let newTags = Self.computeAvailableTagsOffThread(from: catalog)
-            let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
-            let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
-            let newNarrators = Self.computeAvailableNarratorsOffThread(from: catalog)
-            let newTranslators = Self.computeAvailableTranslatorsOffThread(from: catalog)
-            let newPublicationYears = Self.computeAvailablePublicationYearsOffThread(from: catalog)
-            let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
-            let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
-            let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
-            let newDisplayItems = Self.computeDisplayItemsOffThread(
-                base: baseItems,
-                locationInfo: locationInfo,
-                formatFilter: formatFilter,
-                tagFilter: tagSel,
-                seriesFilter: seriesSel,
-                collectionFilter: collectionSel,
-                authorFilter: authorSel,
-                narratorFilter: narratorSel,
-                translatorFilter: translatorSel,
-                publicationYearFilter: publicationYearSel,
-                ratingFilter: ratingSel,
-                statusFilter: statusSel,
-                locationFilter: locationSel,
-                searchText: search,
-                sortOption: sortOpt,
-            )
-            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
-            await MainActor.run {
-                let publishStarted = CFAbsoluteTimeGetCurrent()
-                self.cachedAvailableTags = newTags
-                self.cachedAvailableSeries = newSeries
-                self.cachedAvailableAuthors = newAuthors
-                self.cachedAvailableNarrators = newNarrators
-                self.cachedAvailableTranslators = newTranslators
-                self.cachedAvailablePublicationYears = newPublicationYears
-                self.cachedAvailableRatings = newRatings
-                self.cachedAvailableStatuses = newStatuses
-                self.cachedAvailableCreatorRoles = newCreatorRoles
-                self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
-                self.cachedDisplayItems = newDisplayItems
-                self.cachedFiltersSummary = filtersSummary
-                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
-                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
-                debugLog(
-                    "[PerfTrace][MediaGridView] recomputeAllCaches end title='\(self.title)' catalog=\(catalog.count) base=\(baseItems.count) display=\(newDisplayItems.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
-                )
+    private func requestRenderSnapshot(includeFilterOptions: Bool, started: CFAbsoluteTime) {
+        renderRequestGeneration += 1
+        let generation = renderRequestGeneration
+        let request = MediaGridRenderRequest(
+            mediaKind: mediaKind,
+            baseTagFilter: tagFilter,
+            selectedFormatFilter: selectedFormatFilter,
+            selectedTag: selectedTag,
+            selectedSeries: selectedSeries,
+            selectedCollection: selectedCollection,
+            selectedAuthor: selectedAuthor,
+            selectedNarrator: selectedNarrator,
+            selectedTranslator: selectedTranslator,
+            selectedPublicationYear: selectedPublicationYear,
+            selectedRating: selectedRating,
+            selectedStatus: selectedStatus,
+            selectedLocation: selectedLocation,
+            searchText: searchText,
+            sortOption: selectedSortOption,
+            filteredItems: filteredItems,
+            includeFilterOptions: includeFilterOptions,
+        )
+        let title = title
+        renderSnapshotTask?.cancel()
+        renderSnapshotTask = Task { @MainActor in
+            let snapshot = await mediaViewModel.mediaGridSnapshot(for: request)
+            guard !Task.isCancelled, generation == renderRequestGeneration else { return }
+            cachedDisplayItems = snapshot.displayItems
+            cachedFiltersSummary = snapshot.filtersSummary
+            if includeFilterOptions {
+                cachedAvailableTags = snapshot.availableTags
+                cachedAvailableSeries = snapshot.availableSeries
+                cachedAvailableAuthors = snapshot.availableAuthors
+                cachedAvailableNarrators = snapshot.availableNarrators
+                cachedAvailableTranslators = snapshot.availableTranslators
+                cachedAvailablePublicationYears = snapshot.availablePublicationYears
+                cachedAvailableRatings = snapshot.availableRatings
+                cachedAvailableStatuses = snapshot.availableStatuses
+                cachedAvailableCreatorRoles = snapshot.availableCreatorRoles
+                lastCachedLibraryVersion = mediaViewModel.libraryVersion
             }
+            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+            debugLog(
+                "[PerfTrace][MediaGridView] renderSnapshot title='\(title)' display=\(snapshot.displayItems.count) filters=\(includeFilterOptions) elapsedMs=\(String(format: "%.1f", elapsed))"
+            )
         }
     }
 
@@ -1688,626 +1564,6 @@ struct MediaGridView: View {
         DispatchQueue.main.async {
             proxy.scrollTo(target, anchor: .top)
         }
-    }
-
-    private func computeDisplayItems() -> [BookMetadata] {
-        let base = itemsForCurrentFormatSelection()
-        let formatFiltered = base.filter { selectedFormatFilter.matches($0) }
-        let tagFiltered = formatFiltered.filter { matchesSelectedTag($0) }
-        let seriesFiltered = tagFiltered.filter { matchesSelectedSeries($0) }
-        let collectionFiltered = seriesFiltered.filter { matchesSelectedCollection($0) }
-        let authorFiltered = collectionFiltered.filter { matchesSelectedAuthor($0) }
-        let narratorFiltered = authorFiltered.filter { matchesSelectedNarrator($0) }
-        let translatorFiltered = narratorFiltered.filter { matchesSelectedTranslator($0) }
-        let publicationYearFiltered = translatorFiltered.filter {
-            matchesSelectedPublicationYear($0)
-        }
-        let ratingFiltered = publicationYearFiltered.filter { matchesSelectedRating($0) }
-        let statusFiltered = ratingFiltered.filter { matchesSelectedStatus($0) }
-        let locationFiltered = statusFiltered.filter { matchesSelectedLocation($0) }
-        let searchFiltered = locationFiltered.filter { matchesSearchText($0) }
-        let sorted =
-            searchFiltered.sorted { lhs, rhs in
-                if lhs.id == rhs.id { return false }
-                let result: ComparisonResult
-                if selectedSortOption == .seriesPosition, let filter = selectedSeries {
-                    let normalizedFilter = filter.lowercased()
-                    let lhsPosition =
-                        lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?
-                        .position ?? .greatestFiniteMagnitude
-                    let rhsPosition =
-                        rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?
-                        .position ?? .greatestFiniteMagnitude
-                    if lhsPosition == rhsPosition {
-                        result = lhs.title.articleStrippedCompare(rhs.title)
-                    } else {
-                        result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
-                    }
-                } else {
-                    result = selectedSortOption.comparison(lhs, rhs)
-                }
-                if result == .orderedSame {
-                    return lhs.id < rhs.id
-                }
-                return result == .orderedAscending
-            }
-        return sorted
-    }
-
-    private func itemsForCurrentFormatSelection() -> [BookMetadata] {
-        if let filteredItems {
-            return filteredItems
-        }
-        var primary = mediaViewModel.items(
-            for: mediaKind,
-            narrationFilter: .both,
-            tagFilter: tagFilter,
-        )
-        if selectedFormatFilter.includesAudiobookOnlyItems {
-            let audioOnlyItems = mediaViewModel.items(
-                for: .audiobook,
-                narrationFilter: .both,
-                tagFilter: tagFilter,
-            )
-            primary = merge(primary, with: audioOnlyItems)
-        }
-        return primary
-    }
-
-    private var catalogItemsForFilters: [BookMetadata] {
-        if let filteredItems {
-            return filteredItems
-        }
-        if mediaKind == .audiobook {
-            return mediaViewModel.items(
-                for: .audiobook,
-                narrationFilter: .both,
-                tagFilter: tagFilter,
-            )
-        }
-        let primary = mediaViewModel.items(
-            for: mediaKind,
-            narrationFilter: .both,
-            tagFilter: tagFilter,
-        )
-        let audioOnly = mediaViewModel.items(
-            for: .audiobook,
-            narrationFilter: .both,
-            tagFilter: tagFilter,
-        )
-        return merge(primary, with: audioOnly)
-    }
-
-    private func merge(_ primary: [BookMetadata], with supplemental: [BookMetadata])
-        -> [BookMetadata]
-    {
-        guard !supplemental.isEmpty else { return primary }
-        var result = primary
-        var seen = Set(result.map(\.id))
-        for item in supplemental where !seen.contains(item.id) {
-            seen.insert(item.id)
-            result.append(item)
-        }
-        return result
-    }
-
-    private func matchesSelectedTag(_ item: BookMetadata) -> Bool {
-        guard let tag = selectedTag else { return true }
-        return item.matchesTag(tag)
-    }
-
-    private func matchesSelectedSeries(_ item: BookMetadata) -> Bool {
-        guard let series = selectedSeries else { return true }
-        return item.matchesSeries(series)
-    }
-
-    private func matchesSelectedCollection(_ item: BookMetadata) -> Bool {
-        guard let collection = selectedCollection else { return true }
-        return item.matchesCollection(collection)
-    }
-
-    private func matchesSelectedAuthor(_ item: BookMetadata) -> Bool {
-        guard let author = selectedAuthor else { return true }
-        return item.matchesAuthor(author)
-    }
-
-    private func matchesSelectedNarrator(_ item: BookMetadata) -> Bool {
-        guard let narrator = selectedNarrator else { return true }
-        return item.matchesNarrator(narrator)
-    }
-
-    private func matchesSelectedTranslator(_ item: BookMetadata) -> Bool {
-        guard let translator = selectedTranslator else { return true }
-        return item.matchesTranslator(translator)
-    }
-
-    private func matchesSelectedPublicationYear(_ item: BookMetadata) -> Bool {
-        guard let year = selectedPublicationYear else { return true }
-        return item.matchesPublicationYear(year)
-    }
-
-    private func matchesSelectedRating(_ item: BookMetadata) -> Bool {
-        guard let ratingKey = selectedRating else { return true }
-        return item.matchesRating(ratingKey)
-    }
-
-    private func matchesSelectedStatus(_ item: BookMetadata) -> Bool {
-        guard let status = selectedStatus else { return true }
-        return item.matchesStatus(status)
-    }
-
-    private func matchesSelectedLocation(_ item: BookMetadata) -> Bool {
-        switch selectedLocation {
-            case .all:
-                return true
-            case .downloaded:
-                return hasAnyDownloadedCategory(for: item)
-            case .serverOnly:
-                return !hasAnyDownloadedCategory(for: item)
-                    && !mediaViewModel.isLocalStandaloneBook(item.id)
-            case .localFiles:
-                return mediaViewModel.isLocalStandaloneBook(item.id)
-        }
-    }
-
-    private func hasAnyDownloadedCategory(for item: BookMetadata) -> Bool {
-        return mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-            || mediaViewModel.isCategoryDownloaded(.audio, for: item)
-            || mediaViewModel.isCategoryDownloaded(.synced, for: item)
-    }
-
-    private func matchesSearchText(_ item: BookMetadata) -> Bool {
-        guard searchText.count >= 2 else { return true }
-
-        let terms = searchText.lowercased().split(separator: " ").map(String.init)
-        guard !terms.isEmpty else { return true }
-
-        let title = item.title.lowercased()
-        let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
-        let seriesNames = (item.series ?? []).compactMap { $0.name.lowercased() }
-
-        for term in terms {
-            let matchesTitle = title.contains(term)
-            let matchesAuthor = authorNames.contains { $0.contains(term) }
-            let matchesSeries = seriesNames.contains { $0.contains(term) }
-
-            if !matchesTitle && !matchesAuthor && !matchesSeries {
-                return false
-            }
-        }
-
-        return true
-    }
-
-    private func computeAvailableTags(from catalog: [BookMetadata]) -> [String] {
-        var unique: [String: String] = [:]
-        for rawTag
-            in catalog
-            .flatMap(\.tagNames)
-            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .filter({ !$0.isEmpty })
-        {
-            let key = rawTag.lowercased()
-            if unique[key] == nil {
-                unique[key] = rawTag
-            }
-        }
-        return unique.values
-            .sorted { $0.articleStrippedCompare($1) == .orderedAscending }
-    }
-
-    private func computeAvailableStatuses(from catalog: [BookMetadata]) -> [String] {
-        let statuses =
-            catalog
-            .compactMap { metadata in
-                metadata.status?.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            .filter { !$0.isEmpty }
-        var unique: [String: String] = [:]
-        for status in statuses {
-            let key = status.lowercased()
-            if unique[key] == nil {
-                unique[key] = status
-            }
-        }
-        return unique.values
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private func computeAvailableSeries(from catalog: [BookMetadata]) -> [String] {
-        var unique: [String: String] = [:]
-        for rawSeries
-            in catalog
-            .compactMap(\.series)
-            .flatMap({ $0 })
-            .map({ $0.name.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .filter({ !$0.isEmpty })
-        {
-            let key = rawSeries.lowercased()
-            if unique[key] == nil {
-                unique[key] = rawSeries
-            }
-        }
-        return unique.values
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private func computeAvailableAuthors(from catalog: [BookMetadata]) -> [String] {
-        var unique: [String: String] = [:]
-        for rawAuthor
-            in catalog
-            .compactMap(\.authors)
-            .flatMap({ $0 })
-            .compactMap({ $0.name?.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .filter({ !$0.isEmpty })
-        {
-            let key = rawAuthor.lowercased()
-            if unique[key] == nil {
-                unique[key] = rawAuthor
-            }
-        }
-        return unique.values
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private func computeAvailableNarrators(from catalog: [BookMetadata]) -> [String] {
-        var unique: [String: String] = [:]
-        var hasUnknown = false
-        for item in catalog {
-            if let narrators = item.narrators, !narrators.isEmpty {
-                for narrator in narrators {
-                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
-                        !name.isEmpty
-                    {
-                        let key = name.lowercased()
-                        if unique[key] == nil {
-                            unique[key] = name
-                        }
-                    } else {
-                        hasUnknown = true
-                    }
-                }
-            } else {
-                hasUnknown = true
-            }
-        }
-        var result = unique.values
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        if hasUnknown {
-            result.append("Unknown Narrator")
-        }
-        return result
-    }
-
-    private func computeFiltersSummary() -> String {
-        var parts: [String] = [selectedFormatFilter.shortLabel]
-        if let status = selectedStatus {
-            parts.append(status)
-        }
-        if let tag = selectedTag {
-            parts.append(tag)
-        }
-        if let series = selectedSeries {
-            parts.append(series)
-        }
-        if let author = selectedAuthor {
-            parts.append(author)
-        }
-        if let narrator = selectedNarrator {
-            parts.append(narrator)
-        }
-        if let translator = selectedTranslator {
-            parts.append(translator)
-        }
-        if let year = selectedPublicationYear {
-            parts.append(year)
-        }
-        if let rating = selectedRating {
-            parts.append(rating == "Unrated" ? "Unrated" : "\(rating) Stars")
-        }
-        if selectedLocation != .all {
-            parts.append(selectedLocation.shortLabel)
-        }
-        return parts.joined(separator: " • ")
-    }
-
-    private static nonisolated func computeDisplayItemsOffThread(
-        base: [BookMetadata],
-        locationInfo: [BookMetadata.ID: ItemLocationInfo],
-        formatFilter: FormatFilterOption,
-        tagFilter: String?,
-        seriesFilter: String?,
-        collectionFilter: String?,
-        authorFilter: String?,
-        narratorFilter: String?,
-        translatorFilter: String?,
-        publicationYearFilter: String?,
-        ratingFilter: String?,
-        statusFilter: String?,
-        locationFilter: LocationFilterOption,
-        searchText: String,
-        sortOption: SortOption,
-    ) -> [BookMetadata] {
-        var filtered = base.filter { formatFilter.matches($0) }
-
-        if let tag = tagFilter {
-            filtered = filtered.filter { $0.matchesTag(tag) }
-        }
-
-        if let series = seriesFilter {
-            filtered = filtered.filter { $0.matchesSeries(series) }
-        }
-
-        if let collection = collectionFilter {
-            filtered = filtered.filter { $0.matchesCollection(collection) }
-        }
-
-        if let author = authorFilter {
-            filtered = filtered.filter { $0.matchesAuthor(author) }
-        }
-
-        if let narrator = narratorFilter {
-            filtered = filtered.filter { $0.matchesNarrator(narrator) }
-        }
-
-        if let translator = translatorFilter {
-            filtered = filtered.filter { $0.matchesTranslator(translator) }
-        }
-
-        if let year = publicationYearFilter {
-            filtered = filtered.filter { $0.matchesPublicationYear(year) }
-        }
-
-        if let ratingKey = ratingFilter {
-            filtered = filtered.filter { $0.matchesRating(ratingKey) }
-        }
-
-        if let status = statusFilter {
-            filtered = filtered.filter { $0.matchesStatus(status) }
-        }
-
-        switch locationFilter {
-            case .all:
-                break
-            case .downloaded:
-                filtered = filtered.filter { locationInfo[$0.id]?.isDownloaded ?? false }
-            case .serverOnly:
-                filtered = filtered.filter {
-                    let info = locationInfo[$0.id]
-                    return !(info?.isDownloaded ?? false) && !(info?.isLocalStandalone ?? false)
-                }
-            case .localFiles:
-                filtered = filtered.filter { locationInfo[$0.id]?.isLocalStandalone ?? false }
-        }
-
-        if !searchText.isEmpty && searchText.count >= 2 {
-            let terms = searchText.lowercased().split(separator: " ").map(String.init)
-            filtered = filtered.filter { item in
-                let title = item.title.lowercased()
-                let authorNames = (item.authors ?? []).compactMap { $0.name?.lowercased() }
-                let seriesNames = (item.series ?? []).compactMap { $0.name.lowercased() }
-
-                for term in terms {
-                    let matchesTitle = title.contains(term)
-                    let matchesAuthor = authorNames.contains { $0.contains(term) }
-                    let matchesSeries = seriesNames.contains { $0.contains(term) }
-                    if !matchesTitle && !matchesAuthor && !matchesSeries {
-                        return false
-                    }
-                }
-                return true
-            }
-        }
-
-        return filtered.sorted { lhs, rhs in
-            if lhs.id == rhs.id { return false }
-            let result: ComparisonResult
-            if sortOption == .seriesPosition, let filter = seriesFilter {
-                let normalizedFilter = filter.lowercased()
-                let lhsPosition =
-                    lhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
-                    ?? .greatestFiniteMagnitude
-                let rhsPosition =
-                    rhs.series?.first(where: { $0.name.lowercased() == normalizedFilter })?.position
-                    ?? .greatestFiniteMagnitude
-                if lhsPosition == rhsPosition {
-                    result = lhs.title.articleStrippedCompare(rhs.title)
-                } else {
-                    result = lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
-                }
-            } else {
-                result = sortOption.comparison(lhs, rhs)
-            }
-            if result == .orderedSame {
-                return lhs.id < rhs.id
-            }
-            return result == .orderedAscending
-        }
-    }
-
-    private static nonisolated func computeAvailableTagsOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var unique: [String: String] = [:]
-        for item in catalog {
-            for rawTag in item.tagNames {
-                let trimmed = rawTag.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                let key = trimmed.lowercased()
-                if unique[key] == nil {
-                    unique[key] = trimmed
-                }
-            }
-        }
-        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private static nonisolated func computeAvailableSeriesOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var unique: [String: String] = [:]
-        for item in catalog {
-            guard let seriesList = item.series else { continue }
-            for series in seriesList {
-                let trimmed = series.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                let key = trimmed.lowercased()
-                if unique[key] == nil {
-                    unique[key] = trimmed
-                }
-            }
-        }
-        return unique.values.sorted { $0.articleStrippedCompare($1) == .orderedAscending }
-    }
-
-    private static nonisolated func computeAvailableAuthorsOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var unique: [String: String] = [:]
-        for item in catalog {
-            guard let authors = item.authors else { continue }
-            for author in authors {
-                guard let name = author.name else { continue }
-                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                let key = trimmed.lowercased()
-                if unique[key] == nil {
-                    unique[key] = trimmed
-                }
-            }
-        }
-        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private static nonisolated func computeAvailableNarratorsOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var unique: [String: String] = [:]
-        var hasUnknown = false
-        for item in catalog {
-            if let narrators = item.narrators, !narrators.isEmpty {
-                for narrator in narrators {
-                    if let name = narrator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
-                        !name.isEmpty
-                    {
-                        let key = name.lowercased()
-                        if unique[key] == nil {
-                            unique[key] = name
-                        }
-                    } else {
-                        hasUnknown = true
-                    }
-                }
-            } else {
-                hasUnknown = true
-            }
-        }
-        var result = unique.values.sorted {
-            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
-        }
-        if hasUnknown {
-            result.append("Unknown Narrator")
-        }
-        return result
-    }
-
-    private static nonisolated func computeAvailableTranslatorsOffThread(
-        from catalog: [BookMetadata]
-    ) -> [String] {
-        var unique: [String: String] = [:]
-        var hasUnknown = false
-        for item in catalog {
-            let translators = (item.creators ?? []).filter { $0.role == "trl" }
-            if !translators.isEmpty {
-                for translator in translators {
-                    if let name = translator.name?.trimmingCharacters(in: .whitespacesAndNewlines),
-                        !name.isEmpty
-                    {
-                        let key = name.lowercased()
-                        if unique[key] == nil {
-                            unique[key] = name
-                        }
-                    } else {
-                        hasUnknown = true
-                    }
-                }
-            }
-        }
-        var result = unique.values.sorted {
-            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
-        }
-        if hasUnknown {
-            result.append("Unknown Translator")
-        }
-        return result
-    }
-
-    private static nonisolated func computeAvailableCreatorRolesOffThread(
-        from catalog: [BookMetadata]
-    ) -> Set<String> {
-        var roles = Set<String>()
-        for item in catalog {
-            for creator in item.creators ?? [] {
-                if let role = creator.role, !role.isEmpty {
-                    roles.insert(role)
-                }
-            }
-        }
-        return roles
-    }
-
-    private static nonisolated func computeAvailablePublicationYearsOffThread(
-        from catalog: [BookMetadata]
-    ) -> [String] {
-        var years = Set<String>()
-        var hasUnknown = false
-        for item in catalog {
-            if let year = BookMetadata.publicationYear(from: item.publicationDate) {
-                years.insert(year)
-            } else {
-                hasUnknown = true
-            }
-        }
-        var result = years.sorted(by: >)
-        if hasUnknown {
-            result.append("Unknown")
-        }
-        return result
-    }
-
-    private static nonisolated func computeAvailableRatingsOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var ratings = Set<Int>()
-        var hasUnrated = false
-        for item in catalog {
-            if let r = item.rating, r > 0 {
-                ratings.insert(Int(r.rounded()))
-            } else {
-                hasUnrated = true
-            }
-        }
-        var result = ratings.sorted(by: >).map { "\($0)" }
-        if hasUnrated {
-            result.append("Unrated")
-        }
-        return result
-    }
-
-    private static nonisolated func computeAvailableStatusesOffThread(from catalog: [BookMetadata])
-        -> [String]
-    {
-        var unique: [String: String] = [:]
-        for item in catalog {
-            guard let statusName = item.status?.name else { continue }
-            let trimmed = statusName.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            if unique[key] == nil {
-                unique[key] = trimmed
-            }
-        }
-        return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     #if os(macOS)
@@ -2332,333 +1588,6 @@ struct MediaGridView: View {
     }
     #endif
 
-    enum SortOption: String, CaseIterable, Identifiable {
-        case titleAZ
-        case titleZA
-        case authorAZ
-        case authorZA
-        case progressHighToLow
-        case progressLowToHigh
-        case recentlyRead
-        case recentlyAdded
-        case seriesPosition
-
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-                case .titleAZ:
-                    "Title A-Z"
-                case .titleZA:
-                    "Title Z-A"
-                case .authorAZ:
-                    "Author A-Z"
-                case .authorZA:
-                    "Author Z-A"
-                case .progressHighToLow:
-                    "Progress High-Low"
-                case .progressLowToHigh:
-                    "Progress Low-High"
-                case .recentlyRead:
-                    "Recently Read"
-                case .recentlyAdded:
-                    "Recently Added"
-                case .seriesPosition:
-                    "Series Position"
-            }
-        }
-
-        var shortLabel: String {
-            switch self {
-                case .titleAZ:
-                    "Title A-Z"
-                case .titleZA:
-                    "Title Z-A"
-                case .authorAZ:
-                    "Author A-Z"
-                case .authorZA:
-                    "Author Z-A"
-                case .progressHighToLow:
-                    "Progress High-Low"
-                case .progressLowToHigh:
-                    "Progress Low-High"
-                case .recentlyRead:
-                    "Recently Read"
-                case .recentlyAdded:
-                    "Recently Added"
-                case .seriesPosition:
-                    "Series Position"
-            }
-        }
-
-        var sortField: SortField {
-            switch self {
-                case .titleAZ, .titleZA: return .title
-                case .authorAZ, .authorZA: return .author
-                case .progressHighToLow, .progressLowToHigh: return .progress
-                case .recentlyRead: return .recentlyRead
-                case .recentlyAdded: return .recentlyAdded
-                case .seriesPosition: return .seriesPosition
-            }
-        }
-
-        var isAscending: Bool {
-            switch self {
-                case .titleAZ, .authorAZ, .progressLowToHigh, .seriesPosition: return true
-                case .titleZA, .authorZA, .progressHighToLow, .recentlyRead, .recentlyAdded:
-                    return false
-            }
-        }
-
-        var toggled: SortOption {
-            switch self {
-                case .titleAZ: return .titleZA
-                case .titleZA: return .titleAZ
-                case .authorAZ: return .authorZA
-                case .authorZA: return .authorAZ
-                case .progressHighToLow: return .progressLowToHigh
-                case .progressLowToHigh: return .progressHighToLow
-                case .recentlyRead, .recentlyAdded, .seriesPosition: return self
-            }
-        }
-
-        static var menuFields: [SortField] {
-            [.title, .author, .progress, .recentlyRead, .recentlyAdded, .seriesPosition]
-        }
-
-        static func defaultOption(for field: SortField) -> SortOption {
-            switch field {
-                case .title: return .titleAZ
-                case .author: return .authorAZ
-                case .progress: return .progressHighToLow
-                case .recentlyRead: return .recentlyRead
-                case .recentlyAdded: return .recentlyAdded
-                case .seriesPosition: return .seriesPosition
-            }
-        }
-
-        enum SortField: String, CaseIterable {
-            case title, author, progress, recentlyRead, recentlyAdded, seriesPosition
-
-            var label: String {
-                switch self {
-                    case .title: return "Title"
-                    case .author: return "Author"
-                    case .progress: return "Progress"
-                    case .recentlyRead: return "Recently Read"
-                    case .recentlyAdded: return "Recently Added"
-                    case .seriesPosition: return "Series Position"
-                }
-            }
-
-            var isToggleable: Bool {
-                switch self {
-                    case .title, .author, .progress: return true
-                    case .recentlyRead, .recentlyAdded, .seriesPosition: return false
-                }
-            }
-        }
-
-        func comparison(_ lhs: BookMetadata, _ rhs: BookMetadata) -> ComparisonResult {
-            switch self {
-                case .titleAZ:
-                    return lhs.title.articleStrippedCompare(rhs.title)
-                case .titleZA:
-                    return rhs.title.articleStrippedCompare(lhs.title)
-                case .authorAZ:
-                    let lhsAuthor = lhs.authors?.first?.name ?? ""
-                    let rhsAuthor = rhs.authors?.first?.name ?? ""
-                    let result = lhsAuthor.localizedCaseInsensitiveCompare(rhsAuthor)
-                    if result == .orderedSame {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return result
-                case .authorZA:
-                    let lhsAuthor = lhs.authors?.first?.name ?? ""
-                    let rhsAuthor = rhs.authors?.first?.name ?? ""
-                    let result = rhsAuthor.localizedCaseInsensitiveCompare(lhsAuthor)
-                    if result == .orderedSame {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return result
-                case .progressHighToLow:
-                    if lhs.progress == rhs.progress {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return lhs.progress > rhs.progress ? .orderedAscending : .orderedDescending
-                case .progressLowToHigh:
-                    if lhs.progress == rhs.progress {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return lhs.progress < rhs.progress ? .orderedAscending : .orderedDescending
-                case .recentlyRead:
-                    let lhsDate = lhs.position?.updatedAt ?? ""
-                    let rhsDate = rhs.position?.updatedAt ?? ""
-                    if lhsDate == rhsDate {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
-                case .recentlyAdded:
-                    let lhsDate = lhs.createdAt ?? ""
-                    let rhsDate = rhs.createdAt ?? ""
-                    if lhsDate == rhsDate {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return lhsDate > rhsDate ? .orderedAscending : .orderedDescending
-                case .seriesPosition:
-                    let lhsSeriesName = lhs.series?.first?.name ?? ""
-                    let rhsSeriesName = rhs.series?.first?.name ?? ""
-
-                    if lhsSeriesName.isEmpty && rhsSeriesName.isEmpty {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    if lhsSeriesName.isEmpty {
-                        return .orderedDescending
-                    }
-                    if rhsSeriesName.isEmpty {
-                        return .orderedAscending
-                    }
-
-                    let seriesResult = lhsSeriesName.articleStrippedCompare(rhsSeriesName)
-                    if seriesResult != .orderedSame {
-                        return seriesResult
-                    }
-
-                    let lhsPosition = lhs.series?.first?.position ?? .greatestFiniteMagnitude
-                    let rhsPosition = rhs.series?.first?.position ?? .greatestFiniteMagnitude
-                    if lhsPosition == rhsPosition {
-                        return lhs.title.articleStrippedCompare(rhs.title)
-                    }
-                    return lhsPosition < rhsPosition ? .orderedAscending : .orderedDescending
-            }
-        }
-    }
-
-    enum FormatFilterOption: String, CaseIterable, Identifiable {
-        case all
-        case readaloud
-        case ebook
-        case audiobook
-        case ebookOnly
-        case audiobookOnly
-        case missingReadaloud
-
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-                case .all:
-                    "All Titles"
-                case .readaloud:
-                    "Readaloud"
-                case .ebook:
-                    "Ebook Without Audio"
-                case .audiobook:
-                    "Audiobook"
-                case .ebookOnly:
-                    "Ebook Only"
-                case .audiobookOnly:
-                    "Audiobook Only"
-                case .missingReadaloud:
-                    "Missing Readaloud"
-            }
-        }
-
-        var shortLabel: String {
-            switch self {
-                case .all:
-                    "All"
-                case .readaloud:
-                    "Readaloud"
-                case .ebook:
-                    "Ebook"
-                case .audiobook:
-                    "Audiobook"
-                case .ebookOnly:
-                    "Ebook Only"
-                case .audiobookOnly:
-                    "Audiobook Only"
-                case .missingReadaloud:
-                    "Missing Readaloud"
-            }
-        }
-
-        var includesAudiobookOnlyItems: Bool {
-            switch self {
-                case .all, .audiobook, .audiobookOnly:
-                    true
-                default:
-                    false
-            }
-        }
-
-        func matches(_ item: BookMetadata) -> Bool {
-            switch self {
-                case .all:
-                    true
-                case .readaloud:
-                    item.hasAvailableReadaloud
-                case .ebook:
-                    item.hasAvailableEbook
-                case .audiobook:
-                    item.hasAvailableAudiobook || item.hasAvailableReadaloud
-                case .ebookOnly:
-                    item.isEbookOnly
-                case .audiobookOnly:
-                    item.isAudiobookOnly
-                case .missingReadaloud:
-                    item.isMissingReadaloud
-            }
-        }
-    }
-
-    enum LocationFilterOption: String, CaseIterable, Identifiable {
-        case all
-        case downloaded
-        case serverOnly
-        case localFiles
-
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-                case .all:
-                    "All Locations"
-                case .downloaded:
-                    "Downloaded"
-                case .serverOnly:
-                    "Server Only"
-                case .localFiles:
-                    "Local Files"
-            }
-        }
-
-        var shortLabel: String {
-            switch self {
-                case .all:
-                    "All"
-                case .downloaded:
-                    "Downloaded"
-                case .serverOnly:
-                    "Server Only"
-                case .localFiles:
-                    "Local Files"
-            }
-        }
-
-        var iconName: String {
-            switch self {
-                case .all:
-                    "square.grid.2x2"
-                case .downloaded:
-                    "play.circle"
-                case .serverOnly:
-                    "arrow.down.circle"
-                case .localFiles:
-                    "folder"
-            }
-        }
-    }
 }
 
 private struct FilterChangeModifier: ViewModifier {
