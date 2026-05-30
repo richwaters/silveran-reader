@@ -291,6 +291,8 @@ extension SourceView {
                                     initialNarrationFilterOption: .both,
                                     scrollPosition: nil,
                                     filteredItems: group.books,
+                                    showAddBookButton: true,
+                                    addBookSourceID: group.id,
                                 )
                             },
                             toolbarContent: {
@@ -406,6 +408,8 @@ extension SourceView {
             scrollPosition: nil,
             initialSelectedItem: initialSelectedItem,
             filteredItems: books,
+            showAddBookButton: true,
+            addBookSourceID: sourceID,
         ).navigationTitle(sourceName)
         #else
         MediaGridView(
@@ -420,6 +424,8 @@ extension SourceView {
             scrollPosition: nil,
             initialSelectedItem: initialSelectedItem,
             filteredItems: books,
+            showAddBookButton: true,
+            addBookSourceID: sourceID,
         ).navigationTitle(sourceName)
         #endif
     }

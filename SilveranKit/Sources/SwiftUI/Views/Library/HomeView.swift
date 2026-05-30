@@ -218,7 +218,7 @@ struct HomeView: View {
                                         .foregroundStyle(.secondary)
                                     #if os(iOS)
                                     Text(
-                                        "To get started, go to [Settings](openSettings) to connect a Storyteller server, or use \"Manage Local Files\" in the More tab to add files from your device."
+                                        "To get started, go to [Settings](openSettings) > Book Sources to add a local folder or Storyteller server, then use Add Book to add files."
                                     )
                                     .font(.body)
                                     .foregroundStyle(.tertiary)
@@ -236,7 +236,7 @@ struct HomeView: View {
                                     )
                                     #else
                                     Text(
-                                        "To add some media, use the Media Sources on the left to load either local files or a remote Storyteller server."
+                                        "Add a local folder or Storyteller server in Settings > Book Sources, then use Add Book to add files."
                                     )
                                     .font(.body)
                                     .foregroundStyle(.tertiary)

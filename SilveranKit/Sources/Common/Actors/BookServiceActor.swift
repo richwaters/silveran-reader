@@ -600,8 +600,31 @@ public actor BookServiceActor {
         sourceID: BookSourceID? = nil,
         includeAssets option: StorytellerIncludeAssetsOption? = nil,
     ) async -> Bool {
-        guard let storyteller = await storytellerActor(for: sourceID) else { return false }
-        return await storyteller.deleteBook(bookId, includeAssets: option)
+        await ensureSourceRegistryLoaded()
+        guard let resolvedSourceID = resolveExplicitSourceID(sourceID),
+            let source = sourceActor(for: resolvedSourceID)
+        else {
+            return false
+        }
+
+        switch sourceRecords.first(where: { $0.id == resolvedSourceID })?.kind {
+            case .storyteller:
+                guard let storyteller = source as? StorytellerActor else { return false }
+                return await storyteller.deleteBook(bookId, includeAssets: option)
+            case .localFolder:
+                guard let folder = source as? FolderSourceActor else { return false }
+                do {
+                    try await folder.deleteBook(bookId)
+                    cachedLibraryMetadata.removeAll {
+                        $0.id == bookId && $0.sourceID == resolvedSourceID
+                    }
+                    return true
+                } catch {
+                    return false
+                }
+            case nil:
+                return false
+        }
     }
 
     public func deleteBookAsset(

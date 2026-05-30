@@ -1689,6 +1689,28 @@ public final class MediaViewModel {
         storytellerBookIds.contains(bookID)
     }
 
+    public func canManageSourceMedia(for bookID: String) -> Bool {
+        guard let sourceID = library.bookMetaData.first(where: { $0.id == bookID })?.sourceID,
+            let source = bookSources.first(where: { $0.id == sourceID })
+        else {
+            return false
+        }
+        return source.capabilities.canManageMedia
+    }
+
+    public func isLocalFolderBook(_ bookID: String) -> Bool {
+        folderSourceBookIds.contains(bookID)
+    }
+
+    public func deleteBookFromSource(_ item: BookMetadata) async -> Bool {
+        guard let sourceID = item.sourceID else { return false }
+        let success = await BookServiceActor.shared.deleteBook(item.id, sourceID: sourceID)
+        if success {
+            await refreshMetadata(source: "MediaViewModel.deleteBookFromSource")
+        }
+        return success
+    }
+
     // MARK: - Progress from PSA
 
     public func progress(for bookId: String) -> Double {

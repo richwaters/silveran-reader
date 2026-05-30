@@ -55,6 +55,7 @@ struct SidebarView: View {
     @State private var isRefreshing: Bool = false
     @State private var hoveredItemId: String?
     #if os(macOS)
+    @Environment(\.openSettings) private var openSettings
     @State private var editingShelf: SmartShelf?
     @State private var showCustomizeSidebar: Bool = false
     @State private var showCustomizeSidebarWithDashboard: Bool = false
@@ -94,6 +95,13 @@ struct SidebarView: View {
     }
 
     private func resolvePin(id: String) -> SidebarItemDescription? {
+        if id.hasPrefix("pin.bookSource:") {
+            let sourceID = String(id.dropFirst("pin.bookSource:".count))
+            guard let source = mediaViewModel.bookSources.first(where: { $0.id == sourceID }) else {
+                return nil
+            }
+            return Self.sidebarItem(for: source, pinned: true)
+        }
         if let resolved = Self.resolveDynamicPin(id: id) {
             return resolved
         }
@@ -297,6 +305,16 @@ struct SidebarView: View {
         return nil
     }
 
+    static func sidebarItem(for source: BookSourceRecord, pinned: Bool = false) -> SidebarItemDescription {
+        SidebarItemDescription(
+            id: pinned ? "pin.bookSource:\(source.id)" : "bookSource.\(source.id)",
+            name: source.name,
+            systemImage: source.kind == .storyteller ? "server.rack" : "folder",
+            badge: -1,
+            content: .bookSource(source.id),
+        )
+    }
+
     var body: some View {
         let _ = mediaViewModel.smartShelves
         let config = sidebarConfig
@@ -375,6 +393,9 @@ struct SidebarView: View {
         .onChange(of: mediaViewModel.smartShelves) {
             registerSidebarContents(config: config)
         }
+        .onChange(of: mediaViewModel.bookSources) {
+            registerSidebarContents(config: config)
+        }
         #if !os(macOS)
         .searchable(
             text: $searchText,
@@ -428,8 +449,13 @@ struct SidebarView: View {
     }
 
     private func registerSidebarContents(config: [SidebarConfigGroup]) {
-        let contents = config.flatMap { group in
-            group.items.compactMap { resolveConfigItem($0)?.content }
+        let contents = config.flatMap { group -> [SidebarContentKind] in
+            if group.name == "Media Sources" {
+                let sourceContents = mediaViewModel.bookSources.map { SidebarContentKind.bookSource($0.id) }
+                let configuredContents = group.items.compactMap { resolveConfigItem($0)?.content }
+                return sourceContents + configuredContents
+            }
+            return group.items.compactMap { resolveConfigItem($0)?.content }
         }
         mediaViewModel.updateVisibleSidebarContents(contents)
     }
@@ -440,7 +466,7 @@ struct SidebarView: View {
     private func sidebarSection(for group: SidebarConfigGroup, config: [SidebarConfigGroup])
         -> some View
     {
-        let resolvedItems = group.items.compactMap { resolveConfigItem($0) }
+        let resolvedItems = resolvedItems(for: group)
         let isPinGroup = group.items.contains { $0.id == SidebarConfigHelper.newPinLocationMarker }
 
         if isPinGroup && resolvedItems.isEmpty {
@@ -465,6 +491,13 @@ struct SidebarView: View {
         }
     }
 
+    private func resolvedItems(for group: SidebarConfigGroup) -> [SidebarItemDescription] {
+        let configuredItems = group.items.compactMap { resolveConfigItem($0) }
+        guard group.name == "Media Sources" else { return configuredItems }
+        let sourceItems = mediaViewModel.bookSources.map { Self.sidebarItem(for: $0) }
+        return sourceItems + configuredItems
+    }
+
     @ViewBuilder
     private func sectionHeader(for group: SidebarConfigGroup, config: [SidebarConfigGroup])
         -> some View
@@ -472,6 +505,20 @@ struct SidebarView: View {
         HStack {
             Text(group.name)
                 .font(.headline)
+            #if os(macOS)
+            if group.name == "Media Sources" {
+                Button {
+                    SettingsTabRequest.shared.requestBookSources()
+                    openSettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Manage Book Sources")
+            }
+            #endif
             Spacer()
         }
         .contentShape(Rectangle())
@@ -532,6 +579,14 @@ struct SidebarView: View {
                 }
                 #endif
                 connectionIndicator(for: mediaViewModel.connectionStatus)
+            } else if case .bookSource(let sourceID) = item.content {
+                let count = mediaViewModel.library.bookMetaData.filter { $0.sourceID == sourceID }.count
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
             } else {
                 let count = mediaViewModel.badgeCount(for: item.content)
                 if count > 0 {
@@ -591,10 +646,14 @@ struct SidebarView: View {
         }
 
         if !isPinned && item.content != .home {
-            let dashboardPinId = "pin.sidebar:\(item.content.stableIdentifier)"
+            let dashboardPinId = dashboardPinId(for: item.content)
             if !SidebarPinHelper.isPinned(dashboardPinId) {
                 Button {
-                    SidebarPinHelper.addToDashboard(item.content.stableIdentifier)
+                    if case .bookSource = item.content {
+                        SidebarPinHelper.togglePin(dashboardPinId)
+                    } else {
+                        SidebarPinHelper.addToDashboard(item.content.stableIdentifier)
+                    }
                 } label: {
                     Label("Add to Dashboard", systemImage: "house")
                 }
@@ -608,6 +667,13 @@ struct SidebarView: View {
         } label: {
             Label("Edit Sidebar...", systemImage: "sidebar.left")
         }
+    }
+
+    private func dashboardPinId(for content: SidebarContentKind) -> String {
+        if case .bookSource(let sourceID) = content {
+            return "pin.bookSource:\(sourceID)"
+        }
+        return "pin.sidebar:\(content.stableIdentifier)"
     }
     #endif
 
@@ -644,6 +710,11 @@ struct SidebarView: View {
     }
 
     private func findItem(by id: String) -> SidebarItemDescription? {
+        if let sourceID = id.bookSourceIDFromSidebarItemID,
+            let source = mediaViewModel.bookSources.first(where: { $0.id == sourceID })
+        {
+            return Self.sidebarItem(for: source, pinned: id.hasPrefix("pin."))
+        }
         for section in sections {
             for item in section.items {
                 if item.id == id { return item }
@@ -702,4 +773,16 @@ struct SidebarView: View {
         isRefreshing = false
     }
     #endif
+}
+
+private extension String {
+    var bookSourceIDFromSidebarItemID: BookSourceID? {
+        if hasPrefix("bookSource.") {
+            return String(dropFirst("bookSource.".count))
+        }
+        if hasPrefix("pin.bookSource:") {
+            return String(dropFirst("pin.bookSource:".count))
+        }
+        return nil
+    }
 }

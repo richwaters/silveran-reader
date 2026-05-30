@@ -19,12 +19,19 @@ public struct StorytellerServerSettingsView: View {
 
     public var body: some View {
         Form {
-            Section("Servers") {
+            Section {
+                Text(
+                    "Book sources are where Silveran Reader acquires books, such as a local folder or a remote Storyteller server."
+                )
+                .foregroundStyle(.secondary)
+            }
+
+            Section("Book Sources") {
                 if isLoading && sources.isEmpty {
                     HStack {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Loading Servers")
+                        Text("Loading Sources")
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -53,28 +60,20 @@ public struct StorytellerServerSettingsView: View {
                 Button {
                     showingAddServer = true
                 } label: {
-                    Label("Add Server", systemImage: "plus")
+                    Label("Add Book Source", systemImage: "plus")
                 }
             }
 
-            #if os(macOS)
             Section {
-                Button("Upload New Book to Server...") {
-                    openWindow(id: "UploadNewBook", value: UploadNewBookData())
-                }
-            } header: {
-                Text("Upload")
-            } footer: {
-                Text("Choose the destination server in the upload window.")
+                addFilesHelpButton
             }
-            #endif
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .modifier(SoftScrollEdgeModifier())
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity, alignment: .center)
-        .navigationTitle("Servers")
+        .navigationTitle("Book Sources")
         .task {
             await loadSources()
         }
@@ -106,6 +105,10 @@ public struct StorytellerServerSettingsView: View {
             sourceURLs = urls
             isLoading = false
         }
+    }
+
+    private var addFilesHelpButton: some View {
+        AddFilesHelpButton(title: "How do I add files to these sources?")
     }
 
     private func sourceDetail(for source: BookSourceRecord) -> String {
@@ -185,7 +188,7 @@ private struct BookSourceEditorView: View {
 
     var body: some View {
         Form {
-            Section("Server Configuration") {
+            Section("Source Configuration") {
                 Picker("Type", selection: $kind) {
                     Text(BookSourceKind.storyteller.displayName).tag(BookSourceKind.storyteller)
                     Text(BookSourceKind.localFolder.displayName).tag(BookSourceKind.localFolder)
@@ -329,15 +332,8 @@ private struct BookSourceEditorView: View {
                 }
             }
 
-            if kind == .localFolder {
-                Section {
-                    Text("How do I add files to this folder?")
-                        .font(.headline)
-                    Text(
-                        "Go to All Books, click Add Book, and choose this folder source as the destination."
-                    )
-                    .foregroundStyle(.secondary)
-                }
+            Section {
+                addFilesHelpButton
             }
         }
         .formStyle(.grouped)
@@ -345,7 +341,7 @@ private struct BookSourceEditorView: View {
         .modifier(SoftScrollEdgeModifier())
         .frame(maxWidth: 600)
         .frame(maxWidth: .infinity, alignment: .center)
-        .navigationTitle(isExistingSource ? name : "Add Server")
+        .navigationTitle(isExistingSource ? name : "Add Book Source")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -375,6 +371,10 @@ private struct BookSourceEditorView: View {
         .task {
             await loadExistingSource()
         }
+    }
+
+    private var addFilesHelpButton: some View {
+        AddFilesHelpButton(title: "How do I add files to this source?")
     }
 
     private var primaryActionTitle: String {
@@ -621,7 +621,39 @@ private struct BookSourceEditorView: View {
             case .storyteller:
                 return BookSourceKind.storyteller.defaultName
             case .localFolder:
-                return "File Storage"
+                return BookSourceKind.localFolder.defaultName
         }
+    }
+}
+
+private struct AddFilesHelpButton: View {
+    let title: String
+    @State private var showingHelp = false
+
+    var body: some View {
+        Button {
+            showingHelp = true
+        } label: {
+            Text(title)
+                .foregroundStyle(.blue)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showingHelp, attachmentAnchor: .point(.center), arrowEdge: .top) {
+            AddFilesHelpPopover()
+        }
+    }
+}
+
+private struct AddFilesHelpPopover: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Adding Books")
+                .font(.headline)
+            Text("Go to All Books, click Add Book, then choose the destination source.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 280, alignment: .leading)
     }
 }

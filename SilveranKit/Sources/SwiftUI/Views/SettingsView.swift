@@ -17,6 +17,10 @@ public final class SettingsTabRequest: ObservableObject {
     public func requestReaderSettings() {
         requestedTab = 1
     }
+
+    public func requestBookSources() {
+        requestedTab = 3
+    }
 }
 #endif
 
@@ -75,8 +79,13 @@ public struct SettingsView: View {
         #if os(macOS)
         .onReceive(SettingsTabRequest.shared.$requestedTab) { newValue in
             if let tab = newValue {
-                if tab == 1 {
-                    selectedTab = .readerSettings
+                switch tab {
+                    case 1:
+                        selectedTab = .readerSettings
+                    case 3:
+                        selectedTab = .bookSources
+                    default:
+                        break
                 }
                 DispatchQueue.main.async {
                     SettingsTabRequest.shared.requestedTab = nil
@@ -245,6 +254,12 @@ extension SettingsView {
                         Label("Overlay Stats", systemImage: "chart.bar")
                     }
                     .tag(SettingsTab.readingBar)
+
+                MacBookSourcesSettingsView()
+                    .tabItem {
+                        Label("Book Sources", systemImage: "externaldrive")
+                    }
+                    .tag(SettingsTab.bookSources)
             }
 
             Divider()
@@ -354,11 +369,11 @@ extension SettingsView {
                     }
                 }
 
-                Section("Server Configuration") {
+                Section("Book Sources") {
                     NavigationLink {
                         StorytellerServerSettingsView()
                     } label: {
-                        Label("Storyteller Server", systemImage: "server.rack")
+                        Label("Book Sources", systemImage: "externaldrive")
                     }
                 }
 
@@ -428,6 +443,7 @@ private enum SettingsTab: Hashable {
     case general
     case readerSettings
     case readingBar
+    case bookSources
 }
 
 private struct MacSettingsContainer<Content: View>: View {
@@ -609,6 +625,15 @@ private struct MacGeneralSettingsView: View {
         } else {
             return "\(s / 3600)h"
         }
+    }
+}
+
+private struct MacBookSourcesSettingsView: View {
+    var body: some View {
+        NavigationStack {
+            StorytellerServerSettingsView()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

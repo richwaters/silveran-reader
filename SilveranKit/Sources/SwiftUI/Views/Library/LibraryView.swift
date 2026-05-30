@@ -403,6 +403,31 @@ public struct LibraryView: View {
                     onEditMetadata: handleEditMetadata,
                 )
                 #endif
+            case .bookSource(let sourceID):
+                let sourceName =
+                    mediaViewModel.bookSources.first(where: { $0.id == sourceID })?.name
+                    ?? "Book Source"
+                let books = mediaViewModel.library.bookMetaData
+                    .filter { $0.sourceID == sourceID }
+                    .sorted { $0.title.articleStrippedCompare($1.title) == .orderedAscending }
+                MediaGridView(
+                    title: sourceName,
+                    searchText: searchText,
+                    mediaKind: .ebook,
+                    viewOptionsKey: item.content.stableIdentifier,
+                    defaultSort: "title",
+                    preferredTileWidth: 120,
+                    minimumTileWidth: 50,
+                    onMetadataLinkClicked: { target in
+                        navigateToMetadataFilter(target, mediaKind: .ebook)
+                    },
+                    initialNarrationFilterOption: .both,
+                    scrollPosition: nil,
+                    filteredItems: books,
+                    showAddBookButton: true,
+                    addBookSourceID: sourceID,
+                )
+                .id(item.content.stableIdentifier)
             case .smartShelves:
                 #if os(iOS)
                 SmartShelvesView(

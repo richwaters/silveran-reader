@@ -67,15 +67,7 @@ enum SidebarConfigHelper {
     private static func normalize(_ groups: [SidebarConfigGroup]) -> [SidebarConfigGroup] {
         groups.map { group in
             var normalized = group
-            normalized.items.removeAll { $0.id == "importLocalFile" }
-            if normalized.name == "Media Sources",
-                !normalized.items.contains(where: { $0.id == "storytellerServer" })
-            {
-                normalized.items.insert(
-                    SidebarConfigItem(id: "storytellerServer", permanent: true),
-                    at: 0,
-                )
-            }
+            normalized.items.removeAll { $0.id == "importLocalFile" || $0.id == "storytellerServer" }
             return normalized
         }
     }
@@ -119,6 +111,7 @@ enum SidebarConfigHelper {
         if let mediaSourcesSection = sections.first(where: { $0.id == "section.mediaSources" }) {
             let items = mediaSourcesSection.items
                 .filter { $0.content.stableIdentifier != "downloaded" }
+                .filter { $0.content.stableIdentifier != "storytellerServer" }
                 .map { SidebarConfigItem(id: $0.content.stableIdentifier, permanent: true) }
             groups.append(SidebarConfigGroup(name: "Media Sources", items: items))
         }

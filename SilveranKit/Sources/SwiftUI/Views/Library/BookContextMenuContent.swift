@@ -203,6 +203,27 @@ struct BookContextMenuContent: View {
                 }
             }
         }
+
+        if mediaViewModel.isLocalFolderBook(item.id) {
+            Divider()
+
+            Button(role: .destructive) {
+                Task {
+                    let success = await mediaViewModel.deleteBookFromSource(item)
+                    mediaViewModel.showSyncNotification(
+                        SyncNotification(
+                            message: success
+                                ? "Deleted \(item.title) from folder source"
+                                : "Failed to delete \(item.title)",
+                            type: success ? .success : .error,
+                        )
+                    )
+                }
+            } label: {
+                Label("Delete Book from Folder", systemImage: "trash")
+                    .foregroundStyle(.red)
+            }
+        }
     }
 
     @ViewBuilder

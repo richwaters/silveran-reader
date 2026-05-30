@@ -1012,6 +1012,8 @@ public actor LibraryDerivationActor {
                     let count = sourceGroupCount(mediaKind)
                     sourceCountCache[mediaKind] = count
                     return count
+                case .bookSource(let sourceID):
+                    return input.metadata.filter { $0.sourceID == sourceID }.count
                 case .smartShelves:
                     return input.smartShelves.count
                 case .smartShelfDetail(let shelfId):

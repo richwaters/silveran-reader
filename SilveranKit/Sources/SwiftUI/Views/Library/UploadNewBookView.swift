@@ -5,10 +5,15 @@ import AppKit
 import UniformTypeIdentifiers
 
 public struct UploadNewBookData: Codable, Hashable {
-    public init() {}
+    public var sourceID: BookSourceID?
+
+    public init(sourceID: BookSourceID? = nil) {
+        self.sourceID = sourceID
+    }
 }
 
 public struct UploadNewBookView: View {
+    private let initialSourceID: BookSourceID?
     @Environment(MediaViewModel.self) private var mediaViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -27,7 +32,9 @@ public struct UploadNewBookView: View {
         case failure(String)
     }
 
-    public init() {}
+    public init(initialSourceID: BookSourceID? = nil) {
+        self.initialSourceID = initialSourceID
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -209,7 +216,17 @@ public struct UploadNewBookView: View {
         let sources = await BookServiceActor.shared.bookSources
         await MainActor.run {
             bookSources = sources
-            selectedSourceID = selectedSourceID ?? sources.first?.id
+            if let selectedSourceID,
+                sources.contains(where: { $0.id == selectedSourceID })
+            {
+                self.selectedSourceID = selectedSourceID
+            } else if let initialSourceID,
+                sources.contains(where: { $0.id == initialSourceID })
+            {
+                selectedSourceID = initialSourceID
+            } else {
+                selectedSourceID = sources.first?.id
+            }
         }
     }
 

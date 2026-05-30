@@ -114,6 +114,7 @@ struct MediaGridView: View {
     private let initialSelectedItem: BookMetadata?
     let filteredItems: [BookMetadata]?
     let showAddBookButton: Bool
+    let addBookSourceID: BookSourceID?
 
     #if os(macOS)
     // Workaround for macOS Sequoia bug where parent view's onTapGesture fires after card tap
@@ -338,6 +339,7 @@ struct MediaGridView: View {
         initialSelectedItem: BookMetadata? = nil,
         filteredItems: [BookMetadata]? = nil,
         showAddBookButton: Bool = false,
+        addBookSourceID: BookSourceID? = nil,
     ) {
         _layoutStyleRaw = AppStorage(
             wrappedValue: LibraryLayoutStyle.grid.rawValue,
@@ -429,6 +431,7 @@ struct MediaGridView: View {
         self.initialSelectedItem = initialSelectedItem
         self.filteredItems = filteredItems
         self.showAddBookButton = showAddBookButton
+        self.addBookSourceID = addBookSourceID
     }
 
     private static func defaultColumnBreakpoints(preferredTileWidth: CGFloat) -> [ColumnBreakpoint]
@@ -912,7 +915,7 @@ struct MediaGridView: View {
                 .font(.title)
                 .foregroundStyle(.secondary)
             Text(
-                "To add some media, use the Media Sources on the left to load either local files or a remote Storyteller server."
+                "Add a local folder or Storyteller server in Settings > Book Sources, then use Add Book to add files."
             )
             .font(.body)
             .foregroundStyle(.tertiary)
@@ -973,7 +976,7 @@ struct MediaGridView: View {
             return nil
         }
         return {
-            openWindow(id: "UploadNewBook", value: UploadNewBookData())
+            openWindow(id: "UploadNewBook", value: UploadNewBookData(sourceID: addBookSourceID))
         }
         #else
         return nil
@@ -1094,7 +1097,7 @@ struct MediaGridView: View {
                         .multilineTextAlignment(.center)
                     #else
                     Text(
-                        "To add some media, use the Media Sources on the left to load either local files or a remote Storyteller server."
+                        "Add a local folder or Storyteller server in Settings > Book Sources, then use Add Book to add files."
                     )
                     .font(.body)
                     .foregroundStyle(.tertiary)

@@ -1042,6 +1042,10 @@ struct MediaTableView: NSViewRepresentable {
                 )
                 del.target = self
                 del.representedObject = item
+                del.attributedTitle = NSAttributedString(
+                    string: "Delete Book from Folder",
+                    attributes: [.foregroundColor: NSColor.systemRed],
+                )
                 menu.addItem(del)
             }
             if audioDownloaded {
@@ -1058,6 +1062,18 @@ struct MediaTableView: NSViewRepresentable {
                 let del = NSMenuItem(
                     title: "Delete Local Readaloud",
                     action: #selector(deleteLocalReadaloud(_:)),
+                    keyEquivalent: "",
+                )
+                del.target = self
+                del.representedObject = item
+                menu.addItem(del)
+            }
+
+            if mediaViewModel.isLocalFolderBook(item.id) {
+                menu.addItem(.separator())
+                let del = NSMenuItem(
+                    title: "Delete Book from Folder",
+                    action: #selector(deleteSourceBook(_:)),
                     keyEquivalent: "",
                 )
                 del.target = self
@@ -1294,6 +1310,21 @@ struct MediaTableView: NSViewRepresentable {
         @objc private func deleteLocalReadaloud(_ sender: NSMenuItem) {
             guard let item = sender.representedObject as? BookMetadata else { return }
             mediaViewModel.deleteDownload(for: item, category: .synced)
+        }
+
+        @objc private func deleteSourceBook(_ sender: NSMenuItem) {
+            guard let item = sender.representedObject as? BookMetadata else { return }
+            Task {
+                let success = await mediaViewModel.deleteBookFromSource(item)
+                mediaViewModel.showSyncNotification(
+                    SyncNotification(
+                        message: success
+                            ? "Deleted \(item.title) from folder source"
+                            : "Failed to delete \(item.title)",
+                        type: success ? .success : .error,
+                    )
+                )
+            }
         }
 
         private func makeCoverCell(

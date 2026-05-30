@@ -5,7 +5,7 @@ struct PlaceholderDetailView: View {
     var body: some View {
         VStack(spacing: 12) {
             Text("Your Library Is Empty!").font(.title)
-            Text("Use the Media Sources tabs on the left to add media to your library.")
+            Text("Add a local folder or Storyteller server in Settings > Book Sources, then use Add Book to add files.")
                 .foregroundStyle(
                     .secondary
                 )

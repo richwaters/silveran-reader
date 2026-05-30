@@ -57,6 +57,7 @@ public enum SidebarContentKind: Hashable, Sendable {
     case downloaded
     case importLocalFile
     case storytellerServer
+    case bookSource(BookSourceID)
 
     public var stableIdentifier: String {
         switch self {
@@ -98,6 +99,8 @@ public enum SidebarContentKind: Hashable, Sendable {
                 return "importLocalFile"
             case .storytellerServer:
                 return "storytellerServer"
+            case .bookSource(let sourceID):
+                return "bookSource.\(sourceID)"
         }
     }
 }
