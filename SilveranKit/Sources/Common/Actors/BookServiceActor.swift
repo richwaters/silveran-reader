@@ -47,6 +47,7 @@ public actor BookServiceActor {
 
     public var libraryMetadata: [BookMetadata] {
         get async {
+            await SilveranMigrations.ensureMigrationsRan()
             return cachedLibraryMetadata
         }
     }
@@ -466,6 +467,7 @@ public actor BookServiceActor {
     }
 
     public func reloadSourceRegistry() async {
+        await SilveranMigrations.ensureMigrationsRan()
         sourceRegistryLoaded = false
         await ensureSourceRegistryLoaded()
     }
@@ -770,6 +772,7 @@ public actor BookServiceActor {
     }
 
     private func ensureSourceRegistryLoaded() async {
+        await SilveranMigrations.ensureMigrationsRan()
         guard !sourceRegistryLoaded else { return }
 
         let loadedSources =

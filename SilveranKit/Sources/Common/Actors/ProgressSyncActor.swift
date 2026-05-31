@@ -79,18 +79,21 @@ public actor ProgressSyncActor {
 
     public init() {
         Task {
+            await SilveranMigrations.ensureMigrationsRan()
             await loadQueueFromDisk()
             await loadHistoryFromDisk()
+            await startPolling()
         }
-        Task { await self.startPolling() }
     }
 
     private func ensureQueueLoaded() async {
+        await SilveranMigrations.ensureMigrationsRan()
         guard !queueLoaded else { return }
         await loadQueueFromDisk()
     }
 
     private func ensureHistoryLoaded() async {
+        await SilveranMigrations.ensureMigrationsRan()
         guard !historyLoaded else { return }
         await loadHistoryFromDisk()
     }
@@ -214,6 +217,7 @@ public actor ProgressSyncActor {
     // MARK: - Queue Management
 
     public func syncPendingQueue() async -> (synced: Int, failed: Int) {
+        await ensureQueueLoaded()
         debugLog("[PSA] syncPendingQueue: starting with \(pendingProgressQueue.count) items")
 
         guard !pendingProgressQueue.isEmpty else {
@@ -294,11 +298,13 @@ public actor ProgressSyncActor {
         return pendingProgressQueue
     }
 
-    public func hasPendingSync(for bookId: String) -> Bool {
-        pendingProgressQueue.contains { $0.bookId == bookId }
+    public func hasPendingSync(for bookId: String) async -> Bool {
+        await ensureQueueLoaded()
+        return pendingProgressQueue.contains { $0.bookId == bookId }
     }
 
     public func removePendingSync(for bookId: String) async {
+        await ensureQueueLoaded()
         await removeFromQueue(bookId: bookId)
         await notifyObservers()
     }
@@ -599,6 +605,7 @@ public actor ProgressSyncActor {
         guard pollingTask == nil else { return }
         debugLog("[PSA] startPolling: starting continuous polling task")
         pollingTask = Task {
+            await SilveranMigrations.ensureMigrationsRan()
             while !Task.isCancelled {
                 await pollServerPositions()
                 let hasConnectedSource = await BookServiceActor.shared.hasConnectedSource()
@@ -694,6 +701,8 @@ public actor ProgressSyncActor {
         timestamp: Double,
         syncedToStoryteller: Bool = false,
     ) async -> QueueResult {
+        await ensureQueueLoaded()
+
         if let serverPosition = serverPositions[bookId],
             let serverTimestamp = serverPosition.timestamp
         {

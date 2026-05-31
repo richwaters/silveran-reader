@@ -399,6 +399,7 @@ public actor StorytellerActor {
         username: String,
         password: String,
     ) async -> Bool {
+        await SilveranMigrations.ensureMigrationsRan()
         guard await configureCredentials(
             baseURL: baseURLString,
             username: username,

@@ -74,6 +74,7 @@ public actor BookmarkActor {
     }
 
     public func deleteAllHighlights(bookId: String) async {
+        await SilveranMigrations.ensureMigrationsRan()
         highlightsByBook[bookId] = []
         loadedBooks.insert(bookId)
 
@@ -101,6 +102,7 @@ public actor BookmarkActor {
     }
 
     private func ensureLoaded(bookId: String) async {
+        await SilveranMigrations.ensureMigrationsRan()
         guard !loadedBooks.contains(bookId) else { return }
 
         do {

@@ -1,7 +1,36 @@
 import Foundation
 
+private actor SilveranMigrationState {
+    static let shared = SilveranMigrationState()
+
+    private var migrationTask: Task<Void, Never>?
+
+    func run(_ operation: @escaping @Sendable () async -> Void) async {
+        if let migrationTask {
+            await migrationTask.value
+            return
+        }
+
+        let task = Task {
+            await operation()
+        }
+        migrationTask = task
+        await task.value
+    }
+}
+
 public enum SilveranMigrations {
     public static func runMigrations() async {
+        await SilveranMigrationState.shared.run {
+            await runMigrationList()
+        }
+    }
+
+    public static func ensureMigrationsRan() async {
+        await runMigrations()
+    }
+
+    private static func runMigrationList() async {
         let filesystem = FilesystemActor.shared
         let sources = await runBookSourceRegistryMigration(using: filesystem)
         await runPendingProgressQueueMigrations(using: filesystem)

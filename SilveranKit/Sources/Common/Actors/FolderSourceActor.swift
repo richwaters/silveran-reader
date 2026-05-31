@@ -755,6 +755,7 @@ public actor FolderSourceActor: BookSourceActor {
         url: URL,
         stopAccessing: (() -> Void)?
     ) {
+        await SilveranMigrations.ensureMigrationsRan()
         if let resolved = sourceFolderURL(sourceRecordValue) {
             try await filesystem.ensureDirectoryExists(at: resolved.url)
             return resolved

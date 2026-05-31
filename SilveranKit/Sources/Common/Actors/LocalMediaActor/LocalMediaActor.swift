@@ -52,6 +52,7 @@ public actor LocalMediaActor: GlobalActor {
         self.filesystem = filesystem
         self.localLibrary = localLibrary
         Task { [weak self] in
+            await SilveranMigrations.ensureMigrationsRan()
             try? await filesystem.ensureLocalStorageDirectories()
             try? await self?.scanForMedia()
             await self?.startPeriodicScan()
@@ -103,6 +104,7 @@ public actor LocalMediaActor: GlobalActor {
     private func migratedSourceID(
         for kind: BookSourceKind
     ) async -> BookSourceID? {
+        await SilveranMigrations.ensureMigrationsRan()
         guard let sources = try? await filesystem.loadOrCreateBookSources(),
             let source = sources.first(where: { $0.kind == kind })
         else {
@@ -115,6 +117,7 @@ public actor LocalMediaActor: GlobalActor {
         _ metadata: [BookMetadata],
         replacingSourceID sourceID: BookSourceID? = nil,
     ) async throws {
+        await SilveranMigrations.ensureMigrationsRan()
         let targetSourceID: BookSourceID?
         if let sourceID {
             targetSourceID = sourceID
@@ -258,6 +261,7 @@ public actor LocalMediaActor: GlobalActor {
     }
 
     public func scanForMedia() async throws {
+        await SilveranMigrations.ensureMigrationsRan()
         try await filesystem.ensureLocalStorageDirectories()
         let bookSources = try await filesystem.loadOrCreateBookSources()
 
@@ -396,6 +400,7 @@ public actor LocalMediaActor: GlobalActor {
     }
 
     public func cachedMediaPaths(for metadata: [BookMetadata]) async -> [String: MediaPaths] {
+        await SilveranMigrations.ensureMigrationsRan()
         var paths = localStorytellerBookPaths
         for book in metadata {
             guard let sourceID = book.sourceID else { continue }
