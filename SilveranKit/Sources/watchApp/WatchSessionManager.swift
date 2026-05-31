@@ -87,8 +87,6 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             case "playbackState":
                 handlePlaybackState(message)
                 replyHandler?(["status": "ok"])
-            case "credentialsSync":
-                handleCredentialsSync(message, replyHandler: replyHandler)
             default:
                 replyHandler?(["error": "Unhandled message type: \(type)"])
         }
@@ -143,27 +141,6 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
         }
 
         WatchStorageManager.shared.cancelChunkedTransfer(uuid: uuid, category: category)
-        replyHandler?(["status": "ok"])
-    }
-
-    private func handleCredentialsSync(
-        _ message: [String: Any],
-        replyHandler: (([String: Any]) -> Void)?,
-    ) {
-        guard let url = message["url"] as? String,
-            let username = message["username"] as? String,
-            let password = message["password"] as? String
-        else {
-            replyHandler?(["error": "Missing credentials fields"])
-            return
-        }
-
-        print("[WatchSessionManager] Received credentials from iPhone")
-
-        Task { @MainActor in
-            onCredentialsReceived?(url, username, password)
-        }
-
         replyHandler?(["status": "ok"])
     }
 

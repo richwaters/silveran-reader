@@ -433,44 +433,6 @@ public actor AppleWatchActor: NSObject {
         )
     }
 
-    public func sendCredentialsToWatch(sourceID: BookSourceID? = nil) async {
-        guard let session, session.activationState == .activated, session.isReachable else {
-            debugLog("[AppleWatchActor] Cannot send credentials - watch not reachable")
-            return
-        }
-
-        do {
-            guard let resolvedSourceID = await storytellerSourceID(for: sourceID),
-                let credentials = try await AuthenticationActor.shared.loadCredentials(
-                    sourceID: resolvedSourceID,
-                )
-            else {
-                debugLog("[AppleWatchActor] No credentials to send to watch")
-                return
-            }
-
-            let message: [String: Any] = [
-                "type": "credentialsSync",
-                "sourceID": resolvedSourceID,
-                "url": credentials.url,
-                "username": credentials.username,
-                "password": credentials.password,
-            ]
-
-            session.sendMessage(
-                message,
-                replyHandler: { _ in
-                    debugLog("[AppleWatchActor] Credentials sent to watch successfully")
-                },
-                errorHandler: { error in
-                    debugLog("[AppleWatchActor] Failed to send credentials to watch: \(error)")
-                },
-            )
-        } catch {
-            debugLog("[AppleWatchActor] Failed to load credentials for watch sync: \(error)")
-        }
-    }
-
     nonisolated private func triggerLibraryRefresh() {
         Task {
             await requestWatchLibrary()
