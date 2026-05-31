@@ -4,6 +4,7 @@ public enum SilveranMigrations {
     public static func runMigrations() async {
         let filesystem = FilesystemActor.shared
         let sources = await runBookSourceRegistryMigration(using: filesystem)
+        await runPendingProgressQueueMigrations(using: filesystem)
         await runStorageMigrations(using: filesystem, sources: sources)
     }
 
@@ -32,6 +33,16 @@ public enum SilveranMigrations {
             try await filesystem.runStorageMigrations(for: sources)
         } catch {
             debugLog("[SilveranMigrations] Storage migration failed: \(error)")
+        }
+    }
+
+    private static func runPendingProgressQueueMigrations(
+        using filesystem: FilesystemActor,
+    ) async {
+        do {
+            try await filesystem.runPendingProgressQueueMigrations()
+        } catch {
+            debugLog("[SilveranMigrations] Pending progress queue migration failed: \(error)")
         }
     }
 }
