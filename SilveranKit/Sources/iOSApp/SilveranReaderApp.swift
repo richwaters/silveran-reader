@@ -51,6 +51,7 @@ struct SilveranReaderApp: App {
         _mediaViewModel = State(initialValue: vm)
 
         Task {
+            await SilveranMigrations.runMigrations()
             await BookServiceActor.shared.reloadSourceRegistry()
 
             do {

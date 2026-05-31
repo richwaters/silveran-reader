@@ -23,6 +23,7 @@ struct SilveranReaderApp: App {
         StorytellerFontRegistration.registerBundledFonts()
         SidebarSelectionColor.install()
         Task {
+            await SilveranMigrations.runMigrations()
             await BookServiceActor.shared.reloadSourceRegistry()
 
             do {

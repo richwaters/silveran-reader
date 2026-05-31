@@ -18,7 +18,7 @@ public struct UploadNewBookView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedEbookURL: URL?
-    @State private var selectedAudiobookURL: URL?
+    @State private var selectedAudiobookURLs: [URL] = []
     @State private var selectedReadaloudURL: URL?
     @State private var isUploading = false
     @State private var uploadProgress: String?
@@ -59,8 +59,8 @@ public struct UploadNewBookView: View {
 
                     fileRow(
                         label: "Audiobook",
-                        selectedURL: selectedAudiobookURL,
-                        onClear: { selectedAudiobookURL = nil },
+                        selectedURLs: selectedAudiobookURLs,
+                        onClear: { selectedAudiobookURLs = [] },
                         onSelect: selectAudiobook,
                     )
 
@@ -190,8 +190,40 @@ public struct UploadNewBookView: View {
         }
     }
 
+    @ViewBuilder
+    private func fileRow(
+        label: String,
+        selectedURLs: [URL],
+        onClear: @escaping () -> Void,
+        onSelect: @escaping () -> Void,
+    ) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 80, alignment: .leading)
+            Spacer()
+            if !selectedURLs.isEmpty {
+                Text(selectedURLs.count == 1 ? selectedURLs[0].lastPathComponent : "\(selectedURLs.count) files")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Button("Clear") {
+                    onClear()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isUploading || uploadResult != nil)
+            }
+            Button("Select...") {
+                onSelect()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(isUploading || uploadResult != nil)
+        }
+    }
+
     private var hasAnyFileSelected: Bool {
-        selectedEbookURL != nil || selectedAudiobookURL != nil || selectedReadaloudURL != nil
+        selectedEbookURL != nil || !selectedAudiobookURLs.isEmpty || selectedReadaloudURL != nil
     }
 
     private var selectedSource: BookSourceRecord? {
@@ -205,7 +237,7 @@ public struct UploadNewBookView: View {
 
     private func resetForNewUpload() {
         selectedEbookURL = nil
-        selectedAudiobookURL = nil
+        selectedAudiobookURLs = []
         selectedReadaloudURL = nil
         uploadResult = nil
         uploadProgress = nil
@@ -254,12 +286,12 @@ public struct UploadNewBookView: View {
     private func selectAudiobook() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.mpeg4Audio, .mp3, .audio]
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.message = "Select an audiobook file (m4b, mp3, etc.)"
+        panel.message = "Select one or more audiobook files"
 
         if panel.runModal() == .OK {
-            selectedAudiobookURL = panel.url
+            selectedAudiobookURLs = panel.urls
         }
     }
 
@@ -290,7 +322,7 @@ public struct UploadNewBookView: View {
         }
 
         var ebookAsset: StorytellerUploadAsset?
-        var audiobookAsset: StorytellerUploadAsset?
+        var audiobookAssets: [StorytellerUploadAsset] = []
         var readaloudAsset: StorytellerUploadAsset?
 
         do {
@@ -306,18 +338,17 @@ public struct UploadNewBookView: View {
                 )
             }
 
-            if let url = selectedAudiobookURL {
+            if !selectedAudiobookURLs.isEmpty {
                 await MainActor.run { uploadProgress = "Reading audiobook..." }
-                let data = try Data(contentsOf: url)
-                let contentType =
-                    url.pathExtension.lowercased() == "m4b" ? "audio/mp4" : "audio/mpeg"
-                audiobookAsset = StorytellerUploadAsset(
-                    format: .audiobook,
-                    filename: url.lastPathComponent,
-                    data: data,
-                    contentType: contentType,
-                    relativePath: nil,
-                )
+                audiobookAssets = try selectedAudiobookURLs.map { url in
+                    StorytellerUploadAsset(
+                        format: .audiobook,
+                        filename: url.lastPathComponent,
+                        data: try Data(contentsOf: url),
+                        contentType: audioContentType(for: url),
+                        relativePath: nil,
+                    )
+                }
             }
 
             if let url = selectedReadaloudURL {
@@ -338,7 +369,7 @@ public struct UploadNewBookView: View {
                 bookUUID: bookUUID,
                 sourceID: sourceID,
                 ebook: ebookAsset,
-                audiobook: audiobookAsset,
+                audiobooks: audiobookAssets,
                 readaloud: readaloudAsset,
             )
 
@@ -363,11 +394,30 @@ public struct UploadNewBookView: View {
         }
     }
 
+    private func audioContentType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+            case "aac":
+                return "audio/aac"
+            case "flac":
+                return "audio/flac"
+            case "m4a", "m4b", "mp4":
+                return "audio/mp4"
+            case "ogg", "oga":
+                return "audio/ogg"
+            case "opus":
+                return "audio/opus"
+            case "wav":
+                return "audio/wav"
+            default:
+                return "audio/mpeg"
+        }
+    }
+
     private func importIntoFolderSource(_ source: BookSourceRecord) async {
         let folderSource = FolderSourceActor(sourceRecord: source)
         let importTitle = selectedEbookURL?.deletingPathExtension().lastPathComponent
             ?? selectedReadaloudURL?.deletingPathExtension().lastPathComponent
-            ?? selectedAudiobookURL?.deletingPathExtension().lastPathComponent
+            ?? selectedAudiobookURLs.first?.deletingPathExtension().lastPathComponent
             ?? "Book"
 
         do {
@@ -381,11 +431,10 @@ public struct UploadNewBookView: View {
                 )
             }
 
-            if let url = selectedAudiobookURL {
+            if !selectedAudiobookURLs.isEmpty {
                 await MainActor.run { uploadProgress = "Copying audiobook..." }
-                _ = try await folderSource.importMedia(
-                    from: url,
-                    category: .audio,
+                _ = try await folderSource.importAudiobookFiles(
+                    from: selectedAudiobookURLs,
                     bookName: importTitle,
                     bookUUID: bookUUID,
                 )

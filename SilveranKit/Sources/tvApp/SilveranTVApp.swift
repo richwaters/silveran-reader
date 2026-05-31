@@ -40,6 +40,7 @@ struct SilveranTVApp: App {
     }
 
     private func initializeStorytellerConnection() async {
+        await SilveranMigrations.runMigrations()
         await BookServiceActor.shared.reloadSourceRegistry()
         await syncOnLaunch()
         await mediaViewModel.refreshMetadata(source: "tvApp.registry")

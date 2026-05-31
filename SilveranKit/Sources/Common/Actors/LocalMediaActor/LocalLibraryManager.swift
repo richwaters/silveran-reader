@@ -15,6 +15,14 @@ public final class LocalLibraryManager: Sendable {
         let fileURL: URL
     }
 
+    private struct AudiobookManifestMetadata: Decodable {
+        let metadata: Metadata?
+
+        struct Metadata: Decodable {
+            let title: String?
+        }
+    }
+
     public func extractMetadata(from fileURL: URL, category: LocalMediaCategory) async throws
         -> BookMetadata
     {
@@ -86,8 +94,7 @@ public final class LocalLibraryManager: Sendable {
                 }
 
                 for fileURL in files {
-                    let ext = fileURL.pathExtension.lowercased()
-                    guard ext == "epub" || ext == "m4b" else { continue }
+                    guard shouldScan(fileURL, category: category) else { continue }
 
                     let fullPath = fileURL.path
                     if seenFiles.contains(fullPath) {
@@ -426,6 +433,10 @@ public final class LocalLibraryManager: Sendable {
     }
 
     private func extractAudioMetadata(from audioURL: URL) async throws -> BookMetadata {
+        if audioURL.lastPathComponent == "manifest.json" {
+            return try extractManifestAudioMetadata(from: audioURL)
+        }
+
         let bookUUID = UUID().uuidString
         var title = audioURL.deletingPathExtension().lastPathComponent
         var authorName: String?
@@ -484,6 +495,54 @@ public final class LocalLibraryManager: Sendable {
             updatedAt: nil,
             publicationDate: nil,
             authors: authors,
+            narrators: nil,
+            creators: nil,
+            series: nil,
+            tags: nil,
+            collections: nil,
+            ebook: nil,
+            audiobook: audiobookAsset,
+            readaloud: nil,
+            status: nil,
+            position: nil,
+            rating: nil,
+        )
+    }
+
+    private func shouldScan(_ fileURL: URL, category: LocalMediaCategory) -> Bool {
+        switch category {
+            case .ebook, .synced:
+                return fileURL.pathExtension.lowercased() == "epub"
+            case .audio:
+                return fileURL.lastPathComponent == "manifest.json"
+        }
+    }
+
+    private func extractManifestAudioMetadata(from manifestURL: URL) throws -> BookMetadata {
+        let bookUUID = UUID().uuidString
+        let data = try Data(contentsOf: manifestURL)
+        let manifest = try JSONDecoder().decode(AudiobookManifestMetadata.self, from: data)
+        let title = manifest.metadata?.title
+            ?? manifestURL.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+
+        let audiobookAsset = BookAsset(
+            uuid: bookUUID,
+            filepath: manifestURL.lastPathComponent,
+            missing: 0,
+            createdAt: nil,
+            updatedAt: nil,
+        )
+
+        return BookMetadata(
+            uuid: bookUUID,
+            title: title,
+            subtitle: nil,
+            description: nil,
+            language: nil,
+            createdAt: nil,
+            updatedAt: nil,
+            publicationDate: nil,
+            authors: nil,
             narrators: nil,
             creators: nil,
             series: nil,

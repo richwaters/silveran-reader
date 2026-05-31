@@ -1,0 +1,37 @@
+import Foundation
+
+public enum SilveranMigrations {
+    public static func runMigrations() async {
+        let filesystem = FilesystemActor.shared
+        let sources = await runBookSourceRegistryMigration(using: filesystem)
+        await runStorageMigrations(using: filesystem, sources: sources)
+    }
+
+    private static func runBookSourceRegistryMigration(
+        using filesystem: FilesystemActor,
+    ) async -> [BookSourceRecord] {
+        do {
+            if let sources = try await filesystem.loadBookSources(), !sources.isEmpty {
+                return sources
+            }
+
+            return try await filesystem.migrateLegacyBookSourceRegistry()
+        } catch {
+            debugLog("[SilveranMigrations] Book source registry migration failed: \(error)")
+            return []
+        }
+    }
+
+    private static func runStorageMigrations(
+        using filesystem: FilesystemActor,
+        sources: [BookSourceRecord],
+    ) async {
+        guard !sources.isEmpty else { return }
+
+        do {
+            try await filesystem.runStorageMigrations(for: sources)
+        } catch {
+            debugLog("[SilveranMigrations] Storage migration failed: \(error)")
+        }
+    }
+}

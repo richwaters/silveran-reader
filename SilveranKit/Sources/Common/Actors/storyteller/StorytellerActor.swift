@@ -1500,10 +1500,12 @@ public actor StorytellerActor {
         bookUUID: String,
         ebook: StorytellerUploadAsset? = nil,
         audiobook: StorytellerUploadAsset? = nil,
+        audiobooks: [StorytellerUploadAsset] = [],
         readaloud: StorytellerUploadAsset? = nil,
         collectionUUID: String? = nil,
     ) async -> Bool {
-        let assets = [ebook, audiobook, readaloud].compactMap(\.self)
+        let audiobookAssets = audiobooks + [audiobook].compactMap(\.self)
+        let assets = [ebook].compactMap(\.self) + audiobookAssets + [readaloud].compactMap(\.self)
         guard !assets.isEmpty else {
             debugLog("[StorytellerActor] uploadBookAssets requires at least one asset.")
             return false
@@ -1517,6 +1519,7 @@ public actor StorytellerActor {
                 collectionUUID: index == 0 ? collectionUUID : nil,
                 baseURL: baseURL,
                 token: token,
+                totalAudioFiles: asset.format == .audiobook ? audiobookAssets.count : nil,
             )
             if !succeeded {
                 return false
@@ -1641,6 +1644,7 @@ public actor StorytellerActor {
         collectionUUID: String?,
         baseURL: URL,
         token: AccessToken,
+        totalAudioFiles: Int? = nil,
     ) async -> Bool {
         let uploadBaseURL =
             baseURL
@@ -1664,6 +1668,10 @@ public actor StorytellerActor {
 
         if let collectionUUID {
             metadata["collection"] = collectionUUID
+        }
+
+        if let totalAudioFiles, totalAudioFiles > 1 {
+            metadata["totalAudioFiles"] = "\(totalAudioFiles)"
         }
 
         let metadataHeader =

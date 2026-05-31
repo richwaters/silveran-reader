@@ -660,6 +660,7 @@ public actor BookServiceActor {
         sourceID: BookSourceID? = nil,
         ebook: StorytellerUploadAsset? = nil,
         audiobook: StorytellerUploadAsset? = nil,
+        audiobooks: [StorytellerUploadAsset] = [],
         readaloud: StorytellerUploadAsset? = nil,
         collectionUUID: String? = nil,
     ) async -> Bool {
@@ -668,6 +669,7 @@ public actor BookServiceActor {
             bookUUID: bookUUID,
             ebook: ebook,
             audiobook: audiobook,
+            audiobooks: audiobooks,
             readaloud: readaloud,
             collectionUUID: collectionUUID,
         )

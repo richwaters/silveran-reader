@@ -72,6 +72,7 @@ struct SilveranWatchApp: App {
     }
 
     private func initializeStorytellerConnection() async {
+        await SilveranMigrations.runMigrations()
         await BookServiceActor.shared.reloadSourceRegistry()
         await syncOnLaunch()
     }

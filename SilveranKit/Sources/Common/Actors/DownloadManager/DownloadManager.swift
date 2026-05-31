@@ -580,7 +580,7 @@ public actor DownloadManager {
                 metadata: book,
                 category: record.category,
                 filename: copied.filename,
-                audioIsPackage: false,
+                audioIsPackage: record.category == .audio,
             )
 
             downloads.removeValue(forKey: record.id)

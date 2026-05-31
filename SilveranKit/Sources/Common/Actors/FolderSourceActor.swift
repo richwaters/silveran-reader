@@ -1,4 +1,9 @@
 import Foundation
+import ZIPFoundation
+
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 
 public actor FolderSourceActor: BookSourceActor {
     private let sourceRecordValue: BookSourceRecord
@@ -108,7 +113,10 @@ public actor FolderSourceActor: BookSourceActor {
             .appendingPathComponent("SilveranFolderSourceDownloads", isDirectory: true)
         try await filesystem.ensureDirectoryExists(at: tempDirectory)
 
-        let filename = sourceURL.lastPathComponent
+        let isAudiobook = category == .audio
+        let filename = isAudiobook
+            ? "\(sourceURL.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent).audiobook"
+            : sourceURL.lastPathComponent
         let tempURL = tempDirectory.appendingPathComponent(
             "\(UUID().uuidString)-\(filename)",
             isDirectory: false,
@@ -116,7 +124,14 @@ public actor FolderSourceActor: BookSourceActor {
         if FileManager.default.fileExists(atPath: tempURL.path) {
             try FileManager.default.removeItem(at: tempURL)
         }
-        try FileManager.default.copyItem(at: sourceURL, to: tempURL)
+        if isAudiobook {
+            try createAudiobookArchive(
+                from: sourceURL.deletingLastPathComponent(),
+                at: tempURL,
+            )
+        } else {
+            try FileManager.default.copyItem(at: sourceURL, to: tempURL)
+        }
         return (tempURL, filename)
     }
 
@@ -142,7 +157,7 @@ public actor FolderSourceActor: BookSourceActor {
         let resolved = try await resolvedFolderURL()
         defer { resolved.stopAccessing?() }
 
-        let extractedMetadata = try await localLibrary.extractMetadata(
+        let extractedMetadata = try await extractImportMetadata(
             from: sourceFileURL,
             category: category,
         )
@@ -194,18 +209,114 @@ public actor FolderSourceActor: BookSourceActor {
         )
         try await filesystem.ensureDirectoryExists(at: destinationDirectory)
 
-        let destinationURL = destinationDirectory.appendingPathComponent(
-            sourceFileURL.lastPathComponent,
-            isDirectory: false,
-        )
-        let fm = FileManager.default
-        if fm.fileExists(atPath: destinationURL.path) {
-            try fm.removeItem(at: destinationURL)
+        let destinationURL: URL
+        if effectiveCategory == .audio {
+            destinationURL = try await importAudiobookPackage(
+                from: sourceFileURL,
+                to: destinationDirectory,
+                title: metadata.title,
+            )
+        } else {
+            destinationURL = destinationDirectory.appendingPathComponent(
+                sourceFileURL.lastPathComponent,
+                isDirectory: false,
+            )
+            let fm = FileManager.default
+            if fm.fileExists(atPath: destinationURL.path) {
+                try fm.removeItem(at: destinationURL)
+            }
+            try fm.copyItem(at: sourceFileURL, to: destinationURL)
         }
-        try fm.copyItem(at: sourceFileURL, to: destinationURL)
 
         _ = try await scanLibrary(in: resolved.url)
         return destinationURL
+    }
+
+    public func importAudiobookFiles(
+        from sourceFileURLs: [URL],
+        bookName: String,
+        bookUUID: String? = nil,
+    ) async throws -> URL {
+        guard let firstSourceURL = sourceFileURLs.first else {
+            throw LocalMediaError.importFailed("No audiobook files selected")
+        }
+
+        let accessScopes = sourceFileURLs.map { url in
+            (url, url.startAccessingSecurityScopedResource())
+        }
+        defer {
+            for (url, shouldStopAccessing) in accessScopes where shouldStopAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let resolved = try await resolvedFolderURL()
+        defer { resolved.stopAccessing?() }
+
+        let extractedMetadata = try await localLibrary.extractMetadata(
+            from: firstSourceURL,
+            category: .audio,
+        )
+        let importUUID = bookUUID ?? extractedMetadata.uuid
+        var metadata = mergedBookMetadata(
+            scanned: extractedMetadata,
+            saved: BookMetadata(
+                uuid: importUUID,
+                title: extractedMetadata.title,
+                subtitle: extractedMetadata.subtitle,
+                description: extractedMetadata.description,
+                language: extractedMetadata.language,
+                createdAt: extractedMetadata.createdAt,
+                updatedAt: extractedMetadata.updatedAt,
+                publicationDate: extractedMetadata.publicationDate,
+                authors: extractedMetadata.authors,
+                narrators: extractedMetadata.narrators,
+                creators: extractedMetadata.creators,
+                series: extractedMetadata.series,
+                tags: extractedMetadata.tags,
+                collections: extractedMetadata.collections,
+                ebook: nil,
+                audiobook: extractedMetadata.audiobook,
+                readaloud: nil,
+                status: extractedMetadata.status,
+                position: extractedMetadata.position,
+                rating: extractedMetadata.rating,
+            ),
+        )
+        metadata.sourceID = sourceRecordValue.id
+        metadata.source = sourceRecordValue.name
+
+        let bookFolder = resolved.url.appendingPathComponent(
+            folderName(title: bookName, uuid: metadata.uuid),
+            isDirectory: true,
+        )
+        let destinationDirectory = bookFolder.appendingPathComponent(
+            LocalMediaCategory.audio.rawValue,
+            isDirectory: true,
+        )
+
+        let fm = FileManager.default
+        if fm.fileExists(atPath: destinationDirectory.path) {
+            try fm.removeItem(at: destinationDirectory)
+        }
+        try await filesystem.ensureDirectoryExists(at: destinationDirectory)
+
+        for sourceURL in sourceFileURLs {
+            let destinationURL = destinationDirectory.appendingPathComponent(
+                sourceURL.lastPathComponent,
+                isDirectory: false,
+            )
+            try fm.copyItem(at: sourceURL, to: destinationURL)
+        }
+
+        try await writeAudiobookManifest(in: destinationDirectory, title: metadata.title)
+        let manifestURL = destinationDirectory.appendingPathComponent(
+            "manifest.json",
+            isDirectory: false,
+        )
+
+        _ = try await scanLibrary(in: resolved.url)
+        return manifestURL
     }
 
     public func deleteBook(_ bookID: String) async throws {
@@ -307,6 +418,247 @@ public actor FolderSourceActor: BookSourceActor {
         }
 
         return []
+    }
+
+    private func extractImportMetadata(
+        from sourceFileURL: URL,
+        category: LocalMediaCategory,
+    ) async throws -> BookMetadata {
+        guard category == .audio, sourceFileURL.hasDirectoryPath else {
+            return try await localLibrary.extractMetadata(
+                from: sourceFileURL,
+                category: category,
+            )
+        }
+
+        let bookUUID = UUID().uuidString
+        return BookMetadata(
+            uuid: bookUUID,
+            title: sourceFileURL.lastPathComponent,
+            subtitle: nil,
+            description: nil,
+            language: nil,
+            createdAt: nil,
+            updatedAt: nil,
+            publicationDate: nil,
+            authors: nil,
+            narrators: nil,
+            creators: nil,
+            series: nil,
+            tags: nil,
+            collections: nil,
+            ebook: nil,
+            audiobook: BookAsset(
+                uuid: bookUUID,
+                filepath: "manifest.json",
+                missing: 0,
+                createdAt: nil,
+                updatedAt: nil,
+            ),
+            readaloud: nil,
+            status: nil,
+            position: nil,
+            rating: nil,
+        )
+    }
+
+    private func importAudiobookPackage(
+        from sourceURL: URL,
+        to destinationDirectory: URL,
+        title: String,
+    ) async throws -> URL {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: destinationDirectory.path) {
+            try fm.removeItem(at: destinationDirectory)
+        }
+        try await filesystem.ensureDirectoryExists(at: destinationDirectory)
+
+        if sourceURL.lastPathComponent == "manifest.json" {
+            try copyDirectoryContents(
+                from: sourceURL.deletingLastPathComponent(),
+                to: destinationDirectory,
+            )
+        } else if sourceURL.hasDirectoryPath {
+            try copyDirectoryContents(from: sourceURL, to: destinationDirectory)
+        } else {
+            let destinationURL = destinationDirectory.appendingPathComponent(
+                sourceURL.lastPathComponent,
+                isDirectory: false,
+            )
+            try fm.copyItem(at: sourceURL, to: destinationURL)
+        }
+
+        let manifestURL = destinationDirectory.appendingPathComponent(
+            "manifest.json",
+            isDirectory: false,
+        )
+        if !fm.fileExists(atPath: manifestURL.path) {
+            try await writeAudiobookManifest(in: destinationDirectory, title: title)
+        }
+
+        return manifestURL
+    }
+
+    private func copyDirectoryContents(from sourceDirectory: URL, to destinationDirectory: URL)
+        throws
+    {
+        let fm = FileManager.default
+        let contents = try fm.contentsOfDirectory(
+            at: sourceDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles],
+        )
+        for item in contents {
+            let destinationURL = destinationDirectory.appendingPathComponent(
+                item.lastPathComponent,
+                isDirectory: item.hasDirectoryPath,
+            )
+            if fm.fileExists(atPath: destinationURL.path) {
+                try fm.removeItem(at: destinationURL)
+            }
+            try fm.copyItem(at: item, to: destinationURL)
+        }
+    }
+
+    private func writeAudiobookManifest(in audioDirectory: URL, title: String) async throws {
+        let audioFiles = try audiobookMediaFiles(in: audioDirectory)
+        guard !audioFiles.isEmpty else {
+            throw LocalMediaError.missingAudiobookManifest
+        }
+
+        var readingOrder: [[String: Any]] = []
+        var totalDuration = 0.0
+        for audioFile in audioFiles {
+            var item: [String: Any] = [
+                "href": audioFile.lastPathComponent,
+                "type": mediaType(for: audioFile),
+            ]
+            if let duration = await audioDuration(for: audioFile) {
+                item["duration"] = duration
+                totalDuration += duration
+            }
+            readingOrder.append(item)
+        }
+
+        var metadata: [String: Any] = [
+            "@type": "http://schema.org/Audiobook",
+            "title": title,
+        ]
+        if totalDuration > 0 {
+            metadata["duration"] = totalDuration
+        }
+
+        let manifest: [String: Any] = [
+            "metadata": metadata,
+            "links": [
+                [
+                    "rel": "self",
+                    "href": "manifest.json",
+                    "type": "application/audiobook+json",
+                ]
+            ],
+            "readingOrder": readingOrder,
+            "toc": readingOrder.enumerated().map { index, item in
+                [
+                    "href": "\(item["href"] ?? "")#t=0",
+                    "title": audioFiles.count == 1 ? "Full Book" : "Track \(index + 1)",
+                ]
+            },
+        ]
+
+        let data = try JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.prettyPrinted, .sortedKeys],
+        )
+        try data.write(
+            to: audioDirectory.appendingPathComponent("manifest.json", isDirectory: false),
+            options: .atomic,
+        )
+    }
+
+    private func audiobookMediaFiles(in audioDirectory: URL) throws -> [URL] {
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: audioDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles],
+        )
+        return contents
+            .filter { url in
+                guard url.lastPathComponent != "manifest.json",
+                    (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+                else {
+                    return false
+                }
+                return audiobookMediaExtensions.contains(url.pathExtension.lowercased())
+            }
+            .sorted {
+                $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent)
+                    == .orderedAscending
+            }
+    }
+
+    private var audiobookMediaExtensions: Set<String> {
+        ["aac", "flac", "m4a", "m4b", "mp3", "ogg", "opus", "wav"]
+    }
+
+    private func mediaType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+            case "aac":
+                return "audio/aac"
+            case "flac":
+                return "audio/flac"
+            case "m4a", "m4b":
+                return "audio/mp4"
+            case "mp3":
+                return "audio/mpeg"
+            case "ogg", "opus":
+                return "audio/ogg"
+            case "wav":
+                return "audio/wav"
+            default:
+                return "application/octet-stream"
+        }
+    }
+
+    private func audioDuration(for url: URL) async -> Double? {
+        #if canImport(AVFoundation)
+        let asset = AVURLAsset(url: url)
+        guard let duration = try? await asset.load(.duration) else { return nil }
+        let seconds = CMTimeGetSeconds(duration)
+        return seconds.isFinite && seconds > 0 ? seconds : nil
+        #else
+        return nil
+        #endif
+    }
+
+    private func createAudiobookArchive(from packageDirectory: URL, at archiveURL: URL) throws {
+        let archive = try Archive(url: archiveURL, accessMode: .create)
+
+        let fm = FileManager.default
+        guard
+            let enumerator = fm.enumerator(
+                at: packageDirectory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles],
+            )
+        else {
+            throw LocalMediaError.importFailed("Could not read audiobook package")
+        }
+
+        for case let file as URL in enumerator {
+            guard (try? file.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+            else {
+                continue
+            }
+            try archive.addEntry(
+                with: file.path(percentEncoded: false)
+                    .replacingOccurrences(
+                        of: packageDirectory.path(percentEncoded: false) + "/",
+                        with: "",
+                    ),
+                relativeTo: packageDirectory,
+            )
+        }
     }
 
     private func savedMetadataByFilename(_ metadata: [BookMetadata]) -> [String: BookMetadata] {

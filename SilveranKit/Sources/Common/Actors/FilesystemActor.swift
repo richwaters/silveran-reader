@@ -361,7 +361,7 @@ public actor FilesystemActor {
         try write(data: data, to: sourcesURL)
     }
 
-    public func loadBookSources() throws -> [BookSourceRecord]? {
+    public func loadBookSources() async throws -> [BookSourceRecord]? {
         let sourcesURL = getConfigDirectory().appendingPathComponent(
             "book_sources.json",
             isDirectory: false,
@@ -375,174 +375,15 @@ public actor FilesystemActor {
         let decoder = JSONDecoder()
         let data = try Data(contentsOf: sourcesURL)
         let sources = try decoder.decode([BookSourceRecord].self, from: data)
-        try cleanupMigratedDomainDirectories(for: sources)
         return sources
     }
 
-    public func loadOrCreateBookSources() throws -> [BookSourceRecord] {
-        if let sources = try loadBookSources(), !sources.isEmpty {
+    public func loadOrCreateBookSources() async throws -> [BookSourceRecord] {
+        if let sources = try await loadBookSources(), !sources.isEmpty {
             return sources
         }
 
-        let sources = try migrateLegacyBookSources()
-        try saveBookSources(sources)
-        return sources
-    }
-
-    private func migrateLegacyBookSources() throws -> [BookSourceRecord] {
-        let now = ISO8601DateFormatter().string(from: Date())
-        let storytellerID = try migrateLegacyDomainDirectory(
-            domain: .storyteller,
-            preferredName: "My Storyteller Server",
-        )
-        let localFolderID = try migrateLegacyDomainDirectory(
-            domain: .local,
-            preferredName: BookSourceKind.localFolder.defaultName,
-        )
-
-        return [
-            BookSourceRecord(
-                id: storytellerID,
-                name: "My Storyteller Server",
-                kind: .storyteller,
-                capabilities: .storyteller,
-                createdAt: now,
-                updatedAt: now,
-                storagePath: getDomainDirectory(for: .storyteller, sourceID: storytellerID).path,
-            ),
-            BookSourceRecord(
-                id: localFolderID,
-                name: BookSourceKind.localFolder.defaultName,
-                kind: .localFolder,
-                capabilities: .localFolder,
-                createdAt: now,
-                updatedAt: now,
-                storagePath: getDomainDirectory(for: .local, sourceID: localFolderID).path,
-            ),
-        ]
-    }
-
-    private func migrateLegacyDomainDirectory(
-        domain: LocalMediaDomain,
-        preferredName: String,
-    ) throws -> BookSourceID {
-        let root = getDomainDirectory(for: domain)
-        try ensureDirectoryExists(at: root)
-
-        if let existingID = try sourceIDFromChildDirectory(in: root) {
-            try migrateLegacyTopLevelContents(domain: domain, sourceID: existingID)
-            return existingID
-        }
-
-        let markerURL = root.appendingPathComponent(
-            BookSourceRecord.sourceIDFilename,
-            isDirectory: false,
-        )
-        let sourceID: BookSourceID
-        if let existing = try? String(contentsOf: markerURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !existing.isEmpty
-        {
-            sourceID = existing
-        } else {
-            sourceID = UUID().uuidString
-            try sourceID.write(to: markerURL, atomically: true, encoding: .utf8)
-        }
-
-        let destination = getDomainDirectory(for: domain, sourceID: sourceID)
-        try ensureDirectoryExists(at: destination)
-        let destinationMarker = destination.appendingPathComponent(
-            BookSourceRecord.sourceIDFilename,
-            isDirectory: false,
-        )
-        try sourceID.write(to: destinationMarker, atomically: true, encoding: .utf8)
-
-        try migrateLegacyTopLevelContents(domain: domain, sourceID: sourceID)
-
-        return sourceID
-    }
-
-    private func cleanupMigratedDomainDirectories(for sources: [BookSourceRecord]) throws {
-        if let sourceID = sources.first(where: { $0.kind == .storyteller })?.id {
-            try migrateLegacyTopLevelContents(domain: .storyteller, sourceID: sourceID)
-        }
-        if let sourceID = sources.first(where: { $0.kind == .localFolder })?.id {
-            try migrateLegacyTopLevelContents(domain: .local, sourceID: sourceID)
-        }
-    }
-
-    private func migrateLegacyTopLevelContents(
-        domain: LocalMediaDomain,
-        sourceID: BookSourceID,
-    ) throws {
-        let root = getDomainDirectory(for: domain)
-        let destination = getDomainDirectory(for: domain, sourceID: sourceID)
-        try ensureDirectoryExists(at: destination)
-
-        let destinationMarker = destination.appendingPathComponent(
-            BookSourceRecord.sourceIDFilename,
-            isDirectory: false,
-        )
-        try sourceID.write(to: destinationMarker, atomically: true, encoding: .utf8)
-
-        let fm = FileManager.default
-        let contents = try fm.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [],
-        )
-
-        for item in contents {
-            if item.lastPathComponent == BookSourceRecord.sourceIDFilename {
-                try? fm.removeItem(at: item)
-                continue
-            }
-            if item.standardizedFileURL == destination.standardizedFileURL { continue }
-
-            let isDirectory =
-                (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-            let target = destination.appendingPathComponent(
-                item.lastPathComponent,
-                isDirectory: isDirectory,
-            )
-
-            if fm.fileExists(atPath: target.path) {
-                if item.lastPathComponent == "library_metadata.json" {
-                    try fm.removeItem(at: item)
-                }
-                continue
-            }
-
-            try fm.moveItem(at: item, to: target)
-        }
-    }
-
-    private func sourceIDFromChildDirectory(in root: URL) throws -> BookSourceID? {
-        let fm = FileManager.default
-        let contents = try fm.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles],
-        )
-
-        for url in contents {
-            let values = try? url.resourceValues(forKeys: [.isDirectoryKey])
-            guard values?.isDirectory == true else { continue }
-            let marker = url.appendingPathComponent(
-                BookSourceRecord.sourceIDFilename,
-                isDirectory: false,
-            )
-            guard fm.fileExists(atPath: marker.path),
-                let id = try? String(contentsOf: marker, encoding: .utf8)
-                    .trimmingCharacters(in: .whitespacesAndNewlines),
-                !id.isEmpty
-            else {
-                continue
-            }
-            return id
-        }
-
-        return nil
+        return try createDefaultBookSources()
     }
 
     public func loadProgressQueue() async throws -> [PendingProgressSync] {
