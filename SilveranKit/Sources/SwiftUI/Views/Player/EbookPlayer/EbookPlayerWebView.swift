@@ -425,7 +425,7 @@ private struct WebViewWrapper2: View {
                 "[EbookPlayerWebView] Granting read access to: \(webResourcesDir.deletingLastPathComponent().path)"
             )
             // Grant access to Application Support (parent of WebResources) so that BookLoader.js
-            // can fetch EPUB files from sibling directories like storyteller_media/
+            // can fetch EPUB files from sibling directories like SourceCache/
             webView.loadFileURL(
                 url,
                 allowingReadAccessTo: webResourcesDir.deletingLastPathComponent(),

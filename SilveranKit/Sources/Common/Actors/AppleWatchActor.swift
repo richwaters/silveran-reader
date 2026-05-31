@@ -433,20 +433,25 @@ public actor AppleWatchActor: NSObject {
         )
     }
 
-    public func sendCredentialsToWatch() async {
+    public func sendCredentialsToWatch(sourceID: BookSourceID? = nil) async {
         guard let session, session.activationState == .activated, session.isReachable else {
             debugLog("[AppleWatchActor] Cannot send credentials - watch not reachable")
             return
         }
 
         do {
-            guard let credentials = try await AuthenticationActor.shared.loadCredentials() else {
+            guard let resolvedSourceID = await storytellerSourceID(for: sourceID),
+                let credentials = try await AuthenticationActor.shared.loadCredentials(
+                    sourceID: resolvedSourceID,
+                )
+            else {
                 debugLog("[AppleWatchActor] No credentials to send to watch")
                 return
             }
 
             let message: [String: Any] = [
                 "type": "credentialsSync",
+                "sourceID": resolvedSourceID,
                 "url": credentials.url,
                 "username": credentials.username,
                 "password": credentials.password,
@@ -765,11 +770,16 @@ extension AppleWatchActor: WCSessionDelegate {
                 replyHandler(["status": "ok"])
             case "requestCredentials":
                 let sendableReply = SendableReplyHandler(replyHandler)
+                let sourceID = message["sourceID"] as? BookSourceID
                 Task {
                     do {
-                        if let credentials = try await AuthenticationActor.shared.loadCredentials()
+                        if let resolvedSourceID = await self.storytellerSourceID(for: sourceID),
+                            let credentials = try await AuthenticationActor.shared.loadCredentials(
+                                sourceID: resolvedSourceID,
+                            )
                         {
                             sendableReply.reply([
+                                "sourceID": resolvedSourceID,
                                 "url": credentials.url,
                                 "username": credentials.username,
                                 "password": credentials.password,
@@ -796,6 +806,20 @@ extension AppleWatchActor: WCSessionDelegate {
             default:
                 replyHandler(["error": "Unhandled message type"])
         }
+    }
+
+    private func storytellerSourceID(for sourceID: BookSourceID?) async -> BookSourceID? {
+        let storytellerSources = await BookServiceActor.shared.bookSources
+            .filter { $0.kind == .storyteller }
+        if let sourceID,
+            storytellerSources.contains(where: { $0.id == sourceID })
+        {
+            return sourceID
+        }
+        guard storytellerSources.count == 1 else {
+            return nil
+        }
+        return storytellerSources.first?.id
     }
 
     nonisolated public func session(

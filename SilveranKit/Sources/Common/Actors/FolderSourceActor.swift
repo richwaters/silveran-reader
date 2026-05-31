@@ -405,18 +405,6 @@ public actor FolderSourceActor: BookSourceActor {
             }
         }
 
-        if let migrated = try? await filesystem.loadLocalLibraryMetadata(sourceID: sourceRecordValue.id)
-        {
-            let stamped = migrated.map { book in
-                var stamped = book
-                stamped.sourceID = sourceRecordValue.id
-                stamped.source = sourceRecordValue.name
-                return stamped
-            }
-            try await filesystem.saveFolderSourceLibraryMetadata(stamped, in: folderURL)
-            return stamped
-        }
-
         return []
     }
 
@@ -761,11 +749,7 @@ public actor FolderSourceActor: BookSourceActor {
             return resolved
         }
 
-        let directory = try await filesystem.ensureSourceDirectory(
-            for: .local,
-            sourceID: sourceRecordValue.id,
-        )
-        return (directory, nil)
+        throw LocalMediaError.importFailed("Folder source has no storage location")
     }
 
     private func sourceFolderURL(_ sourceRecord: BookSourceRecord) -> (

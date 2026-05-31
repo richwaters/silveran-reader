@@ -38,7 +38,7 @@ struct SilveranWatchApp: App {
                 .environment(watchViewModel)
                 .task {
                     await BookServiceActor.shared.setActive(true, source: .watch)
-                    await initializeStorytellerConnection()
+                    await initializeBookSources()
                     // Start DownloadManager init + retry loop. On iOS/macOS/tvOS this
                     // happens via MediaViewModel.setupDownloadManagerObserver() instead.
                     _ = await DownloadManager.shared.incompleteDownloads
@@ -71,7 +71,7 @@ struct SilveranWatchApp: App {
         }
     }
 
-    private func initializeStorytellerConnection() async {
+    private func initializeBookSources() async {
         await SilveranMigrations.runMigrations()
         await BookServiceActor.shared.reloadSourceRegistry()
         await syncOnLaunch()
@@ -82,7 +82,7 @@ struct SilveranWatchApp: App {
         debugLog("[WatchApp] Sync on launch: synced=\(result.synced), failed=\(result.failed)")
 
         if let library = await BookServiceActor.shared.fetchLibraryInformation() {
-            try? await LocalMediaActor.shared.updateStorytellerMetadata(library)
+            try? await LocalMediaActor.shared.updateSourceCacheMetadata(library)
             debugLog("[WatchApp] Library metadata updated: \(library.count) books")
         }
     }

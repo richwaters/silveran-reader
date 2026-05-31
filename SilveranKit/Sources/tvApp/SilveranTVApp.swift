@@ -12,7 +12,7 @@ struct SilveranTVApp: App {
                 .environment(mediaViewModel)
                 .task {
                     await BookServiceActor.shared.setActive(true, source: .tv)
-                    await initializeStorytellerConnection()
+                    await initializeBookSources()
                 }
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -39,7 +39,7 @@ struct SilveranTVApp: App {
         }
     }
 
-    private func initializeStorytellerConnection() async {
+    private func initializeBookSources() async {
         await SilveranMigrations.runMigrations()
         await BookServiceActor.shared.reloadSourceRegistry()
         await syncOnLaunch()
@@ -51,7 +51,7 @@ struct SilveranTVApp: App {
         debugLog("[TVApp] Sync on launch: synced=\(result.synced), failed=\(result.failed)")
 
         if let library = await BookServiceActor.shared.fetchLibraryInformation() {
-            try? await LocalMediaActor.shared.updateStorytellerMetadata(library)
+            try? await LocalMediaActor.shared.updateSourceCacheMetadata(library)
             debugLog("[TVApp] Library metadata updated: \(library.count) books")
         }
     }

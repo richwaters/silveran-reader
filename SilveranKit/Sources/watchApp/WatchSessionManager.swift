@@ -21,7 +21,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
     public func refreshCachedBooks() {
         Task {
-            let books = await LocalMediaActor.shared.localStorytellerMetadata
+            let books = await LocalMediaActor.shared.sourceCacheMetadata
             cachedBookInfos = books.map { book in
                 WatchBookInfoResponse(
                     id: book.uuid,
@@ -160,30 +160,23 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
         print("[WatchSessionManager] Received credentials from iPhone")
 
-        Task {
-            do {
-                try await AuthenticationActor.shared.saveCredentials(
-                    url: url,
-                    username: username,
-                    password: password,
-                )
-                print("[WatchSessionManager] Credentials saved to keychain")
-                onCredentialsReceived?(url, username, password)
-            } catch {
-                print("[WatchSessionManager] Failed to save credentials: \(error)")
-            }
+        Task { @MainActor in
+            onCredentialsReceived?(url, username, password)
         }
 
         replyHandler?(["status": "ok"])
     }
 
-    public func requestCredentialsFromPhone() {
+    public func requestCredentialsFromPhone(sourceID: BookSourceID?) {
         guard let session, session.isReachable else {
             print("[WatchSessionManager] iPhone not reachable for credentials request")
             return
         }
 
-        let message: [String: Any] = ["type": "requestCredentials"]
+        var message: [String: Any] = ["type": "requestCredentials"]
+        if let sourceID {
+            message["sourceID"] = sourceID
+        }
         session.sendMessage(
             message,
             replyHandler: { [weak self] reply in
@@ -197,17 +190,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
                 let callback = self?.onCredentialsReceived
                 Task { @MainActor in
-                    do {
-                        try await AuthenticationActor.shared.saveCredentials(
-                            url: url,
-                            username: username,
-                            password: password,
-                        )
-                        print("[WatchSessionManager] Credentials received and saved")
-                        callback?(url, username, password)
-                    } catch {
-                        print("[WatchSessionManager] Failed to save received credentials: \(error)")
-                    }
+                    callback?(url, username, password)
                 }
             },
             errorHandler: { error in
@@ -352,7 +335,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
     }
 
     private func mergeBookMetadataIntoLMA(_ book: BookMetadata) async {
-        var current = await LocalMediaActor.shared.localStorytellerMetadata
+        var current = await LocalMediaActor.shared.sourceCacheMetadata
 
         if let idx = current.firstIndex(where: { $0.uuid == book.uuid }) {
             if isNewer(book, than: current[idx]) {
@@ -362,7 +345,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             current.append(book)
         }
 
-        try? await LocalMediaActor.shared.updateStorytellerMetadata(current)
+        try? await LocalMediaActor.shared.updateSourceCacheMetadata(current)
     }
 
     private func isNewer(_ newBook: BookMetadata, than existingBook: BookMetadata) -> Bool {
@@ -429,7 +412,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
     }
 
     private func mergePhoneMetadataIntoLMA(_ phoneBooks: [BookMetadata]) async {
-        var current = await LocalMediaActor.shared.localStorytellerMetadata
+        var current = await LocalMediaActor.shared.sourceCacheMetadata
 
         for phoneBook in phoneBooks {
             if let idx = current.firstIndex(where: { $0.uuid == phoneBook.uuid }) {
@@ -441,7 +424,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             }
         }
 
-        try? await LocalMediaActor.shared.updateStorytellerMetadata(current)
+        try? await LocalMediaActor.shared.updateSourceCacheMetadata(current)
     }
 
     private func notifyPhone(bookUUID: String, category: String) {

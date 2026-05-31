@@ -5,16 +5,12 @@ import AVFoundation
 #endif
 
 extension FilesystemActor {
-    private static let sourceDomainLayoutMigrationID = "source-domain-layout-v1"
+    private static let sourceStorageLayoutMigrationID = "source-storage-layout-v2"
     private static let legacyM4BAudiobookMigrationID = "legacy-m4b-audiobook-manifests-v1"
 
     func runStorageMigrations(for sources: [BookSourceRecord]) async throws {
-        try runSourceDomainLayoutMigrationIfNeeded(for: sources)
+        try runSourceStorageLayoutMigrationIfNeeded(for: sources)
         try await runLegacyM4BAudiobookMigrationIfNeeded(for: sources)
-    }
-
-    func markSourceDomainLayoutMigrationCompleted() throws {
-        try writeMigrationSentinel(Self.sourceDomainLayoutMigrationID)
     }
 
     private func runLegacyM4BAudiobookMigrationIfNeeded(
@@ -24,18 +20,20 @@ extension FilesystemActor {
 
         var failed = false
         for source in sources {
-            let domain: LocalMediaDomain
+            let directory: URL
             switch source.kind {
                 case .storyteller:
-                    domain = .storyteller
+                    directory = sourceCacheDirectory(sourceID: source.id)
                 case .localFolder:
-                    domain = .local
+                    if let storagePath = source.storagePath, !storagePath.isEmpty {
+                        directory = URL(fileURLWithPath: storagePath, isDirectory: true)
+                    } else {
+                        directory = internalFolderSourceDirectory(sourceID: source.id)
+                    }
             }
 
             do {
-                try await migrateLegacyM4BAudiobooks(
-                    in: getDomainDirectory(for: domain, sourceID: source.id),
-                )
+                try await migrateLegacyM4BAudiobooks(in: directory)
             } catch {
                 failed = true
                 debugLog(
@@ -51,10 +49,10 @@ extension FilesystemActor {
         try writeMigrationSentinel(Self.legacyM4BAudiobookMigrationID)
     }
 
-    private func runSourceDomainLayoutMigrationIfNeeded(
+    private func runSourceStorageLayoutMigrationIfNeeded(
         for sources: [BookSourceRecord],
     ) throws {
-        guard !migrationSentinelExists(Self.sourceDomainLayoutMigrationID) else { return }
+        guard !migrationSentinelExists(Self.sourceStorageLayoutMigrationID) else { return }
 
         let storytellerIDs = Set(
             sources
@@ -62,9 +60,11 @@ extension FilesystemActor {
                 .map(\.id)
         )
         if let sourceID = sources.first(where: { $0.kind == .storyteller })?.id {
-            try migrateLegacyTopLevelContents(
-                domain: .storyteller,
-                sourceID: sourceID,
+            try migrateLegacyRoot(
+                from: legacySourceCacheRootDirectory(),
+                to: sourceCacheRootDirectory(),
+                defaultDestination: sourceCacheDirectory(sourceID: sourceID),
+                defaultSourceID: sourceID,
                 configuredSourceIDs: storytellerIDs,
             )
         }
@@ -75,23 +75,63 @@ extension FilesystemActor {
                 .map(\.id)
         )
         if let sourceID = sources.first(where: { $0.kind == .localFolder })?.id {
-            try migrateLegacyTopLevelContents(
-                domain: .local,
-                sourceID: sourceID,
+            try migrateLegacyRoot(
+                from: legacyLocalFolderRootDirectory(),
+                to: internalFolderSourceRootDirectory(),
+                defaultDestination: internalFolderSourceDirectory(sourceID: sourceID),
+                defaultSourceID: sourceID,
                 configuredSourceIDs: localFolderIDs,
             )
         }
 
-        try writeMigrationSentinel(Self.sourceDomainLayoutMigrationID)
+        try writeMigrationSentinel(Self.sourceStorageLayoutMigrationID)
     }
 
-    func migrateLegacyTopLevelContents(
-        domain: LocalMediaDomain,
+    private func migrateLegacyRoot(
+        from legacyRoot: URL,
+        to modernRoot: URL,
+        defaultDestination: URL,
+        defaultSourceID: BookSourceID,
+        configuredSourceIDs: Set<BookSourceID>,
+    ) throws {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: legacyRoot.path) {
+            try ensureDirectoryExists(at: modernRoot)
+            let contents = try fm.contentsOfDirectory(
+                at: legacyRoot,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [],
+            )
+            for item in contents {
+                let target = modernRoot.appendingPathComponent(
+                    item.lastPathComponent,
+                    isDirectory: item.hasDirectoryPath,
+                )
+                if fm.fileExists(atPath: target.path) {
+                    continue
+                }
+                try fm.moveItem(at: item, to: target)
+            }
+            if (try? fm.contentsOfDirectory(atPath: legacyRoot.path).isEmpty) == true {
+                try? fm.removeItem(at: legacyRoot)
+            }
+        }
+
+        try migrateLegacyTopLevelContents(
+            root: modernRoot,
+            destination: defaultDestination,
+            sourceID: defaultSourceID,
+            configuredSourceIDs: configuredSourceIDs,
+        )
+    }
+
+    private func migrateLegacyTopLevelContents(
+        root: URL,
+        destination: URL,
         sourceID: BookSourceID,
         configuredSourceIDs: Set<BookSourceID>,
     ) throws {
-        let root = getDomainDirectory(for: domain)
-        let destination = getDomainDirectory(for: domain, sourceID: sourceID)
+        try ensureDirectoryExists(at: root)
         try ensureDirectoryExists(at: destination)
 
         let destinationMarker = destination.appendingPathComponent(

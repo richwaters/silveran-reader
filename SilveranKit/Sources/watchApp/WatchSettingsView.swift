@@ -8,6 +8,8 @@ struct WatchSettingsView: View {
     @State private var serverURL: String = ""
     @State private var username: String = ""
     @State private var password: String = ""
+    @State private var storytellerSources: [BookSourceRecord] = []
+    @State private var selectedSourceID: BookSourceID?
     @State private var isConnecting = false
     @State private var connectionStatus: ConnectionStatus = .disconnected
     @State private var isSyncingFromPhone = false
@@ -22,6 +24,10 @@ struct WatchSettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Storyteller Server")
                         .font(.headline)
+
+                    if storytellerSources.count > 1 {
+                        sourcePicker
+                    }
 
                     statusSection
 
@@ -92,6 +98,20 @@ struct WatchSettingsView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var sourcePicker: some View {
+        Picker("Server", selection: $selectedSourceID) {
+            ForEach(storytellerSources) { source in
+                Text(source.name).tag(Optional(source.id))
+            }
+        }
+        .font(.caption2)
+        .onChange(of: selectedSourceID) {
+            Task {
+                await loadCredentialsForSelectedSource()
+            }
+        }
     }
 
     private var statusIcon: String {
@@ -278,15 +298,44 @@ struct WatchSettingsView: View {
     }
 
     private func loadExistingCredentials() async {
+        storytellerSources = await BookServiceActor.shared.bookSources
+            .filter { $0.kind == .storyteller }
+        if selectedSourceID == nil || !storytellerSources.contains(where: { $0.id == selectedSourceID }) {
+            selectedSourceID = storytellerSources.first?.id
+        }
+        await loadCredentialsForSelectedSource()
+    }
+
+    private func loadCredentialsForSelectedSource() async {
+        guard let selectedSourceID else {
+            serverURL = ""
+            username = ""
+            password = ""
+            hasCredentials = false
+            connectionStatus = .disconnected
+            return
+        }
+
         do {
-            if let credentials = try await AuthenticationActor.shared.loadCredentials() {
+            if let credentials = try await AuthenticationActor.shared.loadCredentials(
+                sourceID: selectedSourceID,
+            ) {
                 serverURL = credentials.url
                 username = credentials.username
                 password = credentials.password
                 hasCredentials = true
-
-                connectionStatus = await BookServiceActor.shared.connectionStatus
+            } else {
+                serverURL = ""
+                username = ""
+                password = ""
+                hasCredentials = false
+                connectionStatus = .disconnected
+                return
             }
+
+            connectionStatus = await BookServiceActor.shared.connectionStatus(
+                sourceID: selectedSourceID,
+            )
         } catch {
             debugLog("[WatchSettingsView] Failed to load credentials: \(error)")
         }
@@ -309,7 +358,7 @@ struct WatchSettingsView: View {
             }
         }
 
-        WatchSessionManager.shared.requestCredentialsFromPhone()
+        WatchSessionManager.shared.requestCredentialsFromPhone(sourceID: selectedSourceID)
 
         Task {
             try? await Task.sleep(for: .seconds(10))
@@ -326,13 +375,22 @@ struct WatchSettingsView: View {
         errorMessage = nil
 
         do {
+            guard let selectedSourceID else {
+                connectionStatus = .error("No server selected")
+                errorMessage = "No server selected"
+                isConnecting = false
+                return
+            }
+
             try await AuthenticationActor.shared.saveCredentials(
                 url: serverURL,
                 username: username,
                 password: password,
+                sourceID: selectedSourceID,
             )
 
             let success = await BookServiceActor.shared.setLogin(
+                sourceID: selectedSourceID,
                 baseURL: serverURL,
                 username: username,
                 password: password,
@@ -355,9 +413,10 @@ struct WatchSettingsView: View {
     }
 
     private func removeServer() async {
+        guard let selectedSourceID else { return }
         do {
-            try await AuthenticationActor.shared.deleteCredentials()
-            _ = await BookServiceActor.shared.logout()
+            try await AuthenticationActor.shared.deleteCredentials(sourceID: selectedSourceID)
+            _ = await BookServiceActor.shared.logout(sourceID: selectedSourceID)
 
             serverURL = ""
             username = ""

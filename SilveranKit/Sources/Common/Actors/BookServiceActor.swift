@@ -32,10 +32,6 @@ public actor BookServiceActor {
         return sourceActor(for: sourceID) as? StorytellerActor
     }
 
-    private func firstStorytellerSourceID() -> BookSourceID? {
-        sourceRecords.first(where: { $0.kind == .storyteller })?.id
-    }
-
     private func resolveExplicitSourceID(_ sourceID: BookSourceID?) -> BookSourceID? {
         guard let sourceID else { return nil }
 
@@ -66,13 +62,6 @@ public actor BookServiceActor {
         get async {
             await ensureSourceRegistryLoaded()
             return sourceRecords
-        }
-    }
-
-    public var lastUpdateBookError: String? {
-        get async {
-            await ensureSourceRegistryLoaded()
-            return await lastUpdateBookError(sourceID: firstStorytellerSourceID())
         }
     }
 
@@ -212,20 +201,6 @@ public actor BookServiceActor {
         for actor in storytellerActors() {
             await actor.setLastNetworkOpSucceeded(succeeded)
         }
-    }
-
-    public func setLogin(
-        baseURL baseURLString: String,
-        username: String,
-        password: String,
-    ) async -> Bool {
-        await ensureSourceRegistryLoaded()
-        guard let sourceID = firstStorytellerSourceID(),
-            let actor = await storytellerActor(for: sourceID)
-        else {
-            return false
-        }
-        return await actor.setLogin(baseURL: baseURLString, username: username, password: password)
     }
 
     public func setLogin(
@@ -383,7 +358,7 @@ public actor BookServiceActor {
                         stamped.source = updatedRecord.name
                         return stamped
                     }
-                    try? await LocalMediaActor.shared.updateStorytellerMetadata(
+                    try? await LocalMediaActor.shared.updateSourceCacheMetadata(
                         stamped,
                         replacingSourceID: sourceID,
                     )
@@ -417,7 +392,7 @@ public actor BookServiceActor {
         removeLocalData: Bool = true,
     ) async -> Bool {
         await ensureSourceRegistryLoaded()
-        guard let record = sourceRecords.first(where: { $0.id == sourceID }) else {
+        guard sourceRecords.contains(where: { $0.id == sourceID }) else {
             return false
         }
 
@@ -427,8 +402,8 @@ public actor BookServiceActor {
 
         do {
             try await AuthenticationActor.shared.deleteCredentials(sourceID: sourceID)
-            if record.kind == .storyteller, removeLocalData {
-                try await LocalMediaActor.shared.removeStorytellerData(sourceID: sourceID)
+            if removeLocalData {
+                try await LocalMediaActor.shared.removeSourceCacheData(sourceID: sourceID)
             }
         } catch {
             return false
@@ -747,6 +722,11 @@ public actor BookServiceActor {
         return didLogout
     }
 
+    public func logout(sourceID: BookSourceID) async -> Bool {
+        guard let storyteller = await storytellerActor(for: sourceID) else { return false }
+        return await storyteller.logout()
+    }
+
     public func sendProgressToServer(
         bookId: String,
         sourceID: BookSourceID,
@@ -793,7 +773,6 @@ public actor BookServiceActor {
                         sourcesByID[record.id] = actor
                     }
 
-                    await migrateDefaultCredentialsIfNeeded(for: record)
                     if !(await actor.isConfigured),
                         let credentials = try? await AuthenticationActor.shared.loadCredentials(
                             sourceID: record.id,
@@ -820,22 +799,6 @@ public actor BookServiceActor {
             guard record.kind == .storyteller else { return nil }
             return sourcesByID[record.id] as? StorytellerActor
         }
-    }
-
-    private func migrateDefaultCredentialsIfNeeded(for record: BookSourceRecord) async {
-        guard record.kind == .storyteller,
-            !(await AuthenticationActor.shared.hasCredentials(sourceID: record.id)),
-            let oldCredentials = try? await AuthenticationActor.shared.loadCredentials()
-        else {
-            return
-        }
-
-        try? await AuthenticationActor.shared.saveCredentials(
-            url: oldCredentials.url,
-            username: oldCredentials.username,
-            password: oldCredentials.password,
-            sourceID: record.id,
-        )
     }
 
     private func upsertSourceRecord(_ record: BookSourceRecord) async {
@@ -867,10 +830,7 @@ public actor BookServiceActor {
     ) async -> URL? {
         switch kind {
             case .storyteller:
-                return try? await FilesystemActor.shared.ensureSourceDirectory(
-                    for: .storyteller,
-                    sourceID: sourceID,
-                )
+                return nil
             case .localFolder:
                 if let configuredPath,
                     !configuredPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -879,10 +839,7 @@ public actor BookServiceActor {
                     try? await FilesystemActor.shared.ensureDirectoryExists(at: url)
                     return url
                 }
-                return try? await FilesystemActor.shared.ensureSourceDirectory(
-                    for: .local,
-                    sourceID: sourceID,
-                )
+                return nil
         }
     }
 

@@ -7,14 +7,19 @@ extension FilesystemActor {
         let sources = try createLegacyBookSourceRecords()
         try saveBookSources(sources)
         writeMigrationSentinelBestEffort(Self.bookSourceRegistryMigrationID)
-        markSourceDomainLayoutMigrationCompletedBestEffort()
         return sources
     }
 
     private func createLegacyBookSourceRecords() throws -> [BookSourceRecord] {
         let now = ISO8601DateFormatter().string(from: Date())
-        let storytellerID = try migrateLegacyDomainDirectory(domain: .storyteller)
-        let localFolderID = try migrateLegacyDomainDirectory(domain: .local)
+        let storytellerID = try legacySourceID(
+            legacyRoot: legacySourceCacheRootDirectory(),
+            modernRoot: sourceCacheRootDirectory(),
+        )
+        let localFolderID = try legacySourceID(
+            legacyRoot: legacyLocalFolderRootDirectory(),
+            modernRoot: internalFolderSourceRootDirectory(),
+        )
 
         return [
             BookSourceRecord(
@@ -24,7 +29,7 @@ extension FilesystemActor {
                 capabilities: .storyteller,
                 createdAt: now,
                 updatedAt: now,
-                storagePath: getDomainDirectory(for: .storyteller, sourceID: storytellerID).path,
+                storagePath: nil,
             ),
             BookSourceRecord(
                 id: localFolderID,
@@ -33,64 +38,33 @@ extension FilesystemActor {
                 capabilities: .localFolder,
                 createdAt: now,
                 updatedAt: now,
-                storagePath: getDomainDirectory(for: .local, sourceID: localFolderID).path,
+                storagePath: internalFolderSourceDirectory(sourceID: localFolderID).path,
             ),
         ]
     }
 
-    private func migrateLegacyDomainDirectory(domain: LocalMediaDomain) throws -> BookSourceID {
-        let root = getDomainDirectory(for: domain)
-        try ensureDirectoryExists(at: root)
-
-        if let existingID = try sourceIDFromChildDirectory(in: root) {
-            try migrateLegacyTopLevelContents(
-                domain: domain,
-                sourceID: existingID,
-                configuredSourceIDs: [existingID],
-            )
+    private func legacySourceID(legacyRoot: URL, modernRoot: URL) throws -> BookSourceID {
+        if let existingID = try sourceIDFromChildDirectory(in: modernRoot) {
+            return existingID
+        }
+        if let existingID = try sourceIDFromChildDirectory(in: legacyRoot) {
             return existingID
         }
 
-        let markerURL = root.appendingPathComponent(
-            BookSourceRecord.sourceIDFilename,
-            isDirectory: false,
-        )
-        let sourceID: BookSourceID
-        if let existing = try? String(contentsOf: markerURL, encoding: .utf8)
+        for root in [modernRoot, legacyRoot] {
+            let markerURL = root.appendingPathComponent(
+                BookSourceRecord.sourceIDFilename,
+                isDirectory: false,
+            )
+            if let existing = try? String(contentsOf: markerURL, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !existing.isEmpty
-        {
-            sourceID = existing
-        } else {
-            sourceID = UUID().uuidString
-            try sourceID.write(to: markerURL, atomically: true, encoding: .utf8)
+            {
+                return existing
+            }
         }
 
-        let destination = getDomainDirectory(for: domain, sourceID: sourceID)
-        try ensureDirectoryExists(at: destination)
-        let destinationMarker = destination.appendingPathComponent(
-            BookSourceRecord.sourceIDFilename,
-            isDirectory: false,
-        )
-        try sourceID.write(to: destinationMarker, atomically: true, encoding: .utf8)
-
-        try migrateLegacyTopLevelContents(
-            domain: domain,
-            sourceID: sourceID,
-            configuredSourceIDs: [sourceID],
-        )
-
-        return sourceID
-    }
-
-    private func markSourceDomainLayoutMigrationCompletedBestEffort() {
-        do {
-            try markSourceDomainLayoutMigrationCompleted()
-        } catch {
-            debugLog(
-                "[FilesystemActor] Failed to write source domain layout migration sentinel: \(error)"
-            )
-        }
+        return UUID().uuidString
     }
 
     private func writeMigrationSentinelBestEffort(_ migrationID: String) {
@@ -103,6 +77,7 @@ extension FilesystemActor {
 
     private func sourceIDFromChildDirectory(in root: URL) throws -> BookSourceID? {
         let fm = FileManager.default
+        guard fm.fileExists(atPath: root.path) else { return nil }
         let contents = try fm.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -129,4 +104,88 @@ extension FilesystemActor {
         return nil
     }
 
+    func legacySourceCacheRootDirectory() -> URL {
+        migrationApplicationSupportBaseDirectory()
+            .appendingPathComponent("storyteller_media", isDirectory: true)
+    }
+
+    func legacySourceCacheDirectory(sourceID: BookSourceID?) -> URL {
+        guard let sourceID else { return legacySourceCacheRootDirectory() }
+        return legacySourceCacheRootDirectory()
+            .appendingPathComponent(migrationSanitizedPathComponent(from: sourceID), isDirectory: true)
+    }
+
+    func legacyLocalFolderRootDirectory() -> URL {
+        migrationApplicationSupportBaseDirectory()
+            .appendingPathComponent("local_media", isDirectory: true)
+    }
+
+    func legacyLocalFolderDirectory(sourceID: BookSourceID?) -> URL {
+        guard let sourceID else { return legacyLocalFolderRootDirectory() }
+        return legacyLocalFolderRootDirectory()
+            .appendingPathComponent(migrationSanitizedPathComponent(from: sourceID), isDirectory: true)
+    }
+
+    private func migrationApplicationSupportBaseDirectory() -> URL {
+        let fm = FileManager.default
+        let bundleID = Bundle.main.bundleIdentifier ?? "SilveranReader"
+
+        #if os(tvOS)
+        let cachesDir = try! fm.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true,
+        )
+        return cachesDir.appendingPathComponent(bundleID, isDirectory: true)
+        #else
+        let appSupport = try! fm.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true,
+        )
+
+        if appSupport.path.contains("/Containers/") {
+            return appSupport
+        } else {
+            return appSupport.appendingPathComponent(bundleID, isDirectory: true)
+        }
+        #endif
+    }
+
+    private func migrationSanitizedPathComponent(from input: String) -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "" }
+
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
+        var result = ""
+        result.reserveCapacity(trimmed.count)
+        var lastWasSeparator = false
+
+        for scalar in trimmed.unicodeScalars {
+            if allowed.contains(scalar) {
+                let character = Character(scalar)
+                if character.isWhitespace {
+                    if !lastWasSeparator && !result.isEmpty {
+                        result.append(" ")
+                        lastWasSeparator = true
+                    }
+                } else {
+                    result.append(character)
+                    lastWasSeparator = false
+                }
+            } else if !lastWasSeparator && !result.isEmpty {
+                result.append(" ")
+                lastWasSeparator = true
+            }
+        }
+
+        let sanitized = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sanitized.count > 120 {
+            let endIndex = sanitized.index(sanitized.startIndex, offsetBy: 120)
+            return String(sanitized[..<endIndex])
+        }
+        return sanitized
+    }
 }

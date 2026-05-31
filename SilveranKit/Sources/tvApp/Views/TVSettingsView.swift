@@ -7,12 +7,27 @@ struct TVSettingsView: View {
     @State private var settingsViewModel = TVSettingsViewModel()
 
     private var isConnected: Bool {
-        mediaViewModel.connectionStatus == .connected
+        settingsViewModel.connectionStatus == .connected
     }
 
     var body: some View {
         NavigationStack {
             Form {
+                if settingsViewModel.storytellerSources.count > 1 {
+                    Section("Book Source") {
+                        Picker("Storyteller Server", selection: $settingsViewModel.selectedSourceID) {
+                            ForEach(settingsViewModel.storytellerSources) { source in
+                                Text(source.name).tag(Optional(source.id))
+                            }
+                        }
+                        .onChange(of: settingsViewModel.selectedSourceID) {
+                            Task {
+                                await settingsViewModel.loadCredentialsForSelectedSource()
+                            }
+                        }
+                    }
+                }
+
                 Section("Server Connection") {
                     TextField("Server URL", text: $settingsViewModel.serverURL)
                         .textContentType(.URL)
@@ -36,7 +51,7 @@ struct TVSettingsView: View {
                         Button {
                             Task {
                                 await settingsViewModel.testConnection()
-                                let status = await BookServiceActor.shared.connectionStatus
+                                let status = settingsViewModel.connectionStatus
                                 if status == .connected {
                                     let _ = await BookServiceActor.shared.fetchLibraryInformation()
                                 }

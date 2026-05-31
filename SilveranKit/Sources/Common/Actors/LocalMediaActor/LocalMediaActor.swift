@@ -28,8 +28,8 @@ public enum LocalMediaImportEvent: Sendable {
 @globalActor
 public actor LocalMediaActor: GlobalActor {
     public static let shared = LocalMediaActor()
-    private(set) public var localStorytellerMetadata: [BookMetadata] = []
-    private(set) public var localStorytellerBookPaths: [String: MediaPaths] = [:]
+    private(set) public var sourceCacheMetadata: [BookMetadata] = []
+    private(set) public var sourceCacheBookPaths: [String: MediaPaths] = [:]
     private let filesystem: FilesystemActor
     private let localLibrary: LocalLibraryManager
     private var periodicScanTask: Task<Void, Never>?
@@ -101,50 +101,39 @@ public actor LocalMediaActor: GlobalActor {
         }
     }
 
-    private func migratedSourceID(
-        for kind: BookSourceKind
-    ) async -> BookSourceID? {
-        await SilveranMigrations.ensureMigrationsRan()
-        guard let sources = try? await filesystem.loadOrCreateBookSources(),
-            let source = sources.first(where: { $0.kind == kind })
-        else {
-            return nil
-        }
-        return source.id
-    }
-
-    public func updateStorytellerMetadata(
+    public func updateSourceCacheMetadata(
         _ metadata: [BookMetadata],
         replacingSourceID sourceID: BookSourceID? = nil,
     ) async throws {
         await SilveranMigrations.ensureMigrationsRan()
-        let targetSourceID: BookSourceID?
-        if let sourceID {
-            targetSourceID = sourceID
-        } else {
-            targetSourceID = await migratedSourceID(for: .storyteller)
-        }
-        guard let targetSourceID else { return }
-        let stampedMetadata = self.metadata(
-            metadata,
-            stampedWith: targetSourceID,
-        )
         _ = try await filesystem.loadOrCreateBookSources()
         let nextMetadata: [BookMetadata]
         if let sourceID {
-            let preserved = localStorytellerMetadata.filter {
+            let stampedMetadata = self.metadata(
+                metadata,
+                stampedWith: sourceID,
+            )
+            let preserved = sourceCacheMetadata.filter {
                 $0.sourceID != sourceID
             }
             nextMetadata = preserved + stampedMetadata
         } else {
-            nextMetadata = stampedMetadata
+            let incomingBySourceID = metadataBySourceID(metadata)
+            guard !incomingBySourceID.isEmpty else { return }
+            let replacedSourceIDs = Set(incomingBySourceID.keys)
+            let preserved = sourceCacheMetadata.filter { book in
+                guard let sourceID = book.sourceID else { return false }
+                return !replacedSourceIDs.contains(sourceID)
+            }
+            nextMetadata = preserved + incomingBySourceID.values.flatMap { $0 }
         }
-        localStorytellerMetadata = nextMetadata
-        let grouped = Dictionary(grouping: nextMetadata) { book in
-            book.sourceID ?? targetSourceID
+        sourceCacheMetadata = nextMetadata
+        let grouped = metadataBySourceID(nextMetadata)
+        if let sourceID, grouped[sourceID] == nil {
+            try await filesystem.saveSourceCacheLibraryMetadata([], sourceID: sourceID)
         }
         for (groupSourceID, groupMetadata) in grouped {
-            try await filesystem.saveStorytellerLibraryMetadata(
+            try await filesystem.saveSourceCacheLibraryMetadata(
                 groupMetadata,
                 sourceID: groupSourceID,
             )
@@ -152,14 +141,14 @@ public actor LocalMediaActor: GlobalActor {
 
         var paths: [String: MediaPaths] = [:]
         for book in nextMetadata {
+            guard let sourceID = book.sourceID else { continue }
             let mediaPaths = await scanBookPaths(
                 for: book.uuid,
-                domain: .storyteller,
-                sourceID: book.sourceID ?? targetSourceID,
+                sourceID: sourceID,
             )
             paths[book.uuid] = mediaPaths
         }
-        localStorytellerBookPaths = paths
+        sourceCacheBookPaths = paths
 
         let positions = Dictionary(
             uniqueKeysWithValues: nextMetadata.compactMap { book -> (String, BookReadingPosition)? in
@@ -172,18 +161,29 @@ public actor LocalMediaActor: GlobalActor {
         await notifyObservers()
     }
 
+    private func metadataBySourceID(_ metadata: [BookMetadata])
+        -> [BookSourceID: [BookMetadata]]
+    {
+        var grouped: [BookSourceID: [BookMetadata]] = [:]
+        for book in metadata {
+            guard let sourceID = book.sourceID else { continue }
+            grouped[sourceID, default: []].append(book)
+        }
+        return grouped
+    }
+
     public func updateBookProgress(bookId: String, locator: BookLocator, timestamp: Double) async {
         debugLog("[LocalMediaActor] updateBookProgress: bookId=\(bookId), timestamp=\(timestamp)")
 
         let updatedAtString = Date(timeIntervalSince1970: timestamp / 1000).ISO8601Format()
 
-        if let index = localStorytellerMetadata.firstIndex(where: { $0.uuid == bookId }) {
-            let existing = localStorytellerMetadata[index]
+        if let index = sourceCacheMetadata.firstIndex(where: { $0.uuid == bookId }) {
+            let existing = sourceCacheMetadata[index]
             let existingTimestamp = existing.position?.timestamp ?? 0
 
             if timestamp <= existingTimestamp {
                 debugLog(
-                    "[LocalMediaActor] updateBookProgress: skipping storyteller update, existing is newer (incoming: \(timestamp), existing: \(existingTimestamp))"
+                    "[LocalMediaActor] updateBookProgress: skipping source-cache update, existing is newer (incoming: \(timestamp), existing: \(existingTimestamp))"
                 )
             } else {
                 let newPosition = BookReadingPosition(
@@ -218,8 +218,8 @@ public actor LocalMediaActor: GlobalActor {
                 updatedMetadata.sourceID =
                     existing.sourceID
                 updatedMetadata.source = existing.source
-                localStorytellerMetadata[index] = updatedMetadata
-                debugLog("[LocalMediaActor] updateBookProgress: updated storyteller metadata")
+                sourceCacheMetadata[index] = updatedMetadata
+                debugLog("[LocalMediaActor] updateBookProgress: updated source-cache metadata")
             }
         }
 
@@ -228,10 +228,10 @@ public actor LocalMediaActor: GlobalActor {
     }
 
     public func updateBookStatus(bookId: String, status: BookStatus) async {
-        guard let index = localStorytellerMetadata.firstIndex(where: { $0.uuid == bookId }) else {
+        guard let index = sourceCacheMetadata.firstIndex(where: { $0.uuid == bookId }) else {
             return
         }
-        let existing = localStorytellerMetadata[index]
+        let existing = sourceCacheMetadata[index]
         var updatedMetadata = BookMetadata(
             uuid: existing.uuid,
             title: existing.title,
@@ -256,7 +256,7 @@ public actor LocalMediaActor: GlobalActor {
         )
         updatedMetadata.sourceID = existing.sourceID
         updatedMetadata.source = existing.source
-        localStorytellerMetadata[index] = updatedMetadata
+        sourceCacheMetadata[index] = updatedMetadata
         await notifyObservers()
     }
 
@@ -265,47 +265,38 @@ public actor LocalMediaActor: GlobalActor {
         try await filesystem.ensureLocalStorageDirectories()
         let bookSources = try await filesystem.loadOrCreateBookSources()
 
-        var storytellerMetadata: [BookMetadata] = []
-        let storytellerSourceIDs = bookSources.filter { $0.kind == .storyteller }.map(\.id)
-        for (index, sourceID) in storytellerSourceIDs.enumerated() {
-            let loadedMetadata: [BookMetadata]?
-            if let loaded = try await filesystem.loadStorytellerLibraryMetadata(sourceID: sourceID) {
-                loadedMetadata = loaded
-            } else if index == 0,
-                let legacy = try await filesystem.loadLegacyStorytellerLibraryMetadata()
-            {
-                loadedMetadata = legacy
-            } else {
-                loadedMetadata = nil
-            }
-
-            guard let loadedMetadata else { continue }
-            let stampedMetadata = metadata(loadedMetadata, stampedWith: sourceID)
-            storytellerMetadata.append(contentsOf: stampedMetadata)
+        var cachedMetadata: [BookMetadata] = []
+        for source in bookSources {
+            guard
+                let loadedMetadata = try await filesystem.loadSourceCacheLibraryMetadata(
+                    sourceID: source.id,
+                )
+            else { continue }
+            let stampedMetadata = metadata(loadedMetadata, stampedWith: source.id)
+            cachedMetadata.append(contentsOf: stampedMetadata)
             if stampedMetadata != loadedMetadata {
-                try await filesystem.saveStorytellerLibraryMetadata(
+                try await filesystem.saveSourceCacheLibraryMetadata(
                     stampedMetadata,
-                    sourceID: sourceID,
+                    sourceID: source.id,
                 )
             }
         }
 
-        localStorytellerMetadata = storytellerMetadata
+        sourceCacheMetadata = cachedMetadata
 
-        var storytellerPaths: [String: MediaPaths] = [:]
-        for book in localStorytellerMetadata {
+        var cachedPaths: [String: MediaPaths] = [:]
+        for book in sourceCacheMetadata {
             guard let sourceID = book.sourceID else { continue }
             let mediaPaths = await scanBookPaths(
                 for: book.uuid,
-                domain: .storyteller,
                 sourceID: sourceID,
             )
-            storytellerPaths[book.uuid] = mediaPaths
+            cachedPaths[book.uuid] = mediaPaths
         }
-        localStorytellerBookPaths = storytellerPaths
+        sourceCacheBookPaths = cachedPaths
 
         var allPositions: [String: BookReadingPosition] = [:]
-        for book in storytellerMetadata {
+        for book in cachedMetadata {
             if let pos = book.position {
                 allPositions[book.uuid] = pos
             }
@@ -317,8 +308,7 @@ public actor LocalMediaActor: GlobalActor {
 
     private func scanBookPaths(
         for uuid: String,
-        domain: LocalMediaDomain,
-        sourceID: BookSourceID? = nil,
+        sourceID: BookSourceID,
     ) async -> MediaPaths {
         var paths = MediaPaths()
         let fm = FileManager.default
@@ -328,7 +318,6 @@ public actor LocalMediaActor: GlobalActor {
                 let categoryDir = await filesystem.mediaDirectory(
                     for: uuid,
                     category: category,
-                    in: domain,
                     sourceID: sourceID,
                 )
             else {
@@ -360,29 +349,11 @@ public actor LocalMediaActor: GlobalActor {
 
     public func listAvailableUuids() async -> Set<String> {
         do {
-            try await filesystem.ensureLocalStorageDirectories()
-            guard let storytellerSourceID = await migratedSourceID(for: .storyteller) else {
-                return Set(localStorytellerMetadata.map(\.uuid))
-            }
-            if let metadata = try await filesystem.loadStorytellerLibraryMetadata(
-                sourceID: storytellerSourceID,
-            ) {
-                let stampedMetadata = self.metadata(
-                    metadata,
-                    stampedWith: storytellerSourceID,
-                )
-                localStorytellerMetadata = stampedMetadata
-                return Set(stampedMetadata.map(\.uuid))
-            } else if let metadata = try await filesystem.loadLegacyStorytellerLibraryMetadata() {
-                let stampedMetadata = self.metadata(metadata, stampedWith: storytellerSourceID)
-                localStorytellerMetadata = stampedMetadata
-                return Set(stampedMetadata.map(\.uuid))
-            } else {
-                return Set(localStorytellerMetadata.map(\.uuid))
-            }
+            try await scanForMedia()
+            return Set(sourceCacheMetadata.map(\.uuid))
         } catch {
             debugLog("[LocalMediaActor] listAvailableUuids failed: \(error)")
-            return Set(localStorytellerMetadata.map(\.uuid))
+            return Set(sourceCacheMetadata.map(\.uuid))
         }
     }
 
@@ -394,14 +365,13 @@ public actor LocalMediaActor: GlobalActor {
         else { return [] }
         return await filesystem.downloadedCategories(
             for: uuid,
-            in: .storyteller,
             sourceID: sourceID,
         )
     }
 
     public func cachedMediaPaths(for metadata: [BookMetadata]) async -> [String: MediaPaths] {
         await SilveranMigrations.ensureMigrationsRan()
-        var paths = localStorytellerBookPaths
+        var paths = sourceCacheBookPaths
         for book in metadata {
             guard let sourceID = book.sourceID else { continue }
             var mediaPaths = paths[book.uuid] ?? MediaPaths()
@@ -445,7 +415,6 @@ public actor LocalMediaActor: GlobalActor {
         return await filesystem.mediaDirectory(
             for: uuid,
             category: category,
-            in: .storyteller,
             sourceID: sourceID,
         )
     }
@@ -455,7 +424,7 @@ public actor LocalMediaActor: GlobalActor {
         category: LocalMediaCategory,
         sourceID explicitSourceID: BookSourceID? = nil,
     ) async -> URL? {
-        if let paths = localStorytellerBookPaths[uuid] {
+        if let paths = sourceCacheBookPaths[uuid] {
             switch category {
                 case .ebook: return paths.ebookPath
                 case .audio: return paths.audioPath
@@ -468,13 +437,12 @@ public actor LocalMediaActor: GlobalActor {
             let categoryDir = await filesystem.mediaDirectory(
                 for: uuid,
                 category: category,
-                in: .storyteller,
                 sourceID: sourceID,
             )
         else { return nil }
 
-        var paths = await scanBookPaths(for: uuid, domain: .storyteller, sourceID: sourceID)
-        localStorytellerBookPaths[uuid] = paths
+        var paths = await scanBookPaths(for: uuid, sourceID: sourceID)
+        sourceCacheBookPaths[uuid] = paths
         switch category {
             case .ebook:
                 if paths.ebookPath == nil {
@@ -501,11 +469,11 @@ public actor LocalMediaActor: GlobalActor {
         if let explicitSourceID {
             return explicitSourceID
         }
-        if let metadataSourceID = localStorytellerMetadata.first(where: { $0.uuid == uuid })?.sourceID
+        if let metadataSourceID = sourceCacheMetadata.first(where: { $0.uuid == uuid })?.sourceID
         {
             return metadataSourceID
         }
-        return await migratedSourceID(for: .storyteller)
+        return nil
     }
 
     private func firstCachedMediaFile(in categoryDir: URL, category: LocalMediaCategory) -> URL? {
@@ -560,52 +528,22 @@ public actor LocalMediaActor: GlobalActor {
         try await filesystem.deleteMedia(
             for: uuid,
             category: category,
-            in: .storyteller,
             sourceID: sourceID,
         )
 
         let updatedPaths = await scanBookPaths(
             for: uuid,
-            domain: .storyteller,
             sourceID: sourceID,
         )
         if updatedPaths.ebookPath == nil && updatedPaths.audioPath == nil
             && updatedPaths.syncedPath == nil
         {
-            localStorytellerBookPaths.removeValue(forKey: uuid)
+            sourceCacheBookPaths.removeValue(forKey: uuid)
         } else {
-            localStorytellerBookPaths[uuid] = updatedPaths
+            sourceCacheBookPaths[uuid] = updatedPaths
         }
 
         await notifyObservers()
-    }
-
-    /// Returns the base directory for the given domain, e.g. `<ApplicationSupport>/storyteller_media`.
-    public func getDomainDirectory(for domain: LocalMediaDomain) async -> URL {
-        await filesystem.getDomainDirectory(for: domain)
-    }
-
-    /// Returns the directory for the supplied domain/category pair and book name.
-    /// - Parameters:
-    ///   - domain: Storage domain (e.g. `.local`).
-    ///   - category: Media category (e.g. `.audio`).
-    ///   - bookName: Display name used for the nested book folder.
-    ///   - uuidIdentifier: Optional identifier used to produce a stable folder name (e.g. a Storyteller book UUID).
-    /// - Returns: `<ApplicationSupport>/<domain>/foo/<category>` when `bookName == "foo"`. Supplying a UUID ensures all imports reuse the same folder; without a UUID (local media) a numeric suffix is appended when a folder already exists.
-    public func getMediaDirectory(
-        domain: LocalMediaDomain,
-        category: LocalMediaCategory,
-        bookName: String,
-        uuidIdentifier: String? = nil,
-        sourceID: BookSourceID? = nil,
-    ) async -> URL {
-        await filesystem.getMediaDirectory(
-            domain: domain,
-            category: category,
-            bookName: bookName,
-            uuidIdentifier: uuidIdentifier,
-            sourceID: sourceID,
-        )
     }
 
     public static func category(forFileURL url: URL) throws -> LocalMediaCategory {
@@ -623,7 +561,7 @@ public actor LocalMediaActor: GlobalActor {
         AsyncThrowingStream { continuation in
             let task = Task { [self] in
                 do {
-                    try await self.streamStorytellerImport(
+                    try await self.streamSourceCacheImport(
                         metadata: metadata,
                         category: category,
                         continuation: continuation,
@@ -639,35 +577,32 @@ public actor LocalMediaActor: GlobalActor {
         }
     }
 
-    private func streamStorytellerImport(
+    private func streamSourceCacheImport(
         metadata: BookMetadata,
         category: LocalMediaCategory,
         continuation: AsyncThrowingStream<LocalMediaImportEvent, Error>.Continuation,
     ) async throws {
         try await filesystem.ensureLocalStorageDirectories()
-        let storytellerSourceID: BookSourceID
+        let cacheSourceID: BookSourceID
         if let sourceID = metadata.sourceID {
-            storytellerSourceID = sourceID
-        } else if let migrated = await migratedSourceID(for: .storyteller) {
-            storytellerSourceID = migrated
+            cacheSourceID = sourceID
         } else {
             continuation.yield(.skipped(book: metadata, category: category))
             return
         }
 
         let destinationDirectory = await filesystem.getMediaDirectory(
-            domain: .storyteller,
             category: category,
             bookName: metadata.title,
             uuidIdentifier: metadata.uuid,
-            sourceID: storytellerSourceID,
+            sourceID: cacheSourceID,
         )
         let bookRoot = destinationDirectory.deletingLastPathComponent()
         try await filesystem.ensureDirectoryExists(at: bookRoot)
 
         let fm = FileManager.default
 
-        let assetInfo = storytellerAssetInfo(for: metadata, category: category)
+        let assetInfo = sourceAssetInfo(for: metadata, category: category)
         guard assetInfo.available else {
             continuation.yield(.skipped(book: metadata, category: category))
             return
@@ -844,21 +779,18 @@ public actor LocalMediaActor: GlobalActor {
         }
 
         try await filesystem.ensureLocalStorageDirectories()
-        let storytellerSourceID: BookSourceID
+        let cacheSourceID: BookSourceID
         if let sourceID = metadata.sourceID {
-            storytellerSourceID = sourceID
-        } else if let migrated = await migratedSourceID(for: .storyteller) {
-            storytellerSourceID = migrated
+            cacheSourceID = sourceID
         } else {
-            throw LocalMediaError.importFailed("Storyteller source is not configured")
+            throw LocalMediaError.importFailed("Book source is not configured")
         }
 
         let destinationDirectory = await filesystem.getMediaDirectory(
-            domain: .storyteller,
             category: category,
             bookName: metadata.title,
             uuidIdentifier: metadata.uuid,
-            sourceID: storytellerSourceID,
+            sourceID: cacheSourceID,
         )
         let bookRoot = destinationDirectory.deletingLastPathComponent()
         try await filesystem.ensureDirectoryExists(at: bookRoot)
@@ -906,44 +838,44 @@ public actor LocalMediaActor: GlobalActor {
         try await scanForMedia()
     }
 
-    public func removeAllStorytellerData() async throws {
-        try await filesystem.removeAllStorytellerData()
+    public func removeAllSourceCacheData() async throws {
+        try await filesystem.removeAllSourceCacheData()
 
-        localStorytellerMetadata = []
-        localStorytellerBookPaths = [:]
+        sourceCacheMetadata = []
+        sourceCacheBookPaths = [:]
 
         await notifyObservers()
     }
 
-    public func removeStorytellerData(sourceID: BookSourceID) async throws {
-        let booksToRemove = localStorytellerMetadata.filter {
+    public func removeSourceCacheData(sourceID: BookSourceID) async throws {
+        let booksToRemove = sourceCacheMetadata.filter {
             $0.sourceID == sourceID
         }
 
         for book in booksToRemove {
-            try await filesystem.removeStorytellerBookData(uuid: book.uuid, sourceID: sourceID)
+            try await filesystem.removeSourceCacheBookData(uuid: book.uuid, sourceID: sourceID)
         }
 
-        localStorytellerMetadata.removeAll {
+        sourceCacheMetadata.removeAll {
             $0.sourceID == sourceID
         }
-        try await filesystem.saveStorytellerLibraryMetadata([], sourceID: sourceID)
+        try await filesystem.saveSourceCacheLibraryMetadata([], sourceID: sourceID)
 
         var paths: [String: MediaPaths] = [:]
-        for book in localStorytellerMetadata {
+        for book in sourceCacheMetadata {
+            guard let sourceID = book.sourceID else { continue }
             let mediaPaths = await scanBookPaths(
                 for: book.uuid,
-                domain: .storyteller,
-                sourceID: book.sourceID,
+                sourceID: sourceID,
             )
             paths[book.uuid] = mediaPaths
         }
-        localStorytellerBookPaths = paths
+        sourceCacheBookPaths = paths
 
         await notifyObservers()
     }
 
-    private func storytellerAssetInfo(
+    private func sourceAssetInfo(
         for metadata: BookMetadata,
         category: LocalMediaCategory,
     ) -> (available: Bool, format: StorytellerBookFormat) {
@@ -980,12 +912,6 @@ public actor LocalMediaActor: GlobalActor {
             _ = try archive.extract(entry, to: destinationURL)
         }
     }
-
-}
-
-public enum LocalMediaDomain: String, CaseIterable, Sendable {
-    case local = "local_media"
-    case storyteller = "storyteller_media"
 
 }
 

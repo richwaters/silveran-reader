@@ -627,8 +627,8 @@ public actor ProgressSyncActor {
     }
 
     private func pollServerPositions() async {
-        let storytellerMetadata = await BookServiceActor.shared.libraryMetadata
-        let allPaths = await LocalMediaActor.shared.cachedMediaPaths(for: storytellerMetadata)
+        let sourceMetadata = await BookServiceActor.shared.libraryMetadata
+        let allPaths = await LocalMediaActor.shared.cachedMediaPaths(for: sourceMetadata)
         let downloadedBookIds = Set(
             allPaths.filter { _, paths in
                 paths.ebookPath != nil || paths.audioPath != nil || paths.syncedPath != nil
@@ -637,7 +637,7 @@ public actor ProgressSyncActor {
         guard !downloadedBookIds.isEmpty else { return }
 
         let metadataByID = Dictionary(
-            uniqueKeysWithValues: storytellerMetadata.map { ($0.uuid, $0) },
+            uniqueKeysWithValues: sourceMetadata.map { ($0.uuid, $0) },
         )
 
         for bookId in downloadedBookIds {

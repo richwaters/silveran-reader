@@ -656,7 +656,7 @@ public actor StorytellerActor {
                 throw error
             }
 
-            try? await LocalMediaActor.shared.updateStorytellerMetadata(
+            try? await LocalMediaActor.shared.updateSourceCacheMetadata(
                 libraryMetadata,
                 replacingSourceID: sourceRecordValue.id,
             )
