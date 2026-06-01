@@ -9,6 +9,7 @@ import UIKit
 public struct AudiobookPlayerView: View {
     private let bookData: PlayerBookData?
     private let onClose: (() -> Void)?
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var chapterProgress: Double = 0.0
@@ -168,24 +169,33 @@ public struct AudiobookPlayerView: View {
             }
             #if os(iOS)
             .toolbar {
-                if let onClose {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            if let bookData {
-                                LastOpenBookStore.clearIfMatching(
-                                    bookId: bookData.metadata.uuid,
-                                    category: bookData.category,
-                                )
-                            }
-                            onClose()
-                        } label: {
-                            Label("Library", systemImage: "chevron.left")
-                        }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        closeBook()
+                    } label: {
+                        Label("Library", systemImage: "chevron.left")
                     }
                 }
             }
+            .navigationBarBackButtonHidden(true)
             #endif
     }
+
+    #if os(iOS)
+    private func closeBook() {
+        if let bookData {
+            LastOpenBookStore.clearIfMatching(
+                bookId: bookData.metadata.uuid,
+                category: bookData.category,
+            )
+        }
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+    #endif
 
     private var readingSidebarView: some View {
         let bookTitle = bookData?.metadata.title ?? "Unknown Book"
