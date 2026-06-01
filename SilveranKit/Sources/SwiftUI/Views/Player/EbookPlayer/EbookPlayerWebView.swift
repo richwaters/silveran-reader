@@ -248,6 +248,28 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         debugLog("[EbookPlayerWebView] Navigation finished successfully")
         onNavigationFinished()
+        Task { @MainActor in
+            for attempt in 1...20 {
+                do {
+                    let ready =
+                        try await webView.evaluateJavaScript(
+                            "window.bookLoader !== undefined"
+                        ) as? Bool ?? false
+                    if ready {
+                        debugLog(
+                            "[EbookPlayerWebView] Reader ready detected after navigation (attempt \(attempt))"
+                        )
+                        onReaderReady?()
+                        return
+                    }
+                } catch {
+                    // JS context may still be settling immediately after didFinish.
+                }
+
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            debugLog("[EbookPlayerWebView] Reader ready fallback timed out")
+        }
     }
 
     func webView(
