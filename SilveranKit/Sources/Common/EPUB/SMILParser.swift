@@ -55,7 +55,7 @@ public enum SMILParser {
                                 audioFile: entry.audioFile,
                                 begin: entry.begin,
                                 end: entry.end,
-                                cumSumAtEnd: cumulativeTime
+                                cumSumAtEnd: cumulativeTime,
                             )
                         )
                     }
@@ -68,7 +68,7 @@ public enum SMILParser {
                     id: sectionId,
                     label: nil,
                     level: nil,
-                    mediaOverlay: mediaOverlay
+                    mediaOverlay: mediaOverlay,
                 )
             )
         }
@@ -113,7 +113,7 @@ public enum SMILParser {
                     id: section.id,
                     label: label,
                     level: level,
-                    mediaOverlay: section.mediaOverlay
+                    mediaOverlay: section.mediaOverlay,
                 )
             }
             return section
@@ -219,7 +219,7 @@ public enum SMILParser {
     private static func parseTOC(
         from archive: Archive,
         manifest: [String: ManifestItem],
-        opfDir: String
+        opfDir: String,
     ) throws -> [RawTocEntry] {
         let ncxItem = manifest.values.first { $0.mediaType == "application/x-dtbncx+xml" }
 
@@ -320,7 +320,7 @@ public enum SMILParser {
                 textHref: resolvedTextHref,
                 audioFile: entry.audioFile,
                 begin: entry.begin,
-                end: entry.end
+                end: entry.end,
             )
         }
     }
@@ -361,7 +361,7 @@ private class ContainerXMLDelegate: NSObject, XMLParserDelegate {
         didStartElement elementName: String,
         namespaceURI: String?,
         qualifiedName qName: String?,
-        attributes: [String: String]
+        attributes: [String: String],
     ) {
         if elementName == "rootfile" || qName?.hasSuffix(":rootfile") == true {
             opfPath = attributes["full-path"]
@@ -378,7 +378,7 @@ private class OPFXMLDelegate: NSObject, XMLParserDelegate {
         didStartElement elementName: String,
         namespaceURI: String?,
         qualifiedName qName: String?,
-        attributes: [String: String]
+        attributes: [String: String],
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -390,14 +390,14 @@ private class OPFXMLDelegate: NSObject, XMLParserDelegate {
                 href: decodedHref,
                 mediaType: attributes["media-type"],
                 mediaOverlay: attributes["media-overlay"],
-                properties: attributes["properties"]
+                properties: attributes["properties"],
             )
         } else if localName == "itemref" {
             guard let idref = attributes["idref"] else { return }
             spine.append(
                 SMILParser.SpineItem(
                     idref: idref,
-                    mediaOverlay: attributes["media-overlay"]
+                    mediaOverlay: attributes["media-overlay"],
                 )
             )
         }
@@ -423,7 +423,7 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
         didStartElement elementName: String,
         namespaceURI: String?,
         qualifiedName qName: String?,
-        attributes: [String: String]
+        attributes: [String: String],
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -451,7 +451,7 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
                             SMILParser.RawTocEntry(
                                 label: trimmedText,
                                 href: decoded,
-                                level: state.depth
+                                level: state.depth,
                             )
                         )
                         stack[stack.count - 1].emitted = true
@@ -472,7 +472,7 @@ private class NCXXMLDelegate: NSObject, XMLParserDelegate {
         _ parser: XMLParser,
         didEndElement elementName: String,
         namespaceURI: String?,
-        qualifiedName qName: String?
+        qualifiedName qName: String?,
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -508,7 +508,7 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
         didStartElement elementName: String,
         namespaceURI: String?,
         qualifiedName qName: String?,
-        attributes: [String: String]
+        attributes: [String: String],
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -547,7 +547,7 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
         _ parser: XMLParser,
         didEndElement elementName: String,
         namespaceURI: String?,
-        qualifiedName qName: String?
+        qualifiedName qName: String?,
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -566,7 +566,7 @@ private class NavXMLDelegate: NSObject, XMLParserDelegate {
                             SMILParser.RawTocEntry(
                                 label: trimmedText,
                                 href: href,
-                                level: max(0, olDepth - 1)
+                                level: max(0, olDepth - 1),
                             )
                         )
                     }
@@ -623,7 +623,7 @@ private class SMILXMLDelegate: NSObject, XMLParserDelegate {
         didStartElement elementName: String,
         namespaceURI: String?,
         qualifiedName qName: String?,
-        attributes: [String: String]
+        attributes: [String: String],
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -653,7 +653,7 @@ private class SMILXMLDelegate: NSObject, XMLParserDelegate {
         _ parser: XMLParser,
         didEndElement elementName: String,
         namespaceURI: String?,
-        qualifiedName qName: String?
+        qualifiedName qName: String?,
     ) {
         let localName = elementName.components(separatedBy: ":").last ?? elementName
 
@@ -668,7 +668,7 @@ private class SMILXMLDelegate: NSObject, XMLParserDelegate {
                         textHref: textHref,
                         audioFile: resolvedAudioPath,
                         begin: currentClipBegin,
-                        end: currentClipEnd
+                        end: currentClipEnd,
                     )
                 )
             }

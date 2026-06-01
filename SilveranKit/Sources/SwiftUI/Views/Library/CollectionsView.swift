@@ -13,11 +13,15 @@ struct CollectionsView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.collections") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
-    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.collections") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("collections.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -57,7 +61,7 @@ struct CollectionsView: View {
                 name: name,
                 books: group.books,
                 pinId: group.collection?.name != nil
-                    ? SidebarPinHelper.pinId(forCollection: name) : nil
+                    ? SidebarPinHelper.pinId(forCollection: name) : nil,
             )
         }
     }
@@ -128,28 +132,28 @@ extension CollectionsView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: CollectionDetailNavigation.self) { nav in
                 collectionDetailView(
                     for: nav.collectionIdentifier,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 ).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: SeriesDetailNavigation.self) { nav in
                 seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -170,7 +174,7 @@ extension CollectionsView {
                                 iconName: "rectangle.stack.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -187,7 +191,7 @@ extension CollectionsView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -195,25 +199,25 @@ extension CollectionsView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -251,7 +255,7 @@ extension CollectionsView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -266,22 +270,23 @@ extension CollectionsView {
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -289,7 +294,7 @@ extension CollectionsView {
             .navigationDestination(for: CollectionDetailNavigation.self) { nav in
                 collectionDetailView(
                     for: nav.collectionIdentifier,
-                    initialSelectedItem: nav.initialSelectedBook
+                    initialSelectedItem: nav.initialSelectedBook,
                 )
             }
             .navigationDestination(for: SeriesDetailNavigation.self) { nav in
@@ -306,11 +311,13 @@ extension CollectionsView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -319,18 +326,20 @@ extension CollectionsView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }
@@ -342,12 +351,22 @@ extension CollectionsView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
@@ -367,7 +386,7 @@ extension CollectionsView {
 
     @ViewBuilder fileprivate func collectionDetailView(
         for collectionIdentifier: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         let collectionName = findCollectionName(for: collectionIdentifier)
         #if os(iOS)
@@ -383,7 +402,7 @@ extension CollectionsView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(collectionName)
         #else
         MediaGridView(
@@ -397,14 +416,14 @@ extension CollectionsView {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(collectionName)
         #endif
     }
 
     @ViewBuilder fileprivate func seriesDetailView(
         for seriesName: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         #if os(iOS)
         MediaGridView(
@@ -419,7 +438,7 @@ extension CollectionsView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(seriesName)
         #else
         MediaGridView(
@@ -438,7 +457,7 @@ extension CollectionsView {
             },
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(seriesName)
         #endif
     }

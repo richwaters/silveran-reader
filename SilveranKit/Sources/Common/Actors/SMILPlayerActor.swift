@@ -26,7 +26,7 @@ public struct AudioPositionSyncData: Sendable {
         currentTime: Double,
         audioFile: String,
         href: String,
-        fragment: String
+        fragment: String,
     ) {
         self.sectionIndex = sectionIndex
         self.entryIndex = entryIndex
@@ -69,7 +69,7 @@ private class AVPlayerEndObserver: NSObject, @unchecked Sendable {
         observer = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: playerItem,
-            queue: nil
+            queue: nil,
         ) { _ in
             debugLog("[SMILPlayerActor] Audio finished playing")
             Task { @SMILPlayerActor in
@@ -118,7 +118,7 @@ public struct SMILPlaybackState: Sendable {
         bookTotal: Double,
         playbackRate: Double,
         volume: Double,
-        bookId: String?
+        bookId: String?,
     ) {
         self.isPlaying = isPlaying
         self.currentTime = currentTime
@@ -215,7 +215,7 @@ public actor SMILPlayerActor {
         epubPath: URL,
         bookId: String,
         title: String?,
-        author: String?
+        author: String?,
     ) async throws {
         debugLog(
             "[SMILPlayerActor] Loading book: \(bookId) from \(epubPath.path) (existingBookId=\(self.bookId ?? "nil"), structureCount=\(bookStructure.count))"
@@ -368,7 +368,7 @@ public actor SMILPlayerActor {
             entryIndex: entryIndex,
             audioFile: entry.audioFile,
             beginTime: entry.begin,
-            endTime: entry.end
+            endTime: entry.end,
         )
     }
 
@@ -391,7 +391,7 @@ public actor SMILPlayerActor {
             entryIndex: entryIndex,
             audioFile: entry.audioFile,
             beginTime: entry.begin,
-            endTime: entry.end
+            endTime: entry.end,
         )
         return true
     }
@@ -407,7 +407,7 @@ public actor SMILPlayerActor {
             entryIndex: entryIndex,
             audioFile: entry.audioFile,
             beginTime: entry.begin,
-            endTime: entry.end
+            endTime: entry.end,
         )
         return true
     }
@@ -508,7 +508,7 @@ public actor SMILPlayerActor {
 
     public func addStateObserver(
         id: UUID = UUID(),
-        observer: @escaping @Sendable @MainActor (SMILPlaybackState) -> Void
+        observer: @escaping @Sendable @MainActor (SMILPlaybackState) -> Void,
     ) async -> UUID {
         stateObservers[id] = observer
         if let state = buildCurrentState() {
@@ -537,7 +537,7 @@ public actor SMILPlayerActor {
             currentTime: player?.currentTime().seconds ?? 0,
             audioFile: currentAudioFile,
             href: entry.textHref,
-            fragment: entry.textId
+            fragment: entry.textId,
         )
     }
 
@@ -613,7 +613,7 @@ public actor SMILPlayerActor {
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false,
-                options: .notifyOthersOnDeactivation
+                options: .notifyOthersOnDeactivation,
             )
         } catch {
             debugLog("[SMILPlayerActor] Failed to deactivate audio session: \(error)")
@@ -629,7 +629,7 @@ public actor SMILPlayerActor {
         entryIndex: Int,
         audioFile: String,
         beginTime: Double,
-        endTime: Double
+        endTime: Double,
     ) async {
         debugLog(
             "[SMILPlayerActor] setCurrentEntry: section=\(sectionIndex), entry=\(entryIndex), file=\(audioFile)"
@@ -740,7 +740,7 @@ public actor SMILPlayerActor {
             try await FilesystemActor.shared.extractAudioToFile(
                 from: epubPath,
                 audioPath: relativeAudioFile,
-                destination: tempFile
+                destination: tempFile,
             )
 
             debugLog("[SMILPlayerActor] Extracted to temp file: \(tempFile.path)")
@@ -1000,7 +1000,7 @@ public actor SMILPlayerActor {
             bookTotal: bookTotal,
             playbackRate: playbackRate,
             volume: volume,
-            bookId: bookId
+            bookId: bookId,
         )
     }
 
@@ -1050,7 +1050,7 @@ public actor SMILPlayerActor {
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: session,
-            queue: nil
+            queue: nil,
         ) { [weak self] notification in
             guard let self = self else { return }
             self.handleAudioSessionInterruption(notification)
@@ -1059,7 +1059,7 @@ public actor SMILPlayerActor {
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: session,
-            queue: nil
+            queue: nil,
         ) { [weak self] notification in
             guard let self = self else { return }
             self.handleAudioRouteChange(notification)
@@ -1219,7 +1219,7 @@ public actor SMILPlayerActor {
                 duration: state?.chapterTotal ?? 0,
                 chapterLabel: state?.chapterLabel ?? "Playing",
                 isPlaying: state?.isPlaying ?? false,
-                playbackRate: state?.playbackRate ?? 1.0
+                playbackRate: state?.playbackRate ?? 1.0,
             )
         }
     }
@@ -1327,7 +1327,7 @@ class SMILAudioManager {
         duration: Double,
         chapterLabel: String,
         isPlaying: Bool,
-        playbackRate: Double
+        playbackRate: Double,
     ) {
         let rate = isPlaying ? playbackRate : 0.0
 

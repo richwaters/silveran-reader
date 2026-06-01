@@ -29,12 +29,12 @@ public actor FilesystemActor {
         domain: LocalMediaDomain,
         category: LocalMediaCategory,
         bookName: String,
-        uuidIdentifier: String? = nil
+        uuidIdentifier: String? = nil,
     ) async -> URL {
         let folderName = await resolveBookFolderName(
             for: domain,
             bookName: bookName,
-            uuidIdentifier: uuidIdentifier
+            uuidIdentifier: uuidIdentifier,
         )
         return getDomainDirectory(for: domain)
             .appendingPathComponent(folderName, isDirectory: true)
@@ -44,7 +44,7 @@ public actor FilesystemActor {
     public func resolveBookFolderName(
         for domain: LocalMediaDomain,
         bookName: String,
-        uuidIdentifier: String?
+        uuidIdentifier: String?,
     ) async -> String {
         let domainDir = getDomainDirectory(for: domain)
         let sanitizedBase = sanitizedPathComponent(from: bookName)
@@ -57,7 +57,7 @@ public actor FilesystemActor {
         if let uuidSanitized {
             if let existing = try? await existingFolder(
                 matching: uuidSanitized,
-                in: domainDir
+                in: domainDir,
             ) {
                 return existing
             }
@@ -79,14 +79,14 @@ public actor FilesystemActor {
 
     public func downloadedCategories(
         for uuid: String,
-        in domain: LocalMediaDomain
+        in domain: LocalMediaDomain,
     ) async -> Set<LocalMediaCategory> {
         let domainDir = getDomainDirectory(for: domain)
         let sanitizedUuid = sanitizedPathComponent(from: uuid)
         guard
             let folderName = try? await existingFolder(
                 matching: sanitizedUuid,
-                in: domainDir
+                in: domainDir,
             )
         else {
             return []
@@ -102,7 +102,7 @@ public actor FilesystemActor {
                 let contents = try? fm.contentsOfDirectory(
                     at: categoryDir,
                     includingPropertiesForKeys: [.isDirectoryKey],
-                    options: [.skipsHiddenFiles]
+                    options: [.skipsHiddenFiles],
                 )
             else {
                 continue
@@ -124,14 +124,14 @@ public actor FilesystemActor {
     public func mediaDirectory(
         for uuid: String,
         category: LocalMediaCategory,
-        in domain: LocalMediaDomain
+        in domain: LocalMediaDomain,
     ) async -> URL? {
         let domainDir = getDomainDirectory(for: domain)
         let sanitizedUuid = sanitizedPathComponent(from: uuid)
         guard
             let folderName = try? await existingFolder(
                 matching: sanitizedUuid,
-                in: domainDir
+                in: domainDir,
             )
         else {
             return nil
@@ -150,14 +150,14 @@ public actor FilesystemActor {
     public func deleteMedia(
         for uuid: String,
         category: LocalMediaCategory,
-        in domain: LocalMediaDomain
+        in domain: LocalMediaDomain,
     ) async throws {
         let domainDir = getDomainDirectory(for: domain)
         let sanitizedUuid = sanitizedPathComponent(from: uuid)
         guard
             let folderName = try? await existingFolder(
                 matching: sanitizedUuid,
-                in: domainDir
+                in: domainDir,
             )
         else {
             return
@@ -187,7 +187,7 @@ public actor FilesystemActor {
 
         let metadataURL = domainDir.appendingPathComponent(
             "library_metadata.json",
-            isDirectory: false
+            isDirectory: false,
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -199,7 +199,7 @@ public actor FilesystemActor {
         let domainDir = getDomainDirectory(for: .storyteller)
         let metadataURL = domainDir.appendingPathComponent(
             "library_metadata.json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -219,7 +219,7 @@ public actor FilesystemActor {
 
         let metadataURL = domainDir.appendingPathComponent(
             "library_metadata.json",
-            isDirectory: false
+            isDirectory: false,
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -231,7 +231,7 @@ public actor FilesystemActor {
         let domainDir = getDomainDirectory(for: .local)
         let metadataURL = domainDir.appendingPathComponent(
             "library_metadata.json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -255,7 +255,7 @@ public actor FilesystemActor {
         let configDir = getConfigDirectory()
         let queueURL = configDir.appendingPathComponent(
             "offline_progress_queue.json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -275,11 +275,11 @@ public actor FilesystemActor {
 
         let queueURL = configDir.appendingPathComponent(
             "offline_progress_queue.json",
-            isDirectory: false
+            isDirectory: false,
         )
         let tempURL = configDir.appendingPathComponent(
             "offline_progress_queue.tmp",
-            isDirectory: false
+            isDirectory: false,
         )
         let queueSnapshot = queue
         let writeId = pendingQueueWriteId + 1
@@ -322,7 +322,7 @@ public actor FilesystemActor {
         let configDir = getConfigDirectory()
         let historyURL = configDir.appendingPathComponent(
             "sync_history.json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -341,11 +341,11 @@ public actor FilesystemActor {
 
         let historyURL = configDir.appendingPathComponent(
             "sync_history.json",
-            isDirectory: false
+            isDirectory: false,
         )
         let tempURL = configDir.appendingPathComponent(
             "sync_history.tmp",
-            isDirectory: false
+            isDirectory: false,
         )
         let historySnapshot = history
         let writeId = pendingHistoryWriteId + 1
@@ -417,13 +417,23 @@ public actor FilesystemActor {
             .appendingPathComponent("Covers", isDirectory: true)
         let filename = "\(uuid)_\(variant).dat"
         let coverURL = coversDir.appendingPathComponent(filename, isDirectory: false)
-
         let fm = FileManager.default
+
         guard fm.fileExists(atPath: coverURL.path) else {
             return nil
         }
 
         return try? Data(contentsOf: coverURL)
+    }
+
+    public func removeAllCoverImages() throws {
+        let coversDir = applicationSupportBaseDirectory()
+            .appendingPathComponent("Covers", isDirectory: true)
+        let fm = FileManager.default
+
+        if fm.fileExists(atPath: coversDir.path) {
+            try fm.removeItem(at: coversDir)
+        }
     }
 
     public func removeAllStorytellerData() throws {
@@ -434,11 +444,7 @@ public actor FilesystemActor {
             try fm.removeItem(at: storytellerDir)
         }
 
-        let coversDir = applicationSupportBaseDirectory()
-            .appendingPathComponent("Covers", isDirectory: true)
-        if fm.fileExists(atPath: coversDir.path) {
-            try fm.removeItem(at: coversDir)
-        }
+        try removeAllCoverImages()
     }
 
     public func getHighlightsDirectory() -> URL {
@@ -451,7 +457,7 @@ public actor FilesystemActor {
         let sanitizedBookId = bookId.replacingOccurrences(of: "/", with: "_")
         let fileURL = highlightsDir.appendingPathComponent(
             "\(sanitizedBookId).json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -473,7 +479,7 @@ public actor FilesystemActor {
         let sanitizedBookId = bookId.replacingOccurrences(of: "/", with: "_")
         let fileURL = highlightsDir.appendingPathComponent(
             "\(sanitizedBookId).json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let bookHighlights = BookHighlights(bookId: bookId, highlights: highlights)
@@ -484,7 +490,7 @@ public actor FilesystemActor {
 
         let tempURL = highlightsDir.appendingPathComponent(
             "\(sanitizedBookId).tmp",
-            isDirectory: false
+            isDirectory: false,
         )
         try data.write(to: tempURL, options: .atomic)
 
@@ -500,7 +506,7 @@ public actor FilesystemActor {
         let sanitizedBookId = bookId.replacingOccurrences(of: "/", with: "_")
         let fileURL = highlightsDir.appendingPathComponent(
             "\(sanitizedBookId).json",
-            isDirectory: false
+            isDirectory: false,
         )
 
         let fm = FileManager.default
@@ -511,13 +517,13 @@ public actor FilesystemActor {
 
     private func existingFolder(
         matching uuidSanitized: String,
-        in domainDirectory: URL
+        in domainDirectory: URL,
     ) async throws -> String? {
         let fm = FileManager.default
         let contents = try fm.contentsOfDirectory(
             at: domainDirectory,
             includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: [.skipsHiddenFiles],
         )
 
         let lowercasedUUID = uuidSanitized.lowercased()
@@ -617,26 +623,26 @@ public actor FilesystemActor {
             let htmlURL = Bundle.main.url(
                 forResource: "foliate_wrap",
                 withExtension: "html",
-                subdirectory: "WebResources"
+                subdirectory: "WebResources",
             )
         else {
             throw NSError(
                 domain: "FilesystemActor",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to find foliate_wrap.html in bundle"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to find foliate_wrap.html in bundle"],
             )
         }
 
         guard
             let foliateJSURL = Bundle.main.url(
                 forResource: "foliate-js",
-                withExtension: nil
+                withExtension: nil,
             )
         else {
             throw NSError(
                 domain: "FilesystemActor",
                 code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to find foliate-js folder in bundle"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to find foliate-js folder in bundle"],
             )
         }
 
@@ -648,7 +654,7 @@ public actor FilesystemActor {
 
         let foliateJSDestination = webResourcesDir.appendingPathComponent(
             "foliate-js",
-            isDirectory: true
+            isDirectory: true,
         )
         if fm.fileExists(atPath: foliateJSDestination.path) {
             try fm.removeItem(at: foliateJSDestination)
@@ -658,13 +664,13 @@ public actor FilesystemActor {
         guard
             let jsFileURLs = Bundle.main.urls(
                 forResourcesWithExtension: "js",
-                subdirectory: "WebResources"
+                subdirectory: "WebResources",
             )
         else {
             throw NSError(
                 domain: "FilesystemActor",
                 code: 3,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to find any .js files in bundle"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to find any .js files in bundle"],
             )
         }
 
@@ -692,7 +698,7 @@ public actor FilesystemActor {
                 let bookFolders = try? fm.contentsOfDirectory(
                     at: domainDir,
                     includingPropertiesForKeys: [.isDirectoryKey],
-                    options: [.skipsHiddenFiles]
+                    options: [.skipsHiddenFiles],
                 )
             else { continue }
 
@@ -729,7 +735,7 @@ public actor FilesystemActor {
     public func extractEpubIfNeeded(
         epubPath: URL,
         sizeThresholdMB: Int = 200,
-        forceExtract: Bool = false
+        forceExtract: Bool = false,
     ) async throws -> URL {
         let fm = FileManager.default
 
@@ -777,7 +783,7 @@ public actor FilesystemActor {
                 userInfo: [
                     NSLocalizedDescriptionKey:
                         "Failed to open EPUB archive: \(epubPath.path) - \(error)"
-                ]
+                ],
             )
         }
 
@@ -826,7 +832,7 @@ public actor FilesystemActor {
                 userInfo: [
                     NSLocalizedDescriptionKey:
                         "Failed to open EPUB archive for audio: \(epubPath.path) - \(error)"
-                ]
+                ],
             )
         }
 
@@ -848,7 +854,7 @@ public actor FilesystemActor {
         throw NSError(
             domain: "FilesystemActor",
             code: 6,
-            userInfo: [NSLocalizedDescriptionKey: "Audio file not found in EPUB: \(audioPath)"]
+            userInfo: [NSLocalizedDescriptionKey: "Audio file not found in EPUB: \(audioPath)"],
         )
     }
 
@@ -865,7 +871,7 @@ public actor FilesystemActor {
                 userInfo: [
                     NSLocalizedDescriptionKey:
                         "Failed to open EPUB archive for audio: \(epubPath.path) - \(error)"
-                ]
+                ],
             )
         }
 
@@ -890,7 +896,7 @@ public actor FilesystemActor {
         throw NSError(
             domain: "FilesystemActor",
             code: 6,
-            userInfo: [NSLocalizedDescriptionKey: "Audio file not found in EPUB: \(audioPath)"]
+            userInfo: [NSLocalizedDescriptionKey: "Audio file not found in EPUB: \(audioPath)"],
         )
     }
 
@@ -911,7 +917,10 @@ public actor FilesystemActor {
     public func loadSmartShelves() throws -> [SmartShelf] {
         let configDir = getConfigDirectory()
         let newUrl = configDir.appendingPathComponent("smart_shelves.json", isDirectory: false)
-        let legacyUrl = configDir.appendingPathComponent("dynamic_shelves.json", isDirectory: false)
+        let legacyUrl = configDir.appendingPathComponent(
+            "dynamic_shelves.json",
+            isDirectory: false,
+        )
 
         let url: URL
         if FileManager.default.fileExists(atPath: newUrl.path) {
@@ -999,7 +1008,7 @@ public actor FilesystemActor {
             for: .cachesDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
         return cachesDir.appendingPathComponent(bundleID, isDirectory: true)
         #else
@@ -1007,7 +1016,7 @@ public actor FilesystemActor {
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
 
         if appSupport.path.contains("/Containers/") {

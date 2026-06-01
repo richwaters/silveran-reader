@@ -216,7 +216,7 @@ struct WatchIncompleteDownloadsView: View {
                             Task {
                                 await DownloadManager.shared.cancelDownload(
                                     for: record.bookId,
-                                    category: record.category
+                                    category: record.category,
                                 )
                             }
                         } label: {
@@ -232,7 +232,7 @@ struct WatchIncompleteDownloadsView: View {
                 record: record,
                 onDismiss: {
                     selectedRecord = nil
-                }
+                },
             )
         }
         .task {

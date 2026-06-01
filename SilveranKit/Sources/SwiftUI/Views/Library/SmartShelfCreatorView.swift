@@ -29,7 +29,7 @@ struct SmartShelfCreatorView: View {
     @State private var showValidation = false
     @State private var selectedConditionType: ShelfConditionType?
     @AppStorage("coverPref.smartShelfCreator") private var coverPrefRaw: String = CoverPreference
-        .preferEbook.rawValue
+        .storytellerDouble.rawValue
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
@@ -54,7 +54,7 @@ struct SmartShelfCreatorView: View {
         let shelf = SmartShelf(
             id: existingShelf?.id ?? UUID(),
             name: shelfName,
-            conditions: raw
+            conditions: raw,
         )
         return mediaViewModel.booksForShelf(shelf)
     }
@@ -109,7 +109,9 @@ struct SmartShelfCreatorView: View {
             }
         }
         .onAppear {
-            debugLog("[SmartShelfCreator] appeared, vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)")
+            debugLog(
+                "[SmartShelfCreator] appeared, vm=\(ObjectIdentifier(mediaViewModel)), isReady=\(mediaViewModel.isReady), libraryVersion=\(mediaViewModel.libraryVersion), bookMetaData.count=\(mediaViewModel.library.bookMetaData.count)"
+            )
         }
     }
 
@@ -152,7 +154,9 @@ struct SmartShelfCreatorView: View {
                         ic in
                         conditionRow(ic.condition, at: index)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
+                            .listRowInsets(
+                                EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12)
+                            )
                     }
                     .onMove(perform: moveConditions)
                 }
@@ -291,7 +295,7 @@ struct SmartShelfCreatorView: View {
             identifiedConditions[existingIndex].condition =
                 mergedInclusionValues(
                     existing: identifiedConditions[existingIndex].condition,
-                    new: condition
+                    new: condition,
                 )
         } else {
             identifiedConditions.append(IdentifiedCondition(condition))
@@ -420,6 +424,9 @@ struct SmartShelfCreatorView: View {
             .task {
                 mediaViewModel.ensureCoverLoaded(for: book, variant: variant)
             }
+            .onDisappear {
+                mediaViewModel.cancelCoverLoad(for: book, variant: variant)
+            }
 
             Text(book.title)
                 .font(.system(size: 10))
@@ -431,7 +438,7 @@ struct SmartShelfCreatorView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook { return .standard }
                 return item.hasAvailableAudiobook ? .audioSquare : .standard
             case .preferAudiobook:
@@ -462,7 +469,7 @@ struct SmartShelfCreatorView: View {
                         id: existingShelf?.id ?? UUID(),
                         name: shelfName.trimmingCharacters(in: .whitespacesAndNewlines),
                         conditions: conditions,
-                        createdAt: existingShelf?.createdAt ?? Date()
+                        createdAt: existingShelf?.createdAt ?? Date(),
                     )
                     onSave(shelf)
                     dismiss()

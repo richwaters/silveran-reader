@@ -19,7 +19,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         readingBar: ReadingBar = ReadingBar(),
         sync: Sync = Sync(),
         library: Library = Library(),
-        themes: Themes = Themes()
+        themes: Themes = Themes(),
     ) {
         self.reading = reading
         self.playback = playback
@@ -73,6 +73,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var userHighlightMode: String
         public var readaloudHighlightMode: String
         public var tvSubtitleFontSize: Double
+        public var tvReaderAppearance: TVReaderAppearance
 
         public init(
             fontSize: Double = kDefaultFontSize,
@@ -103,7 +104,8 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             userHighlightLabel6: String = kDefaultUserHighlightLabel6,
             userHighlightMode: String = kDefaultUserHighlightMode,
             readaloudHighlightMode: String = kDefaultReadaloudHighlightMode,
-            tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize
+            tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize,
+            tvReaderAppearance: TVReaderAppearance = TVReaderAppearance(),
         ) {
             self.fontSize = fontSize
             self.fontFamily = fontFamily
@@ -138,6 +140,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             self.userHighlightMode = userHighlightMode
             self.readaloudHighlightMode = readaloudHighlightMode
             self.tvSubtitleFontSize = tvSubtitleFontSize
+            self.tvReaderAppearance = tvReaderAppearance
         }
 
         public init(from decoder: Decoder) throws {
@@ -233,6 +236,15 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             tvSubtitleFontSize =
                 (try? container?.decode(Double.self, forKey: .tvSubtitleFontSize))
                 ?? kDefaultTVSubtitleFontSize
+            tvReaderAppearance =
+                (try? container?.decode(TVReaderAppearance.self, forKey: .tvReaderAppearance))
+                ?? TVReaderAppearance(
+                    backgroundStyle: (try? legacyContainer?.decode(
+                        String.self,
+                        forKey: .tvBackgroundStyle,
+                    ))
+                        ?? kDefaultTVBackgroundStyle
+                )
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -245,10 +257,92 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             case userHighlightLabel1, userHighlightLabel2, userHighlightLabel3
             case userHighlightLabel4, userHighlightLabel5, userHighlightLabel6
             case userHighlightMode, readaloudHighlightMode, tvSubtitleFontSize
+            case tvReaderAppearance
         }
 
         private enum LegacyCodingKeys: String, CodingKey {
-            case readaloudHighlightUnderline
+            case readaloudHighlightUnderline, tvBackgroundStyle
+        }
+
+        public struct TVReaderAppearance: Codable, Equatable, Sendable {
+            public var fontFamily: String
+            public var backgroundStyle: String
+            public var activeSentenceStyle: String
+            public var highlightColor: String
+            public var inactiveTextIntensity: String
+            public var textWidth: String
+            public var lineSpacing: String
+            public var textAlignment: String
+
+            public init(
+                fontFamily: String = kDefaultTVFontFamily,
+                backgroundStyle: String = kDefaultTVBackgroundStyle,
+                activeSentenceStyle: String = kDefaultTVActiveSentenceStyle,
+                highlightColor: String = kDefaultTVHighlightColor,
+                inactiveTextIntensity: String = kDefaultTVInactiveTextIntensity,
+                textWidth: String = kDefaultTVTextWidth,
+                lineSpacing: String = kDefaultTVLineSpacing,
+                textAlignment: String = kDefaultTVTextAlignment,
+            ) {
+                self.fontFamily = fontFamily
+                self.backgroundStyle = Self.normalizedBackgroundStyle(backgroundStyle)
+                self.activeSentenceStyle = Self.normalizedActiveSentenceStyle(activeSentenceStyle)
+                self.highlightColor = highlightColor
+                self.inactiveTextIntensity = inactiveTextIntensity
+                self.textWidth = textWidth
+                self.lineSpacing = lineSpacing
+                self.textAlignment = textAlignment
+            }
+
+            public init(from decoder: Decoder) throws {
+                let container = try? decoder.container(keyedBy: CodingKeys.self)
+                fontFamily =
+                    (try? container?.decode(String.self, forKey: .fontFamily))
+                    ?? kDefaultTVFontFamily
+                backgroundStyle =
+                    Self.normalizedBackgroundStyle(
+                        (try? container?.decode(String.self, forKey: .backgroundStyle))
+                            ?? kDefaultTVBackgroundStyle
+                    )
+                activeSentenceStyle =
+                    Self.normalizedActiveSentenceStyle(
+                        (try? container?.decode(String.self, forKey: .activeSentenceStyle))
+                            ?? kDefaultTVActiveSentenceStyle
+                    )
+                highlightColor =
+                    (try? container?.decode(String.self, forKey: .highlightColor))
+                    ?? kDefaultTVHighlightColor
+                inactiveTextIntensity =
+                    (try? container?.decode(String.self, forKey: .inactiveTextIntensity))
+                    ?? kDefaultTVInactiveTextIntensity
+                textWidth =
+                    (try? container?.decode(String.self, forKey: .textWidth))
+                    ?? kDefaultTVTextWidth
+                lineSpacing =
+                    (try? container?.decode(String.self, forKey: .lineSpacing))
+                    ?? kDefaultTVLineSpacing
+                textAlignment =
+                    (try? container?.decode(String.self, forKey: .textAlignment))
+                    ?? kDefaultTVTextAlignment
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case fontFamily, backgroundStyle, activeSentenceStyle, highlightColor
+                case inactiveTextIntensity, textWidth, lineSpacing, textAlignment
+            }
+
+            private static func normalizedBackgroundStyle(_ value: String) -> String {
+                switch value {
+                    case "black", "oledBlack":
+                        return "highContrast"
+                    default:
+                        return value
+                }
+            }
+
+            private static func normalizedActiveSentenceStyle(_ value: String) -> String {
+                value == "brightText" ? "whiteText" : value
+            }
         }
     }
 
@@ -262,7 +356,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             defaultPlaybackSpeed: Double = kDefaultPlaybackSpeed,
             defaultVolume: Double = kDefaultVolume,
             statsExpanded: Bool = kDefaultStatsExpanded,
-            lockViewToAudio: Bool = kDefaultLockViewToAudio
+            lockViewToAudio: Bool = kDefaultLockViewToAudio,
         ) {
             self.defaultPlaybackSpeed = defaultPlaybackSpeed
             self.defaultVolume = defaultVolume
@@ -297,7 +391,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             alwaysShowMiniPlayer: Bool = kDefaultAlwaysShowMiniPlayer,
             showOverlaySkipBackward: Bool = kDefaultShowOverlaySkipBackward,
             showOverlaySkipForward: Bool = kDefaultShowOverlaySkipForward,
-            showMiniPlayerStats: Bool = kDefaultShowMiniPlayerStats
+            showMiniPlayerStats: Bool = kDefaultShowMiniPlayerStats,
         ) {
             self.enabled = enabled
             #if os(iOS)
@@ -379,7 +473,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             progressSyncIntervalSeconds: Double = kDefaultProgressSyncIntervalSeconds,
             metadataRefreshIntervalSeconds: Double = kDefaultMetadataRefreshIntervalSeconds,
             isManuallyOffline: Bool = kDefaultIsManuallyOffline,
-            autoSyncToNewerServerPosition: Bool = kDefaultAutoSyncToNewerServerPosition
+            autoSyncToNewerServerPosition: Bool = kDefaultAutoSyncToNewerServerPosition,
         ) {
             self.progressSyncIntervalSeconds = progressSyncIntervalSeconds
             self.metadataRefreshIntervalSeconds = metadataRefreshIntervalSeconds
@@ -425,7 +519,7 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public init(
             selectedLightThemeId: String = "builtin-light",
             selectedDarkThemeId: String = "builtin-dark",
-            customThemes: [ReaderTheme] = []
+            customThemes: [ReaderTheme] = [],
         ) {
             self.selectedLightThemeId = selectedLightThemeId
             self.selectedDarkThemeId = selectedDarkThemeId
@@ -458,19 +552,22 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
         public var tabBarSlot2: String
         public var tapToPlayPreferredPlayer: Bool
         public var preferAudioOverEbook: Bool
+        public var accentColorHex: String
 
         public init(
             showAudioIndicator: Bool = kDefaultShowAudioIndicator,
             tabBarSlot1: String = kDefaultTabBarSlot1,
             tabBarSlot2: String = kDefaultTabBarSlot2,
             tapToPlayPreferredPlayer: Bool = kDefaultTapToPlayPreferredPlayer,
-            preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook
+            preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook,
+            accentColorHex: String = kDefaultAccentColorHex,
         ) {
             self.showAudioIndicator = showAudioIndicator
             self.tabBarSlot1 = tabBarSlot1
             self.tabBarSlot2 = tabBarSlot2
             self.tapToPlayPreferredPlayer = tapToPlayPreferredPlayer
             self.preferAudioOverEbook = preferAudioOverEbook
+            self.accentColorHex = accentColorHex
         }
 
         public init(from decoder: Decoder) throws {
@@ -488,11 +585,14 @@ public struct SilveranGlobalConfig: Codable, Equatable, Sendable {
             preferAudioOverEbook =
                 (try? container?.decode(Bool.self, forKey: .preferAudioOverEbook))
                 ?? kDefaultPreferAudioOverEbook
+            accentColorHex =
+                (try? container?.decode(String.self, forKey: .accentColorHex))
+                ?? kDefaultAccentColorHex
         }
 
         private enum CodingKeys: String, CodingKey {
             case showAudioIndicator, tabBarSlot1, tabBarSlot2, tapToPlayPreferredPlayer,
-                preferAudioOverEbook
+                preferAudioOverEbook, accentColorHex
         }
     }
 }
@@ -574,12 +674,14 @@ public actor SettingsActor {
             userHighlightLabel5: reading.userHighlightLabel5,
             userHighlightLabel6: reading.userHighlightLabel6,
             userHighlightMode: reading.userHighlightMode,
-            customCSS: reading.customCSS
+            customCSS: reading.customCSS,
         )
         config.themes.customThemes = [customTheme]
         config.themes.selectedLightThemeId = customTheme.id
         config.themes.selectedDarkThemeId = customTheme.id
-        debugLog("[SettingsActor] Migrated existing color settings to custom theme '\(customTheme.name)'")
+        debugLog(
+            "[SettingsActor] Migrated existing color settings to custom theme '\(customTheme.name)'"
+        )
     }
 
     @discardableResult
@@ -631,6 +733,7 @@ public actor SettingsActor {
         showAudioIndicator: Bool? = nil,
         tapToPlayPreferredPlayer: Bool? = nil,
         preferAudioOverEbook: Bool? = nil,
+        accentColorHex: String? = nil,
         userHighlightColor1: String? = nil,
         userHighlightColor2: String? = nil,
         userHighlightColor3: String? = nil,
@@ -648,9 +751,11 @@ public actor SettingsActor {
         tabBarSlot1: String? = nil,
         tabBarSlot2: String? = nil,
         tvSubtitleFontSize: Double? = nil,
+        tvReaderAppearance: SilveranGlobalConfig.Reading.TVReaderAppearance? = nil,
+        tvBackgroundStyle: String? = nil,
         selectedLightThemeId: String? = nil,
         selectedDarkThemeId: String? = nil,
-        customThemes: [ReaderTheme]? = nil
+        customThemes: [ReaderTheme]? = nil,
     ) throws {
         var updated = config
 
@@ -725,6 +830,9 @@ public actor SettingsActor {
         if let preferAudioOverEbook {
             updated.library.preferAudioOverEbook = preferAudioOverEbook
         }
+        if let accentColorHex {
+            updated.library.accentColorHex = accentColorHex
+        }
         if let tabBarSlot1 {
             updated.library.tabBarSlot1 = tabBarSlot1
         }
@@ -776,6 +884,12 @@ public actor SettingsActor {
         if let tvSubtitleFontSize {
             updated.reading.tvSubtitleFontSize = tvSubtitleFontSize
         }
+        if let tvReaderAppearance {
+            updated.reading.tvReaderAppearance = tvReaderAppearance
+        }
+        if let tvBackgroundStyle {
+            updated.reading.tvReaderAppearance.backgroundStyle = tvBackgroundStyle
+        }
         if let selectedLightThemeId {
             updated.themes.selectedLightThemeId = selectedLightThemeId
         }
@@ -814,7 +928,7 @@ extension SettingsActor {
             for: .cachesDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
         let base = cachesDir.appendingPathComponent(bundleID, isDirectory: true)
         #else
@@ -822,7 +936,7 @@ extension SettingsActor {
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: true,
         )
         let base: URL =
             if appSupport.path.contains("/Containers/") {
@@ -835,11 +949,14 @@ extension SettingsActor {
         let configDirectory = base.appendingPathComponent("Config", isDirectory: true)
         return configDirectory.appendingPathComponent(
             "SilveranGlobalConfig.json",
-            isDirectory: false
+            isDirectory: false,
         )
     }
 
-    fileprivate static func ensureStorageDirectory(for fileURL: URL, using fileManager: FileManager)
+    fileprivate static func ensureStorageDirectory(
+        for fileURL: URL,
+        using fileManager: FileManager,
+    )
         throws
     {
         let directory = fileURL.deletingLastPathComponent()
@@ -864,7 +981,7 @@ extension SettingsActor {
     fileprivate static func save(
         config: SilveranGlobalConfig,
         to url: URL,
-        fileManager _: FileManager
+        fileManager _: FileManager,
     ) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -13,11 +13,15 @@ struct SourceView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.source") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.source") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.source") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("source.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -136,19 +140,19 @@ extension SourceView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: SourceDetailNavigation.self) { nav in
                 sourceDetailView(for: nav.sourceName, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -169,7 +173,7 @@ extension SourceView {
                                 iconName: iconName(for: group.name),
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -186,7 +190,7 @@ extension SourceView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -194,25 +198,25 @@ extension SourceView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -250,7 +254,7 @@ extension SourceView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -265,22 +269,23 @@ extension SourceView {
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
                                     initialLocationFilter: locationFilter(for: group.name),
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -298,11 +303,13 @@ extension SourceView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -311,18 +318,20 @@ extension SourceView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sources").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Sources").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }
@@ -334,12 +343,22 @@ extension SourceView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
@@ -347,7 +366,7 @@ extension SourceView {
 extension SourceView {
     @ViewBuilder fileprivate func sourceDetailView(
         for sourceName: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         #if os(iOS)
         MediaGridView(
@@ -362,7 +381,7 @@ extension SourceView {
             initialNarrationFilterOption: .both,
             initialLocationFilter: locationFilter(for: sourceName),
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(sourceName)
         #else
         MediaGridView(
@@ -376,7 +395,7 @@ extension SourceView {
             initialNarrationFilterOption: .both,
             initialLocationFilter: locationFilter(for: sourceName),
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(sourceName)
         #endif
     }

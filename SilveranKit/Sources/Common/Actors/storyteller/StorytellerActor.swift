@@ -94,7 +94,7 @@ public actor StorytellerActor {
         configuration.urlCache = URLCache(
             memoryCapacity: 0,
             diskCapacity: 0,
-            diskPath: nil
+            diskPath: nil,
         )
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 60
@@ -103,7 +103,7 @@ public actor StorytellerActor {
         urlSession = URLSession(
             configuration: configuration,
             delegate: delegate,
-            delegateQueue: nil
+            delegateQueue: nil,
         )
         downloadDelegate = delegate
         decoder = JSONDecoder()
@@ -221,7 +221,7 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: Set(200..<300).union([401, 403])
+                allowedStatusCodes: Set(200..<300).union([401, 403]),
             )
 
             if response.statusCode == 401 || response.statusCode == 403 {
@@ -443,7 +443,7 @@ public actor StorytellerActor {
                         "usernameOrEmail": username,
                         "password": password,
                     ],
-                    session: urlSession
+                    session: urlSession,
                 )
 
                 self.accessToken = try decoder.decode(AccessToken.self, from: response.data)
@@ -495,6 +495,74 @@ public actor StorytellerActor {
         return nil
     }
 
+    public enum PermissionCheckResult: Sendable {
+        case allowed
+        case denied
+        case error(String)
+    }
+
+    /// Checks if the current user has the `bookUpdate` permission.
+    /// Server implementation: `storyteller/web/src/app/api/v2/user/route.ts`.
+    public func checkBookUpdatePermission() async -> PermissionCheckResult {
+        guard let (baseURL, token) = await ensureAuthentication() else {
+            return .error("Not connected to server")
+        }
+
+        let result = await fetchBookUpdatePermission(baseURL: baseURL, token: token)
+        if case .error = result {
+            guard let (retryURL, retryToken) = await ensureAuthentication(forceReauth: true) else {
+                return .error("Authentication failed")
+            }
+            return await fetchBookUpdatePermission(baseURL: retryURL, token: retryToken)
+        }
+        return result
+    }
+
+    private func fetchBookUpdatePermission(baseURL: URL, token: AccessToken) async
+        -> PermissionCheckResult
+    {
+        let userURL = baseURL.appendingPathComponent("user")
+        var allowedStatuses = Set(200..<300)
+        allowedStatuses.insert(401)
+        allowedStatuses.insert(403)
+
+        do {
+            let response = try await httpGet(
+                userURL.absoluteString,
+                headers: [
+                    "Accept": "application/json",
+                    "Authorization": authorizationHeaderValue(for: token),
+                ],
+                session: urlSession,
+                allowedStatusCodes: allowedStatuses,
+            )
+
+            switch evaluateResponse(
+                response,
+                methodName: "checkBookUpdatePermission",
+                context: "user permissions",
+            ) {
+                case .success:
+                    break
+                case .unauthorized:
+                    return .error("Unauthorized")
+                default:
+                    return .error("Unexpected server response (\(response.statusCode))")
+            }
+
+            guard
+                let json = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any],
+                let permissions = json["permissions"] as? [String: Any],
+                let bookUpdate = permissions["bookUpdate"] as? Bool
+            else {
+                return .error("Invalid response from server")
+            }
+            return bookUpdate ? .allowed : .denied
+        } catch {
+            return .error(error.localizedDescription)
+        }
+    }
+
     /// Fetches library metadata from `/api/v2/books`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/route.ts`.
     public func fetchLibraryInformation() async -> [BookMetadata]? {
@@ -514,14 +582,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchLibraryInformation",
-                    context: "library listing"
+                    context: "library listing",
                 )
             else {
                 return nil
@@ -530,7 +598,7 @@ public actor StorytellerActor {
             do {
                 let wrapper = try decoder.decode(
                     LenientArrayWrapper<BookMetadata>.self,
-                    from: response.data
+                    from: response.data,
                 )
                 libraryMetadata = wrapper.values
 
@@ -572,6 +640,7 @@ public actor StorytellerActor {
         // Hard-code sizes. Storyteller server current returns 404 if you give no dimensions for non-readaloud books--a bug?
         width: Int? = 209,
         height: Int? = 320,
+        version: String? = nil,
         ifNoneMatch: String? = nil,
         ifModifiedSince: String? = nil,
     ) async -> BookCover? {
@@ -592,6 +661,9 @@ public actor StorytellerActor {
         }
         if audio {
             queryParameters["audio"] = "true"
+        }
+        if let version = Self.coverVersionQueryValue(from: version) {
+            queryParameters["v"] = version
         }
 
         var headers: [String: String] = [
@@ -615,14 +687,14 @@ public actor StorytellerActor {
                 headers: headers,
                 queryParameters: queryParameters,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchCoverImage",
-                    context: "cover for \(bookId)"
+                    context: "cover for \(bookId)",
                 )
             else {
                 return nil
@@ -637,7 +709,7 @@ public actor StorytellerActor {
                 cacheControl: httpResponse.value(forHTTPHeaderField: "Cache-Control"),
                 contentDisposition: httpResponse.value(
                     forHTTPHeaderField: "Content-Disposition"
-                )
+                ),
             )
         } catch {
             logStorytellerError("fetchCoverImage", error: error)
@@ -645,11 +717,32 @@ public actor StorytellerActor {
         }
     }
 
+    public nonisolated static func coverVersionQueryValue(from updatedAt: String?) -> String? {
+        guard let updatedAt, !updatedAt.isEmpty else { return nil }
+        if let numeric = Int64(updatedAt) {
+            return String(numeric)
+        }
+
+        let date: Date?
+        if let isoDate = ISO8601DateFormatter().date(from: updatedAt) {
+            date = isoDate
+        } else {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            formatter.timeZone = .current
+            date = formatter.date(from: updatedAt)
+        }
+
+        guard let date else { return nil }
+        return String(Int64(date.timeIntervalSince1970 * 1000))
+    }
+
     /// Streams the actual book from `/api/v2/books/{bookId}/files`.
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/files/route.ts`.
     func fetchBook(
         for bookId: String,
-        format: StorytellerBookFormat
+        format: StorytellerBookFormat,
     ) async -> StorytellerBookDownload? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
 
@@ -662,15 +755,15 @@ public actor StorytellerActor {
         do {
             let requestURL = try urlWithQueryParameters(
                 fileURL,
-                queryParameters: ["format": format.rawValue]
+                queryParameters: ["format": downloadQueryValue(for: format)],
             )
 
             var request = URLRequest(url: requestURL)
             request.httpMethod = "GET"
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue(downloadAcceptHeader(for: format), forHTTPHeaderField: "Accept")
             request.setValue(
                 authorizationHeaderValue(for: token),
-                forHTTPHeaderField: "Authorization"
+                forHTTPHeaderField: "Authorization",
             )
 
             let downloadTask = urlSession.downloadTask(with: request)
@@ -692,8 +785,8 @@ public actor StorytellerActor {
                         fallbackFilename: fallbackFilename,
                         bookId: bookId,
                         format: format,
-                        failureHandler: failureHandler
-                    )
+                        failureHandler: failureHandler,
+                    ),
                 )
 
                 continuation.onTermination = { @Sendable _ in
@@ -706,7 +799,7 @@ public actor StorytellerActor {
             return StorytellerBookDownload(
                 initialFilename: fallbackFilename,
                 events: events,
-                cancel: { downloadTask.cancel() }
+                cancel: { downloadTask.cancel() },
             )
         } catch {
             logStorytellerError("fetchBook", error: error)
@@ -716,7 +809,7 @@ public actor StorytellerActor {
 
     private func handleDownloadFailure(
         _ failure: StorytellerDownloadFailure,
-        bookId: String
+        bookId: String,
     ) async {
         switch failure {
             case .nonHTTPResponse:
@@ -734,7 +827,7 @@ public actor StorytellerActor {
 
     public func createAuthenticatedDownloadRequest(
         for bookId: String,
-        format: StorytellerBookFormat
+        format: StorytellerBookFormat,
     ) async -> URLRequest? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
 
@@ -747,15 +840,15 @@ public actor StorytellerActor {
         do {
             let requestURL = try urlWithQueryParameters(
                 fileURL,
-                queryParameters: ["format": format.rawValue]
+                queryParameters: ["format": downloadQueryValue(for: format)],
             )
 
             var request = URLRequest(url: requestURL)
             request.httpMethod = "GET"
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue(downloadAcceptHeader(for: format), forHTTPHeaderField: "Accept")
             request.setValue(
                 authorizationHeaderValue(for: token),
-                forHTTPHeaderField: "Authorization"
+                forHTTPHeaderField: "Authorization",
             )
             return request
         } catch {
@@ -786,14 +879,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchBookDetails",
-                    context: "book detail \(bookId)"
+                    context: "book detail \(bookId)",
                 )
             else {
                 return nil
@@ -865,12 +958,12 @@ public actor StorytellerActor {
 
         if let publicationDate = payload.publicationDate {
             switch publicationDate {
-            case .value(let date):
-                guard appendJSONField("publicationDate", value: date) else { return nil }
-            case .null:
-                guard appendJSONField("publicationDate", value: Optional<String>.none) else {
-                    return nil
-                }
+                case .value(let date):
+                    guard appendJSONField("publicationDate", value: date) else { return nil }
+                case .null:
+                    guard appendJSONField("publicationDate", value: Optional<String>.none) else {
+                        return nil
+                    }
             }
         }
 
@@ -880,10 +973,12 @@ public actor StorytellerActor {
 
         if let ratingWrapper = payload.rating {
             switch ratingWrapper {
-            case .value(let rating):
-                guard appendJSONField("rating", value: rating) else { return nil }
-            case .null:
-                guard appendJSONField("rating", value: Optional<Double>.none) else { return nil }
+                case .value(let rating):
+                    guard appendJSONField("rating", value: rating) else { return nil }
+                case .null:
+                    guard appendJSONField("rating", value: Optional<Double>.none) else {
+                        return nil
+                    }
             }
         }
 
@@ -985,13 +1080,13 @@ public actor StorytellerActor {
                 headers: headers,
                 body: body,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             let status = evaluateResponse(
                 response,
                 methodName: "updateBook",
-                context: "book \(payload.uuid)"
+                context: "book \(payload.uuid)",
             )
             guard case .success = status else {
                 if let errorMessage = extractServerErrorMessage(from: response.data) {
@@ -1007,6 +1102,9 @@ public actor StorytellerActor {
                 return try decoder.decode(BookMetadata.self, from: response.data)
             } catch {
                 logStorytellerError("updateBook decode", error: error)
+                let bodyPreview =
+                    String(data: response.data.prefix(500), encoding: .utf8) ?? "<binary>"
+                debugLog("[StorytellerActor] updateBook response body: \(bodyPreview)")
                 lastUpdateBookError = "Failed to decode server response"
                 return nil
             }
@@ -1021,7 +1119,7 @@ public actor StorytellerActor {
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/route.ts` (DELETE handler).
     public func deleteBook(
         _ bookId: String,
-        includeAssets option: StorytellerIncludeAssetsOption? = nil
+        includeAssets option: StorytellerIncludeAssetsOption? = nil,
     ) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let deleteURL =
@@ -1047,13 +1145,13 @@ public actor StorytellerActor {
                 ],
                 queryParameters: queryParameters,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "deleteBook",
-                context: "book \(bookId)"
+                context: "book \(bookId)",
             ) == .success
         } catch {
             logStorytellerError("deleteBook", error: error)
@@ -1074,7 +1172,7 @@ public actor StorytellerActor {
     public func deleteBookAsset(
         _ bookId: String,
         type: StorytellerBookFormat,
-        deleteFromDisk: Bool = false
+        deleteFromDisk: Bool = false,
     ) async -> DeleteAssetResult {
         guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
         let deleteURL =
@@ -1104,7 +1202,7 @@ public actor StorytellerActor {
                 ],
                 queryParameters: queryParameters,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             let status = response.statusCode
@@ -1119,7 +1217,7 @@ public actor StorytellerActor {
                 case .success = evaluateResponse(
                     response,
                     methodName: "deleteBookAsset",
-                    context: "\(type.rawValue) for book \(bookId)"
+                    context: "\(type.rawValue) for book \(bookId)",
                 )
             else {
                 return .failed
@@ -1140,7 +1238,9 @@ public actor StorytellerActor {
 
     /// Starts alignment processing for a book (creates readaloud from ebook + audiobook).
     /// Server implementation: `storyteller/web/src/app/api/v2/books/[bookId]/process/route.ts` (POST handler).
-    public func startAlignment(for bookId: String, restart: AlignmentRestartMode = .none) async -> Bool {
+    public func startAlignment(for bookId: String, restart: AlignmentRestartMode = .none) async
+        -> Bool
+    {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let processURL =
             baseURL
@@ -1166,13 +1266,13 @@ public actor StorytellerActor {
                 ],
                 queryParameters: queryParameters,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "startAlignment",
-                context: "book \(bookId)"
+                context: "book \(bookId)",
             ) == .success
         } catch {
             logStorytellerError("startAlignment", error: error)
@@ -1202,13 +1302,13 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token)
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "cancelAlignment",
-                context: "book \(bookId)"
+                context: "book \(bookId)",
             ) == .success
         } catch {
             logStorytellerError("cancelAlignment", error: error)
@@ -1243,13 +1343,13 @@ public actor StorytellerActor {
                 ],
                 body: bodyData,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "upgradeEpub",
-                context: "book \(bookId)"
+                context: "book \(bookId)",
             ) == .success
         } catch {
             logStorytellerError("upgradeEpub", error: error)
@@ -1293,14 +1393,14 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "mergeBooks",
-                    context: "merge request \(bookIds.joined(separator: ","))"
+                    context: "merge request \(bookIds.joined(separator: ","))",
                 )
             else {
                 return nil
@@ -1348,13 +1448,13 @@ public actor StorytellerActor {
                 ],
                 queryParameters: queryParameters,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "startProcessing",
-                context: "process for \(bookId)"
+                context: "process for \(bookId)",
             ) == .success
         } catch {
             logStorytellerError("startProcessing", error: error)
@@ -1369,7 +1469,7 @@ public actor StorytellerActor {
         ebook: StorytellerUploadAsset? = nil,
         audiobook: StorytellerUploadAsset? = nil,
         readaloud: StorytellerUploadAsset? = nil,
-        collectionUUID: String? = nil
+        collectionUUID: String? = nil,
     ) async -> Bool {
         let assets = [ebook, audiobook, readaloud].compactMap(\.self)
         guard !assets.isEmpty else {
@@ -1419,7 +1519,7 @@ public actor StorytellerActor {
 
     private func fallbackFilename(
         for bookId: String,
-        format: StorytellerBookFormat
+        format: StorytellerBookFormat,
     ) -> String {
         let fileExtension: String =
             switch format {
@@ -1429,6 +1529,24 @@ public actor StorytellerActor {
                     "m4b"
             }
         return "\(bookId).\(fileExtension)"
+    }
+
+    private func downloadQueryValue(for format: StorytellerBookFormat) -> String {
+        switch format {
+            case .audiobook:
+                return "audiobook-rpf"
+            case .ebook, .readaloud:
+                return format.rawValue
+        }
+    }
+
+    private func downloadAcceptHeader(for format: StorytellerBookFormat) -> String {
+        switch format {
+            case .audiobook:
+                return "application/audiobook+zip"
+            case .ebook, .readaloud:
+                return "application/octet-stream"
+        }
     }
 
     private func defaultFilename(
@@ -1545,14 +1663,14 @@ public actor StorytellerActor {
                 ],
                 body: Data(),
                 session: urlSession,
-                allowedStatusCodes: createAllowedStatuses
+                allowedStatusCodes: createAllowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     createResponse,
                     methodName: "uploadAsset",
-                    context: "create for \(asset.filename)"
+                    context: "create for \(asset.filename)",
                 )
             else {
                 return false
@@ -1585,14 +1703,14 @@ public actor StorytellerActor {
                 ],
                 body: asset.data,
                 session: urlSession,
-                allowedStatusCodes: patchAllowedStatuses
+                allowedStatusCodes: patchAllowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     patchResponse,
                     methodName: "uploadAsset",
-                    context: "patch for \(asset.filename)"
+                    context: "patch for \(asset.filename)",
                 )
             else {
                 return false
@@ -1629,7 +1747,7 @@ public actor StorytellerActor {
         _ asset: StorytellerUploadAsset,
         bookUUID: String,
         deleteOldFile: Bool = true,
-        replaceMetadata: Bool = false
+        replaceMetadata: Bool = false,
     ) async -> ReplaceAssetResult {
         guard let (baseURL, token) = await ensureAuthentication() else { return .failed }
 
@@ -1694,7 +1812,7 @@ public actor StorytellerActor {
                 ],
                 body: Data(),
                 session: urlSession,
-                allowedStatusCodes: createAllowedStatuses
+                allowedStatusCodes: createAllowedStatuses,
             )
 
             let status = createResponse.statusCode
@@ -1709,7 +1827,7 @@ public actor StorytellerActor {
                 case .success = evaluateResponse(
                     createResponse,
                     methodName: "replaceBookAsset",
-                    context: "create for \(asset.filename)"
+                    context: "create for \(asset.filename)",
                 )
             else {
                 return .failed
@@ -1739,14 +1857,14 @@ public actor StorytellerActor {
                 ],
                 body: asset.data,
                 session: urlSession,
-                allowedStatusCodes: patchAllowedStatuses
+                allowedStatusCodes: patchAllowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     patchResponse,
                     methodName: "replaceBookAsset",
-                    context: "patch for \(asset.filename)"
+                    context: "patch for \(asset.filename)",
                 )
             else {
                 return .failed
@@ -1784,14 +1902,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchStatuses",
-                    context: "statuses"
+                    context: "statuses",
                 )
             else {
                 return nil
@@ -1866,13 +1984,13 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "updateStatus",
-                context: "status update"
+                context: "status update",
             ) == .success
         } catch {
             logStorytellerError("updateStatus", error: error)
@@ -1899,14 +2017,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchTags",
-                    context: "tags"
+                    context: "tags",
                 )
             else {
                 return nil
@@ -1954,13 +2072,13 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "addTags",
-                context: "tag assignment"
+                context: "tag assignment",
             ) == .success
         } catch {
             logStorytellerError("addTags", error: error)
@@ -2003,13 +2121,13 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "removeTags",
-                context: "tag removal"
+                context: "tag removal",
             ) == .success
         } catch {
             logStorytellerError("removeTags", error: error)
@@ -2019,7 +2137,7 @@ public actor StorytellerActor {
 
     /// Lists collections visible to the user via `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (GET handler).
-    func fetchCollections() async -> [StorytellerCollection]? {
+    public func fetchCollections() async -> [StorytellerCollection]? {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
         let collectionsURL = baseURL.appendingPathComponent("collections")
 
@@ -2036,14 +2154,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchCollections",
-                    context: "collections"
+                    context: "collections",
                 )
             else {
                 return nil
@@ -2079,14 +2197,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchCollection",
-                    context: "collection \(uuid)"
+                    context: "collection \(uuid)",
                 )
             else {
                 return nil
@@ -2102,7 +2220,7 @@ public actor StorytellerActor {
     /// Creates a new collection using `/api/v2/collections`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/route.ts` (POST handler).
     /// TODO: UNTESTED
-    func createCollection(_ payload: StorytellerCollectionCreatePayload) async
+    public func createCollection(_ payload: StorytellerCollectionCreatePayload) async
         -> StorytellerCollection?
     {
         guard let (baseURL, token) = await ensureAuthentication() else { return nil }
@@ -2124,14 +2242,14 @@ public actor StorytellerActor {
                 ],
                 body: payloadData,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "createCollection",
-                    context: "collection creation"
+                    context: "collection creation",
                 )
             else {
                 return nil
@@ -2187,14 +2305,14 @@ public actor StorytellerActor {
                 ],
                 body: payloadData,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "updateCollection",
-                    context: "collection \(uuid)"
+                    context: "collection \(uuid)",
                 )
             else {
                 return nil
@@ -2215,7 +2333,7 @@ public actor StorytellerActor {
     /// Deletes a collection with `/api/v2/collections/{uuid}`.
     /// Server implementation: `storyteller/web/src/app/api/v2/collections/[uuid]/route.ts` (DELETE handler).
     /// TODO: UNTESTED
-    func deleteCollection(uuid: String) async -> Bool {
+    public func deleteCollection(uuid: String) async -> Bool {
         guard let (baseURL, token) = await ensureAuthentication() else { return false }
         let collectionURL =
             baseURL
@@ -2234,13 +2352,13 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token)
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "deleteCollection",
-                context: "collection \(uuid)"
+                context: "collection \(uuid)",
             ) == .success
         } catch {
             logStorytellerError("deleteCollection", error: error)
@@ -2283,13 +2401,13 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "addBooks",
-                context: "membership add"
+                context: "membership add",
             ) == .success
         } catch {
             logStorytellerError("addBooks", error: error)
@@ -2332,13 +2450,13 @@ public actor StorytellerActor {
                 ],
                 body: payload,
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             return evaluateResponse(
                 response,
                 methodName: "removeBooks",
-                context: "membership removal"
+                context: "membership removal",
             ) == .success
         } catch {
             logStorytellerError("removeBooks", error: error)
@@ -2371,7 +2489,7 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token)
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             let status = evaluateResponse(response, methodName: "logout", context: "session")
@@ -2409,7 +2527,7 @@ public actor StorytellerActor {
     private func evaluateResponse(
         _ response: HTTPResponse,
         methodName: String,
-        context: String
+        context: String,
     ) -> StorytellerResponseStatus {
         let statusCode = response.statusCode
 
@@ -2491,7 +2609,7 @@ public actor StorytellerActor {
         body.append(headerData)
         body.append(
             "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(file.filename)\"\r\n"
-                .data(using: .utf8)!,
+                .data(using: .utf8)!
         )
         if let contentType = file.contentType {
             body.append("Content-Type: \(contentType)\r\n\r\n".data(using: .utf8)!)
@@ -2586,7 +2704,7 @@ public actor StorytellerActor {
     public func sendProgressToServer(
         bookId: String,
         locator: BookLocator,
-        timestamp: Double
+        timestamp: Double,
     ) async -> HTTPResult {
         debugLog(
             "[StorytellerActor] sendProgressToServer: bookId=\(bookId), timestamp=\(timestamp)"
@@ -2682,14 +2800,14 @@ public actor StorytellerActor {
                     "Authorization": authorizationHeaderValue(for: token),
                 ],
                 session: urlSession,
-                allowedStatusCodes: allowedStatuses
+                allowedStatusCodes: allowedStatuses,
             )
 
             guard
                 case .success = evaluateResponse(
                     response,
                     methodName: "fetchBookPosition",
-                    context: "position for \(bookId)"
+                    context: "position for \(bookId)",
                 )
             else {
                 return nil
@@ -2751,7 +2869,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
 
     private func mutateState<Result>(
         for task: URLSessionTask,
-        _ mutation: (inout TaskState) -> Result
+        _ mutation: (inout TaskState) -> Result,
     ) -> (TaskState, Result)? {
         var updatedState: TaskState?
         var mutationResult: Result?
@@ -2781,7 +2899,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         response: URLResponse,
-        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void,
     ) {
         guard let httpResponse = response as? HTTPURLResponse else {
             if let state = removeState(for: downloadTask) {
@@ -2829,7 +2947,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
                     expectedBytes: expectedLength,
                     contentType: state.contentType,
                     etag: state.etag,
-                    lastModified: state.lastModified
+                    lastModified: state.lastModified,
                 )
             }
 
@@ -2846,7 +2964,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
         totalBytesWritten: Int64,
-        totalBytesExpectedToWrite: Int64
+        totalBytesExpectedToWrite: Int64,
     ) {
         let now = CFAbsoluteTimeGetCurrent()
         let updateResult = mutateState(for: downloadTask) { state -> (Int64?, String, Bool) in
@@ -2864,7 +2982,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         state.continuation.yield(
             .progress(
                 receivedBytes: totalBytesWritten,
-                expectedBytes: expectedBytes
+                expectedBytes: expectedBytes,
             )
         )
     }
@@ -2872,7 +2990,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
     func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
+        didFinishDownloadingTo location: URL,
     ) {
         let persistentURL = FileManager.default.temporaryDirectory.appendingPathComponent(
             UUID().uuidString
@@ -2902,7 +3020,7 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
-        didCompleteWithError error: Error?
+        didCompleteWithError error: Error?,
     ) {
         guard let error else { return }
 
@@ -2926,14 +3044,14 @@ private final class StorytellerDownloadDelegate: NSObject, URLSessionDownloadDel
         _ session: URLSession,
         task: URLSessionTask,
         response: URLResponse,
-        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void,
     ) {
         if let downloadTask = task as? URLSessionDownloadTask {
             handleDownloadResponse(
                 session,
                 downloadTask: downloadTask,
                 response: response,
-                completionHandler: completionHandler
+                completionHandler: completionHandler,
             )
         } else {
             completionHandler(.allow)
@@ -3010,7 +3128,7 @@ func printJSONSnippet(data: Data, codingPath: [CodingKey]) {
 
     if let snippetData = try? JSONSerialization.data(
         withJSONObject: current,
-        options: [.prettyPrinted, .sortedKeys]
+        options: [.prettyPrinted, .sortedKeys],
     ),
         let snippetString = String(data: snippetData, encoding: .utf8)
     {

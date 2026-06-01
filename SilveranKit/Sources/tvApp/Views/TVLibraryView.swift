@@ -57,14 +57,14 @@ struct TVLibraryView: View {
                 columns: [
                     GridItem(.adaptive(minimum: 240, maximum: 260), spacing: 20)
                 ],
-                spacing: 35
+                spacing: 35,
             ) {
                 ForEach(books, id: \.uuid) { book in
                     NavigationLink(value: book) {
                         TVBookCardView(
                             book: book,
                             isDownloaded: isBookDownloaded(book),
-                            downloadProgress: downloadProgress(for: book)
+                            downloadProgress: downloadProgress(for: book),
                         )
                     }
                     .buttonStyle(.card)

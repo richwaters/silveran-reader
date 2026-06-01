@@ -78,7 +78,7 @@ struct EbookPlayerTopToolbar: View {
                         transparency: 1.0,
                         showLabel: false,
                         buttonSize: 44,
-                        showBackground: false
+                        showBackground: false,
                     )
 
                     Button {
@@ -109,7 +109,7 @@ struct EbookPlayerTopToolbar: View {
                                     onResultSelected: { result in
                                         onSearchResultSelected(result)
                                         showSearchSheet = false
-                                    }
+                                    },
                                 )
                                 .navigationTitle("Search")
                                 .navigationBarTitleDisplayMode(.inline)
@@ -139,7 +139,7 @@ struct EbookPlayerTopToolbar: View {
                             ScrollView {
                                 EbookPlayerSettings(
                                     settingsVM: settingsVM,
-                                    onDismiss: nil
+                                    onDismiss: nil,
                                 )
                                 .padding()
                             }
@@ -230,7 +230,7 @@ struct EbookPlayerTopToolbar: View {
                                 get: { !isSynced },
                                 set: { newValue in
                                     Task { try? await onSyncToggle(!newValue) }
-                                }
+                                },
                             )
                         ) {
                             Label("Free Browse When Paused", systemImage: "lock.open")
@@ -244,7 +244,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.alwaysShowMiniPlayer = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Always Show", systemImage: "rectangle.bottomhalf.inset.filled")
@@ -256,7 +256,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.showMiniPlayerStats = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Show Stats Below", systemImage: "clock")
@@ -271,7 +271,7 @@ struct EbookPlayerTopToolbar: View {
                             set: { newValue in
                                 settingsVM.showProgress = newValue
                                 Task { try? await settingsVM.save() }
-                            }
+                            },
                         )
                     ) {
                         Label("Book Progress", systemImage: "percent")
@@ -283,7 +283,7 @@ struct EbookPlayerTopToolbar: View {
                             set: { newValue in
                                 settingsVM.showPageNumber = newValue
                                 Task { try? await settingsVM.save() }
-                            }
+                            },
                         )
                     ) {
                         Label("Page Number", systemImage: "book.pages")
@@ -296,7 +296,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.showTimeRemainingInBook = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Time in Book", systemImage: "clock")
@@ -308,7 +308,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.showTimeRemainingInChapter = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Time in Chapter", systemImage: "clock.badge")
@@ -324,7 +324,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.showOverlaySkipBackward = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Skip Back", systemImage: "arrow.counterclockwise")
@@ -336,7 +336,7 @@ struct EbookPlayerTopToolbar: View {
                                 set: { newValue in
                                     settingsVM.showOverlaySkipForward = newValue
                                     Task { try? await settingsVM.save() }
-                                }
+                                },
                             )
                         ) {
                             Label("Skip Forward", systemImage: "arrow.clockwise")
@@ -368,7 +368,11 @@ struct EbookPlayerTopToolbar: View {
                 }
 
                 Section {
-                    sleepTimerOption(title: "At End of Chapter", duration: nil, type: .endOfChapter)
+                    sleepTimerOption(
+                        title: "At End of Chapter",
+                        duration: nil,
+                        type: .endOfChapter,
+                    )
                 }
             }
             .navigationTitle("Sleep Timer")
@@ -387,7 +391,7 @@ struct EbookPlayerTopToolbar: View {
     private func sleepTimerOption(
         title: String,
         duration: TimeInterval?,
-        type: SleepTimerType = .duration
+        type: SleepTimerType = .duration,
     ) -> some View {
         Button(action: {
             onSleepTimerStart(duration, type)

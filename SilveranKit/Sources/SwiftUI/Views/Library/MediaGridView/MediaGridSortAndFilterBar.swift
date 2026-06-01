@@ -18,6 +18,7 @@ struct MediaGridSortAndFilterBar: View {
     @Binding var showAudioIndicator: Bool
     @Binding var showSourceBadge: Bool
     @Binding var showSeriesPositionBadge: Bool
+    @Binding var progressStyle: ProgressIndicatorStyle
     let availableTags: [String]
     let availableSeries: [String]
     let availableAuthors: [String]
@@ -75,7 +76,7 @@ struct MediaGridSortAndFilterBar: View {
             #else
             Label(
                 "Sort: \(selectedSortOption.sortField.label)",
-                systemImage: selectedSortOption.isAscending ? "arrow.up" : "arrow.down"
+                systemImage: selectedSortOption.isAscending ? "arrow.up" : "arrow.down",
             )
             #endif
         }
@@ -122,7 +123,7 @@ struct MediaGridSortAndFilterBar: View {
             #else
             Label(
                 "Filters: \(filtersSummaryText)",
-                systemImage: "line.3.horizontal.decrease"
+                systemImage: "line.3.horizontal.decrease",
             )
             #endif
         }
@@ -157,7 +158,7 @@ struct MediaGridSortAndFilterBar: View {
                 } label: {
                     menuRowLabel(
                         text: "All Statuses",
-                        isSelected: selectedStatus == nil
+                        isSelected: selectedStatus == nil,
                     )
                 }
 
@@ -220,7 +221,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: seriesName,
-                                    isSelected: selectedSeries == seriesName
+                                    isSelected: selectedSeries == seriesName,
                                 )
                             }
                         }
@@ -243,7 +244,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: authorName,
-                                    isSelected: selectedAuthor == authorName
+                                    isSelected: selectedAuthor == authorName,
                                 )
                             }
                         }
@@ -257,7 +258,10 @@ struct MediaGridSortAndFilterBar: View {
                         Button {
                             selectedNarrator = nil
                         } label: {
-                            menuRowLabel(text: "All Narrators", isSelected: selectedNarrator == nil)
+                            menuRowLabel(
+                                text: "All Narrators",
+                                isSelected: selectedNarrator == nil,
+                            )
                         }
 
                         ForEach(narrators, id: \.self) { narratorName in
@@ -266,7 +270,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: narratorName,
-                                    isSelected: selectedNarrator == narratorName
+                                    isSelected: selectedNarrator == narratorName,
                                 )
                             }
                         }
@@ -282,7 +286,7 @@ struct MediaGridSortAndFilterBar: View {
                         } label: {
                             menuRowLabel(
                                 text: "All Translators",
-                                isSelected: selectedTranslator == nil
+                                isSelected: selectedTranslator == nil,
                             )
                         }
 
@@ -292,7 +296,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: translatorName,
-                                    isSelected: selectedTranslator == translatorName
+                                    isSelected: selectedTranslator == translatorName,
                                 )
                             }
                         }
@@ -308,7 +312,7 @@ struct MediaGridSortAndFilterBar: View {
                         } label: {
                             menuRowLabel(
                                 text: "All Years",
-                                isSelected: selectedPublicationYear == nil
+                                isSelected: selectedPublicationYear == nil,
                             )
                         }
 
@@ -318,7 +322,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: year,
-                                    isSelected: selectedPublicationYear == year
+                                    isSelected: selectedPublicationYear == year,
                                 )
                             }
                         }
@@ -342,7 +346,7 @@ struct MediaGridSortAndFilterBar: View {
                             } label: {
                                 menuRowLabel(
                                     text: rating == "Unrated" ? "Unrated" : "\(rating) Stars",
-                                    isSelected: selectedRating == rating
+                                    isSelected: selectedRating == rating,
                                 )
                             }
                         }
@@ -426,7 +430,6 @@ struct MediaGridSortAndFilterBar: View {
         }
         #if os(macOS)
         .buttonStyle(.borderless)
-        .foregroundStyle(.primary)
         .popover(isPresented: $showViewOptions) {
             viewOptionsPopoverContent
         }
@@ -470,11 +473,12 @@ struct MediaGridSortAndFilterBar: View {
 
     private func resetViewOptions() {
         layoutStyle = .grid
-        coverPreference = .preferEbook
+        coverPreference = .storytellerDouble
         coverSize = CoverSizeRange.defaultValue
         showAudioIndicator = true
         showSourceBadge = false
         showSeriesPositionBadge = false
+        progressStyle = .circle
     }
 
     @ViewBuilder
@@ -489,7 +493,7 @@ struct MediaGridSortAndFilterBar: View {
                         LibraryLayoutStyle.grid, LibraryLayoutStyle.compactGrid,
                         LibraryLayoutStyle.table,
                     ],
-                    id: \.self
+                    id: \.self,
                 ) { style in
                     Button {
                         layoutStyle = style
@@ -528,6 +532,19 @@ struct MediaGridSortAndFilterBar: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+
+                Button {
+                    coverPreference = .storytellerDouble
+                } label: {
+                    Image("readalong")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                        .frame(width: 32, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .tint(coverPreference == .storytellerDouble ? .accentColor : .secondary)
             }
         }
     }
@@ -545,7 +562,7 @@ struct MediaGridSortAndFilterBar: View {
                 Slider(
                     value: $coverSize,
                     in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
-                    step: 5
+                    step: 5,
                 )
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 14))
@@ -563,14 +580,27 @@ struct MediaGridSortAndFilterBar: View {
             Toggle("Audio Indicator", isOn: $showAudioIndicator)
             Toggle("Source Badge", isOn: $showSourceBadge)
             Toggle("Series Position", isOn: $showSeriesPositionBadge)
+
+            Text("Progress")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            HStack(spacing: 8) {
+                ForEach(ProgressIndicatorStyle.allCases) { style in
+                    Button {
+                        progressStyle = style
+                    } label: {
+                        Image(systemName: style.iconName)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(progressStyle == style ? .accentColor : .secondary)
+                }
+            }
         }
     }
 
     #if os(macOS)
-    private var isListLayout: Bool {
-        layoutStyle == .table
-    }
-
     @ViewBuilder
     private var columnsMenu: some View {
         Menu {
@@ -583,10 +613,12 @@ struct MediaGridSortAndFilterBar: View {
             columnToggle(id: "narrator", label: "Narrator")
             columnToggle(id: "language", label: "Language")
             columnToggle(id: "collections", label: "Collections")
+            columnToggle(id: "publicationYear", label: "Publication Date")
             columnToggle(id: "status", label: "Status")
             columnToggle(id: "added", label: "Added")
             columnToggle(id: "lastRead", label: "Last Read")
             columnToggle(id: "tags", label: "Tags")
+            columnToggle(id: "source", label: "Source")
             columnToggle(id: "media", label: "Media")
             Divider()
             creatorsSubmenu
@@ -614,16 +646,12 @@ struct MediaGridSortAndFilterBar: View {
     }
 
     private var mergedCreatorRoles: [(code: String, label: String)] {
-        let curated = MediaTableView.curatedCreatorRoles
-        let curatedCodes = Set(curated.map(\.code))
-        let extraRoles = availableCreatorRoles
-            .filter { !curatedCodes.contains($0) && $0 != "aut" && $0 != "nrt" }
+        availableCreatorRoles
+            .filter { $0 != "aut" && $0 != "nrt" }
             .sorted()
             .map { code in
                 (code: code, label: MediaTableView.labelForRole(code))
             }
-        let filteredCurated = curated.filter { $0.code != "aut" && $0.code != "nrt" }
-        return filteredCurated + extraRoles
     }
 
     @ViewBuilder

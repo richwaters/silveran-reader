@@ -68,7 +68,16 @@ public let kDefaultTabBarSlot1 = "books"
 public let kDefaultTabBarSlot2 = "series"
 public let kDefaultTapToPlayPreferredPlayer = false
 public let kDefaultPreferAudioOverEbook = false
+public let kDefaultAccentColorHex = "#EB722F"
 
 // MARK: - tvOS Settings
 
 public let kDefaultTVSubtitleFontSize: Double = 48
+public let kDefaultTVFontFamily = "serif"
+public let kDefaultTVBackgroundStyle = "cover"
+public let kDefaultTVActiveSentenceStyle = "whiteText"
+public let kDefaultTVHighlightColor = "yellow"
+public let kDefaultTVInactiveTextIntensity = "dim"
+public let kDefaultTVTextWidth = "medium"
+public let kDefaultTVLineSpacing = "medium"
+public let kDefaultTVTextAlignment = "leading"

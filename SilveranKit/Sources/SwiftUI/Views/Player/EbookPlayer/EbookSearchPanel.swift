@@ -83,7 +83,7 @@ struct EbookSearchPanel: View {
             ContentUnavailableView(
                 "Search Error",
                 systemImage: "exclamationmark.triangle",
-                description: Text(error)
+                description: Text(error),
             )
         } else if searchManager.searchResults.isEmpty && !searchManager.isSearching {
             ContentUnavailableView(
@@ -95,7 +95,7 @@ struct EbookSearchPanel: View {
                         : (!searchManager.hasSearched
                             ? "Press Return to search"
                             : "No matches found for \"\(searchManager.searchQuery)\"")
-                )
+                ),
             )
         } else {
             searchResultsList

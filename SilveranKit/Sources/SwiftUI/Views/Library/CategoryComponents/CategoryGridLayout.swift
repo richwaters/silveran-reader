@@ -24,7 +24,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
         @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
-        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu,
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -88,7 +88,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                             pinId: group.pinId,
                             onTap: {
                                 onNavigate(group, nil)
-                            }
+                            },
                         )
                         .contextMenu {
                             if let pinId = group.pinId {
@@ -160,7 +160,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                                 .init(color: .white, location: 1),
                             ],
                             startPoint: .leading,
-                            endPoint: .trailing
+                            endPoint: .trailing,
                         )
                         .frame(width: 20)
                         Rectangle().fill(Color.white)
@@ -174,7 +174,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                             .init(color: .white.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                 )
                 .background(
@@ -185,7 +185,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                             .init(color: .black.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .mask(
                         HStack(spacing: 0) {
@@ -196,7 +196,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                                     .init(color: .white, location: 1),
                                 ],
                                 startPoint: .leading,
-                                endPoint: .trailing
+                                endPoint: .trailing,
                             )
                             .frame(width: 20)
                             Rectangle().fill(Color.white)
@@ -211,7 +211,7 @@ struct CategoryGridLayout<Header: View, StickyHeader: View, ContextMenu: View>: 
                     .init(color: Color(nsColor: .windowBackgroundColor).opacity(0), location: 1),
                 ],
                 startPoint: .top,
-                endPoint: .bottom
+                endPoint: .bottom,
             )
         }
     }
@@ -227,7 +227,7 @@ extension CategoryGridLayout where ContextMenu == EmptyView {
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
-        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() }
+        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -249,7 +249,7 @@ extension CategoryGridLayout where StickyHeader == EmptyView, ContextMenu == Emp
         sortByCount: Bool = false,
         showBookCountBadge: Bool,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
-        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() },
     ) {
         self.groups = groups
         self.mediaKind = mediaKind

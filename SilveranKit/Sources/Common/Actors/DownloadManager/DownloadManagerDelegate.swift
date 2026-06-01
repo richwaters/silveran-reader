@@ -38,7 +38,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
         totalBytesWritten: Int64,
-        totalBytesExpectedToWrite: Int64
+        totalBytesExpectedToWrite: Int64,
     ) {
         guard let id = downloadId(for: downloadTask) else { return }
 
@@ -63,7 +63,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
                 downloadId: id,
                 receivedBytes: totalBytesWritten,
                 expectedBytes: totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : nil,
-                progress: progress
+                progress: progress,
             )
         }
     }
@@ -71,7 +71,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
     func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
+        didFinishDownloadingTo location: URL,
     ) {
         guard let id = removeTask(downloadTask) else { return }
 
@@ -83,7 +83,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
             Task {
                 await DownloadManager.shared.handleHTTPError(
                     downloadId: id,
-                    statusCode: statusCode
+                    statusCode: statusCode,
                 )
             }
             return
@@ -103,7 +103,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
                 await DownloadManager.shared.handleFailure(
                     downloadId: id,
                     error: error,
-                    resumeData: nil
+                    resumeData: nil,
                 )
             }
             return
@@ -112,7 +112,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
         Task {
             await DownloadManager.shared.handleFileDownloaded(
                 downloadId: id,
-                tempURL: persistentURL
+                tempURL: persistentURL,
             )
         }
     }
@@ -120,7 +120,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
-        didCompleteWithError error: Error?
+        didCompleteWithError error: Error?,
     ) {
         guard let error else { return }
         guard let id = removeTask(task) else { return }
@@ -131,7 +131,7 @@ final class DownloadManagerDelegate: NSObject, URLSessionDownloadDelegate, @unch
             await DownloadManager.shared.handleFailure(
                 downloadId: id,
                 error: error,
-                resumeData: resumeData
+                resumeData: resumeData,
             )
         }
     }

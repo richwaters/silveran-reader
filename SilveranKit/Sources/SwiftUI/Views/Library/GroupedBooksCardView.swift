@@ -61,10 +61,6 @@ struct GroupedBooksCardView: View {
             .padding(.horizontal, cardPadding)
             .padding(.bottom, 12)
             .frame(width: tileWidth, height: maxCardHeight, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
-            )
         }
         .buttonStyle(.plain)
         #if os(macOS)
@@ -104,17 +100,21 @@ struct GroupedBooksCardView: View {
                         if let image = coverState.image {
                             image
                                 .resizable()
-                                .interpolation(.medium)
+                                .interpolation(.high)
                                 .scaledToFill()
                         }
                     }
                     .frame(width: singleCoverWidth, height: singleCoverHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .stableCoverRendering()
                     .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 2)
                     .rotationEffect(.degrees(rotation))
                     .offset(x: xOffset)
                     .task {
                         mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
+                    }
+                    .onDisappear {
+                        mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
                     }
                 }
             }
@@ -124,7 +124,7 @@ struct GroupedBooksCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

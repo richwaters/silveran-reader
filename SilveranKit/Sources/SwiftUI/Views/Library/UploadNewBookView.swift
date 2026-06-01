@@ -35,21 +35,21 @@ public struct UploadNewBookView: View {
                         label: "Ebook",
                         selectedURL: selectedEbookURL,
                         onClear: { selectedEbookURL = nil },
-                        onSelect: selectEbook
+                        onSelect: selectEbook,
                     )
 
                     fileRow(
                         label: "Audiobook",
                         selectedURL: selectedAudiobookURL,
                         onClear: { selectedAudiobookURL = nil },
-                        onSelect: selectAudiobook
+                        onSelect: selectAudiobook,
                     )
 
                     fileRow(
                         label: "Readaloud",
                         selectedURL: selectedReadaloudURL,
                         onClear: { selectedReadaloudURL = nil },
-                        onSelect: selectReadaloud
+                        onSelect: selectReadaloud,
                     )
                 } header: {
                     Text("Select Files")
@@ -129,7 +129,7 @@ public struct UploadNewBookView: View {
         label: String,
         selectedURL: URL?,
         onClear: @escaping () -> Void,
-        onSelect: @escaping () -> Void
+        onSelect: @escaping () -> Void,
     ) -> some View {
         HStack {
             Text(label)
@@ -226,7 +226,7 @@ public struct UploadNewBookView: View {
                     filename: url.lastPathComponent,
                     data: data,
                     contentType: "application/epub+zip",
-                    relativePath: nil
+                    relativePath: nil,
                 )
             }
 
@@ -240,7 +240,7 @@ public struct UploadNewBookView: View {
                     filename: url.lastPathComponent,
                     data: data,
                     contentType: contentType,
-                    relativePath: nil
+                    relativePath: nil,
                 )
             }
 
@@ -252,7 +252,7 @@ public struct UploadNewBookView: View {
                     filename: url.lastPathComponent,
                     data: data,
                     contentType: "application/epub+zip",
-                    relativePath: nil
+                    relativePath: nil,
                 )
             }
 
@@ -262,7 +262,7 @@ public struct UploadNewBookView: View {
                 bookUUID: bookUUID,
                 ebook: ebookAsset,
                 audiobook: audiobookAsset,
-                readaloud: readaloudAsset
+                readaloud: readaloudAsset,
             )
 
             await MainActor.run {

@@ -13,11 +13,15 @@ struct PublicationYearView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -54,7 +58,7 @@ struct PublicationYearView: View {
                 id: group.year,
                 name: group.year,
                 books: group.books,
-                pinId: SidebarPinHelper.pinId(forYear: group.year)
+                pinId: SidebarPinHelper.pinId(forYear: group.year),
             )
         }
     }
@@ -123,19 +127,19 @@ extension PublicationYearView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: YearDetailNavigation.self) { nav in
                 yearDetailView(for: nav.year, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -156,7 +160,7 @@ extension PublicationYearView {
                                 iconName: "calendar",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -173,7 +177,7 @@ extension PublicationYearView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -181,25 +185,25 @@ extension PublicationYearView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -237,7 +241,7 @@ extension PublicationYearView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -252,22 +256,23 @@ extension PublicationYearView {
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -285,11 +290,13 @@ extension PublicationYearView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -298,18 +305,20 @@ extension PublicationYearView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }
@@ -321,12 +330,22 @@ extension PublicationYearView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
@@ -334,7 +353,7 @@ extension PublicationYearView {
 extension PublicationYearView {
     @ViewBuilder fileprivate func yearDetailView(
         for year: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         #if os(iOS)
         MediaGridView(
@@ -349,7 +368,7 @@ extension PublicationYearView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(year)
         #else
         MediaGridView(
@@ -363,7 +382,7 @@ extension PublicationYearView {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(year)
         #endif
     }

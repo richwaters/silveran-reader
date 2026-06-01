@@ -10,44 +10,10 @@ public final class TVSettingsViewModel {
     var password: String = ""
     var connectionError: String?
     var isTesting: Bool = false
-    var fontFamily: String = kDefaultFontFamily
-    var tvSubtitleFontSize: Double = kDefaultTVSubtitleFontSize
-    var customFontFamilies: [CustomFontFamily] = []
 
     init() {
         Task {
             await loadCredentials()
-            await loadSettings()
-            await loadCustomFonts()
-        }
-    }
-
-    func loadSettings() async {
-        let config = await SettingsActor.shared.config
-        fontFamily = config.reading.fontFamily
-        tvSubtitleFontSize = config.reading.tvSubtitleFontSize
-    }
-
-    func loadCustomFonts() async {
-        await CustomFontsActor.shared.refreshFonts()
-        customFontFamilies = await CustomFontsActor.shared.availableFamilies
-    }
-
-    func updateFontFamily(_ newValue: String) async {
-        fontFamily = newValue
-        do {
-            try await SettingsActor.shared.updateConfig(fontFamily: newValue)
-        } catch {
-            debugLog("[TVSettingsViewModel] Failed to save font setting: \(error)")
-        }
-    }
-
-    func updateSubtitleFontSize(_ newValue: Double) async {
-        tvSubtitleFontSize = newValue
-        do {
-            try await SettingsActor.shared.updateConfig(tvSubtitleFontSize: newValue)
-        } catch {
-            debugLog("[TVSettingsViewModel] Failed to save subtitle font size: \(error)")
         }
     }
 
@@ -70,7 +36,7 @@ public final class TVSettingsViewModel {
         let success = await StorytellerActor.shared.setLogin(
             baseURL: serverURL,
             username: username,
-            password: password
+            password: password,
         )
 
         if success {
@@ -88,7 +54,7 @@ public final class TVSettingsViewModel {
             try await AuthenticationActor.shared.saveCredentials(
                 url: serverURL,
                 username: username,
-                password: password
+                password: password,
             )
             debugLog("[TVSettingsViewModel] Credentials saved")
         } catch {

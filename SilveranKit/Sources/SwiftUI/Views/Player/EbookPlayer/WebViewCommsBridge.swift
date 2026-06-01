@@ -319,7 +319,7 @@ class WebViewCommsBridge {
         singleColumnMode: Bool,
         enableMarginClickNavigation: Bool,
         userHighlightMode: String,
-        readaloudHighlightMode: String
+        readaloudHighlightMode: String,
     ) async throws {
         guard let webView = webView else {
             throw WebViewCommsBridgeError.webViewNotAvailable
@@ -389,7 +389,7 @@ class WebViewCommsBridge {
         query: String,
         matchCase: Bool = false,
         matchDiacritics: Bool = false,
-        matchWholeWords: Bool = false
+        matchWholeWords: Bool = false,
     ) async throws {
         guard let webView = webView else {
             throw WebViewCommsBridgeError.webViewNotAvailable

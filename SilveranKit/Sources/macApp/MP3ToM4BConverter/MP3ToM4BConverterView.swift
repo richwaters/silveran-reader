@@ -117,8 +117,8 @@ public struct MP3ToM4BConverterView: View {
                                     delegate: FileDropDelegate(
                                         fileID: file.id,
                                         viewModel: viewModel,
-                                        draggingFileID: $draggingFileID
-                                    )
+                                        draggingFileID: $draggingFileID,
+                                    ),
                                 )
                             if index < viewModel.files.count - 1 {
                                 Divider()
@@ -199,7 +199,7 @@ public struct MP3ToM4BConverterView: View {
                 if let idx = viewModel.files.firstIndex(where: { $0.id == id }) {
                     viewModel.files[idx].chapterName = newValue
                 }
-            }
+            },
         )
     }
 
@@ -269,8 +269,8 @@ public struct MP3ToM4BConverterView: View {
                     "",
                     selection: Binding(
                         get: { viewModel.bitrate / 1000 },
-                        set: { viewModel.bitrate = $0 * 1000 }
-                    )
+                        set: { viewModel.bitrate = $0 * 1000 },
+                    ),
                 ) {
                     ForEach(MP3ToM4BConverterViewModel.bitrateOptions, id: \.self) { kbps in
                         Text("\(kbps) kbps").tag(kbps)
@@ -368,7 +368,7 @@ public struct MP3ToM4BConverterView: View {
                 Button("Show in Finder") {
                     NSWorkspace.shared.selectFile(
                         url.path,
-                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path,
                     )
                 }
                 .font(.caption)
@@ -438,7 +438,7 @@ private struct FileDropDelegate: DropDelegate {
         withAnimation(.easeInOut(duration: 0.2)) {
             viewModel.files.move(
                 fromOffsets: IndexSet(integer: fromIndex),
-                toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
+                toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex,
             )
         }
     }

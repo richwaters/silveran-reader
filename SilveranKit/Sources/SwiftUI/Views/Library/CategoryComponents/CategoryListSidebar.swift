@@ -5,7 +5,7 @@ struct CategoryListSidebar<
     RowContent: View,
     DetailContent: View,
     ToolbarContent: View,
-    ContextMenu: View
+    ContextMenu: View,
 >: View {
     let sidebarTitle: String
     let groups: [CategoryGroup]
@@ -15,6 +15,7 @@ struct CategoryListSidebar<
     @ViewBuilder let rowContent: (CategoryGroup, Bool, Bool) -> RowContent
     @ViewBuilder let detailContent: (CategoryGroup) -> DetailContent
     @ViewBuilder let toolbarContent: () -> ToolbarContent
+    let headerAccessory: AnyView?
     let contextMenuBuilder: ((CategoryGroup) -> ContextMenu)?
 
     init(
@@ -26,7 +27,8 @@ struct CategoryListSidebar<
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
         @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
-        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
+        headerAccessory: AnyView? = nil,
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu,
     ) {
         self.sidebarTitle = sidebarTitle
         self.groups = groups
@@ -36,6 +38,7 @@ struct CategoryListSidebar<
         self.rowContent = rowContent
         self.detailContent = detailContent
         self.toolbarContent = toolbarContent
+        self.headerAccessory = headerAccessory
         self.contextMenuBuilder = contextMenuBuilder
     }
 
@@ -54,7 +57,7 @@ struct CategoryListSidebar<
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(sidebarTitle)
-                .font(.system(size: 32, weight: .regular, design: .serif))
+                .font(.storytellerTitle(size: 32))
                 .lineLimit(1)
                 .truncationMode(.tail)
             HStack {
@@ -63,6 +66,11 @@ struct CategoryListSidebar<
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .font(.callout)
+
+            if let headerAccessory {
+                headerAccessory
+                    .font(.callout)
+            }
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
@@ -89,7 +97,7 @@ struct CategoryListSidebar<
                             isSelected: selectedGroupId == group.id,
                             rowContent: rowContent,
                             contextMenu: contextMenuBuilder?(group),
-                            onSelect: { selectedGroupId = group.id }
+                            onSelect: { selectedGroupId = group.id },
                         )
                     }
                 }
@@ -127,7 +135,8 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         sortByCount: Binding<Bool>,
         @ViewBuilder rowContent: @escaping (CategoryGroup, Bool, Bool) -> RowContent,
         @ViewBuilder detailContent: @escaping (CategoryGroup) -> DetailContent,
-        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() }
+        @ViewBuilder toolbarContent: @escaping () -> ToolbarContent = { EmptyView() },
+        headerAccessory: AnyView? = nil,
     ) {
         self.sidebarTitle = sidebarTitle
         self.groups = groups
@@ -137,6 +146,7 @@ extension CategoryListSidebar where ContextMenu == EmptyView {
         self.rowContent = rowContent
         self.detailContent = detailContent
         self.toolbarContent = toolbarContent
+        self.headerAccessory = headerAccessory
         self.contextMenuBuilder = nil
     }
 }

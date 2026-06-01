@@ -23,7 +23,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/stackotter/swift-cross-ui.git",
-            branch: "main"
+            branch: "main",
         ),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
@@ -39,7 +39,7 @@ let package = Package(
                 .product(name: "SwiftSoup", package: "SwiftSoup"),
             ],
             path: "Sources/Common",
-            exclude: ["Macros"]
+            exclude: ["Macros"],
         ),
         .macro(
             name: "SilveranKitMacros",
@@ -48,7 +48,7 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
             ],
-            path: "Sources/Common/Macros"
+            path: "Sources/Common/Macros",
         ),
         .target(
             name: "SilveranKitSwiftUI",
@@ -56,14 +56,14 @@ let package = Package(
                 "SilveranKitCommon",
                 "SilveranKitAppModel",
             ],
-            path: "Sources/SwiftUI"
+            path: "Sources/SwiftUI",
         ),
         .target(
             name: "SilveranKitAppModel",
             dependencies: [
                 "SilveranKitCommon"
             ],
-            path: "Sources/AppModel"
+            path: "Sources/AppModel",
         ),
         .target(
             name: "SilveranKitiOSApp",
@@ -71,7 +71,7 @@ let package = Package(
                 "SilveranKitCommon",
                 "SilveranKitSwiftUI",
             ],
-            path: "Sources/iOSApp"
+            path: "Sources/iOSApp",
         ),
         .target(
             name: "SilveranKitMacApp",
@@ -80,14 +80,14 @@ let package = Package(
                 "SilveranKitSwiftUI",
                 .product(name: "StoryAlignCore", package: "StoryAlign"),
             ],
-            path: "Sources/macApp"
+            path: "Sources/macApp",
         ),
         .target(
             name: "SilveranKitWatchApp",
             dependencies: [
                 "SilveranKitCommon"
             ],
-            path: "Sources/watchApp"
+            path: "Sources/watchApp",
         ),
         .target(
             name: "SilveranKitTVApp",
@@ -95,7 +95,7 @@ let package = Package(
                 "SilveranKitCommon",
                 "SilveranKitAppModel",
             ],
-            path: "Sources/tvApp"
+            path: "Sources/tvApp",
         ),
         .executableTarget(
             name: "SilveranKitLinuxApp",
@@ -104,12 +104,12 @@ let package = Package(
                 .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
                 .product(name: "DefaultBackend", package: "swift-cross-ui"),
             ],
-            path: "Sources/LinuxApp"
+            path: "Sources/LinuxApp",
         ),
         /// TODO: Tests would be nice...
         .testTarget(
             name: "SilveranKitTests",
-            dependencies: ["SilveranKitMacApp"],
+            dependencies: ["SilveranKitCommon", "SilveranKitMacApp"],
         ),
     ],
 )

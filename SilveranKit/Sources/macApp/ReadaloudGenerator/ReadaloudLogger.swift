@@ -24,7 +24,7 @@ public final class ReadaloudLogger: Logger, @unchecked Sendable {
         file: String,
         function: String,
         line: Int,
-        indentLevel: Int
+        indentLevel: Int,
     ) {
         guard level.ordinalValue >= minLevel.ordinalValue else { return }
 

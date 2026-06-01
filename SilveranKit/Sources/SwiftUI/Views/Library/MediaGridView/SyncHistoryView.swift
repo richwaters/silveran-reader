@@ -192,7 +192,7 @@ struct SyncHistorySheet: View {
                     history.isEmpty
                         ? "No sync events have been recorded for this book yet."
                         : "No outgoing syncs. Enable 'Show server updates' to see incoming syncs."
-                )
+                ),
             )
         } else {
             List {
@@ -218,7 +218,7 @@ struct SyncHistorySheet: View {
                             let _ = await ProgressSyncActor.shared.restorePosition(
                                 bookId: bookId,
                                 locator: locator,
-                                locationDescription: entry.locationDescription
+                                locationDescription: entry.locationDescription,
                             )
                             await refresh()
                         }

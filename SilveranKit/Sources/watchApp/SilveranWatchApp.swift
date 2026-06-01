@@ -77,7 +77,7 @@ struct SilveranWatchApp: App {
                 let success = await StorytellerActor.shared.setLogin(
                     baseURL: credentials.url,
                     username: credentials.username,
-                    password: credentials.password
+                    password: credentials.password,
                 )
                 if success {
                     debugLog("[WatchApp] Storyteller connected successfully")

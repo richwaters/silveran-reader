@@ -13,7 +13,7 @@ public class LibrarySidebarModel {
                         name: "Dashboard",
                         systemImage: "house",
                         badge: 0,
-                        content: .home
+                        content: .home,
                     ),
                     SidebarItemDescription(
                         name: "All Books",
@@ -24,16 +24,16 @@ public class LibrarySidebarModel {
                                 title: "All Books",
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
-                                minimumTileWidth: 50
+                                minimumTileWidth: 50,
                             )
-                        )
+                        ),
                     ),
-                ]
+                ],
             ),
             SidebarSectionDescription(
                 id: "section.library",
                 name: "Library",
-                items: booksSubItems(parent: "Books")
+                items: booksSubItems(parent: "Books"),
             ),
             SidebarSectionDescription(
                 id: "section.collections",
@@ -49,9 +49,9 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "next-up"
+                                tagFilter: "next-up",
                             )
-                        )
+                        ),
                     ),
                     SidebarItemDescription(
                         name: "Currently Reading",
@@ -63,9 +63,9 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "currently-reading"
+                                tagFilter: "currently-reading",
                             )
-                        )
+                        ),
                     ),
                     SidebarItemDescription(
                         name: "Completed",
@@ -77,23 +77,23 @@ public class LibrarySidebarModel {
                                 mediaKind: .ebook,
                                 preferredTileWidth: 120,
                                 minimumTileWidth: 50,
-                                tagFilter: "completed"
+                                tagFilter: "completed",
                             )
-                        )
+                        ),
                     ),
                     SidebarItemDescription(
                         name: "Server Collections",
                         systemImage: "rectangle.stack",
                         badge: -1,
-                        content: .collectionsView(.ebook)
+                        content: .collectionsView(.ebook),
                     ),
                     SidebarItemDescription(
                         name: "Currently Downloading",
                         systemImage: "arrow.down.circle.dotted",
                         badge: -1,
-                        content: .currentlyDownloading
+                        content: .currentlyDownloading,
                     ),
-                ]
+                ],
             ),
             SidebarSectionDescription(
                 id: "section.mediaSources",
@@ -103,21 +103,21 @@ public class LibrarySidebarModel {
                         name: "Storyteller Server",
                         systemImage: "server.rack",
                         badge: -1,
-                        content: .placeholder(title: "Storyteller Server")
+                        content: .placeholder(title: "Storyteller Server"),
                     ),
                     SidebarItemDescription(
                         name: "Audiobookshelf Server",
                         systemImage: "server.rack",
                         badge: -1,
-                        content: .placeholder(title: "Audiobookshelf Server")
+                        content: .placeholder(title: "Audiobookshelf Server"),
                     ),
                     SidebarItemDescription(
                         name: "Local Files",
                         systemImage: "folder",
                         badge: -1,
-                        content: .importLocalFile
+                        content: .importLocalFile,
                     ),
-                ]
+                ],
             ),
         ]
     }
@@ -128,13 +128,13 @@ public class LibrarySidebarModel {
                 name: "Series",
                 systemImage: "books.vertical",
                 badge: -1,
-                content: .placeholder(title: "\(parent) by Series")
+                content: .placeholder(title: "\(parent) by Series"),
             ),
             SidebarItemDescription(
                 name: "Author",
                 systemImage: "person.2",
                 badge: -1,
-                content: .placeholder(title: "\(parent) by Author")
+                content: .placeholder(title: "\(parent) by Author"),
             ),
         ]
     }

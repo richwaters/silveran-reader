@@ -123,7 +123,7 @@ struct HighlightCreationSheet: View {
                                 Circle()
                                     .strokeBorder(
                                         selectedColor == color ? Color.primary : Color.clear,
-                                        lineWidth: 2
+                                        lineWidth: 2,
                                     )
                             }
                         Text(settingsVM.label(for: color))

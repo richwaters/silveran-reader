@@ -25,7 +25,7 @@ struct CollectionRowView: View {
                                 .init(color: .clear, location: 1.0),
                             ],
                             startPoint: .leading,
-                            endPoint: .trailing
+                            endPoint: .trailing,
                         )
                     )
 
@@ -78,17 +78,21 @@ struct CollectionRowView: View {
                     if let image = coverState.image {
                         image
                             .resizable()
-                            .interpolation(.medium)
+                            .interpolation(.high)
                             .scaledToFill()
                     }
                 }
                 .frame(width: coverSize * aspectRatio, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .stableCoverRendering()
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                 .offset(x: offset)
                 .zIndex(Double(index))
                 .task {
                     mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
+                }
+                .onDisappear {
+                    mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
                 }
             }
         }
@@ -96,7 +100,7 @@ struct CollectionRowView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

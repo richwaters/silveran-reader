@@ -182,13 +182,15 @@ public final class CarPlayCoordinator {
         // Try audioSquare first (preferred for CarPlay - square covers)
         if let data = await FilesystemActor.shared.loadCoverImage(
             uuid: bookId,
-            variant: "audioSquare"
+            variant: "audioSquare",
         ) {
             return UIImage(data: data)
         }
         // Fall back to standard cover
-        if let data = await FilesystemActor.shared.loadCoverImage(uuid: bookId, variant: "standard")
-        {
+        if let data = await FilesystemActor.shared.loadCoverImage(
+            uuid: bookId,
+            variant: "standard",
+        ) {
             return UIImage(data: data)
         }
         // Last resort: extract from local file (for standalone imports)
@@ -206,7 +208,7 @@ public final class CarPlayCoordinator {
                         id: idx,
                         label: chapter.title,
                         sectionIndex: idx,
-                        href: chapter.href
+                        href: chapter.id,
                     )
                 }
             case .smil, .none:
@@ -218,7 +220,7 @@ public final class CarPlayCoordinator {
                         CarPlayChapter(
                             id: idx,
                             label: section.label ?? "Chapter \(idx + 1)",
-                            sectionIndex: section.index
+                            sectionIndex: section.index,
                         )
                     }
         }
@@ -242,7 +244,7 @@ public final class CarPlayCoordinator {
                 case .audiobook:
                     guard sectionIndex < cachedAudiobookChapters.count else { return }
                     let chapter = cachedAudiobookChapters[sectionIndex]
-                    await AudiobookActor.shared.seekToChapter(href: chapter.href)
+                    await AudiobookActor.shared.seekToChapter(href: chapter.id)
                     if wasPlaying {
                         try? await AudiobookActor.shared.play()
                     }
@@ -250,7 +252,7 @@ public final class CarPlayCoordinator {
                     do {
                         try await SMILPlayerActor.shared.seekToEntry(
                             sectionIndex: sectionIndex,
-                            entryIndex: 0
+                            entryIndex: 0,
                         )
                         if wasPlaying {
                             try? await SMILPlayerActor.shared.play()
@@ -269,7 +271,7 @@ public final class CarPlayCoordinator {
         guard
             let localPath = await LocalMediaActor.shared.mediaFilePath(
                 for: metadata.uuid,
-                category: category
+                category: category,
             )
         else {
             debugLog("[CarPlayCoordinator] No local path for book \(metadata.uuid)")
@@ -298,7 +300,7 @@ public final class CarPlayCoordinator {
         activePlayer = .audiobook
         currentBookId = metadata.uuid
         currentBookTitle = metadata.title
-        currentAudiobookHref = localPath.lastPathComponent
+        currentAudiobookHref = nil
         wasPlaying = false
 
         audiobookObserverId = await AudiobookActor.shared.addStateObserver {
@@ -370,14 +372,14 @@ public final class CarPlayCoordinator {
 
         _ = try await FilesystemActor.shared.extractEpubIfNeeded(
             epubPath: localPath,
-            forceExtract: true
+            forceExtract: true,
         )
 
         try await SMILPlayerActor.shared.loadBook(
             epubPath: localPath,
             bookId: metadata.uuid,
             title: metadata.title,
-            author: metadata.authors?.first?.name
+            author: metadata.authors?.first?.name,
         )
 
         await refreshBookStructure()
@@ -408,7 +410,7 @@ public final class CarPlayCoordinator {
             {
                 let success = await SMILPlayerActor.shared.seekToFragment(
                     sectionIndex: sectionIndex,
-                    textId: fragment
+                    textId: fragment,
                 )
                 if success {
                     debugLog(
@@ -560,7 +562,7 @@ public final class CarPlayCoordinator {
                     : nil
 
                 let totalProgression = state.duration > 0 ? state.currentTime / state.duration : 0
-                let roundedTime = (state.currentTime * 100).rounded() / 100
+                let roundedTime = (state.currentTrackTime * 100).rounded() / 100
                 let timeFragment = "t=\(roundedTime)"
 
                 let locations = BookLocator.Locations(
@@ -570,15 +572,15 @@ public final class CarPlayCoordinator {
                     totalProgression: totalProgression,
                     cssSelector: nil,
                     partialCfi: nil,
-                    domRange: nil
+                    domRange: nil,
                 )
 
                 locator = BookLocator(
-                    href: currentAudiobookHref ?? "\(bookId).m4b",
-                    type: "audio/mp4",
+                    href: state.currentTrackHref ?? currentAudiobookHref ?? "audiobook",
+                    type: state.currentTrackType ?? "audio/mp4",
                     title: chapter?.title ?? "Chapter \(chapterIndex + 1)",
                     locations: locations,
-                    text: nil
+                    text: nil,
                 )
 
                 sourceIdentifier = "CarPlay · Audiobook"
@@ -625,7 +627,7 @@ public final class CarPlayCoordinator {
                     totalProgression: totalProgression,
                     cssSelector: nil,
                     partialCfi: nil,
-                    domRange: nil
+                    domRange: nil,
                 )
 
                 locator = BookLocator(
@@ -633,7 +635,7 @@ public final class CarPlayCoordinator {
                     type: "application/xhtml+xml",
                     title: state.chapterLabel,
                     locations: locations,
-                    text: nil
+                    text: nil,
                 )
 
                 sourceIdentifier = "CarPlay · Readaloud"
@@ -661,7 +663,7 @@ public final class CarPlayCoordinator {
             timestamp: timestampMs,
             reason: reason,
             sourceIdentifier: sourceIdentifier,
-            locationDescription: locationDescription
+            locationDescription: locationDescription,
         )
 
         debugLog("[CarPlayCoordinator] Sync result: \(result)")

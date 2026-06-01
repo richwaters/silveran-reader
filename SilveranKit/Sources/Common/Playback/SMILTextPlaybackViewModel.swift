@@ -86,7 +86,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
             .map { chapterNum, section in
                 ChapterInfo(
                     index: section.index,
-                    label: section.label ?? "Chapter \(chapterNum + 1)"
+                    label: section.label ?? "Chapter \(chapterNum + 1)",
                 )
             }
     }
@@ -232,7 +232,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 epubPath: url,
                 bookId: book.uuid,
                 title: book.title,
-                author: book.creators?.first?.name ?? book.authors?.first?.name
+                author: book.creators?.first?.name ?? book.authors?.first?.name,
             )
 
             bookStructure = await SMILPlayerActor.shared.getBookStructure()
@@ -394,7 +394,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
             )
             try? await SMILPlayerActor.shared.seekToEntry(
                 sectionIndex: targetSectionIndex,
-                entryIndex: targetEntryIndex
+                entryIndex: targetEntryIndex,
             )
         }
     }
@@ -436,7 +436,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
             )
             try? await SMILPlayerActor.shared.seekToEntry(
                 sectionIndex: targetSectionIndex,
-                entryIndex: targetEntryIndex
+                entryIndex: targetEntryIndex,
             )
         }
     }
@@ -588,7 +588,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
         let entry = section.mediaOverlay[targetIndex]
         if let elementHTML = EPUBContentLoader.extractElement(
             from: currentSectionHTML,
-            elementId: entry.textId
+            elementId: entry.textId,
         ) {
             return EPUBContentLoader.stripHTML(elementHTML)
         }
@@ -612,7 +612,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 let extraction = await Task.detached(priority: .utility) {
                     EPUBContentLoader.extractElementsTextAndParagraphKeys(
                         from: html,
-                        elementIds: elementIds
+                        elementIds: elementIds,
                     )
                 }.value
                 guard sectionIndex == currentSectionIndex,
@@ -629,7 +629,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 rebuildAllChapterLines()
                 rebuildChapterParagraphs(
                     elementIds: elementIds,
-                    paragraphKeyById: extraction.paragraphKeyById
+                    paragraphKeyById: extraction.paragraphKeyById,
                 )
                 updateCachedTextIfNeeded()
             } else {
@@ -675,7 +675,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
 
     private func rebuildChapterParagraphs(
         elementIds: [String],
-        paragraphKeyById: [String: String]
+        paragraphKeyById: [String: String],
     ) {
         guard !elementIds.isEmpty else {
             chapterParagraphs = []
@@ -697,7 +697,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 ChapterParagraph(
                     index: currentParagraphIndex,
                     segments: segments,
-                    text: text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                 )
             )
             currentParagraphIndex += 1
@@ -742,7 +742,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 ChapterSegment(
                     entryIndex: raw.entryIndex,
                     text: raw.text,
-                    separator: separator
+                    separator: separator,
                 )
             )
         }
@@ -835,9 +835,9 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 totalProgression: progression,
                 cssSelector: nil,
                 partialCfi: nil,
-                domRange: nil
+                domRange: nil,
             ),
-            text: nil
+            text: nil,
         )
 
         let locationDescription = "\(chapterTitle), \(Int(chapterProgress * 100))%"
@@ -849,7 +849,7 @@ public final class SMILTextPlaybackViewModel: NSObject {
                 timestamp: timestamp,
                 reason: .userPausedPlayback,
                 sourceIdentifier: syncSourceIdentifier,
-                locationDescription: locationDescription
+                locationDescription: locationDescription,
             )
         }
     }
@@ -921,13 +921,13 @@ public final class SMILTextPlaybackViewModel: NSObject {
             }) {
                 let success = await SMILPlayerActor.shared.seekToFragment(
                     sectionIndex: sectionIndex,
-                    textId: textId
+                    textId: textId,
                 )
                 if success { return }
             } else if let sectionIndex = findSectionIndex(for: href, in: bookStructure) {
                 let success = await SMILPlayerActor.shared.seekToFragment(
                     sectionIndex: sectionIndex,
-                    textId: textId
+                    textId: textId,
                 )
                 if success { return }
             }

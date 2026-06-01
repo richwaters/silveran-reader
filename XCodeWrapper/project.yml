@@ -59,6 +59,7 @@ targets:
         LSApplicationCategoryType: "public.app-category.books"
         NSLocalNetworkUsageDescription: "Silveran Reader needs local network access to connect to your Storyteller server."
         ITSAppUsesNonExemptEncryption: false
+        ATSApplicationFontsPath: "fonts"
     sources:
       - path: XCodeWrapper
         includes:
@@ -83,6 +84,9 @@ targets:
           - "eslint.config.js"
           - "rollup.config.js"
           - ".git*"
+      - path: extern/assets/fonts
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: SilveranKit
         product: SilveranKitMacApp

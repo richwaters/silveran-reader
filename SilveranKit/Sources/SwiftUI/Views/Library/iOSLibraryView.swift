@@ -58,6 +58,11 @@ public struct iOSLibraryView: View {
     @State private var booksNavigationPath = NavigationPath()
     @State private var downloadedNavigationPath = NavigationPath()
     @State private var showCarPlayPlayer: Bool = false
+    @State private var metadataEditorData: MetadataEditorData?
+    @State private var metadataEditorHasUnsavedChanges = false
+    @State private var showMetadataEditorCloseWarning = false
+    @State private var showMetadataPermissionError = false
+    @State private var metadataPermissionErrorMessage = ""
     @State private var settingsViewModel = SettingsViewModel()
     @AppStorage("coverPref.iOSLibrary") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
@@ -155,6 +160,7 @@ public struct iOSLibraryView: View {
                 }
                 .tag(Tab.more)
         }
+        .environment(\.editMetadataAction, handleEditMetadata)
         .id("\(settingsViewModel.tabBarSlot1)-\(settingsViewModel.tabBarSlot2)")
         .onChange(of: selectedTab) { _, _ in
             searchText = ""
@@ -194,10 +200,57 @@ public struct iOSLibraryView: View {
                 onGoToSettings: {
                     showOfflineSheet = false
                     showSettings = true
-                }
+                },
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(
+            item: $metadataEditorData,
+            onDismiss: {
+                metadataEditorData = nil
+                metadataEditorHasUnsavedChanges = false
+            },
+        ) { metadataEditorData in
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Edit Metadata")
+                        .font(.headline)
+                    Spacer()
+                    Button("Done") {
+                        closeMetadataEditor()
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(.bar)
+
+                Divider()
+
+                MetadataEditorView(
+                    initialBookIds: metadataEditorData.bookIds,
+                    hasUnsavedChanges: $metadataEditorHasUnsavedChanges,
+                )
+                .environment(mediaViewModel)
+            }
+            .interactiveDismissDisabled(metadataEditorHasUnsavedChanges)
+            .alert(
+                "Discard unsaved metadata changes?",
+                isPresented: $showMetadataEditorCloseWarning,
+            ) {
+                Button("Discard Changes", role: .destructive) {
+                    metadataEditorHasUnsavedChanges = false
+                    self.metadataEditorData = nil
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Closing the metadata editor will lose any unsaved changes.")
+            }
+        }
+        .alert("Edit Metadata", isPresented: $showMetadataPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(metadataPermissionErrorMessage)
         }
         .safeAreaInset(edge: .top) {
             if CarPlayCoordinator.shared.isCarPlayConnected,
@@ -229,7 +282,7 @@ public struct iOSLibraryView: View {
                             localMediaPath: path,
                             category: category,
                             coverArt: cover,
-                            ebookCoverArt: ebookCover
+                            ebookCoverArt: ebookCover,
                         )
                     )
                     .toolbar {
@@ -244,13 +297,51 @@ public struct iOSLibraryView: View {
         }
     }
 
+    private func closeMetadataEditor() {
+        if metadataEditorHasUnsavedChanges {
+            showMetadataEditorCloseWarning = true
+        } else {
+            metadataEditorData = nil
+        }
+    }
+
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            metadataPermissionErrorMessage =
+                "Editing metadata for local books is not supported yet."
+            showMetadataPermissionError = true
+            return
+        }
+
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            await MainActor.run {
+                switch result {
+                    case .allowed:
+                        Task {
+                            await Task.yield()
+                            metadataEditorData = MetadataEditorData(bookIds: bookIds)
+                        }
+                    case .denied:
+                        metadataPermissionErrorMessage =
+                            "Your account does not have permission to edit metadata on this server."
+                        showMetadataPermissionError = true
+                    case .error(let message):
+                        metadataPermissionErrorMessage =
+                            "Could not verify server permissions: \(message)"
+                        showMetadataPermissionError = true
+                }
+            }
+        }
+    }
+
     private var homeTab: some View {
         HomeView(
             searchText: $searchText,
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -283,15 +374,18 @@ public struct iOSLibraryView: View {
     private var booksTabContent: some View {
         NavigationStack(path: $booksNavigationPath) {
             BooksContentView(searchText: searchText)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
                 .searchable(
                     text: $searchText,
                     placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Search"
+                    prompt: "Search",
                 )
                 .libraryNavigationDestinations(
                     showSettings: $showSettings,
-                    showOfflineSheet: $showOfflineSheet
+                    showOfflineSheet: $showOfflineSheet,
                 )
         }
         .environment(\.mediaNavigationPath, $booksNavigationPath)
@@ -304,7 +398,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -315,7 +409,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -326,7 +420,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -337,7 +431,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -348,22 +442,25 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
     private var downloadedTabContent: some View {
         NavigationStack(path: $downloadedNavigationPath) {
             DownloadedContentView(searchText: searchText)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
                 .searchable(
                     text: $searchText,
                     placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Search"
+                    prompt: "Search",
                 )
                 .libraryNavigationDestinations(
                     showSettings: $showSettings,
-                    showOfflineSheet: $showOfflineSheet
+                    showOfflineSheet: $showOfflineSheet,
                 )
         }
         .environment(\.mediaNavigationPath, $downloadedNavigationPath)
@@ -376,7 +473,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -387,7 +484,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -398,7 +495,7 @@ public struct iOSLibraryView: View {
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 
@@ -409,7 +506,7 @@ public struct iOSLibraryView: View {
                 showSettings: $showSettings,
                 showOfflineSheet: $showOfflineSheet,
                 navigationPath: $moreNavigationPath,
-                excludedTabs: [slot1Tab, slot2Tab]
+                excludedTabs: [slot1Tab, slot2Tab],
             )
         }
         .environment(\.mediaNavigationPath, $moreNavigationPath)
@@ -576,77 +673,77 @@ struct MoreMenuView: View {
                     BooksContentView(searchText: searchText)
                         .iOSLibraryToolbar(
                             showSettings: $showSettings,
-                            showOfflineSheet: $showOfflineSheet
+                            showOfflineSheet: $showOfflineSheet,
                         )
                         .searchable(
                             text: $searchText,
                             placement: .navigationBarDrawer(displayMode: .always),
-                            prompt: "Search"
+                            prompt: "Search",
                         )
                 case .series:
                     MoreSeriesView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .authors:
                     MoreAuthorsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .narrators:
                     MoreNarratorsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .tags:
                     MoreTagsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .translators:
                     MoreTranslatorsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .publicationYears:
                     MorePublicationYearsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .ratings:
                     MoreRatingsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .collections:
                     MoreCollectionsView(
                         searchText: $searchText,
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
                 case .downloaded:
                     DownloadedContentView(searchText: searchText)
                         .iOSLibraryToolbar(
                             showSettings: $showSettings,
-                            showOfflineSheet: $showOfflineSheet
+                            showOfflineSheet: $showOfflineSheet,
                         )
                         .searchable(
                             text: $searchText,
                             placement: .navigationBarDrawer(displayMode: .always),
-                            prompt: "Search"
+                            prompt: "Search",
                         )
                 case .currentlyDownloading:
                     CurrentlyDownloadingView()
                         .iOSLibraryToolbar(
                             showSettings: $showSettings,
-                            showOfflineSheet: $showOfflineSheet
+                            showOfflineSheet: $showOfflineSheet,
                         )
                 case .addLocalFile:
                     ImportLocalFileView()
@@ -654,19 +751,19 @@ struct MoreMenuView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .iOSLibraryToolbar(
                             showSettings: $showSettings,
-                            showOfflineSheet: $showOfflineSheet
+                            showOfflineSheet: $showOfflineSheet,
                         )
                 case .appleWatch:
                     WatchTransferView()
                         .iOSLibraryToolbar(
                             showSettings: $showSettings,
-                            showOfflineSheet: $showOfflineSheet
+                            showOfflineSheet: $showOfflineSheet,
                         )
             }
         }
         .libraryNavigationDestinations(
             showSettings: $showSettings,
-            showOfflineSheet: $showOfflineSheet
+            showOfflineSheet: $showOfflineSheet,
         )
     }
 }
@@ -694,7 +791,7 @@ struct BooksContentView: View {
             columnBreakpoints: [
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .navigationTitle("Books")
         .navigationBarTitleDisplayMode(.inline)
@@ -720,7 +817,7 @@ struct DownloadedContentView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            initialLocationFilter: .downloaded
+            initialLocationFilter: .downloaded,
         )
         .navigationTitle("Downloaded")
         .navigationBarTitleDisplayMode(.inline)
@@ -774,7 +871,7 @@ struct CollectionsListView: View {
                 collectionSection(
                     collection: group.collection,
                     books: group.books,
-                    contentWidth: contentWidth
+                    contentWidth: contentWidth,
                 )
             }
         }
@@ -825,7 +922,7 @@ struct CollectionsListView: View {
     private func collectionSection(
         collection: BookCollectionSummary?,
         books: [BookMetadata],
-        contentWidth: CGFloat
+        contentWidth: CGFloat,
     )
         -> some View
     {
@@ -844,7 +941,7 @@ struct CollectionsListView: View {
                 coverPreference: coverPreference,
                 onSelect: { _ in
                     navigateToCollection(navIdentifier)
-                }
+                },
             )
             .frame(maxWidth: stackWidth, alignment: .center)
 
@@ -904,7 +1001,7 @@ struct AuthorsRowListView: View {
                             iconName: "person.fill",
                             name: authorName,
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -925,7 +1022,8 @@ struct SeriesContentView: View {
     @Binding var searchText: String
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
 
     private var coverPreference: CoverPreference {
@@ -963,7 +1061,7 @@ struct SeriesContentView: View {
                 seriesSection(
                     series: group.series,
                     books: group.books,
-                    contentWidth: contentWidth
+                    contentWidth: contentWidth,
                 )
             }
         }
@@ -1012,7 +1110,7 @@ struct SeriesContentView: View {
     private func seriesSection(
         series: BookSeries?,
         books: [BookMetadata],
-        contentWidth: CGFloat
+        contentWidth: CGFloat,
     ) -> some View {
         let seriesName = series?.name ?? "Unknown Series"
         let stackWidth = max(contentWidth - (horizontalPadding * 2), 100)
@@ -1025,7 +1123,7 @@ struct SeriesContentView: View {
                 availableWidth: stackWidth,
                 showAudioIndicator: settingsViewModel.showAudioIndicator,
                 coverPreference: coverPreference,
-                onSelect: { _ in }
+                onSelect: { _ in },
             )
             .frame(maxWidth: stackWidth, alignment: .center)
 
@@ -1066,7 +1164,7 @@ struct OfflineStatusSheet: View {
         errorType: ErrorType = .networkOffline,
         onRetry: @escaping () async -> Bool,
         onGoToDownloads: @escaping () -> Void,
-        onGoToSettings: (() -> Void)? = nil
+        onGoToSettings: (() -> Void)? = nil,
     ) {
         self.errorType = errorType
         self.onRetry = onRetry
@@ -1225,7 +1323,7 @@ extension View {
         modifier(
             IOSLibraryToolbarModifier(
                 showSettings: showSettings,
-                showOfflineSheet: showOfflineSheet
+                showOfflineSheet: showOfflineSheet,
             )
         )
     }
@@ -1281,7 +1379,7 @@ struct LibraryNavigationDestinations: ViewModifier {
                 iOSBookDetailView(item: item, mediaKind: .ebook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: $showOfflineSheet
+                        showOfflineSheet: $showOfflineSheet,
                     )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
@@ -1310,10 +1408,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(authorName)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: SeriesNavIdentifier.self) { series in
                 MediaGridView(
@@ -1330,10 +1431,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(series.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: CollectionNavIdentifier.self) { collection in
                 MediaGridView(
@@ -1351,10 +1455,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(collection.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: NarratorNavIdentifier.self) { narrator in
                 MediaGridView(
@@ -1373,10 +1480,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(narrator.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: TagNavIdentifier.self) { tag in
                 MediaGridView(
@@ -1394,10 +1504,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(tag.name.capitalized)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: TranslatorNavIdentifier.self) { translator in
                 MediaGridView(
@@ -1413,10 +1526,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(translator.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: PublicationYearNavIdentifier.self) { year in
                 MediaGridView(
@@ -1432,10 +1548,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(year.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
             .navigationDestination(for: RatingNavIdentifier.self) { rating in
                 MediaGridView(
@@ -1451,10 +1570,13 @@ struct LibraryNavigationDestinations: ViewModifier {
                     columnBreakpoints: [
                         MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
                     ],
-                    initialNarrationFilterOption: .both
+                    initialNarrationFilterOption: .both,
                 )
                 .navigationTitle(rating.name)
-                .iOSLibraryToolbar(showSettings: $showSettings, showOfflineSheet: $showOfflineSheet)
+                .iOSLibraryToolbar(
+                    showSettings: $showSettings,
+                    showOfflineSheet: $showOfflineSheet,
+                )
             }
     }
 }
@@ -1493,7 +1615,7 @@ struct NarratorsListView: View {
                             iconName: "mic.fill",
                             name: narratorName,
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -1547,7 +1669,7 @@ struct TagsListView: View {
                             iconName: "tag.fill",
                             name: group.tag,
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -1615,7 +1737,7 @@ struct TranslatorsListView: View {
                             iconName: "character.book.closed.fill",
                             name: translatorName,
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -1665,7 +1787,7 @@ struct PublicationYearsListView: View {
                             iconName: "calendar",
                             name: group.year,
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -1715,7 +1837,7 @@ struct RatingsListView: View {
                             iconName: "star.fill",
                             name: RatingDisplayHelper.label(for: group.rating),
                             bookCount: group.books.count,
-                            isSelected: false
+                            isSelected: false,
                         )
                         .contentShape(Rectangle())
                     }
@@ -1733,13 +1855,16 @@ struct RatingsListView: View {
 }
 
 extension View {
-    func libraryNavigationDestinations(showSettings: Binding<Bool>, showOfflineSheet: Binding<Bool>)
+    func libraryNavigationDestinations(
+        showSettings: Binding<Bool>,
+        showOfflineSheet: Binding<Bool>,
+    )
         -> some View
     {
         modifier(
             LibraryNavigationDestinations(
                 showSettings: showSettings,
-                showOfflineSheet: showOfflineSheet
+                showOfflineSheet: showOfflineSheet,
             )
         )
     }
@@ -1754,7 +1879,8 @@ struct MoreSeriesView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -1809,7 +1935,7 @@ struct MoreSeriesView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -1824,7 +1950,7 @@ struct MoreSeriesView: View {
                                 iconName: "books.vertical.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1846,7 +1972,7 @@ struct MoreSeriesView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToSeries(group) }
+                onNavigate: { group, _ in navigateToSeries(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -1854,25 +1980,25 @@ struct MoreSeriesView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToSeries(group) }
+                onNavigate: { group, _ in navigateToSeries(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -1941,7 +2067,7 @@ struct MoreCollectionsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -1958,7 +2084,7 @@ struct MoreCollectionsView: View {
                                 iconName: "rectangle.stack.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1982,7 +2108,7 @@ struct MoreCollectionsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToCollection(group) }
+                onNavigate: { group, _ in navigateToCollection(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -1990,25 +2116,25 @@ struct MoreCollectionsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToCollection(group) }
+                onNavigate: { group, _ in navigateToCollection(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Server Collections").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Server Collections").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2023,7 +2149,8 @@ struct MoreAuthorsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.authors") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.authors") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("authors.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2070,7 +2197,7 @@ struct MoreAuthorsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2085,7 +2212,7 @@ struct MoreAuthorsView: View {
                                 iconName: "person.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2107,7 +2234,7 @@ struct MoreAuthorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToAuthor(group) }
+                onNavigate: { group, _ in navigateToAuthor(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2115,25 +2242,25 @@ struct MoreAuthorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToAuthor(group) }
+                onNavigate: { group, _ in navigateToAuthor(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Authors").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Authors").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2195,7 +2322,7 @@ struct MoreNarratorsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2210,7 +2337,7 @@ struct MoreNarratorsView: View {
                                 iconName: "mic.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2232,7 +2359,7 @@ struct MoreNarratorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToNarrator(group) }
+                onNavigate: { group, _ in navigateToNarrator(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2240,25 +2367,25 @@ struct MoreNarratorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToNarrator(group) }
+                onNavigate: { group, _ in navigateToNarrator(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Narrators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Narrators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2273,7 +2400,8 @@ struct MoreTagsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.tags") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.tags") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("tags.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2319,7 +2447,7 @@ struct MoreTagsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2334,7 +2462,7 @@ struct MoreTagsView: View {
                                 iconName: "tag.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2356,7 +2484,7 @@ struct MoreTagsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToTag(group) }
+                onNavigate: { group, _ in navigateToTag(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2364,25 +2492,25 @@ struct MoreTagsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToTag(group) }
+                onNavigate: { group, _ in navigateToTag(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tags").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Tags").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2445,7 +2573,7 @@ struct MoreTranslatorsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2460,7 +2588,7 @@ struct MoreTranslatorsView: View {
                                 iconName: "character.book.closed.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2482,7 +2610,7 @@ struct MoreTranslatorsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToTranslator(group) }
+                onNavigate: { group, _ in navigateToTranslator(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2490,25 +2618,25 @@ struct MoreTranslatorsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToTranslator(group) }
+                onNavigate: { group, _ in navigateToTranslator(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Translators").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Translators").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2523,7 +2651,8 @@ struct MorePublicationYearsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.years") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.years") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("years.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2569,7 +2698,7 @@ struct MorePublicationYearsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2584,7 +2713,7 @@ struct MorePublicationYearsView: View {
                                 iconName: "calendar",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2606,7 +2735,7 @@ struct MorePublicationYearsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToYear(group) }
+                onNavigate: { group, _ in navigateToYear(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2614,25 +2743,25 @@ struct MorePublicationYearsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToYear(group) }
+                onNavigate: { group, _ in navigateToYear(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Years").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Years").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -2647,7 +2776,8 @@ struct MoreRatingsView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel
     @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
     @Environment(\.mediaNavigationPath) private var navigationPath
@@ -2666,7 +2796,7 @@ struct MoreRatingsView: View {
                 id: group.rating,
                 name: RatingDisplayHelper.label(for: group.rating),
                 books: group.books,
-                pinId: nil
+                pinId: nil,
             )
         }
     }
@@ -2698,7 +2828,7 @@ struct MoreRatingsView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search"
+            prompt: "Search",
         )
     }
 
@@ -2713,7 +2843,7 @@ struct MoreRatingsView: View {
                                 iconName: "star.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -2735,7 +2865,7 @@ struct MoreRatingsView: View {
                 groups: categoryGroups,
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
-                onNavigate: { group, _ in navigateToRating(group) }
+                onNavigate: { group, _ in navigateToRating(group) },
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -2743,25 +2873,25 @@ struct MoreRatingsView: View {
                 mediaKind: .ebook,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: { group, _ in navigateToRating(group) }
+                onNavigate: { group, _ in navigateToRating(group) },
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)

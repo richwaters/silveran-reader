@@ -11,7 +11,7 @@ struct TVHomeView: View {
             mediaViewModel.itemsByStatus(
                 "Reading",
                 sortBy: .recentPositionUpdate,
-                limit: .max
+                limit: .max,
             ).filter { $0.hasAvailableReadaloud }.prefix(12)
         )
     }
@@ -21,7 +21,7 @@ struct TVHomeView: View {
             mediaViewModel.itemsByStatus(
                 "To read",
                 sortBy: .recentlyAdded,
-                limit: .max
+                limit: .max,
             ).filter { $0.hasAvailableReadaloud }.prefix(12)
         )
     }
@@ -38,7 +38,7 @@ struct TVHomeView: View {
             mediaViewModel.itemsByStatus(
                 "Read",
                 sortBy: .recentPositionUpdate,
-                limit: .max
+                limit: .max,
             ).filter { $0.hasAvailableReadaloud }.prefix(12)
         )
     }
@@ -112,7 +112,7 @@ struct TVHomeView: View {
                     TVHomeSectionView(
                         title: "Currently Reading",
                         books: currentlyReading,
-                        viewModel: mediaViewModel
+                        viewModel: mediaViewModel,
                     )
                 }
 
@@ -120,7 +120,7 @@ struct TVHomeView: View {
                     TVHomeSectionView(
                         title: "Start Reading",
                         books: startReading,
-                        viewModel: mediaViewModel
+                        viewModel: mediaViewModel,
                     )
                 }
 
@@ -128,7 +128,7 @@ struct TVHomeView: View {
                     TVHomeSectionView(
                         title: "Recently Added",
                         books: recentlyAdded,
-                        viewModel: mediaViewModel
+                        viewModel: mediaViewModel,
                     )
                 }
 
@@ -136,7 +136,7 @@ struct TVHomeView: View {
                     TVHomeSectionView(
                         title: "Completed",
                         books: completed,
-                        viewModel: mediaViewModel
+                        viewModel: mediaViewModel,
                     )
                 }
             }
@@ -182,7 +182,7 @@ private struct TVHomeSectionView: View {
                             TVBookCardView(
                                 book: book,
                                 isDownloaded: isBookDownloaded(book),
-                                downloadProgress: downloadProgress(for: book)
+                                downloadProgress: downloadProgress(for: book),
                             )
                         }
                         .buttonStyle(.card)

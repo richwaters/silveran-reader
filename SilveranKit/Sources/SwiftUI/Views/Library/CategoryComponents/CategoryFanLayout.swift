@@ -23,7 +23,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
         @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
-        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu
+        @ViewBuilder contextMenuBuilder: @escaping (CategoryGroup) -> ContextMenu,
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -80,7 +80,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                             stackWidth: stackWidth,
                             coverPreference: coverPreference,
                             onNavigate: onNavigate,
-                            contextMenu: contextMenuBuilder?(group)
+                            contextMenu: contextMenuBuilder?(group),
                         )
                     }
                 }
@@ -132,7 +132,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                                 .init(color: .white, location: 1),
                             ],
                             startPoint: .leading,
-                            endPoint: .trailing
+                            endPoint: .trailing,
                         )
                         .frame(width: 20)
                         Rectangle().fill(Color.white)
@@ -146,7 +146,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                             .init(color: .white.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                 )
                 .background(
@@ -157,7 +157,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                             .init(color: .black.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .mask(
                         HStack(spacing: 0) {
@@ -168,7 +168,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                                     .init(color: .white, location: 1),
                                 ],
                                 startPoint: .leading,
-                                endPoint: .trailing
+                                endPoint: .trailing,
                             )
                             .frame(width: 20)
                             Rectangle().fill(Color.white)
@@ -183,7 +183,7 @@ struct CategoryFanLayout<Header: View, StickyHeader: View, ContextMenu: View>: V
                     .init(color: Color(nsColor: .windowBackgroundColor).opacity(0), location: 1),
                 ],
                 startPoint: .top,
-                endPoint: .bottom
+                endPoint: .bottom,
             )
         }
     }
@@ -198,7 +198,7 @@ extension CategoryFanLayout where ContextMenu == EmptyView {
         sortByCount: Bool = false,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
         @ViewBuilder header: @escaping () -> Header = { EmptyView() },
-        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() }
+        @ViewBuilder stickyHeader: @escaping () -> StickyHeader = { EmptyView() },
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -218,7 +218,7 @@ extension CategoryFanLayout where StickyHeader == EmptyView, ContextMenu == Empt
         coverPreference: CoverPreference,
         sortByCount: Bool = false,
         onNavigate: @escaping (CategoryGroup, BookMetadata?) -> Void,
-        @ViewBuilder header: @escaping () -> Header = { EmptyView() }
+        @ViewBuilder header: @escaping () -> Header = { EmptyView() },
     ) {
         self.groups = groups
         self.mediaKind = mediaKind
@@ -255,7 +255,10 @@ struct CategoryFanSection<ContextMenu: View>: View {
                 coverPreference: coverPreference,
                 onSelect: { book in
                     onNavigate(group, book)
-                }
+                },
+                onInfo: { book in
+                    onNavigate(group, book)
+                },
             )
             .frame(maxWidth: stackWidth, alignment: .center)
             .onHover { hovering in

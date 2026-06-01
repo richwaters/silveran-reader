@@ -27,7 +27,7 @@ public func formatSpeedPickerLabel(_ speed: Double, includeNormalLabel: Bool = f
     let trimmed = formatted.replacingOccurrences(
         of: "\\.?0+$",
         with: "",
-        options: .regularExpression
+        options: .regularExpression,
     )
     return "\(trimmed)x"
 }

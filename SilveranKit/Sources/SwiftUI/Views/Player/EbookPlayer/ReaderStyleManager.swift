@@ -141,7 +141,7 @@ class ReaderStyleManager {
             singleColumnMode: settingsVM.singleColumnMode,
             enableMarginClickNavigation: settingsVM.enableMarginClickNavigation,
             userHighlightMode: settingsVM.userHighlightMode,
-            readaloudHighlightMode: settingsVM.readaloudHighlightMode
+            readaloudHighlightMode: settingsVM.readaloudHighlightMode,
         )
     }
 }

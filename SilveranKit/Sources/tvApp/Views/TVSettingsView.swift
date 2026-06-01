@@ -45,7 +45,7 @@ struct TVSettingsView: View {
                         } label: {
                             Label(
                                 isConnected ? "Reconnect" : "Connect",
-                                systemImage: "network"
+                                systemImage: "network",
                             )
                         }
                     }
@@ -77,49 +77,6 @@ struct TVSettingsView: View {
                         } label: {
                             Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
                         }
-                    }
-                }
-
-                Section("Display") {
-                    Picker(
-                        "Font",
-                        selection: Binding(
-                            get: { settingsViewModel.fontFamily },
-                            set: { newValue in
-                                Task {
-                                    await settingsViewModel.updateFontFamily(newValue)
-                                }
-                            }
-                        )
-                    ) {
-                        Text("System Default").tag("System Default")
-                        Text("Serif").tag("serif")
-                        Text("Sans-Serif").tag("sans-serif")
-                        Text("Monospace").tag("monospace")
-
-                        if !settingsViewModel.customFontFamilies.isEmpty {
-                            Divider()
-                            ForEach(settingsViewModel.customFontFamilies) { family in
-                                Text(family.name).tag(family.name)
-                            }
-                        }
-                    }
-
-                    Picker(
-                        "Book Font Size",
-                        selection: Binding(
-                            get: { settingsViewModel.tvSubtitleFontSize },
-                            set: { newValue in
-                                Task {
-                                    await settingsViewModel.updateSubtitleFontSize(newValue)
-                                }
-                            }
-                        )
-                    ) {
-                        Text("Small").tag(36.0)
-                        Text("Medium").tag(48.0)
-                        Text("Large").tag(64.0)
-                        Text("Extra Large").tag(80.0)
                     }
                 }
             }

@@ -87,8 +87,8 @@ struct CustomizeSidebarView: View {
                     "Group Name",
                     text: Binding(
                         get: { groups[groupIndex].name },
-                        set: { groups[groupIndex].name = $0 }
-                    )
+                        set: { groups[groupIndex].name = $0 },
+                    ),
                 )
                 .textFieldStyle(.roundedBorder)
                 .font(.subheadline.weight(.semibold))
@@ -216,8 +216,8 @@ struct CustomizeSidebarView: View {
                     defaultName,
                     text: Binding(
                         get: { groups[groupIndex].items[itemIndex].alias ?? "" },
-                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
-                    )
+                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 },
+                    ),
                 )
                 .textFieldStyle(.roundedBorder)
                 .font(.callout)
@@ -314,8 +314,8 @@ struct CustomizeSidebarView: View {
                     defaultName,
                     text: Binding(
                         get: { groups[groupIndex].items[itemIndex].alias ?? "" },
-                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 }
-                    )
+                        set: { groups[groupIndex].items[itemIndex].alias = $0.isEmpty ? nil : $0 },
+                    ),
                 )
                 .textFieldStyle(.roundedBorder)
                 .font(.callout)
@@ -458,12 +458,12 @@ struct CustomizeSidebarView: View {
                                         homeSectionConfig[idx].visible = newValue
                                         HomeSectionConfigHelper.save(homeSectionConfig)
                                     }
-                                }
+                                },
                             )
                         ) {
                             Label(
                                 homeSectionDisplayName(for: item.id),
-                                systemImage: HomeSectionConfigHelper.systemImage(for: item.id)
+                                systemImage: HomeSectionConfigHelper.systemImage(for: item.id),
                             )
                         }
                     }
@@ -571,7 +571,10 @@ struct CustomizeSidebarView: View {
                         $0.id == SidebarConfigHelper.newPinLocationMarker
                     })
                 {
-                    defaults[pinsGroupIndex].items.insert(contentsOf: existingPins, at: markerIndex)
+                    defaults[pinsGroupIndex].items.insert(
+                        contentsOf: existingPins,
+                        at: markerIndex,
+                    )
                 }
                 groups = defaults
             }

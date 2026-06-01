@@ -33,12 +33,17 @@ class EbookPlayerViewModel {
                     id: "toc-\(idx)",
                     label: entry.label,
                     href: entry.href,
-                    level: entry.level
+                    level: entry.level,
                 )
             }
         }
         return bookStructure.filter { $0.label != nil }.map {
-            ChapterItem(id: $0.id, label: $0.label ?? "Untitled", href: $0.id, level: $0.level ?? 0)
+            ChapterItem(
+                id: $0.id,
+                label: $0.label ?? "Untitled",
+                href: $0.id,
+                level: $0.level ?? 0,
+            )
         }
     }
 
@@ -54,7 +59,7 @@ class EbookPlayerViewModel {
                 )
                 UserDefaults.standard.set(
                     showChapterSidebar,
-                    forKey: "EbookPlayerShowChapterSidebar"
+                    forKey: "EbookPlayerShowChapterSidebar",
                 )
             }
         }
@@ -86,7 +91,7 @@ class EbookPlayerViewModel {
             get: { self.progressManager?.chapterSeekBarValue ?? 0.0 },
             set: { newValue in
                 self.progressManager?.handleUserProgressSeek(newValue)
-            }
+            },
         )
     }
 
@@ -95,7 +100,7 @@ class EbookPlayerViewModel {
             get: { self.progressManager?.uiSelectedChapterId },
             set: { newValue in
                 self.progressManager?.uiSelectedChapterId = newValue
-            }
+            },
         )
     }
 
@@ -206,7 +211,7 @@ class EbookPlayerViewModel {
                 debugLog("[TOC-DEBUG] -> EPM href navigation to \(fullHref)")
                 progressManager?.handleUserChapterSelectedWithHref(
                     entry.sectionIndex,
-                    href: fullHref
+                    href: fullHref,
                 )
             } else {
                 debugLog(
@@ -391,7 +396,7 @@ class EbookPlayerViewModel {
                     do {
                         let processedPath = try await FilesystemActor.shared.extractEpubIfNeeded(
                             epubPath: localPath,
-                            forceExtract: needsNativeAudio
+                            forceExtract: needsNativeAudio,
                         )
                         self.extractedEbookPath = processedPath
                         debugLog(
@@ -501,7 +506,7 @@ class EbookPlayerViewModel {
                 epubPath: epubPath,
                 bookId: currentBookId,
                 title: bookData?.metadata.title,
-                author: bookData?.metadata.authors?.first?.name
+                author: bookData?.metadata.authors?.first?.name,
             )
             await SMILPlayerActor.shared.setPlaybackRate(settingsVM.defaultPlaybackSpeed)
             await SMILPlayerActor.shared.setVolume(settingsVM.defaultVolume)
@@ -514,10 +519,10 @@ class EbookPlayerViewModel {
             )
 
             #if os(iOS)
-            if let uuid = bookData?.metadata.uuid {
+            if let metadata = bookData?.metadata {
                 if let coverData = await FilesystemActor.shared.loadCoverImage(
-                    uuid: uuid,
-                    variant: "standard"
+                    uuid: metadata.uuid,
+                    variant: "standard",
                 ) {
                     if let image = UIImage(data: coverData) {
                         await SMILPlayerActor.shared.setCoverImage(image)
@@ -548,7 +553,7 @@ class EbookPlayerViewModel {
             do {
                 try await SMILPlayerActor.shared.seekToEntry(
                     sectionIndex: savedSectionIndex,
-                    entryIndex: savedEntryIndex
+                    entryIndex: savedEntryIndex,
                 )
                 debugLog(
                     "[EbookPlayerViewModel] Restored position to section \(savedSectionIndex), entry \(savedEntryIndex)"
@@ -668,7 +673,7 @@ class EbookPlayerViewModel {
             bridge: bridge,
             settingsVM: settingsVM,
             bookId: bookData?.metadata.uuid,
-            initialLocator: bookData?.metadata.position?.locator
+            initialLocator: bookData?.metadata.position?.locator,
         )
 
         if let metadata = bookData?.metadata {
@@ -678,7 +683,7 @@ class EbookPlayerViewModel {
             Task {
                 if let coverData = await FilesystemActor.shared.loadCoverImage(
                     uuid: metadata.uuid,
-                    variant: "standard"
+                    variant: "standard",
                 ) {
                     await MainActor.run {
                         let base64 = coverData.base64EncodedString()
@@ -690,14 +695,16 @@ class EbookPlayerViewModel {
 
         styleManager = ReaderStyleManager(
             settingsVM: settingsVM,
-            bridge: bridge
+            bridge: bridge,
         )
 
         setupBridgeCallbacks(bridge, initialColorScheme: initialColorScheme)
     }
 
-    private func setupBridgeCallbacks(_ bridge: WebViewCommsBridge, initialColorScheme: ColorScheme)
-    {
+    private func setupBridgeCallbacks(
+        _ bridge: WebViewCommsBridge,
+        initialColorScheme: ColorScheme,
+    ) {
 
         bridge.onBookStructureReady = { [weak self] message in
             guard let self else { return }
@@ -750,7 +757,7 @@ class EbookPlayerViewModel {
                             settingsVM: self.settingsVM,
                             reloadBookIntoActor: { [weak self] in
                                 await self?.reloadBookIntoActor()
-                            }
+                            },
                         )
                         debugLog(
                             "[EbookPlayerViewModel] Book has media overlay - MediaOverlayManager created (native structure: \(useNativeStructure))"
@@ -822,7 +829,7 @@ class EbookPlayerViewModel {
             Task { @MainActor in
                 await self.mediaOverlayManager?.handleSeekEvent(
                     sectionIndex: message.sectionIndex,
-                    anchor: message.anchor
+                    anchor: message.anchor,
                 )
             }
         }
@@ -882,7 +889,7 @@ class EbookPlayerViewModel {
     func addHighlight(
         from selection: TextSelectionMessage,
         color: HighlightColor?,
-        note: String? = nil
+        note: String? = nil,
     ) async {
         guard let bookId = bookData?.metadata.uuid else { return }
 
@@ -901,20 +908,20 @@ class EbookPlayerViewModel {
                     start: BookLocator.Locations.DomRangeBoundary(
                         cssSelector: selection.startCssSelector,
                         textNodeIndex: selection.startTextNodeIndex,
-                        charOffset: selection.startCharOffset
+                        charOffset: selection.startCharOffset,
                     ),
                     end: BookLocator.Locations.DomRangeBoundary(
                         cssSelector: selection.endCssSelector,
                         textNodeIndex: selection.endTextNodeIndex,
-                        charOffset: selection.endCharOffset
-                    )
-                )
+                        charOffset: selection.endCharOffset,
+                    ),
+                ),
             ),
             text: BookLocator.Text(
                 after: nil,
                 before: nil,
-                highlight: selection.text
-            )
+                highlight: selection.text,
+            ),
         )
 
         let highlight = Highlight(
@@ -922,7 +929,7 @@ class EbookPlayerViewModel {
             locator: locator,
             text: selection.text,
             color: color,
-            note: note
+            note: note,
         )
 
         await BookmarkActor.shared.addHighlight(highlight)
@@ -989,13 +996,14 @@ class EbookPlayerViewModel {
                 let color = highlight.color
             else { return nil }
 
-            let sectionIndex = findSectionIndex(for: highlight.locator.href, in: bookStructure) ?? 0
+            let sectionIndex =
+                findSectionIndex(for: highlight.locator.href, in: bookStructure) ?? 0
 
             return HighlightRenderData(
                 id: highlight.id.uuidString,
                 sectionIndex: sectionIndex,
                 cfi: cfi,
-                color: settingsVM.hexColor(for: color)
+                color: settingsVM.hexColor(for: color),
             )
         }
 
@@ -1053,9 +1061,9 @@ class EbookPlayerViewModel {
                 totalProgression: progressManager?.bookFraction,
                 cssSelector: nil,
                 partialCfi: position.cfi,
-                domRange: nil
+                domRange: nil,
             ),
-            text: nil
+            text: nil,
         )
 
         let highlight = Highlight(
@@ -1063,7 +1071,7 @@ class EbookPlayerViewModel {
             locator: locator,
             text: position.text,
             color: nil,
-            note: nil
+            note: nil,
         )
 
         await BookmarkActor.shared.addHighlight(highlight)

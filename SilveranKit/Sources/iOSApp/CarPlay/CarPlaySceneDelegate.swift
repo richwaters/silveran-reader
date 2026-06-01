@@ -14,7 +14,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
-        didConnect interfaceController: CPInterfaceController
+        didConnect interfaceController: CPInterfaceController,
     ) {
         debugLog("[CarPlay] Connected to CarPlay")
         self.interfaceController = interfaceController
@@ -36,7 +36,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
-        didDisconnect interfaceController: CPInterfaceController
+        didDisconnect interfaceController: CPInterfaceController,
     ) {
         debugLog("[CarPlay] Disconnected from CarPlay")
         self.interfaceController = nil
@@ -134,7 +134,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
                 let isCurrent = chapter.sectionIndex == currentSectionIndex
                 let item = CPListItem(
                     text: chapter.label,
-                    detailText: isCurrent ? "Now Playing" : nil
+                    detailText: isCurrent ? "Now Playing" : nil,
                 )
                 item.isPlaying = isCurrent
                 item.handler = { [weak self] _, completion in
@@ -168,7 +168,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
                 let label = formatSpeedPickerLabel(speed)
                 let item = CPListItem(
                     text: label,
-                    detailText: isCurrent ? "Current" : nil
+                    detailText: isCurrent ? "Current" : nil,
                 )
                 item.isPlaying = isCurrent
                 item.handler = { [weak self] _, completion in
@@ -193,14 +193,14 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         let readaloudTab = await buildListTemplate(
             title: "Readalouds",
             category: .synced,
-            systemImage: "book.and.wrench"
+            systemImage: "book.and.wrench",
         )
         readaloudListTemplate = readaloudTab
 
         let audiobooksTab = await buildListTemplate(
             title: "Audiobooks",
             category: .audio,
-            systemImage: "headphones"
+            systemImage: "headphones",
         )
         audiobookListTemplate = audiobooksTab
 
@@ -225,7 +225,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
                 text: book.title,
                 detailText: isCurrentBook
                     ? (isPlaying ? "Now Playing" : "Paused") : book.authors?.first?.name,
-                image: resizedCover
+                image: resizedCover,
             )
             item.handler = { [weak self] _, completion in
                 self?.handleBookSelection(book, category: category, completion: completion)
@@ -242,7 +242,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private func buildListTemplate(
         title: String,
         category: LocalMediaCategory,
-        systemImage: String
+        systemImage: String,
     ) async -> CPListTemplate {
         let sections = await buildListSections(category: category)
         let template = CPListTemplate(title: title, sections: sections)
@@ -267,7 +267,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private func handleBookSelection(
         _ book: BookMetadata,
         category: LocalMediaCategory,
-        completion: @escaping () -> Void
+        completion: @escaping () -> Void,
     ) {
         let coordinator = CarPlayCoordinator.shared
 
@@ -297,7 +297,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private func loadNewBook(
         _ book: BookMetadata,
         category: LocalMediaCategory,
-        completion: @escaping () -> Void
+        completion: @escaping () -> Void,
     ) async {
         guard !isLoadingBook else {
             debugLog("[CarPlay] Already loading a book, ignoring selection")

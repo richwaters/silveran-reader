@@ -70,7 +70,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.marginLeftRight,
                 range: 0...30,
                 step: 1,
-                formatter: { "\(Int($0))%" }
+                formatter: { "\(Int($0))%" },
             )
 
             labeledSlider(
@@ -78,7 +78,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.marginTopBottom,
                 range: 0...30,
                 step: 1,
-                formatter: { "\(Int($0))%" }
+                formatter: { "\(Int($0))%" },
             )
 
             Divider()
@@ -185,7 +185,7 @@ struct EbookPlayerSettings: View {
                     IOSFontManagerView(
                         customFamilies: $customFamilies,
                         selectedFont: $settingsVM.fontFamily,
-                        onSave: { settingsVM.save() }
+                        onSave: { settingsVM.save() },
                     )
                 }
             }
@@ -205,7 +205,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.lineSpacing,
                 range: 1.0...2.5,
                 step: 0.1,
-                formatter: { String(format: "%.1f", $0) }
+                formatter: { String(format: "%.1f", $0) },
             )
 
             Divider()
@@ -215,7 +215,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.marginLeftRight,
                 range: 0...30,
                 step: 1,
-                formatter: { "\(Int($0))%" }
+                formatter: { "\(Int($0))%" },
             )
 
             labeledSlider(
@@ -223,7 +223,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.marginTopBottom,
                 range: 0...30,
                 step: 1,
-                formatter: { "\(Int($0))%" }
+                formatter: { "\(Int($0))%" },
             )
 
             Divider()
@@ -233,7 +233,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.wordSpacing,
                 range: -0.5...2.0,
                 step: 0.1,
-                formatter: { String(format: "%.1fem", $0) }
+                formatter: { String(format: "%.1fem", $0) },
             )
 
             labeledSlider(
@@ -241,7 +241,7 @@ struct EbookPlayerSettings: View {
                 value: $settingsVM.letterSpacing,
                 range: -0.1...0.5,
                 step: 0.01,
-                formatter: { String(format: "%.2fem", $0) }
+                formatter: { String(format: "%.2fem", $0) },
             )
 
             Divider()
@@ -290,7 +290,7 @@ struct EbookPlayerSettings: View {
             .sheet(isPresented: $showManageThemes) {
                 ManageThemesView(settingsVM: settingsVM)
                     #if os(iOS)
-                    .presentationDetents([.fraction(0.7)])
+                .presentationDetents([.fraction(0.7)])
                     #endif
             }
         }
@@ -315,7 +315,7 @@ struct EbookPlayerSettings: View {
         value: Binding<Double>,
         range: ClosedRange<Double>,
         step: Double,
-        formatter: (Double) -> String
+        formatter: (Double) -> String,
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(label): \(formatter(value.wrappedValue))")
@@ -390,7 +390,7 @@ private struct IOSFontManagerView: View {
                             UTType(filenameExtension: "otf") ?? .data,
                             UTType.font,
                         ],
-                        allowsMultipleSelection: true
+                        allowsMultipleSelection: true,
                     ) { result in
                         Task {
                             switch result {

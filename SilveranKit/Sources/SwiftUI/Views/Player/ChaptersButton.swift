@@ -22,7 +22,7 @@ public struct ChaptersButton: View {
         transparency: Double = 1.0,
         showLabel: Bool = true,
         buttonSize: CGFloat = 38,
-        showBackground: Bool = true
+        showBackground: Bool = true,
     ) {
         self.chapters = chapters
         self.selectedChapterId = selectedChapterId

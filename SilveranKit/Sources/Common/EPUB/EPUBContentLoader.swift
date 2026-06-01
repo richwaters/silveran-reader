@@ -17,7 +17,7 @@ public enum EPUBContentLoader {
 
         public init(
             textById: [String: String],
-            paragraphKeyById: [String: String]
+            paragraphKeyById: [String: String],
         ) {
             self.textById = textById
             self.paragraphKeyById = paragraphKeyById
@@ -27,7 +27,7 @@ public enum EPUBContentLoader {
     /// Load full XHTML content for a section
     public static func loadSection(
         from epubURL: URL,
-        href: String
+        href: String,
     ) throws -> String {
         let archive = try Archive(url: epubURL, accessMode: .read)
         let data = try extractFile(from: archive, path: href)
@@ -41,7 +41,7 @@ public enum EPUBContentLoader {
     /// Returns the inner HTML of the element with the given ID
     public static func extractElement(
         from html: String,
-        elementId: String
+        elementId: String,
     ) -> String? {
         do {
             let doc = try SwiftSoup.parse(html)
@@ -66,7 +66,7 @@ public enum EPUBContentLoader {
 
     public static func extractElementsText(
         from html: String,
-        elementIds: [String]
+        elementIds: [String],
     ) -> [String: String] {
         do {
             let doc = try SwiftSoup.parse(html)
@@ -86,7 +86,7 @@ public enum EPUBContentLoader {
 
     public static func extractElementsTextAndParagraphKeys(
         from html: String,
-        elementIds: [String]
+        elementIds: [String],
     ) -> ElementTextExtraction {
         do {
             let doc = try SwiftSoup.parse(html)
@@ -102,7 +102,7 @@ public enum EPUBContentLoader {
             }
             return ElementTextExtraction(
                 textById: textById,
-                paragraphKeyById: paragraphKeyById
+                paragraphKeyById: paragraphKeyById,
             )
         } catch {
             return ElementTextExtraction(textById: [:], paragraphKeyById: [:])
@@ -113,7 +113,7 @@ public enum EPUBContentLoader {
     public static func getElementText(
         from epubURL: URL,
         href: String,
-        elementId: String
+        elementId: String,
     ) throws -> String? {
         let html = try loadSection(from: epubURL, href: href)
         guard let elementHTML = extractElement(from: html, elementId: elementId) else {

@@ -10,12 +10,14 @@ struct MediaTableRowView: View {
     let isSelected: Bool
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredMediaType: MediaType?
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @Environment(\.editMetadataAction) private var editMetadataAction
     @State private var pendingDetailsNavigation = false
     #endif
 
@@ -53,6 +55,14 @@ struct MediaTableRowView: View {
             handleDetailsNavigation()
         } label: {
             Label("View Details", systemImage: "info.circle")
+        }
+
+        if let editMetadataAction {
+            Button {
+                editMetadataAction([item.uuid])
+            } label: {
+                Label("Edit Metadata...", systemImage: "pencil")
+            }
         }
     }
 
@@ -113,7 +123,7 @@ struct MediaTableRowView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
     #endif
@@ -153,7 +163,11 @@ struct MediaTableRowView: View {
                 }
         )
         .contextMenu {
-            contextMenu
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata,
+            )
         }
         #endif
     }
@@ -176,9 +190,20 @@ struct MediaTableRowView: View {
         }
         .frame(width: coverWidth, height: coverSize)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .task(id: coverVariant) {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        .task(id: coverTaskIdentifier(for: coverVariant)) {
+            debugLog(
+                "[CoverPerf][TableRowCover] task imageLoaded=\(coverState.image != nil) title='\(item.title)' id=\(item.id) variant=\(coverVariant)"
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: coverVariant,
+                debugSource: "TableRowCover",
+            )
         }
+    }
+
+    private func coverTaskIdentifier(for coverVariant: MediaViewModel.CoverVariant) -> String {
+        "\(item.id)-\(coverVariant)"
     }
 
     private var contentView: some View {
@@ -195,7 +220,14 @@ struct MediaTableRowView: View {
                     .lineLimit(1)
             }
 
-            if let authorName = item.authors?.first?.name {
+            if let subtitle = item.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !subtitle.isEmpty
+            {
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if let authorName = item.authors?.first?.name {
                 Text(authorName)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -279,7 +311,10 @@ struct MediaTableRowView: View {
         available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
     ) {
         let category = type.category
-        let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let downloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category,
+        )
         let downloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let progress =
             downloading
@@ -372,7 +407,7 @@ struct MediaTableRowView: View {
         for type: MediaType,
         status: (
             available: Bool, downloaded: Bool, downloading: Bool, progress: Double?, failed: Bool
-        )
+        ),
     ) {
         let category = type.category
 
@@ -411,7 +446,7 @@ struct MediaTableRowView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
     }
@@ -419,7 +454,7 @@ struct MediaTableRowView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }
@@ -432,38 +467,4 @@ struct MediaTableRowView: View {
         }
     }
 
-    #if os(macOS)
-    @ViewBuilder
-    private var contextMenu: some View {
-        let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-        let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
-        let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
-
-        if ebookDownloaded || audioDownloaded || syncedDownloaded {
-            if ebookDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .ebook)
-                } label: {
-                    Label("Local Ebook", systemImage: "trash")
-                }
-            }
-
-            if audioDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .audio)
-                } label: {
-                    Label("Local Audiobook", systemImage: "trash")
-                }
-            }
-
-            if syncedDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .synced)
-                } label: {
-                    Label("Local Readaloud", systemImage: "trash")
-                }
-            }
-        }
-    }
-    #endif
 }

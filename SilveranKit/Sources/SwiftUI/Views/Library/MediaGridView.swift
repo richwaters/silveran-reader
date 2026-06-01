@@ -136,7 +136,10 @@ struct MediaGridView: View {
     @AppStorage private var showSourceBadge: Bool
     @AppStorage private var showSeriesPositionBadge: Bool
     @AppStorage private var showAudioIndicator: Bool
+    @AppStorage private var progressStyleRaw: String
     @State private var showStickyControls: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     @AppStorage private var layoutStyleRaw: String
     @AppStorage private var coverPrefRaw: String
     @AppStorage private var coverSizeValue: Double
@@ -162,7 +165,8 @@ struct MediaGridView: View {
 
     private func saveEnabledCreatorRoles() {
         UserDefaults.standard.set(
-            Array(enabledCreatorRoles), forKey: Self.enabledCreatorRolesKey
+            Array(enabledCreatorRoles),
+            forKey: Self.enabledCreatorRolesKey,
         )
     }
 
@@ -170,7 +174,7 @@ struct MediaGridView: View {
         guard let data = UserDefaults.standard.data(forKey: columnCustomizationKey),
             let customization = try? JSONDecoder().decode(
                 TableColumnCustomization<BookMetadata>.self,
-                from: data
+                from: data,
             )
         else {
             return TableColumnCustomization<BookMetadata>()
@@ -190,47 +194,47 @@ struct MediaGridView: View {
             case .titleAZ:
                 return (
                     KeyPathComparator(\BookMetadata.sortableTitle, order: .forward),
-                    \BookMetadata.sortableTitle
+                    \BookMetadata.sortableTitle,
                 )
             case .titleZA:
                 return (
                     KeyPathComparator(\BookMetadata.sortableTitle, order: .reverse),
-                    \BookMetadata.sortableTitle
+                    \BookMetadata.sortableTitle,
                 )
             case .authorAZ:
                 return (
                     KeyPathComparator(\BookMetadata.sortableAuthor, order: .forward),
-                    \BookMetadata.sortableAuthor
+                    \BookMetadata.sortableAuthor,
                 )
             case .authorZA:
                 return (
                     KeyPathComparator(\BookMetadata.sortableAuthor, order: .reverse),
-                    \BookMetadata.sortableAuthor
+                    \BookMetadata.sortableAuthor,
                 )
             case .progressHighToLow:
                 return (
                     KeyPathComparator(\BookMetadata.progress, order: .reverse),
-                    \BookMetadata.progress
+                    \BookMetadata.progress,
                 )
             case .progressLowToHigh:
                 return (
                     KeyPathComparator(\BookMetadata.progress, order: .forward),
-                    \BookMetadata.progress
+                    \BookMetadata.progress,
                 )
             case .recentlyRead:
                 return (
                     KeyPathComparator(\BookMetadata.sortableLastRead, order: .reverse),
-                    \BookMetadata.sortableLastRead
+                    \BookMetadata.sortableLastRead,
                 )
             case .recentlyAdded:
                 return (
                     KeyPathComparator(\BookMetadata.sortableAdded, order: .reverse),
-                    \BookMetadata.sortableAdded
+                    \BookMetadata.sortableAdded,
                 )
             case .seriesPosition:
                 return (
                     KeyPathComparator(\BookMetadata.sortableSeries, order: .forward),
-                    \BookMetadata.sortableSeries
+                    \BookMetadata.sortableSeries,
                 )
         }
     }
@@ -246,6 +250,11 @@ struct MediaGridView: View {
         set { coverPrefRaw = newValue.rawValue }
     }
 
+    private var progressStyle: ProgressIndicatorStyle {
+        get { ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle }
+        set { progressStyleRaw = newValue.rawValue }
+    }
+
     private var coverSize: CGFloat {
         get { CGFloat(coverSizeValue).clamped(to: CoverSizeRange.min...CoverSizeRange.max) }
         set { coverSizeValue = Double(newValue) }
@@ -259,7 +268,7 @@ struct MediaGridView: View {
     private var selectedSortOptionBinding: Binding<SortOption> {
         Binding(
             get: { selectedSortOption },
-            set: { selectedSortOptionRaw = $0.rawValue }
+            set: { selectedSortOptionRaw = $0.rawValue },
         )
     }
 
@@ -319,18 +328,33 @@ struct MediaGridView: View {
         initialLocationFilter: LocationFilterOption = .all,
         scrollPosition: Binding<BookMetadata.ID?>? = nil,
         initialSelectedItem: BookMetadata? = nil,
-        filteredItems: [BookMetadata]? = nil
+        filteredItems: [BookMetadata]? = nil,
     ) {
         _layoutStyleRaw = AppStorage(
-            wrappedValue: LibraryLayoutStyle.grid.rawValue, "viewLayout.\(viewOptionsKey)")
+            wrappedValue: LibraryLayoutStyle.grid.rawValue,
+            "viewLayout.\(viewOptionsKey)",
+        )
         _coverPrefRaw = AppStorage(
-            wrappedValue: CoverPreference.preferEbook.rawValue, "coverPref.\(viewOptionsKey)")
+            wrappedValue: CoverPreference.storytellerDouble.rawValue,
+            "coverPref.\(viewOptionsKey)",
+        )
         _coverSizeValue = AppStorage(
-            wrappedValue: CoverSizeRange.defaultValue, "coverSize.\(viewOptionsKey)")
-        _showAudioIndicator = AppStorage(wrappedValue: true, "showAudioIndicator.\(viewOptionsKey)")
+            wrappedValue: CoverSizeRange.defaultValue,
+            "coverSize.\(viewOptionsKey)",
+        )
+        _showAudioIndicator = AppStorage(
+            wrappedValue: true,
+            "showAudioIndicator.\(viewOptionsKey)",
+        )
         _showSourceBadge = AppStorage(wrappedValue: false, "showSourceBadge.\(viewOptionsKey)")
         _showSeriesPositionBadge = AppStorage(
-            wrappedValue: seriesFilter != nil, "showSeriesPositionBadge.\(viewOptionsKey)")
+            wrappedValue: seriesFilter != nil,
+            "showSeriesPositionBadge.\(viewOptionsKey)",
+        )
+        _progressStyleRaw = AppStorage(
+            wrappedValue: ProgressIndicatorStyle.circle.rawValue,
+            "progressStyle.\(viewOptionsKey)",
+        )
         self.title = title
         self.searchText = searchText
         self.mediaKind = mediaKind
@@ -352,7 +376,7 @@ struct MediaGridView: View {
                 columnBreakpoints.sorted { $0.minWidth < $1.minWidth }
             } else {
                 MediaGridView.defaultColumnBreakpoints(
-                    preferredTileWidth: preferredTileWidth,
+                    preferredTileWidth: preferredTileWidth
                 )
             }
         self.columnBreakpoints = resolvedBreakpoints
@@ -384,7 +408,9 @@ struct MediaGridView: View {
             defaultSortRaw = SortOption.titleAZ.rawValue
         }
         _selectedSortOptionRaw = AppStorage(
-            wrappedValue: defaultSortRaw, "sortOption.\(viewOptionsKey)")
+            wrappedValue: defaultSortRaw,
+            "sortOption.\(viewOptionsKey)",
+        )
         let resolvedSort = SortOption(rawValue: _selectedSortOptionRaw.wrappedValue) ?? .titleAZ
         #if os(macOS)
         let tableSort = Self.tableComparator(for: resolvedSort)
@@ -423,7 +449,7 @@ struct MediaGridView: View {
             let fallbackColumns = max(columnBreakpoints.first?.columns ?? 1, 1)
             let columns = Array(
                 repeating: GridItem(.flexible(), spacing: horizontalSpacing, alignment: .top),
-                count: fallbackColumns
+                count: fallbackColumns,
             )
             return LayoutConfiguration(
                 columns: columns,
@@ -449,9 +475,9 @@ struct MediaGridView: View {
             repeating: GridItem(
                 .fixed(currentTileWidth),
                 spacing: horizontalSpacing,
-                alignment: .top
+                alignment: .top,
             ),
-            count: targetColumns
+            count: targetColumns,
         )
         return LayoutConfiguration(columns: columns, tileWidth: currentTileWidth)
     }
@@ -482,7 +508,7 @@ struct MediaGridView: View {
                 mainContent(
                     usesTableLayout: usesTableLayout,
                     contentWidth: max(contentWidth, minimumTileWidth),
-                    height: geometry.size.height
+                    height: geometry.size.height,
                 )
 
                 if shouldShowSidebar, let activeInfoItem {
@@ -510,7 +536,7 @@ struct MediaGridView: View {
                                     dismissSidebar()
                                     handler(seriesName)
                                 }
-                            }
+                            },
                         )
                         .frame(width: sidebarWidth)
                     }
@@ -534,6 +560,11 @@ struct MediaGridView: View {
                 return .handled
             }
             return .ignored
+        }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
         }
         #endif
     }
@@ -593,10 +624,6 @@ struct MediaGridView: View {
                 dismissSidebar()
             }
             #if os(macOS)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in }
-            )
             .contentMargins(.top, 52, for: .scrollContent)
             #endif
             #if os(iOS)
@@ -610,7 +637,7 @@ struct MediaGridView: View {
                                 : item.title
                         },
                         idForItem: { $0.id },
-                        proxy: proxy
+                        proxy: proxy,
                     )
                     .padding(.top, 120)
                     .padding(.bottom, 40)
@@ -645,7 +672,7 @@ struct MediaGridView: View {
                         get: { activeInfoItem?.id },
                         set: { newID in
                             activeInfoItem = tableSortedItems.first { $0.id == newID }
-                        }
+                        },
                     ),
                     columnCustomization: $columnCustomization,
                     sortOrder: $tableSortOrder,
@@ -654,22 +681,23 @@ struct MediaGridView: View {
                     onSelect: { selectItem($0) },
                     onInfo: { openSidebar(for: $0) },
                     onMetadataLinkClicked: onMetadataLinkClicked,
-                    onEditMetadata: { bookIds in
-                        openWindow(id: "MetadataEditor")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            MetadataEditorNotification.post(bookIds: bookIds)
-                        }
-                    }
+                    onEditMetadata: handleEditMetadata,
                 )
                 .padding(.top, 8)
             }
         }
         .onAppear {
+            debugLog(
+                "[PerfTrace][MediaGridView] tableContent onAppear title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) cached=\(cachedDisplayItems.count)"
+            )
             recomputeAllCaches()
             updateTableSortedItems()
             handleInitialSelectionIfNeeded()
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            debugLog(
+                "[PerfTrace][MediaGridView] tableContent libraryVersion changed version=\(mediaViewModel.libraryVersion) title='\(title)'"
+            )
             recomputeAllCaches()
         }
         .onChange(of: tableSortOrder) { _, _ in
@@ -702,27 +730,46 @@ struct MediaGridView: View {
                 searchText: searchText,
                 initialNarrationFilterOption: initialNarrationFilterOption,
                 onFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent filterChanged title='\(title)'"
+                    )
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
                 },
                 onMediaKindChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent mediaKindChanged title='\(title)'"
+                    )
                     recomputeAllCaches()
                     reconcileSelectionAfterFiltering()
                 },
                 onSearchChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent searchChanged title='\(title)' searchCount=\(searchText.count)"
+                    )
                     recomputeDisplayItems()
                 },
                 onNarrationFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] tableContent narrationChanged title='\(title)'"
+                    )
                     selectedFormatFilter =
                         MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
-                }
+                },
             )
         )
     }
 
     private func updateTableSortedItems(forceResort: Bool = false) {
+        let started = CFAbsoluteTimeGetCurrent()
+        defer {
+            let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+            debugLog(
+                "[PerfTrace][MediaGridView] updateTableSortedItems title='\(title)' force=\(forceResort) count=\(cachedDisplayItems.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+            )
+        }
         guard let comparator = tableSortOrder.first else {
             tableSortedItems = cachedDisplayItems
             lastSortKeyPath = nil
@@ -766,7 +813,7 @@ struct MediaGridView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
                 if hasActiveFilters {
                     Text("\(cachedDisplayItems.count) books")
                         .font(.callout)
@@ -788,16 +835,20 @@ struct MediaGridView: View {
                 selectedLocation: $selectedLocation,
                 layoutStyle: Binding(
                     get: { layoutStyle },
-                    set: { layoutStyleRaw = $0.rawValue }
+                    set: { layoutStyleRaw = $0.rawValue },
                 ),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
                 coverSize: $coverSizeValue,
                 showAudioIndicator: $showAudioIndicator,
                 showSourceBadge: $showSourceBadge,
                 showSeriesPositionBadge: $showSeriesPositionBadge,
+                progressStyle: Binding(
+                    get: { progressStyle },
+                    set: { progressStyleRaw = $0.rawValue },
+                ),
                 availableTags: cachedAvailableTags,
                 availableSeries: cachedAvailableSeries,
                 availableAuthors: cachedAvailableAuthors,
@@ -818,7 +869,7 @@ struct MediaGridView: View {
                     enabledCreatorRoles = []
                     MediaTableView.resetColumnDefaults(tableContext: tableContext)
                     columnResetToken += 1
-                }
+                },
             )
         }
     }
@@ -856,16 +907,20 @@ struct MediaGridView: View {
             selectedLocation: $selectedLocation,
             layoutStyle: Binding(
                 get: { layoutStyle },
-                set: { layoutStyleRaw = $0.rawValue }
+                set: { layoutStyleRaw = $0.rawValue },
             ),
             coverPreference: Binding(
                 get: { coverPreference },
-                set: { coverPrefRaw = $0.rawValue }
+                set: { coverPrefRaw = $0.rawValue },
             ),
             coverSize: $coverSizeValue,
             showAudioIndicator: $showAudioIndicator,
             showSourceBadge: $showSourceBadge,
             showSeriesPositionBadge: $showSeriesPositionBadge,
+            progressStyle: Binding(
+                get: { progressStyle },
+                set: { progressStyleRaw = $0.rawValue },
+            ),
             availableTags: cachedAvailableTags,
             availableSeries: cachedAvailableSeries,
             availableAuthors: cachedAvailableAuthors,
@@ -875,7 +930,7 @@ struct MediaGridView: View {
             availableRatings: cachedAvailableRatings,
             availableStatuses: cachedAvailableStatuses,
             filtersSummaryText: cachedFiltersSummary,
-            showLayoutOption: true
+            showLayoutOption: true,
         )
     }
 
@@ -905,7 +960,7 @@ struct MediaGridView: View {
                                 .init(color: .white, location: 1),
                             ],
                             startPoint: .leading,
-                            endPoint: .trailing
+                            endPoint: .trailing,
                         )
                         .frame(width: 20)
                         Rectangle().fill(Color.white)
@@ -919,7 +974,7 @@ struct MediaGridView: View {
                             .init(color: .white.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                 )
                 .background(
@@ -930,7 +985,7 @@ struct MediaGridView: View {
                             .init(color: .black.opacity(0), location: 1),
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .mask(
                         HStack(spacing: 0) {
@@ -940,7 +995,7 @@ struct MediaGridView: View {
                                     .init(color: .white, location: 1),
                                 ],
                                 startPoint: .leading,
-                                endPoint: .trailing
+                                endPoint: .trailing,
                             )
                             .frame(width: 20)
                             Rectangle().fill(Color.white)
@@ -955,7 +1010,7 @@ struct MediaGridView: View {
                     .init(color: Color(nsColor: .windowBackgroundColor).opacity(0), location: 1),
                 ],
                 startPoint: .top,
-                endPoint: .bottom
+                endPoint: .bottom,
             )
         }
     }
@@ -967,14 +1022,14 @@ struct MediaGridView: View {
         let tileMetrics = MediaItemCardMetrics.make(
             for: layout.tileWidth,
             mediaKind: mediaKind,
-            coverPreference: coverPreference
+            coverPreference: coverPreference,
         )
         let columnCount = max(layout.columns.count, 1)
 
         VStack(alignment: .leading, spacing: verticalSpacing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: headerFontSize, weight: .regular, design: .serif))
+                    .font(.storytellerTitle(size: headerFontSize))
 
                 contentFilterBar
             }
@@ -1019,20 +1074,20 @@ struct MediaGridView: View {
                         let gridColumns = [
                             GridItem(
                                 .adaptive(minimum: gridTileSize, maximum: gridMaxSize),
-                                spacing: 0
+                                spacing: 0,
                             )
                         ]
                         let gridMetrics = MediaItemCardMetrics.make(
                             for: gridTileSize,
                             mediaKind: mediaKind,
-                            coverPreference: coverPreference
+                            coverPreference: coverPreference,
                         )
                         #if os(iOS)
                         let gridAlignment: HorizontalAlignment = .center
                         #else
                         let gridAlignment: HorizontalAlignment = .leading
                         #endif
-                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 8) {
+                        LazyVGrid(columns: gridColumns, alignment: gridAlignment, spacing: 0) {
                             ForEach(cachedDisplayItems) { item in
                                 card(for: item, metrics: gridMetrics)
                             }
@@ -1052,7 +1107,7 @@ struct MediaGridView: View {
                         let compactColumns = [
                             GridItem(
                                 .adaptive(minimum: compactTileSize, maximum: compactMaxSize),
-                                spacing: 4
+                                spacing: 4,
                             )
                         ]
                         #if os(iOS)
@@ -1063,7 +1118,7 @@ struct MediaGridView: View {
                         LazyVGrid(
                             columns: compactColumns,
                             alignment: compactGridAlignment,
-                            spacing: 4
+                            spacing: 4,
                         ) {
                             ForEach(cachedDisplayItems) { item in
                                 MediaCompactCardView(
@@ -1073,15 +1128,17 @@ struct MediaGridView: View {
                                     tileSize: compactTileSize,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
+                                    progressStyle: progressStyle,
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
                                         selectItem(selected)
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler,
                                 )
                             }
                         }
@@ -1096,7 +1153,7 @@ struct MediaGridView: View {
                                     coverPreference: coverPreference,
                                     showAudioIndicator: showAudioIndicator,
                                     sourceLabel: showSourceBadge
-                                        ? mediaViewModel.sourceLabel(for: item.id) : nil,
+                                        ? item.source : nil,
                                     seriesPositionBadge: seriesPositionBadge(for: item),
                                     isSelected: activeInfoItem?.id == item.id,
                                     onSelect: { selected in
@@ -1104,7 +1161,8 @@ struct MediaGridView: View {
                                     },
                                     onInfo: { selected in
                                         openSidebar(for: selected)
-                                    }
+                                    },
+                                    onEditMetadata: editMetadataHandler,
                                 )
                             }
                         }
@@ -1115,6 +1173,9 @@ struct MediaGridView: View {
         }
         .padding(.vertical)
         .onAppear {
+            debugLog(
+                "[PerfTrace][MediaGridView] gridContent onAppear title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) cached=\(cachedDisplayItems.count) columns=\(columnCount)"
+            )
             lastKnownColumnCount = columnCount
             recomputeAllCaches()
             handleInitialSelectionIfNeeded()
@@ -1126,6 +1187,9 @@ struct MediaGridView: View {
             lastKnownColumnCount = newValue
         }
         .onChange(of: mediaViewModel.libraryVersion) { _, _ in
+            debugLog(
+                "[PerfTrace][MediaGridView] gridContent libraryVersion changed version=\(mediaViewModel.libraryVersion) title='\(title)'"
+            )
             recomputeAllCaches()
         }
         .modifier(
@@ -1145,22 +1209,34 @@ struct MediaGridView: View {
                 searchText: searchText,
                 initialNarrationFilterOption: initialNarrationFilterOption,
                 onFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent filterChanged title='\(title)'"
+                    )
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
                 },
                 onMediaKindChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent mediaKindChanged title='\(title)'"
+                    )
                     recomputeAllCaches()
                     reconcileSelectionAfterFiltering()
                 },
                 onSearchChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent searchChanged title='\(title)' searchCount=\(searchText.count)"
+                    )
                     recomputeDisplayItems()
                 },
                 onNarrationFilterChanged: {
+                    debugLog(
+                        "[PerfTrace][MediaGridView] gridContent narrationChanged title='\(title)'"
+                    )
                     selectedFormatFilter =
                         MediaGridView.mapNarrationToFormatFilter(initialNarrationFilterOption)
                     recomputeDisplayItems()
                     reconcileSelectionAfterFiltering()
-                }
+                },
             )
         )
     }
@@ -1175,7 +1251,7 @@ struct MediaGridView: View {
 
     @ViewBuilder
     private func card(for item: BookMetadata, metrics: MediaItemCardMetrics) -> some View {
-        let sourceLabel = showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil
+        let sourceLabel = showSourceBadge ? item.source : nil
         let seriesPositionBadge = seriesPositionBadge(for: item)
         #if os(macOS)
         MediaItemCardView(
@@ -1187,12 +1263,14 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },
             onInfo: { selected in
                 openSidebar(for: selected)
-            }
+            },
+            onEditMetadata: handleEditMetadata,
         )
         #else
         MediaItemCardView(
@@ -1204,12 +1282,13 @@ struct MediaGridView: View {
             sourceLabel: sourceLabel,
             seriesPositionBadge: seriesPositionBadge,
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 selectItem(selected)
             },
             onInfo: { selected in
                 openSidebar(for: selected)
-            }
+            },
         )
         #endif
     }
@@ -1240,6 +1319,44 @@ struct MediaGridView: View {
         shouldEnsureActiveItemVisible = ensureVisible
         activeInfoItem = item
     }
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        return handleEditMetadata
+        #else
+        return nil
+        #endif
+    }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+                case .allowed:
+                    if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                        return
+                    }
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookIds: bookIds),
+                    )
+                case .denied:
+                    permissionErrorMessage =
+                        "Your account does not have permission to edit metadata on this server."
+                    showPermissionError = true
+                case .error(let message):
+                    permissionErrorMessage = "Could not verify server permissions: \(message)"
+                    showPermissionError = true
+            }
+        }
+    }
+    #endif
 
     private func openSidebar(for item: BookMetadata) {
         activeInfoItem = item
@@ -1302,6 +1419,7 @@ struct MediaGridView: View {
     private func captureLocationInfo(for items: [BookMetadata]) -> [BookMetadata.ID:
         ItemLocationInfo]
     {
+        let started = CFAbsoluteTimeGetCurrent()
         var info: [BookMetadata.ID: ItemLocationInfo] = [:]
         for item in items {
             let isLocal = mediaViewModel.isLocalStandaloneBook(item.id)
@@ -1310,13 +1428,26 @@ struct MediaGridView: View {
                 || mediaViewModel.isCategoryDownloaded(.audio, for: item)
                 || mediaViewModel.isCategoryDownloaded(.synced, for: item)
             let isDownloaded = hasDownloadedContent && !isLocal
-            info[item.id] = ItemLocationInfo(isDownloaded: isDownloaded, isLocalStandalone: isLocal)
+            info[item.id] = ItemLocationInfo(
+                isDownloaded: isDownloaded,
+                isLocalStandalone: isLocal,
+            )
         }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] captureLocationInfo title='\(title)' items=\(items.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
         return info
     }
 
     private func recomputeDisplayItems() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeDisplayItems start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion) layout=\(layoutStyle.rawValue)"
+        )
+        let baseStarted = CFAbsoluteTimeGetCurrent()
         let baseItems = itemsForCurrentFormatSelection()
+        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
         let locationInfo = captureLocationInfo(for: baseItems)
         let formatFilter = selectedFormatFilter
         let tagSel = selectedTag
@@ -1332,8 +1463,13 @@ struct MediaGridView: View {
         let search = searchText
         let sortOpt = selectedSortOption
         let filtersSummary = computeFiltersSummary()
+        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeDisplayItems setup title='\(title)' base=\(baseItems.count) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let result = Self.computeDisplayItemsOffThread(
                 base: baseItems,
                 locationInfo: locationInfo,
@@ -1349,19 +1485,36 @@ struct MediaGridView: View {
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
-                sortOption: sortOpt
+                sortOption: sortOpt,
             )
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedDisplayItems = result
                 self.cachedFiltersSummary = filtersSummary
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeDisplayItems end title='\(self.title)' result=\(result.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }
 
     private func recomputeFilterOptions() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeFilterOptions start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
+        )
+        let catalogStarted = CFAbsoluteTimeGetCurrent()
         let catalog = catalogItemsForFilters
+        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeFilterOptions setup title='\(title)' catalog=\(catalog.count) catalogMs=\(String(format: "%.1f", catalogElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let newTags = Self.computeAvailableTagsOffThread(from: catalog)
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
@@ -1371,7 +1524,9 @@ struct MediaGridView: View {
             let newRatings = Self.computeAvailableRatingsOffThread(from: catalog)
             let newStatuses = Self.computeAvailableStatusesOffThread(from: catalog)
             let newCreatorRoles = Self.computeAvailableCreatorRolesOffThread(from: catalog)
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
@@ -1382,13 +1537,26 @@ struct MediaGridView: View {
                 self.cachedAvailableStatuses = newStatuses
                 self.cachedAvailableCreatorRoles = newCreatorRoles
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeFilterOptions end title='\(self.title)' tags=\(newTags.count) series=\(newSeries.count) authors=\(newAuthors.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }
 
     private func recomputeAllCaches() {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeAllCaches start title='\(title)' libraryVersion=\(mediaViewModel.libraryVersion)"
+        )
+        let catalogStarted = CFAbsoluteTimeGetCurrent()
         let catalog = catalogItemsForFilters
+        let catalogElapsed = (CFAbsoluteTimeGetCurrent() - catalogStarted) * 1000
+        let baseStarted = CFAbsoluteTimeGetCurrent()
         let baseItems = itemsForCurrentFormatSelection()
+        let baseElapsed = (CFAbsoluteTimeGetCurrent() - baseStarted) * 1000
         let locationInfo = captureLocationInfo(for: baseItems)
         let formatFilter = selectedFormatFilter
         let tagSel = selectedTag
@@ -1404,8 +1572,13 @@ struct MediaGridView: View {
         let search = searchText
         let sortOpt = selectedSortOption
         let filtersSummary = computeFiltersSummary()
+        let setupElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaGridView] recomputeAllCaches setup title='\(title)' catalog=\(catalog.count) base=\(baseItems.count) catalogMs=\(String(format: "%.1f", catalogElapsed)) baseMs=\(String(format: "%.1f", baseElapsed)) setupMs=\(String(format: "%.1f", setupElapsed))"
+        )
 
         Task.detached(priority: .userInitiated) {
+            let detachedStarted = CFAbsoluteTimeGetCurrent()
             let newTags = Self.computeAvailableTagsOffThread(from: catalog)
             let newSeries = Self.computeAvailableSeriesOffThread(from: catalog)
             let newAuthors = Self.computeAvailableAuthorsOffThread(from: catalog)
@@ -1430,9 +1603,11 @@ struct MediaGridView: View {
                 statusFilter: statusSel,
                 locationFilter: locationSel,
                 searchText: search,
-                sortOption: sortOpt
+                sortOption: sortOpt,
             )
+            let detachedElapsed = (CFAbsoluteTimeGetCurrent() - detachedStarted) * 1000
             await MainActor.run {
+                let publishStarted = CFAbsoluteTimeGetCurrent()
                 self.cachedAvailableTags = newTags
                 self.cachedAvailableSeries = newSeries
                 self.cachedAvailableAuthors = newAuthors
@@ -1445,6 +1620,11 @@ struct MediaGridView: View {
                 self.lastCachedLibraryVersion = self.mediaViewModel.libraryVersion
                 self.cachedDisplayItems = newDisplayItems
                 self.cachedFiltersSummary = filtersSummary
+                let publishElapsed = (CFAbsoluteTimeGetCurrent() - publishStarted) * 1000
+                let totalElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                debugLog(
+                    "[PerfTrace][MediaGridView] recomputeAllCaches end title='\(self.title)' catalog=\(catalog.count) base=\(baseItems.count) display=\(newDisplayItems.count) detachedMs=\(String(format: "%.1f", detachedElapsed)) publishMs=\(String(format: "%.1f", publishElapsed)) totalMs=\(String(format: "%.1f", totalElapsed))"
+                )
             }
         }
     }
@@ -1461,7 +1641,7 @@ struct MediaGridView: View {
 
     private func restoreScrollPosition(
         using proxy: ScrollViewProxy,
-        binding: Binding<BookMetadata.ID?>
+        binding: Binding<BookMetadata.ID?>,
     ) {
         let target = binding.wrappedValue ?? headerScrollID
         DispatchQueue.main.async {
@@ -1520,13 +1700,13 @@ struct MediaGridView: View {
         var primary = mediaViewModel.items(
             for: mediaKind,
             narrationFilter: .both,
-            tagFilter: tagFilter
+            tagFilter: tagFilter,
         )
         if selectedFormatFilter.includesAudiobookOnlyItems {
             let audioOnlyItems = mediaViewModel.items(
                 for: .audiobook,
                 narrationFilter: .both,
-                tagFilter: tagFilter
+                tagFilter: tagFilter,
             )
             primary = merge(primary, with: audioOnlyItems)
         }
@@ -1541,18 +1721,18 @@ struct MediaGridView: View {
             return mediaViewModel.items(
                 for: .audiobook,
                 narrationFilter: .both,
-                tagFilter: tagFilter
+                tagFilter: tagFilter,
             )
         }
         let primary = mediaViewModel.items(
             for: mediaKind,
             narrationFilter: .both,
-            tagFilter: tagFilter
+            tagFilter: tagFilter,
         )
         let audioOnly = mediaViewModel.items(
             for: .audiobook,
             narrationFilter: .both,
-            tagFilter: tagFilter
+            tagFilter: tagFilter,
         )
         return merge(primary, with: audioOnly)
     }
@@ -1805,7 +1985,7 @@ struct MediaGridView: View {
         statusFilter: String?,
         locationFilter: LocationFilterOption,
         searchText: String,
-        sortOption: SortOption
+        sortOption: SortOption,
     ) -> [BookMetadata] {
         var filtered = base.filter { formatFilter.matches($0) }
 
@@ -2041,8 +2221,8 @@ struct MediaGridView: View {
         var years = Set<String>()
         var hasUnknown = false
         for item in catalog {
-            if let pubDate = item.publicationDate, pubDate.count >= 4 {
-                years.insert(String(pubDate.prefix(4)))
+            if let year = BookMetadata.publicationYear(from: item.publicationDate) {
+                years.insert(year)
             } else {
                 hasUnknown = true
             }
@@ -2102,7 +2282,7 @@ struct MediaGridView: View {
                 from: direction,
                 in: visibleItems,
                 currentItemID: activeInfoItem?.id,
-                columnCount: max(lastKnownColumnCount, 1)
+                columnCount: max(lastKnownColumnCount, 1),
             )
         else {
             return

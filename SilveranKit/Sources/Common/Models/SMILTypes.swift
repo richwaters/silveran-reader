@@ -13,7 +13,7 @@ public struct SectionInfo: Codable, Identifiable, Sendable {
         id: String,
         label: String?,
         level: Int?,
-        mediaOverlay: [SMILEntry]
+        mediaOverlay: [SMILEntry],
     ) {
         self.index = index
         self.id = id
@@ -76,7 +76,7 @@ public struct SMILEntry: Codable, Sendable {
         audioFile: String,
         begin: Double,
         end: Double,
-        cumSumAtEnd: Double
+        cumSumAtEnd: Double,
     ) {
         self.textId = textId
         self.textHref = textHref

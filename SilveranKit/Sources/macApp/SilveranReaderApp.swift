@@ -20,13 +20,15 @@ struct SilveranReaderApp: App {
     @State private var didOpenSecondaryWindows = false
 
     init() {
+        StorytellerFontRegistration.registerBundledFonts()
+        SidebarSelectionColor.install()
         Task {
             do {
                 if let credentials = try await AuthenticationActor.shared.loadCredentials() {
                     let _ = await StorytellerActor.shared.setLogin(
                         baseURL: credentials.url,
                         username: credentials.username,
-                        password: credentials.password
+                        password: credentials.password,
                     )
                 }
             } catch {
@@ -185,7 +187,7 @@ struct SilveranReaderApp: App {
         WindowGroup(
             "Server Media Management",
             id: "ServerMediaManagement",
-            for: ServerMediaManagementData.self
+            for: ServerMediaManagementData.self,
         ) { data in
             if let bookId = data.wrappedValue?.bookId {
                 ServerMediaManagementView(bookId: bookId)
@@ -206,11 +208,28 @@ struct SilveranReaderApp: App {
     }
 
     private var metadataEditorScene: some Scene {
-        Window("Edit Metadata", id: "MetadataEditor") {
-            MetadataEditorView(initialBookIds: [])
+        WindowGroup("Edit Metadata", id: "MetadataEditor", for: MetadataEditorData.self) { data in
+            MetadataEditorSceneContent(data: data.wrappedValue)
                 .environment(mediaViewModel)
         }
-        .defaultSize(width: 900, height: 650)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1340, height: 710)
         .disableWindowRestoration()
+    }
+}
+
+private struct MetadataEditorSceneContent: View {
+    @Environment(\.dismiss) private var dismiss
+    let data: MetadataEditorData?
+
+    var body: some View {
+        if let data {
+            MetadataEditorView(initialBookIds: data.bookIds)
+        } else {
+            Color.clear
+                .onAppear {
+                    dismiss()
+                }
+        }
     }
 }

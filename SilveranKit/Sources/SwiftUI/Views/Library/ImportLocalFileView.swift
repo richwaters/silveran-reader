@@ -22,7 +22,7 @@ struct ImportLocalFileView: View {
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: allowedContentTypes,
-                allowsMultipleSelection: false
+                allowsMultipleSelection: false,
             ) { result in
                 switch result {
                     case .success(let urls):
@@ -71,7 +71,7 @@ struct ImportLocalFileView: View {
                     from: sourceURL,
                     domain: .local,
                     category: category,
-                    bookName: bookName
+                    bookName: bookName,
                 )
                 await refreshLocalFiles()
                 await MainActor.run {
@@ -116,7 +116,7 @@ struct ImportLocalFileView: View {
             showFileImporter: $showFileImporter,
             localFiles: localFiles,
             importedBookId: importedBookId,
-            onDelete: deleteLocalFile
+            onDelete: deleteLocalFile,
         )
         #else
         iOSContent
@@ -155,7 +155,7 @@ struct ImportLocalFileView: View {
                         LocalFilesList(
                             localFiles: localFiles,
                             importedBookId: importedBookId,
-                            onDelete: onDelete
+                            onDelete: onDelete,
                         )
                     }
                 }
@@ -215,7 +215,7 @@ struct ImportLocalFileView: View {
             .onDrop(
                 of: [dropTypeIdentifier],
                 isTargeted: $isDropTargeted,
-                perform: handleDrop(providers:)
+                perform: handleDrop(providers:),
             )
         }
 
@@ -284,7 +284,7 @@ struct ImportLocalFileView: View {
                     LocalFilesList(
                         localFiles: localFiles,
                         importedBookId: importedBookId,
-                        onDelete: deleteLocalFile
+                        onDelete: deleteLocalFile,
                     )
                 }
             }
@@ -313,7 +313,7 @@ private struct LocalFilesList: View {
                 LocalFileRow(
                     book: book,
                     isNewlyImported: book.id == importedBookId,
-                    onDelete: { bookToDelete = book }
+                    onDelete: { bookToDelete = book },
                 )
             }
         }
@@ -321,9 +321,9 @@ private struct LocalFilesList: View {
             "Delete \(bookToDelete?.title ?? "this file")?",
             isPresented: Binding(
                 get: { bookToDelete != nil },
-                set: { if !$0 { bookToDelete = nil } }
+                set: { if !$0 { bookToDelete = nil } },
             ),
-            titleVisibility: .visible
+            titleVisibility: .visible,
         ) {
             Button("Delete", role: .destructive) {
                 if let book = bookToDelete {
@@ -440,7 +440,7 @@ private func importSelectedFileMac(from sourceURL: URL) {
                 from: sourceURL,
                 domain: .local,
                 category: category,
-                bookName: bookName
+                bookName: bookName,
             )
             debugLog("[ImportLocalFileView] Imported file to local media")
         } catch {

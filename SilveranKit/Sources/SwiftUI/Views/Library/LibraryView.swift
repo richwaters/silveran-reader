@@ -1,7 +1,14 @@
 import SwiftUI
 
+extension Notification.Name {
+    static let openSmartShelves = Notification.Name("openSmartShelves")
+}
+
 public struct LibraryView: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     // TODO: wire up search
     @State private var searchText: String = ""
@@ -10,7 +17,7 @@ public struct LibraryView: View {
         name: "Dashboard",
         systemImage: "house",
         badge: 0,
-        content: .home
+        content: .home,
     )
     @State private var showSettings = false
     // TODO: ConfigActor should handle this
@@ -19,6 +26,10 @@ public struct LibraryView: View {
     @State private var gridScrollPositions: [String: BookMetadata.ID?] = [:]
     @State private var metadataNavStack: [SidebarItemDescription] = []
     @State private var isMetadataLinkNavigation = false
+    #if os(macOS)
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
+    #endif
 
     public init() {}
 
@@ -29,20 +40,31 @@ public struct LibraryView: View {
                     sections: sections,
                     selectedItem: $selectedItem,
                     searchText: $searchText,
-                    isSearchFocused: $isSearchFocused
+                    isSearchFocused: $isSearchFocused,
                 )
             } detail: {
-                if let selected = selectedItem {
-                    detailView(
-                        for: selected,
-                        sections: $sections,
-                        selectedItem: $selectedItem,
-                    )
-                } else {
-                    PlaceholderDetailView(title: "Select an item")
+                Group {
+                    if let selected = selectedItem {
+                        detailView(
+                            for: selected,
+                            sections: $sections,
+                            selectedItem: $selectedItem,
+                        )
+                    } else {
+                        PlaceholderDetailView(title: "Select an item")
+                    }
                 }
+                #if os(macOS)
+                .tint(
+                    Color(hex: mediaViewModel.cachedConfig.library.accentColorHex)
+                        ?? .storytellerOrange
+                )
+                #endif
             }
             #if os(macOS)
+            .onChange(of: mediaViewModel.cachedConfig.library.accentColorHex) { _, newHex in
+                SidebarSelectionColor.updateColor(hex: newHex)
+            }
             .onAppear {
                 NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     if event.modifierFlags.contains(.command)
@@ -63,6 +85,14 @@ public struct LibraryView: View {
                     metadataNavStack.removeAll()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .openSmartShelves)) { _ in
+                selectedItem = SidebarItemDescription(
+                    name: "Smart Shelves",
+                    systemImage: "sparkles.rectangle.stack",
+                    badge: -1,
+                    content: .smartShelves,
+                )
+            }
             #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -78,6 +108,13 @@ public struct LibraryView: View {
                 .presentationDragIndicator(.visible)
             }
             #endif
+            #if os(macOS)
+            .alert("Edit Metadata", isPresented: $showPermissionError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(permissionErrorMessage)
+            }
+            #endif
 
             if let notification = mediaViewModel.syncNotification {
                 VStack {
@@ -88,10 +125,13 @@ public struct LibraryView: View {
                         },
                         onIgnore: { bookIds in
                             mediaViewModel.ignoreFailedSyncs(bookIds: bookIds)
-                        }
+                        },
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: notification.id)
+                    .animation(
+                        .spring(response: 0.3, dampingFraction: 0.8),
+                        value: notification.id,
+                    )
                     .padding(.top, 16)
 
                     Spacer()
@@ -105,7 +145,7 @@ public struct LibraryView: View {
     func detailView(
         for item: SidebarItemDescription,
         sections: Binding<[SidebarSectionDescription]>,
-        selectedItem: Binding<SidebarItemDescription?>
+        selectedItem: Binding<SidebarItemDescription?>,
     ) -> some View {
         switch item.content {
             case .home:
@@ -114,14 +154,14 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 HomeView(
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #endif
             case .mediaGrid(let configuration):
@@ -158,7 +198,7 @@ public struct LibraryView: View {
                     },
                     initialNarrationFilterOption: configuration.narrationFilter,
                     initialLocationFilter: locationFilter,
-                    scrollPosition: scrollBinding
+                    scrollPosition: scrollBinding,
                 )
                 .id(identity)
                 .toolbar {
@@ -179,7 +219,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 SeriesView(
@@ -187,7 +227,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .authorView(let mediaKind):
@@ -197,7 +238,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 AuthorView(
@@ -205,7 +246,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .narratorView(let mediaKind):
@@ -215,7 +257,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 NarratorView(
@@ -223,7 +265,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .translatorView(let mediaKind):
@@ -233,7 +276,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 TranslatorView(
@@ -241,7 +284,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .publicationYearView(let mediaKind):
@@ -251,7 +295,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 PublicationYearView(
@@ -259,7 +303,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .ratingView(let mediaKind):
@@ -269,7 +314,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 RatingView(
@@ -277,7 +322,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .statusView(let mediaKind):
@@ -287,7 +333,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 StatusView(
@@ -295,7 +341,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .tagView(let mediaKind):
@@ -305,7 +352,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 TagView(
@@ -313,7 +360,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .collectionsView(let mediaKind):
@@ -323,7 +371,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 CollectionsView(
@@ -331,7 +379,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .sourceView(let mediaKind):
@@ -341,7 +390,7 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 SourceView(
@@ -349,7 +398,8 @@ public struct LibraryView: View {
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .smartShelves:
@@ -358,14 +408,15 @@ public struct LibraryView: View {
                     searchText: $searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
                 )
                 #else
                 SmartShelvesView(
                     searchText: searchText,
                     sidebarSections: sections,
                     selectedSidebarItem: selectedItem,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onEditMetadata: handleEditMetadata,
                 )
                 #endif
             case .smartShelfDetail(let shelfId):
@@ -375,7 +426,7 @@ public struct LibraryView: View {
                         shelf: shelf,
                         books: books,
                         searchText: searchText,
-                        viewOptionsKey: "smartShelfDetail.\(shelfId)"
+                        viewOptionsKey: "smartShelfDetail.\(shelfId)",
                     )
                 }
             case .placeholder(let title):
@@ -393,7 +444,7 @@ public struct LibraryView: View {
                     onMetadataLinkClicked: { target in
                         navigateToMetadataFilter(target, mediaKind: .ebook)
                     },
-                    initialLocationFilter: .downloaded
+                    initialLocationFilter: .downloaded,
                 )
             case .importLocalFile:
                 ImportLocalFileView()
@@ -419,7 +470,7 @@ public struct LibraryView: View {
             title: "",
             mediaKind: mediaKind,
             preferredTileWidth: 120,
-            minimumTileWidth: 50
+            minimumTileWidth: 50,
         )
 
         switch target {
@@ -462,7 +513,37 @@ public struct LibraryView: View {
             name: title,
             systemImage: systemImage,
             badge: -1,
-            content: .mediaGrid(config)
+            content: .mediaGrid(config),
         )
     }
+
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+                case .allowed:
+                    if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                        return
+                    }
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookIds: bookIds),
+                    )
+                case .denied:
+                    permissionErrorMessage =
+                        "Your account does not have permission to edit metadata on this server."
+                    showPermissionError = true
+                case .error(let message):
+                    permissionErrorMessage = "Could not verify server permissions: \(message)"
+                    showPermissionError = true
+            }
+        }
+    }
+    #endif
 }

@@ -8,7 +8,7 @@ struct MediaDownloadOptionsList: View {
     init(
         item: BookMetadata,
         options: [MediaDownloadOption]? = nil,
-        onAction: (() -> Void)? = nil
+        onAction: (() -> Void)? = nil,
     ) {
         self.item = item
         self.options = options ?? MediaGridViewUtilities.mediaDownloadOptions(for: item)
@@ -158,7 +158,7 @@ struct CreateReadaloudRow: View {
                         isStartingAlignment = true
                         _ = await StorytellerActor.shared.startAlignment(
                             for: item.uuid,
-                            restart: isErrorOrStopped ? .full : .none
+                            restart: isErrorOrStopped ? .full : .none,
                         )
                         await StorytellerActor.shared.fetchLibraryInformation()
                         isStartingAlignment = false
@@ -473,7 +473,7 @@ struct MediaDownloadOptionRow: View {
                 HStack(spacing: 10) {
                     if let fraction = mediaViewModel.downloadProgressFraction(
                         for: item,
-                        category: option.category
+                        category: option.category,
                     ) {
                         ProgressView(value: fraction, total: 1)
                             .progressViewStyle(.linear)
@@ -531,7 +531,7 @@ struct MediaDownloadOptionRow: View {
                             .imageScale(.large)
                     } else if let fraction = mediaViewModel.downloadProgressFraction(
                         for: item,
-                        category: option.category
+                        category: option.category,
                     ) {
                         ZStack {
                             Circle()
@@ -592,7 +592,7 @@ struct MediaDownloadOptionRow: View {
             localMediaPath: path,
             category: option.category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
 

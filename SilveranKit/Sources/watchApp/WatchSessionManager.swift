@@ -28,7 +28,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                     title: book.title,
                     authorNames: book.authors?.compactMap { $0.name } ?? [],
                     category: "synced",
-                    sizeBytes: 0
+                    sizeBytes: 0,
                 )
             }
         }
@@ -50,7 +50,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
     public func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
-        error: Error?
+        error: Error?,
     ) {
         if let error {
             print("[WatchSessionManager] Activation error: \(error)")
@@ -66,7 +66,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
     public func session(
         _ session: WCSession,
         didReceiveMessage message: [String: Any],
-        replyHandler: @escaping ([String: Any]) -> Void
+        replyHandler: @escaping ([String: Any]) -> Void,
     ) {
         handleMessage(message, replyHandler: replyHandler)
     }
@@ -110,7 +110,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
     private func handleDeleteBook(
         _ message: [String: Any],
-        replyHandler: (([String: Any]) -> Void)?
+        replyHandler: (([String: Any]) -> Void)?,
     ) {
         guard let uuid = message["uuid"] as? String,
             let categoryString = message["category"] as? String
@@ -133,7 +133,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
     private func handleCancelTransfer(
         _ message: [String: Any],
-        replyHandler: (([String: Any]) -> Void)?
+        replyHandler: (([String: Any]) -> Void)?,
     ) {
         guard let uuid = message["uuid"] as? String,
             let category = message["category"] as? String
@@ -148,7 +148,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
     private func handleCredentialsSync(
         _ message: [String: Any],
-        replyHandler: (([String: Any]) -> Void)?
+        replyHandler: (([String: Any]) -> Void)?,
     ) {
         guard let url = message["url"] as? String,
             let username = message["username"] as? String,
@@ -165,7 +165,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                 try await AuthenticationActor.shared.saveCredentials(
                     url: url,
                     username: username,
-                    password: password
+                    password: password,
                 )
                 print("[WatchSessionManager] Credentials saved to keychain")
                 onCredentialsReceived?(url, username, password)
@@ -201,7 +201,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                         try await AuthenticationActor.shared.saveCredentials(
                             url: url,
                             username: username,
-                            password: password
+                            password: password,
                         )
                         print("[WatchSessionManager] Credentials received and saved")
                         callback?(url, username, password)
@@ -212,7 +212,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             },
             errorHandler: { error in
                 print("[WatchSessionManager] Failed to request credentials: \(error)")
-            }
+            },
         )
     }
 
@@ -242,7 +242,10 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
         let chunkMetadata: ChunkTransferMetadata
         do {
-            chunkMetadata = try JSONDecoder().decode(ChunkTransferMetadata.self, from: metadataData)
+            chunkMetadata = try JSONDecoder().decode(
+                ChunkTransferMetadata.self,
+                from: metadataData,
+            )
         } catch {
             print("[WatchSessionManager] Failed to decode chunk metadata: \(error)")
             return
@@ -254,13 +257,13 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
         let result = WatchStorageManager.shared.receiveChunk(
             from: file.fileURL,
-            metadata: chunkMetadata
+            metadata: chunkMetadata,
         )
 
         onTransferProgress?(
             chunkMetadata.title,
             chunkMetadata.chunkIndex + 1,
-            chunkMetadata.totalChunks
+            chunkMetadata.totalChunks,
         )
 
         if result.isComplete, let manifest = result.manifest {
@@ -302,7 +305,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                     fileAs: nil,
                     role: nil,
                     createdAt: nil,
-                    updatedAt: nil
+                    updatedAt: nil,
                 )
             }
             bookMetadata = BookMetadata(
@@ -325,7 +328,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                 readaloud: nil,
                 status: nil,
                 position: nil,
-                rating: nil
+                rating: nil,
             )
         }
 
@@ -336,7 +339,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                 from: tempURL,
                 metadata: bookMetadata,
                 category: category,
-                filename: "book.\(manifest.fileExtension)"
+                filename: "book.\(manifest.fileExtension)",
             )
             print("[WatchSessionManager] Imported book to LMA: \(manifest.title)")
             refreshCachedBooks()
@@ -397,14 +400,14 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                 errorHandler: { error in
                     print("[WatchSessionManager] Failed to request library metadata: \(error)")
                     continuation.resume(returning: false)
-                }
+                },
             )
         }
     }
 
     private func handleLibraryMetadataReply(
         _ reply: [String: Any],
-        continuation: CheckedContinuation<Bool, Never>
+        continuation: CheckedContinuation<Bool, Never>,
     ) {
         guard let metadataData = reply["metadata"] as? Data else {
             print("[WatchSessionManager] No metadata in phone reply")
@@ -472,7 +475,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
                     do {
                         let state = try JSONDecoder().decode(
                             RemotePlaybackState.self,
-                            from: stateData
+                            from: stateData,
                         )
                         self?.onPlaybackStateReceived?(state)
                     } catch {
@@ -488,7 +491,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             errorHandler: { error in
                 print("[WatchSessionManager] Failed to request playback state: \(error)")
                 self.onPlaybackStateReceived?(nil)
-            }
+            },
         )
     }
 
@@ -523,7 +526,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
             replyHandler: nil,
             errorHandler: { error in
                 print("[WatchSessionManager] Failed to send playback command: \(error)")
-            }
+            },
         )
     }
 }

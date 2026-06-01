@@ -7,6 +7,7 @@ struct SeriesStackView: View {
     let showAudioIndicator: Bool
     let coverPreference: CoverPreference
     let onSelect: (BookMetadata) -> Void
+    var onInfo: ((BookMetadata) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @State private var hoveredBookID: BookMetadata.ID? = nil
@@ -47,7 +48,7 @@ struct SeriesStackView: View {
                         for: book,
                         index: index,
                         layout: layout,
-                        totalCount: displayBooks.count
+                        totalCount: displayBooks.count,
                     )
                 }
             }
@@ -132,7 +133,7 @@ struct SeriesStackView: View {
                 if let image = coverState.image {
                     image
                         .resizable()
-                        .interpolation(.medium)
+                        .interpolation(.high)
                         .scaledToFill()
                         .frame(width: coverWidth, height: coverHeight)
                         .clipped()
@@ -140,6 +141,7 @@ struct SeriesStackView: View {
             }
             .frame(width: coverWidth, height: coverHeight)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .stableCoverRendering()
             .overlay(alignment: .bottomTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: book, coverVariant: coverVariant)
@@ -159,6 +161,9 @@ struct SeriesStackView: View {
         .onHover { hovering in
             hoveredBookID = hovering ? book.id : nil
         }
+        .contextMenu {
+            BookContextMenuContent(item: book, onInfo: onInfo)
+        }
         #else
         .zIndex(Double(totalCount - index))
         #endif
@@ -166,11 +171,14 @@ struct SeriesStackView: View {
             .degrees(exitRotationY),
             axis: (x: 0, y: 1, z: 0),
             anchor: .center,
-            perspective: 0.4
+            perspective: 0.4,
         )
         .offset(x: layout.offset(for: index) + exitXOffset)
         .task {
             mediaViewModel.ensureCoverLoaded(for: book, variant: coverVariant)
+        }
+        .onDisappear {
+            mediaViewModel.cancelCoverLoad(for: book, variant: coverVariant)
         }
     }
 
@@ -251,7 +259,7 @@ struct SeriesStackView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }

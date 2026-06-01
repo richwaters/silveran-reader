@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import Observation
 import SilveranKitCommon
 import SwiftUI
@@ -9,6 +10,64 @@ import AppKit
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private actor CoverLoadLimiter {
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
+    private let limit: Int
+    private var activeCount = 0
+    private var waiters: [Waiter] = []
+
+    init(limit: Int) {
+        self.limit = max(limit, 1)
+    }
+
+    func acquire() async -> Bool {
+        if Task.isCancelled { return false }
+        if activeCount < limit {
+            activeCount += 1
+            return true
+        }
+        let id = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                waiters.append(Waiter(id: id, continuation: continuation))
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(id)
+            }
+        }
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let waiter = waiters.remove(at: index)
+        waiter.continuation.resume(returning: false)
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            activeCount = max(activeCount - 1, 0)
+        } else {
+            let waiter = waiters.removeFirst()
+            waiter.continuation.resume(returning: true)
+        }
+    }
+}
+
+private final class SendableCGImage: @unchecked Sendable {
+    let image: CGImage
+
+    init(_ image: CGImage) {
+        self.image = image
+    }
+}
 
 @MainActor
 @Observable
@@ -23,11 +82,16 @@ public final class MediaViewModel {
     public var pendingSyncsByBook: [String: PendingProgressSync] = [:]
     public var syncNotification: SyncNotification?
     public var smartShelves: [SmartShelf] = []
+    public var libraryViewSnapshot = LibraryViewSnapshot()
     var bookProgressCache: [String: BookProgress] = [:]
     @ObservationIgnored private var readBookIds: Set<String> = []
 
     private let lma: LocalMediaActor = LocalMediaActor.shared
     private let sta: StorytellerActor = StorytellerActor.shared
+    @ObservationIgnored private let libraryDerivationActor = LibraryDerivationActor()
+    @ObservationIgnored private var libraryDerivationTask: Task<Void, Never>?
+    @ObservationIgnored private var libraryDerivationGeneration = 0
+    @ObservationIgnored private var visibleSidebarContents: [SidebarContentKind] = []
 
     @ObservationIgnored private var downloadManagerObserverId: UUID?
     var downloadStatuses: [String: DownloadProgressState] = [:]
@@ -87,7 +151,7 @@ public final class MediaViewModel {
         public var hasError: Bool { errorDescription != nil }
     }
 
-    public enum CoverVariant: Hashable {
+    public enum CoverVariant: Hashable, Sendable {
         case standard
         case audioSquare
 
@@ -110,9 +174,45 @@ public final class MediaViewModel {
         }
     }
 
-    private struct CoverKey: Hashable {
+    private struct CoverKey: Hashable, Sendable {
         let id: String
         let variant: CoverVariant
+    }
+
+    private struct CoverImagePayload: Sendable {
+        let data: Data
+        let cgImage: SendableCGImage
+    }
+
+    private enum CoverLoadResult: Sendable {
+        case found(CoverImagePayload, persist: Bool)
+        case missing
+        case skipped
+
+        var debugDescription: String {
+            switch self {
+                case .found(_, let persist):
+                    return "found(persist:\(persist))"
+                case .missing:
+                    return "missing"
+                case .skipped:
+                    return "skipped"
+            }
+        }
+    }
+
+    private struct PendingCoverPublish {
+        let item: BookMetadata
+        let variant: CoverVariant
+        let result: CoverLoadResult
+        let debugSource: String?
+    }
+
+    private struct PendingCoverRequest {
+        let item: BookMetadata
+        let variant: CoverVariant
+        let debugSource: String?
+        let sequence: Int
     }
 
     @MainActor
@@ -128,9 +228,41 @@ public final class MediaViewModel {
     @ObservationIgnored private var coverStates: [CoverKey: CoverImageState] = [:]
     private var missingCoverKeys: Set<CoverKey> = []
     @ObservationIgnored private var coverTasks: [CoverKey: Task<Void, Never>] = [:]
+    @ObservationIgnored private var uncancellableCoverKeys: Set<CoverKey> = []
+    @ObservationIgnored private let coverLoadLimiter = CoverLoadLimiter(limit: 4)
+    @ObservationIgnored private var pendingCoverRequests: [CoverKey: PendingCoverRequest] = [:]
+    @ObservationIgnored private var coverRequestFlushTask: Task<Void, Never>?
+    @ObservationIgnored private var coverRequestSequence = 0
+    @ObservationIgnored private var pendingCoverPublishes: [CoverKey: PendingCoverPublish] = [:]
+    @ObservationIgnored private var coverPublishFlushTask: Task<Void, Never>?
+    @ObservationIgnored private var coverTraceCounts: [String: Int] = [:]
+    @ObservationIgnored private var coverTraceFlushTask: Task<Void, Never>?
+    @ObservationIgnored private var seriesGroupsCache:
+        [MediaKind: (version: Int, groups: [(series: BookSeries?, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var authorGroupsCache:
+        [MediaKind: (version: Int, groups: [(author: BookCreator?, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var collectionGroupsCache:
+        [MediaKind: (
+            version: Int, groups: [(collection: BookCollectionSummary?, books: [BookMetadata])]
+        )] = [:]
+    @ObservationIgnored private var narratorGroupsCache:
+        [MediaKind: (version: Int, groups: [(narrator: BookCreator?, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var translatorGroupsCache:
+        [MediaKind: (version: Int, groups: [(translator: BookCreator?, books: [BookMetadata])])] =
+            [:]
+    @ObservationIgnored private var publicationYearGroupsCache:
+        [MediaKind: (version: Int, groups: [(year: String, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var tagGroupsCache:
+        [MediaKind: (version: Int, groups: [(tag: String, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var ratingGroupsCache:
+        [MediaKind: (version: Int, groups: [(rating: String, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var statusGroupsCache:
+        [MediaKind: (version: Int, groups: [(status: String, books: [BookMetadata])])] = [:]
+    @ObservationIgnored private var sourceGroupsCache:
+        [MediaKind: (version: Int, groups: [(source: String, books: [BookMetadata])])] = [:]
 
     public init(
-        injectLibrary: BookLibrary? = nil,
+        injectLibrary: BookLibrary? = nil
     ) {
         if let injectLibrary = injectLibrary {
             self.library = injectLibrary
@@ -138,7 +270,7 @@ public final class MediaViewModel {
             self.library = BookLibrary(
                 bookMetaData: [],
                 ebookCoverCache: [:],
-                audiobookCoverCache: [:]
+                audiobookCoverCache: [:],
             )
             Task { [weak self] in
                 await ProgressSyncActor.shared.registerSyncNotificationCallback {
@@ -156,14 +288,15 @@ public final class MediaViewModel {
                         let bookNames = failedBookIds.compactMap { bookId in
                             self.library.bookMetaData.first(where: { $0.uuid == bookId })?.title
                         }
-                        let message = bookNames.isEmpty
+                        let message =
+                            bookNames.isEmpty
                             ? "Failed to sync \(failedBookIds.count) book(s)"
                             : "Failed to sync: \(bookNames.joined(separator: ", "))"
                         self.showSyncNotification(
                             SyncNotification(
                                 message: message,
                                 type: .error,
-                                failedBookIds: failedBookIds
+                                failedBookIds: failedBookIds,
                             )
                         )
                     }
@@ -247,55 +380,166 @@ public final class MediaViewModel {
     }
 
     public func refreshMetadata(source: String = "unknown") async {
+        let started = CFAbsoluteTimeGetCurrent()
+        var checkpoint = started
+        debugLog("[PerfTrace][MediaViewModel] refreshMetadata start source=\(source)")
         if smartShelves.isEmpty {
             await loadSmartShelves()
         }
+        logPerfCheckpoint("refreshMetadata smartShelves", source: source, checkpoint: &checkpoint)
         let status = await StorytellerActor.shared.connectionStatus
         let storytellerPaths = await LocalMediaActor.shared.localStorytellerBookPaths
         let standalonePaths = await LocalMediaActor.shared.localStandaloneBookPaths
         let paths = storytellerPaths.merging(standalonePaths) { _, new in new }
         let pendingSyncs = await ProgressSyncActor.shared.getPendingProgressSyncs()
+        logPerfCheckpoint(
+            "refreshMetadata status/paths/pending",
+            source: source,
+            checkpoint: &checkpoint,
+        )
 
         debugLog(
-            "[MediaViewModel] refreshMetadata: Status: \(status), pendingSyncs count: \(pendingSyncs.count)"
+            "[PerfTrace][MediaViewModel] refreshMetadata status=\(status) pendingSyncs=\(pendingSyncs.count)"
         )
         if !pendingSyncs.isEmpty {
             let bookIds = pendingSyncs.map { $0.bookId }.joined(separator: ", ")
-            debugLog("[MediaViewModel] refreshMetadata: Pending bookIds: [\(bookIds)]")
+            debugLog("[PerfTrace][MediaViewModel] refreshMetadata pendingBookIds=[\(bookIds)]")
         }
 
         let storytellerMetadata = await LocalMediaActor.shared.localStorytellerMetadata
         let standaloneMetadata = await LocalMediaActor.shared.localStandaloneMetadata
-        let metadata = storytellerMetadata + standaloneMetadata
+        logPerfCheckpoint(
+            "refreshMetadata load local metadata",
+            source: source,
+            checkpoint: &checkpoint,
+        )
+        let metadata =
+            storytellerMetadata.map {
+                var book = $0
+                book.source = "Storyteller"
+                return book
+            }
+            + standaloneMetadata.map {
+                var book = $0
+                book.source = "Local File"
+                return book
+            }
         debugLog(
-            "[MediaViewModel] refreshMetadata: Using LMA metadata (\(storytellerMetadata.count) storyteller + \(standaloneMetadata.count) standalone = \(metadata.count) books)"
+            "[PerfTrace][MediaViewModel] refreshMetadata metadataCounts storyteller=\(storytellerMetadata.count) standalone=\(standaloneMetadata.count) total=\(metadata.count)"
         )
 
         pendingSyncsByBook = Dictionary(uniqueKeysWithValues: pendingSyncs.map { ($0.bookId, $0) })
         debugLog(
-            "[MediaViewModel] refreshMetadata: Set pendingSyncsByBook to \(pendingSyncsByBook.count) books"
+            "[PerfTrace][MediaViewModel] refreshMetadata pendingSyncsByBook=\(pendingSyncsByBook.count)"
         )
 
         bookProgressCache = await ProgressSyncActor.shared.getAllBookProgress()
+        logPerfCheckpoint(
+            "refreshMetadata progress cache",
+            source: source,
+            checkpoint: &checkpoint,
+        )
         debugLog(
-            "[MediaViewModel] refreshMetadata: Loaded \(bookProgressCache.count) progress entries from PSA"
+            "[PerfTrace][MediaViewModel] refreshMetadata progressEntries=\(bookProgressCache.count)"
         )
 
         applyLibraryMetadata(metadata)
+        logPerfCheckpoint(
+            "refreshMetadata applyLibraryMetadata",
+            source: source,
+            checkpoint: &checkpoint,
+        )
         cachedBookPaths = paths
         localStandaloneBookIds = Set(standaloneMetadata.map { $0.uuid })
         storytellerBookIds = Set(storytellerMetadata.map { $0.uuid })
+        sourceGroupsCache.removeAll()
+        scheduleLibraryDerivation(reason: "refreshMetadata(\(source))")
         connectionStatus = status
         lastNetworkOpSucceeded = await StorytellerActor.shared.lastNetworkOpSucceeded
         isReady = true
-        debugLog(
-            "[MediaViewModel] refreshMetadata: connectionStatus=\(status), lastNetworkOpSucceeded=\(String(describing: lastNetworkOpSucceeded))"
+        logPerfCheckpoint(
+            "refreshMetadata publish remaining state",
+            source: source,
+            checkpoint: &checkpoint,
         )
         debugLog(
-            "[MediaViewModel] refreshMetadata: Complete - library has \(library.bookMetaData.count) books"
+            "[PerfTrace][MediaViewModel] refreshMetadata connectionStatus=\(status) lastNetworkOpSucceeded=\(String(describing: lastNetworkOpSucceeded))"
         )
+        debugLog(
+            "[PerfTrace][MediaViewModel] refreshMetadata complete books=\(library.bookMetaData.count)"
+        )
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] refreshMetadata end source=\(source) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
+    }
 
-        await loadCachedCoversFromDisk()
+    private func logPerfCheckpoint(
+        _ name: String,
+        source: String,
+        checkpoint: inout CFAbsoluteTime,
+    ) {
+        let now = CFAbsoluteTimeGetCurrent()
+        let elapsed = (now - checkpoint) * 1000
+        checkpoint = now
+        debugLog(
+            "[PerfTrace][MediaViewModel] \(name) source=\(source) deltaMs=\(String(format: "%.1f", elapsed))"
+        )
+    }
+
+    public func updateVisibleSidebarContents(_ contents: [SidebarContentKind]) {
+        var seen: Set<String> = []
+        let deduped = contents.filter { content in
+            seen.insert(content.stableIdentifier).inserted
+        }
+        guard deduped != visibleSidebarContents else { return }
+        visibleSidebarContents = deduped
+        scheduleLibraryDerivation(reason: "visibleSidebarContents")
+    }
+
+    private func scheduleLibraryDerivation(reason: String) {
+        #if !os(iOS)
+        guard !visibleSidebarContents.isEmpty else { return }
+        #endif
+        libraryDerivationGeneration += 1
+        let generation = libraryDerivationGeneration
+        #if os(iOS)
+        let deriveGroups = true
+        #else
+        let deriveGroups = false
+        #endif
+        let input = LibraryDerivationInput(
+            generation: generation,
+            deriveGroups: deriveGroups,
+            metadata: library.bookMetaData,
+            paths: cachedBookPaths,
+            localStandaloneBookIds: localStandaloneBookIds,
+            storytellerBookIds: storytellerBookIds,
+            progress: bookProgressCache,
+            smartShelves: smartShelves,
+            sidebarContents: visibleSidebarContents,
+        )
+        libraryDerivationTask?.cancel()
+        debugLog(
+            "[PerfTrace][MediaViewModel] scheduleLibraryDerivation reason=\(reason) generation=\(generation) contents=\(visibleSidebarContents.count) books=\(input.metadata.count)"
+        )
+        libraryDerivationTask = Task { [weak self] in
+            guard let self else { return }
+            let snapshot = await self.libraryDerivationActor.deriveSnapshot(from: input)
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                guard snapshot.generation == self.libraryDerivationGeneration else {
+                    debugLog(
+                        "[PerfTrace][MediaViewModel] discard stale libraryViewSnapshot snapshotGeneration=\(snapshot.generation) currentGeneration=\(self.libraryDerivationGeneration)"
+                    )
+                    return
+                }
+                self.libraryViewSnapshot = snapshot
+                debugLog(
+                    "[PerfTrace][MediaViewModel] publish libraryViewSnapshot generation=\(snapshot.generation) badges=\(snapshot.badgeCounts.count)"
+                )
+            }
+        }
     }
 
     private func startMetadataRefreshTask() {
@@ -314,7 +558,7 @@ public final class MediaViewModel {
                 // progress sync data comes from metadata fetches
                 let refreshInterval = min(
                     config.sync.metadataRefreshIntervalSeconds,
-                    config.sync.progressSyncIntervalSeconds
+                    config.sync.progressSyncIntervalSeconds,
                 )
 
                 if config.sync.isMetadataRefreshDisabled {
@@ -392,14 +636,28 @@ public final class MediaViewModel {
     }
 
     private func applyLibraryMetadata(_ metadata: [BookMetadata]) {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][MediaViewModel] applyLibraryMetadata start incoming=\(metadata.count) previous=\(library.bookMetaData.count) libraryVersion=\(libraryVersion)"
+        )
+        let previousMetadataByID = Dictionary(
+            uniqueKeysWithValues: library.bookMetaData.map {
+                ($0.id, $0)
+            }
+        )
+        let previousMapElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] applyLibraryMetadata previousMapMs=\(String(format: "%.1f", previousMapElapsed))"
+        )
         let validIDs = Set(metadata.map(\.id))
         library = BookLibrary(
             bookMetaData: metadata,
             ebookCoverCache: [:],
-            audiobookCoverCache: [:]
+            audiobookCoverCache: [:],
         )
         libraryVersion += 1
-        debugLog("[MediaViewModel] Updated library (version \(libraryVersion))")
+        invalidateDerivedCaches()
+        debugLog("[PerfTrace][MediaViewModel] Updated library version=\(libraryVersion)")
         readBookIds = Set(
             metadata.compactMap { metadata in
                 guard let status = metadata.status?.name,
@@ -415,6 +673,63 @@ public final class MediaViewModel {
         }
         missingCoverKeys = Set(missingCoverKeys.filter { validIDs.contains($0.id) })
         pruneCoverTasks(keeping: validIDs)
+        let pruneElapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] applyLibraryMetadata after prune elapsedMs=\(String(format: "%.1f", pruneElapsed)) coverStates=\(coverStates.count) missingCovers=\(missingCoverKeys.count) activeCoverTasks=\(coverTasks.count)"
+        )
+
+        let changedStorytellerBooks = metadata.filter { book in
+            guard book.source == "Storyteller",
+                let previous = previousMetadataByID[book.id],
+                previous.updatedAt != book.updatedAt
+            else { return false }
+            return true
+        }
+
+        if !changedStorytellerBooks.isEmpty {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for book in changedStorytellerBooks {
+                    for variant in coverVariantsToLoad(for: book) {
+                        await refreshCover(for: book, variant: variant)
+                    }
+                }
+            }
+        }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] applyLibraryMetadata end elapsedMs=\(String(format: "%.1f", elapsed)) changedStorytellerBooks=\(changedStorytellerBooks.count)"
+        )
+    }
+
+    private func invalidateDerivedCaches() {
+        let started = CFAbsoluteTimeGetCurrent()
+        let counts = [
+            seriesGroupsCache.count,
+            authorGroupsCache.count,
+            collectionGroupsCache.count,
+            narratorGroupsCache.count,
+            translatorGroupsCache.count,
+            publicationYearGroupsCache.count,
+            tagGroupsCache.count,
+            ratingGroupsCache.count,
+            statusGroupsCache.count,
+            sourceGroupsCache.count,
+        ]
+        seriesGroupsCache.removeAll()
+        authorGroupsCache.removeAll()
+        collectionGroupsCache.removeAll()
+        narratorGroupsCache.removeAll()
+        translatorGroupsCache.removeAll()
+        publicationYearGroupsCache.removeAll()
+        tagGroupsCache.removeAll()
+        ratingGroupsCache.removeAll()
+        statusGroupsCache.removeAll()
+        sourceGroupsCache.removeAll()
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] invalidateDerivedCaches previousBuckets=\(counts.reduce(0, +)) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
     }
 
     private func pruneCoverTasks(keeping validIDs: Set<String>) {
@@ -422,7 +737,9 @@ public final class MediaViewModel {
         for key in invalidKeys {
             coverTasks[key]?.cancel()
             coverTasks.removeValue(forKey: key)
+            uncancellableCoverKeys.remove(key)
         }
+        pendingCoverRequests = pendingCoverRequests.filter { validIDs.contains($0.key.id) }
     }
 
     private func metadataMatchesKind(_ metadata: BookMetadata, kind: MediaKind) -> Bool {
@@ -437,6 +754,7 @@ public final class MediaViewModel {
     public func items(for kind: MediaKind, narrationFilter: NarrationFilter, tagFilter: String?)
         -> [BookMetadata]
     {
+        let started = CFAbsoluteTimeGetCurrent()
         var base = library.bookMetaData.filter { metadataMatchesKind($0, kind: kind) }
         switch narrationFilter {
             case .both:
@@ -452,12 +770,17 @@ public final class MediaViewModel {
                 item.tagNames.contains(where: { $0.lowercased() == target })
             }
         }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] items kind=\(kind) narration=\(narrationFilter) tag=\(tagFilter ?? "nil") result=\(base.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
         return base
     }
 
     public func itemsByStatus(_ statusName: String, sortBy: StatusSortOrder, limit: Int)
         -> [BookMetadata]
     {
+        let started = CFAbsoluteTimeGetCurrent()
         let filtered = library.bookMetaData.filter { metadata in
             metadata.status?.name == statusName
         }
@@ -476,19 +799,43 @@ public final class MediaViewModel {
                 }
         }
 
-        return Array(sorted.prefix(limit))
+        let result = Array(sorted.prefix(limit))
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] itemsByStatus status='\(statusName)' filtered=\(filtered.count) result=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
+        return result
     }
 
     public func recentlyAddedItems(limit: Int) -> [BookMetadata] {
+        let started = CFAbsoluteTimeGetCurrent()
         let sorted = library.bookMetaData.sorted { a, b in
             (a.createdAt ?? "") > (b.createdAt ?? "")
         }
-        return Array(sorted.prefix(limit))
+        let result = Array(sorted.prefix(limit))
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] recentlyAddedItems total=\(library.bookMetaData.count) result=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed))"
+        )
+        return result
     }
 
     public func booksBySeries(for kind: MediaKind)
         -> [(series: BookSeries?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.series[kind] {
+            return groups.map { (series: $0.series, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = seriesGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksBySeries cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var seriesMap: [String: (series: BookSeries?, books: [BookMetadata])] = [:]
@@ -535,12 +882,31 @@ public final class MediaViewModel {
             return seriesA.name.articleStrippedCompare(seriesB.name) == .orderedAscending
         }
 
+        seriesGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksBySeries cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByAuthor(for kind: MediaKind)
         -> [(author: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.authors[kind] {
+            return groups.map { (author: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = authorGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByAuthor cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var authorMap: [String: (author: BookCreator?, books: [BookMetadata])] = [:]
@@ -582,12 +948,31 @@ public final class MediaViewModel {
             return nameA.localizedCaseInsensitiveCompare(nameB) == .orderedAscending
         }
 
+        authorGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByAuthor cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByCollection(for kind: MediaKind) -> [(
         collection: BookCollectionSummary?, books: [BookMetadata]
     )] {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.collections[kind] {
+            return groups.map { (collection: $0.collection, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = collectionGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByCollection cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var collectionMap: [String: (collection: BookCollectionSummary?, books: [BookMetadata])] =
@@ -622,12 +1007,31 @@ public final class MediaViewModel {
                 == .orderedAscending
         }
 
+        collectionGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByCollection cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByNarrator(for kind: MediaKind)
         -> [(narrator: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.narrators[kind] {
+            return groups.map { (narrator: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = narratorGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByNarrator cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var narratorMap: [String: (narrator: BookCreator?, books: [BookMetadata])] = [:]
@@ -669,12 +1073,31 @@ public final class MediaViewModel {
             return nameA.localizedCaseInsensitiveCompare(nameB) == .orderedAscending
         }
 
+        narratorGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByNarrator cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByTranslator(for kind: MediaKind)
         -> [(translator: BookCreator?, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.translators[kind] {
+            return groups.map { (translator: $0.creator, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = translatorGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByTranslator cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var translatorMap: [String: (translator: BookCreator?, books: [BookMetadata])] = [:]
@@ -717,23 +1140,37 @@ public final class MediaViewModel {
             return nameA.localizedCaseInsensitiveCompare(nameB) == .orderedAscending
         }
 
+        translatorGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByTranslator cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByPublicationYear(for kind: MediaKind)
         -> [(year: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.publicationYears[kind] {
+            return groups.map { (year: $0.name, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = publicationYearGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByPublicationYear cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var yearMap: [String: [BookMetadata]] = [:]
 
         for book in allBooks {
-            let year: String
-            if let pubDate = book.publicationDate, pubDate.count >= 4 {
-                year = String(pubDate.prefix(4))
-            } else {
-                year = "Unknown"
-            }
+            let year = BookMetadata.publicationYear(from: book.publicationDate) ?? "Unknown"
             if var existing = yearMap[year] {
                 existing.append(book)
                 yearMap[year] = existing
@@ -757,10 +1194,29 @@ public final class MediaViewModel {
             return a.year > b.year
         }
 
+        publicationYearGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByPublicationYear cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByTag(for kind: MediaKind) -> [(tag: String, books: [BookMetadata])] {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.tags[kind] {
+            return groups.map { (tag: $0.name, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = tagGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByTag cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var tagMap: [String: (displayName: String, books: [BookMetadata])] = [:]
@@ -790,12 +1246,31 @@ public final class MediaViewModel {
             a.tag.localizedCaseInsensitiveCompare(b.tag) == .orderedAscending
         }
 
+        tagGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByTag cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByRating(for kind: MediaKind)
         -> [(rating: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.ratings[kind] {
+            return groups.map { (rating: $0.name, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = ratingGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByRating cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var ratingMap: [String: [BookMetadata]] = [:]
@@ -831,12 +1306,31 @@ public final class MediaViewModel {
             return (Int(a.rating) ?? 0) > (Int(b.rating) ?? 0)
         }
 
+        ratingGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByRating cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksByStatus(for kind: MediaKind)
         -> [(status: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.statuses[kind] {
+            return groups.map { (status: $0.name, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = statusGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksByStatus cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var statusMap: [String: [BookMetadata]] = [:]
@@ -868,12 +1362,31 @@ public final class MediaViewModel {
             return a.status.localizedCaseInsensitiveCompare(b.status) == .orderedAscending
         }
 
+        statusGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksByStatus cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public func booksBySource(for kind: MediaKind)
         -> [(source: String, books: [BookMetadata])]
     {
+        #if os(iOS)
+        if let groups = currentGroupSnapshot()?.sources[kind] {
+            return groups.map { (source: $0.name, books: $0.books) }
+        }
+        return []
+        #else
+        if let cached = sourceGroupsCache[kind], cached.version == libraryVersion {
+            debugLog(
+                "[PerfTrace][MediaViewModel] booksBySource cacheHit kind=\(kind) groups=\(cached.groups.count) version=\(libraryVersion)"
+            )
+            return cached.groups
+        }
+        let started = CFAbsoluteTimeGetCurrent()
         let allBooks = library.bookMetaData
 
         var sourceMap: [String: [BookMetadata]] = [:]
@@ -913,7 +1426,13 @@ public final class MediaViewModel {
             return a.source.localizedCaseInsensitiveCompare(b.source) == .orderedAscending
         }
 
+        sourceGroupsCache[kind] = (libraryVersion, result)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1_000
+        debugLog(
+            "[PerfTrace][MediaViewModel] booksBySource cacheMiss kind=\(kind) books=\(allBooks.count) groups=\(result.count) elapsedMs=\(String(format: "%.1f", elapsed)) version=\(libraryVersion)"
+        )
         return result
+        #endif
     }
 
     public enum StatusSortOrder {
@@ -922,100 +1441,18 @@ public final class MediaViewModel {
     }
 
     public func badgeCount(for content: SidebarContentKind) -> Int {
-        switch content {
-            case .home:
-                return 0
-            case .mediaGrid(let config):
-                var base = items(
-                    for: config.mediaKind,
-                    narrationFilter: .both,
-                    tagFilter: config.tagFilter
-                )
-
-                if shouldIncludeAudiobookOnlyItems(for: config.narrationFilter) {
-                    let audioOnlyItems = items(
-                        for: .audiobook,
-                        narrationFilter: .both,
-                        tagFilter: config.tagFilter
-                    )
-                    base = mergeItems(base, with: audioOnlyItems)
-                }
-
-                base = base.filter { matchesNarrationFilter($0, filter: config.narrationFilter) }
-
-                if let series = config.seriesFilter {
-                    base = base.filter { $0.matchesSeries(series) }
-                }
-
-                if let collection = config.collectionFilter {
-                    base = base.filter { $0.matchesCollection(collection) }
-                }
-
-                if let author = config.authorFilter {
-                    base = base.filter { $0.matchesAuthor(author) }
-                }
-
-                if let narrator = config.narratorFilter {
-                    base = base.filter { $0.matchesNarrator(narrator) }
-                }
-
-                if let translator = config.translatorFilter {
-                    base = base.filter { $0.matchesTranslator(translator) }
-                }
-
-                if let year = config.publicationYearFilter {
-                    base = base.filter { $0.matchesPublicationYear(year) }
-                }
-
-                if let ratingKey = config.ratingFilter {
-                    base = base.filter { $0.matchesRating(ratingKey) }
-                }
-
-                if let statusFilter = config.statusFilter {
-                    base = base.filter { $0.matchesStatus(statusFilter) }
-                }
-
-                base = base.filter { matchesLocationFilter($0, filter: config.locationFilter) }
-
-                return base.count
-            case .seriesView(let mediaKind):
-                return booksBySeries(for: mediaKind).count
-            case .authorView(let mediaKind):
-                return booksByAuthor(for: mediaKind).count
-            case .narratorView(let mediaKind):
-                return booksByNarrator(for: mediaKind).count
-            case .tagView(let mediaKind):
-                return booksByTag(for: mediaKind).count
-            case .translatorView(let mediaKind):
-                return booksByTranslator(for: mediaKind).count
-            case .publicationYearView(let mediaKind):
-                return booksByPublicationYear(for: mediaKind).count
-            case .ratingView(let mediaKind):
-                return booksByRating(for: mediaKind).count
-            case .collectionsView(let mediaKind):
-                return booksByCollection(for: mediaKind).count
-            case .statusView(let mediaKind):
-                return booksByStatus(for: mediaKind).count
-            case .sourceView(let mediaKind):
-                return booksBySource(for: mediaKind).count
-            case .smartShelves:
-                return smartShelves.count
-            case .smartShelfDetail(let shelfId):
-                guard let shelf = smartShelves.first(where: { $0.id == shelfId }) else { return 0 }
-                return booksForShelf(shelf).count
-            case .placeholder:
-                return 0
-            case .currentlyDownloading:
-                return 0
-            case .downloaded:
-                let allItems = items(for: .ebook, narrationFilter: .both, tagFilter: nil)
-                return allItems.filter { matchesLocationFilter($0, filter: .downloaded) }.count
-            case .importLocalFile:
-                return 0
-            case .storytellerServer:
-                return 0
-        }
+        libraryViewSnapshot.badgeCounts[content.stableIdentifier] ?? 0
     }
+
+    #if os(iOS)
+    private func currentGroupSnapshot() -> LibraryGroupSnapshot? {
+        let groups = libraryViewSnapshot.groups
+        guard groups.generation == libraryDerivationGeneration else {
+            return nil
+        }
+        return groups
+    }
+    #endif
 
     private func shouldIncludeAudiobookOnlyItems(for filter: NarrationFilter) -> Bool {
         switch filter {
@@ -1136,11 +1573,7 @@ public final class MediaViewModel {
     }
 
     public func sourceLabel(for bookID: String) -> String {
-        if localStandaloneBookIds.contains(bookID) {
-            return "Local File"
-        } else {
-            return "Storyteller"
-        }
+        library.bookMetaData.first { $0.id == bookID }?.source ?? "Unknown"
     }
 
     public func isServerBook(_ bookID: String) -> Bool {
@@ -1161,27 +1594,27 @@ public final class MediaViewModel {
             locator: locator,
             timestamp: bp.timestamp,
             createdAt: nil,
-            updatedAt: nil
+            updatedAt: nil,
         )
     }
 
     public func downloadProgressFraction(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Double? {
         downloadStatuses[item.id]?.categories[category]?.progressFraction
     }
 
     public func isCategoryDownloadInProgress(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Bool {
         downloadStatuses[item.id]?.categories[category]?.isActive ?? false
     }
 
     public func isCategoryDownloadFailed(
         for item: BookMetadata,
-        category: LocalMediaCategory
+        category: LocalMediaCategory,
     ) -> Bool {
         downloadStatuses[item.id]?.categories[category]?.isFailed ?? false
     }
@@ -1192,7 +1625,7 @@ public final class MediaViewModel {
             guard
                 let directory = await LocalMediaActor.shared.mediaDirectory(
                     for: item.id,
-                    category: category
+                    category: category,
                 )
             else { return }
             await MainActor.run {
@@ -1252,7 +1685,7 @@ public final class MediaViewModel {
         -> Image?
     {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         return coverStates[key]?.image
     }
 
@@ -1260,7 +1693,7 @@ public final class MediaViewModel {
         -> CoverImageState
     {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
+        let key = coverKey(for: item, variant: variant)
         if let existing = coverStates[key] { return existing }
         let state = CoverImageState()
         coverStates[key] = state
@@ -1269,76 +1702,441 @@ public final class MediaViewModel {
 
     public func ensureCoverLoaded(
         for item: BookMetadata,
-        variant overrideVariant: CoverVariant? = nil
+        variant overrideVariant: CoverVariant? = nil,
+        debugSource: String? = nil,
     ) {
         let variant = overrideVariant ?? coverVariant(for: item)
-        let key = CoverKey(id: item.id, variant: variant)
-        if coverStates[key]?.image != nil || missingCoverKeys.contains(key) {
+        let key = coverKey(for: item, variant: variant)
+        if coverStates[key]?.image != nil {
+            recordCoverTrace("skipExisting", source: debugSource)
+            debugCoverLog(debugSource, "skip existing image", item: item, variant: variant)
+            return
+        }
+        if missingCoverKeys.contains(key) {
+            recordCoverTrace("skipMissing", source: debugSource)
+            debugCoverLog(debugSource, "skip known missing", item: item, variant: variant)
             return
         }
         if coverTasks[key] != nil {
+            recordCoverTrace("skipLoading", source: debugSource)
+            debugCoverLog(debugSource, "skip already loading", item: item, variant: variant)
+            return
+        }
+        if pendingCoverRequests[key] != nil {
+            coverRequestSequence += 1
+            pendingCoverRequests[key] = PendingCoverRequest(
+                item: item,
+                variant: variant,
+                debugSource: debugSource,
+                sequence: coverRequestSequence,
+            )
+            recordCoverTrace("requestUpdated", source: debugSource)
+            schedulePendingCoverRequestFlush(delay: .seconds(1))
             return
         }
 
-        if item.hasAvailableAudiobook && variant != .audioSquare {
-            ensureCoverLoaded(for: item, variant: .audioSquare)
-        }
+        coverRequestSequence += 1
+        pendingCoverRequests[key] = PendingCoverRequest(
+            item: item,
+            variant: variant,
+            debugSource: debugSource,
+            sequence: coverRequestSequence,
+        )
+        recordCoverTrace("requestQueued", source: debugSource)
+        schedulePendingCoverRequestFlush(delay: .milliseconds(100))
+    }
 
-        coverTasks[key] = Task { [weak self] in
+    private func schedulePendingCoverRequestFlush(delay: Duration) {
+        guard coverRequestFlushTask == nil else { return }
+        coverRequestFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
             guard let self else { return }
-
-            let isLocalBook = await LocalMediaActor.shared.isLocalStandaloneBook(item.id)
-
-            if isLocalBook {
-                let coverData = await LocalMediaActor.shared.extractLocalCover(for: item.id)
-                await MainActor.run {
-                    if let data = coverData {
-                        let cover = BookCover(
-                            data: data,
-                            contentType: nil,
-                            etag: nil,
-                            lastModified: nil,
-                            cacheControl: nil,
-                            contentDisposition: nil
-                        )
-                        self.registerCover(cover, for: item, variant: variant)
-                    } else {
-                        debugLog(
-                            "[MediaViewModel] ensureCoverLoaded: no cover found for local book '\(item.title)' (\(item.id))"
-                        )
-                        self.missingCoverKeys.insert(key)
-                    }
-                    self.coverTasks[key] = nil
-                }
-            } else {
-                guard self.connectionStatus == .connected else {
-                    await MainActor.run {
-                        self.coverTasks[key] = nil
-                    }
-                    return
-                }
-
-                let params = variant.requestParameters
-                let cover = await self.sta.fetchCoverImage(
-                    for: item.id,
-                    audio: params.audio,
-                    width: params.width,
-                    height: params.height
-                )
-                await MainActor.run {
-                    self.registerCover(cover, for: item, variant: variant)
-                    self.coverTasks[key] = nil
-                }
+            self.coverRequestFlushTask = nil
+            self.flushPendingCoverRequests()
+            if !self.pendingCoverRequests.isEmpty {
+                self.schedulePendingCoverRequestFlush(delay: .seconds(1))
             }
         }
     }
 
-    private func registerCover(_ cover: BookCover?, for item: BookMetadata, variant: CoverVariant) {
-        let key = CoverKey(id: item.id, variant: variant)
+    private func flushPendingCoverRequests() {
+        guard !pendingCoverRequests.isEmpty else { return }
+        let batch =
+            pendingCoverRequests
+            .sorted { lhs, rhs in lhs.value.sequence > rhs.value.sequence }
+            .prefix(48)
+        for (key, request) in batch {
+            pendingCoverRequests.removeValue(forKey: key)
+            startCoverLoad(
+                request.item,
+                variant: request.variant,
+                debugSource: request.debugSource,
+            )
+        }
+        recordCoverTrace("requestFlush", source: nil)
+    }
+
+    private func startCoverLoad(
+        _ item: BookMetadata,
+        variant: CoverVariant,
+        debugSource: String?,
+    ) {
+        let key = coverKey(for: item, variant: variant)
+        if coverStates[key]?.image != nil {
+            recordCoverTrace("skipExisting", source: debugSource)
+            debugCoverLog(debugSource, "skip existing image", item: item, variant: variant)
+            return
+        }
+        if missingCoverKeys.contains(key) {
+            recordCoverTrace("skipMissing", source: debugSource)
+            debugCoverLog(debugSource, "skip known missing", item: item, variant: variant)
+            return
+        }
+        if coverTasks[key] != nil {
+            recordCoverTrace("skipLoading", source: debugSource)
+            debugCoverLog(debugSource, "skip already loading", item: item, variant: variant)
+            return
+        }
+
+        let isConnected = connectionStatus == .connected
+        let limiter = coverLoadLimiter
+        recordCoverTrace("start", source: debugSource)
+        debugCoverLog(
+            debugSource,
+            "start task connected=\(isConnected)",
+            item: item,
+            variant: variant,
+        )
+
+        coverTasks[key] = Task { [weak self] in
+            guard await limiter.acquire() else {
+                await MainActor.run {
+                    self?.recordCoverTrace("limiterCancelled", source: debugSource)
+                    self?.debugCoverLog(
+                        debugSource,
+                        "limiter acquire cancelled",
+                        item: item,
+                        variant: variant,
+                    )
+                    self?.coverTasks[key] = nil
+                }
+                return
+            }
+            defer {
+                Task {
+                    await limiter.release()
+                }
+            }
+            guard let self else { return }
+
+            self.uncancellableCoverKeys.insert(key)
+            let loadStarted = CFAbsoluteTimeGetCurrent()
+            let result = await Task.detached(priority: .utility) {
+                await Self.loadCoverOffMain(item: item, variant: variant, isConnected: isConnected)
+            }.value
+            let loadElapsed = (CFAbsoluteTimeGetCurrent() - loadStarted) * 1000
+
+            guard !Task.isCancelled else {
+                self.recordCoverTrace("cancelledAfterResult", source: debugSource)
+                self.debugCoverLog(
+                    debugSource,
+                    "task cancelled after result loadMs=\(String(format: "%.1f", loadElapsed))",
+                    item: item,
+                    variant: variant,
+                )
+                self.coverTasks[key] = nil
+                self.uncancellableCoverKeys.remove(key)
+                return
+            }
+
+            self.recordCoverTrace("enqueue", source: debugSource)
+            self.debugCoverLog(
+                debugSource,
+                "enqueue result=\(result.debugDescription) loadMs=\(String(format: "%.1f", loadElapsed))",
+                item: item,
+                variant: variant,
+            )
+            self.enqueueCoverPublish(result, for: item, variant: variant, debugSource: debugSource)
+            self.coverTasks[key] = nil
+        }
+    }
+
+    public func cancelCoverLoad(
+        for item: BookMetadata,
+        variant overrideVariant: CoverVariant? = nil,
+    ) {
+        let variant = overrideVariant ?? coverVariant(for: item)
+        let key = coverKey(for: item, variant: variant)
+        guard coverStates[key]?.image == nil else { return }
+        if pendingCoverRequests.removeValue(forKey: key) != nil {
+            recordCoverTrace("requestDropped", source: nil)
+            return
+        }
+        guard coverTasks[key] != nil else { return }
+        recordCoverTrace("cancelIgnoredVisible", source: nil)
+    }
+
+    private func enqueueCoverPublish(
+        _ result: CoverLoadResult,
+        for item: BookMetadata,
+        variant: CoverVariant,
+        debugSource: String?,
+    ) {
+        let key = coverKey(for: item, variant: variant)
+        pendingCoverPublishes[key] = PendingCoverPublish(
+            item: item,
+            variant: variant,
+            result: result,
+            debugSource: debugSource,
+        )
+        schedulePendingCoverFlush()
+    }
+
+    private func schedulePendingCoverFlush() {
+        guard !pendingCoverPublishes.isEmpty else { return }
+        guard coverPublishFlushTask == nil else { return }
+        coverPublishFlushTask = Task { @MainActor [weak self] in
+            while let self, !self.pendingCoverPublishes.isEmpty {
+                let flushStarted = CFAbsoluteTimeGetCurrent()
+                let batchKeys = Array(self.pendingCoverPublishes.keys.prefix(8))
+                for key in batchKeys {
+                    guard let pending = self.pendingCoverPublishes.removeValue(forKey: key) else {
+                        continue
+                    }
+                    self.publishCoverResult(
+                        pending.result,
+                        for: pending.item,
+                        variant: pending.variant,
+                        debugSource: pending.debugSource,
+                    )
+                }
+                let flushElapsed = (CFAbsoluteTimeGetCurrent() - flushStarted) * 1000
+                debugLog(
+                    "[CoverPerf][flush] publishBatch count=\(batchKeys.count) remaining=\(self.pendingCoverPublishes.count) elapsedMs=\(String(format: "%.1f", flushElapsed))"
+                )
+                if !self.pendingCoverPublishes.isEmpty {
+                    try? await Task.sleep(for: .milliseconds(33))
+                }
+            }
+            self?.coverPublishFlushTask = nil
+        }
+    }
+
+    private func publishCoverResult(
+        _ result: CoverLoadResult,
+        for item: BookMetadata,
+        variant: CoverVariant,
+        debugSource: String?,
+    ) {
+        let key = coverKey(for: item, variant: variant)
+        debugCoverLog(
+            debugSource,
+            "publish result=\(result.debugDescription)",
+            item: item,
+            variant: variant,
+        )
+        recordCoverTrace("publish", source: debugSource)
+        switch result {
+            case .found(let payload, let persist):
+                registerCover(payload, for: item, variant: variant, persist: persist)
+            case .missing:
+                debugLog(
+                    "[MediaViewModel] ensureCoverLoaded: no cover found for '\(item.title)' (\(item.id)), variant=\(variant)"
+                )
+                missingCoverKeys.insert(key)
+            case .skipped:
+                break
+        }
+        uncancellableCoverKeys.remove(key)
+    }
+
+    private func debugCoverLog(
+        _ source: String?,
+        _ message: String,
+        item: BookMetadata,
+        variant: CoverVariant,
+    ) {
+        if source == nil, !message.hasPrefix("task cancelled after result") { return }
+        let source = source ?? "unspecified"
+        debugLog(
+            "[CoverPerf][\(source)] \(message) title='\(item.title)' id=\(item.id) variant=\(variant)"
+        )
+    }
+
+    private func recordCoverTrace(_ event: String, source: String?) {
+        let source = source ?? "unspecified"
+        coverTraceCounts["\(source).\(event)", default: 0] += 1
+        guard coverTraceFlushTask == nil else { return }
+        coverTraceFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self else { return }
+            let counts = self.coverTraceCounts
+            self.coverTraceCounts.removeAll()
+            self.coverTraceFlushTask = nil
+            guard !counts.isEmpty else { return }
+            let summary =
+                counts
+                .sorted { lhs, rhs in lhs.key < rhs.key }
+                .map { "\($0.key)=\($0.value)" }
+                .joined(separator: ", ")
+            debugLog(
+                "[CoverPerf][summary] \(summary) pendingRequests=\(self.pendingCoverRequests.count) activeTasks=\(self.coverTasks.count) activeLoads=\(self.uncancellableCoverKeys.count) pendingPublishes=\(self.pendingCoverPublishes.count)"
+            )
+        }
+    }
+
+    private static nonisolated func loadCoverOffMain(
+        item: BookMetadata,
+        variant: CoverVariant,
+        isConnected: Bool,
+    ) async -> CoverLoadResult {
+        let variantString = variant == .standard ? "standard" : "audioSquare"
+        if let data = await FilesystemActor.shared.loadCoverImage(
+            uuid: item.id,
+            variant: variantString,
+        ) {
+            guard let payload = makeCoverPayload(from: data) else {
+                return .missing
+            }
+            return .found(
+                payload,
+                persist: false,
+            )
+        }
+
+        let isLocalBook = await LocalMediaActor.shared.isLocalStandaloneBook(item.id)
+        if isLocalBook {
+            guard let data = await LocalMediaActor.shared.extractLocalCover(for: item.id) else {
+                return .missing
+            }
+            guard let payload = makeCoverPayload(from: data) else {
+                return .missing
+            }
+            return .found(
+                payload,
+                persist: true,
+            )
+        }
+
+        guard isConnected else { return .skipped }
+        guard let cover = await Self.fetchStorytellerCoverOffMain(for: item, variant: variant)
+        else {
+            return .missing
+        }
+        guard let payload = makeCoverPayload(from: cover.data) else {
+            return .missing
+        }
+        return .found(payload, persist: true)
+    }
+
+    public func refreshCover(
+        for item: BookMetadata,
+        variant overrideVariant: CoverVariant? = nil,
+    ) async {
+        let variant = overrideVariant ?? coverVariant(for: item)
+        let key = coverKey(for: item, variant: variant)
+        pendingCoverRequests.removeValue(forKey: key)
+        coverTasks[key]?.cancel()
+        coverTasks[key] = nil
+        uncancellableCoverKeys.remove(key)
+        let hadExistingImage = coverStates[key]?.image != nil
+        missingCoverKeys.remove(key)
+
+        guard connectionStatus == .connected else {
+            if !hadExistingImage {
+                ensureCoverLoaded(for: item, variant: variant)
+            }
+            return
+        }
+
+        let cover = await fetchStorytellerCover(for: item, variant: variant)
+        if let cover {
+            if let payload = Self.makeCoverPayload(from: cover.data) {
+                registerCover(payload, for: item, variant: variant)
+            } else if !hadExistingImage {
+                registerCover(nil, for: item, variant: variant)
+            }
+        } else if !hadExistingImage {
+            registerCover(nil, for: item, variant: variant)
+        }
+    }
+
+    public func deleteLocalCoverCache() async -> Bool {
+        for task in coverTasks.values {
+            task.cancel()
+        }
+        pendingCoverRequests.removeAll()
+        coverRequestFlushTask?.cancel()
+        coverRequestFlushTask = nil
+        coverTasks.removeAll()
+        uncancellableCoverKeys.removeAll()
+        coverStates.removeAll()
+        missingCoverKeys.removeAll()
+
+        do {
+            try await FilesystemActor.shared.removeAllCoverImages()
+            debugLog("[MediaViewModel] Deleted local cover cache.")
+            return true
+        } catch {
+            debugLog("[MediaViewModel] Failed to delete local cover cache: \(error)")
+            return false
+        }
+    }
+
+    private func fetchStorytellerCover(
+        for item: BookMetadata,
+        variant: CoverVariant,
+    ) async -> BookCover? {
+        await Self.fetchStorytellerCoverOffMain(for: item, variant: variant)
+    }
+
+    private static nonisolated func fetchStorytellerCoverOffMain(
+        for item: BookMetadata,
+        variant: CoverVariant,
+    ) async -> BookCover? {
+        let params = variant.requestParameters
+        if let cover = await StorytellerActor.shared.fetchCoverImage(
+            for: item.id,
+            audio: params.audio,
+            width: params.width,
+            height: params.height,
+            version: item.updatedAt,
+        ) {
+            return cover
+        }
+
+        debugLog(
+            "[MediaViewModel] Sized cover fetch returned nil for '\(item.title)' (\(item.id)), variant=\(variant), size=\(params.width)x\(params.height), updatedAt=\(item.updatedAt ?? "nil"). Falling back to raw cover."
+        )
+
+        let cover = await StorytellerActor.shared.fetchCoverImage(
+            for: item.id,
+            audio: params.audio,
+            width: nil,
+            height: nil,
+        )
+        if cover == nil {
+            debugLog(
+                "[MediaViewModel] Raw cover fetch returned nil for '\(item.title)' (\(item.id)), variant=\(variant), updatedAt=\(item.updatedAt ?? "nil")."
+            )
+        }
+        return cover
+    }
+
+    private func registerCover(
+        _ payload: CoverImagePayload?,
+        for item: BookMetadata,
+        variant: CoverVariant,
+        persist: Bool = true,
+    ) {
+        let key = coverKey(for: item, variant: variant)
         let state = coverStates[key] ?? CoverImageState()
         coverStates[key] = state
 
-        guard let cover else {
+        guard let payload else {
+            debugLog(
+                "[MediaViewModel] Registering missing cover for '\(item.title)' (\(item.id)), variant=\(variant)."
+            )
             missingCoverKeys.insert(key)
             state.image = nil
             #if canImport(AppKit)
@@ -1347,81 +2145,60 @@ public final class MediaViewModel {
             return
         }
 
+        let cgImage = payload.cgImage.image
         #if canImport(AppKit)
-        guard let nsImage = NSImage(data: cover.data) else {
-            missingCoverKeys.insert(key)
-            state.image = nil
-            state.nsImage = nil
-            return
-        }
-        state.nsImage = nsImage
-        state.image = Image(nsImage: nsImage)
+        state.nsImage = NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: cgImage.width, height: cgImage.height),
+        )
+        state.image = Image(decorative: cgImage, scale: 1, orientation: .up)
         #elseif canImport(UIKit)
-        guard let image = Self.makeImage(from: cover.data) else {
-            missingCoverKeys.insert(key)
-            state.image = nil
-            return
-        }
-        state.image = image
+        state.image = Image(decorative: cgImage, scale: 1, orientation: .up)
         #endif
 
         missingCoverKeys.remove(key)
 
+        guard persist else { return }
         Task {
             let variantString = variant == .standard ? "standard" : "audioSquare"
             try? await FilesystemActor.shared.saveCoverImage(
                 uuid: item.id,
-                data: cover.data,
-                variant: variantString
+                data: payload.data,
+                variant: variantString,
             )
         }
     }
 
-    private func loadCachedCoversFromDisk() async {
-        for book in library.bookMetaData {
-            var variantsToLoad: [CoverVariant] = [coverVariant(for: book)]
-            if book.hasAvailableAudiobook && !variantsToLoad.contains(.audioSquare) {
-                variantsToLoad.append(.audioSquare)
-            }
-
-            for variant in variantsToLoad {
-                let variantString = variant == .standard ? "standard" : "audioSquare"
-
-                if let data = await FilesystemActor.shared.loadCoverImage(
-                    uuid: book.id,
-                    variant: variantString
-                ) {
-                    let key = CoverKey(id: book.id, variant: variant)
-                    #if canImport(AppKit)
-                    if let nsImage = NSImage(data: data) {
-                        let state = coverStates[key] ?? CoverImageState()
-                        coverStates[key] = state
-                        state.nsImage = nsImage
-                        state.image = Image(nsImage: nsImage)
-                    }
-                    #else
-                    if let image = Self.makeImage(from: data) {
-                        let state = coverStates[key] ?? CoverImageState()
-                        coverStates[key] = state
-                        state.image = image
-                    }
-                    #endif
-                }
-            }
-        }
+    private func coverKey(for item: BookMetadata, variant: CoverVariant) -> CoverKey {
+        CoverKey(id: item.id, variant: variant)
     }
 
-    private static func makeImage(from data: Data) -> Image? {
-        #if canImport(AppKit)
-        if let nsImage = NSImage(data: data) {
-            return Image(nsImage: nsImage)
+    private func coverVariantsToLoad(for book: BookMetadata) -> [CoverVariant] {
+        var variantsToLoad: [CoverVariant] = [coverVariant(for: book)]
+        if book.hasAvailableAudiobook && !variantsToLoad.contains(.audioSquare) {
+            variantsToLoad.append(.audioSquare)
         }
-        #elseif canImport(UIKit)
-        if let uiImage = UIImage(data: data) {
-            return Image(uiImage: uiImage)
+        return variantsToLoad
+    }
+
+    private static nonisolated func makeCoverPayload(from data: Data) -> CoverImagePayload? {
+        let maxPixelSize = 360
+        let options: CFDictionary =
+            [
+                kCGImageSourceShouldCache: false
+            ] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        let thumbnailOptions: CFDictionary =
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            ] as CFDictionary
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
+            return nil
         }
-        #endif
-        return nil
+        return CoverImagePayload(data: data, cgImage: SendableCGImage(image))
     }
 
     // MARK: - Smart Shelves
@@ -1467,7 +2244,7 @@ public final class MediaViewModel {
                 || isCategoryDownloaded(.synced, for: book)
             let locationInfo = ShelfLocationInfo(
                 isDownloaded: hasDownloadedContent && !isLocal,
-                isLocalStandalone: isLocal
+                isLocalStandalone: isLocal,
             )
             return shelf.matchesAll(book, progress: prog, locationInfo: locationInfo)
         }.sorted {

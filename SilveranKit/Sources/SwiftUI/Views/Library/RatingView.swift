@@ -13,11 +13,15 @@ struct RatingView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.ratings") private var layoutStyleRaw: String = CategoryLayoutStyle.list
         .rawValue
-    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.ratings") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("ratings.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -55,7 +59,7 @@ struct RatingView: View {
                 id: group.rating,
                 name: displayName,
                 books: group.books,
-                pinId: SidebarPinHelper.pinId(forRating: group.rating)
+                pinId: SidebarPinHelper.pinId(forRating: group.rating),
             )
         }
     }
@@ -126,19 +130,19 @@ extension RatingView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: RatingDetailNavigation.self) { nav in
                 ratingDetailView(for: nav.rating, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -159,7 +163,7 @@ extension RatingView {
                                 iconName: "star.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -176,7 +180,7 @@ extension RatingView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -184,25 +188,25 @@ extension RatingView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -240,7 +244,7 @@ extension RatingView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -255,22 +259,23 @@ extension RatingView {
                                     preferredTileWidth: 120,
                                     minimumTileWidth: 50,
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -288,11 +293,13 @@ extension RatingView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -301,18 +308,20 @@ extension RatingView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ratings").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Ratings").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }
@@ -324,12 +333,22 @@ extension RatingView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
@@ -337,7 +356,7 @@ extension RatingView {
 extension RatingView {
     @ViewBuilder fileprivate func ratingDetailView(
         for rating: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         let displayName = RatingDisplayHelper.label(for: rating)
         #if os(iOS)
@@ -353,7 +372,7 @@ extension RatingView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(displayName)
         #else
         MediaGridView(
@@ -367,7 +386,7 @@ extension RatingView {
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(displayName)
         #endif
     }

@@ -26,6 +26,9 @@ struct SmartShelvesView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var settingsViewModel = SettingsViewModel()
     @State private var navigationPath = NavigationPath()
@@ -34,7 +37,7 @@ struct SmartShelvesView: View {
     @AppStorage("viewLayout.smartShelves") private var layoutStyleRaw: String = CategoryLayoutStyle
         .fan.rawValue
     @AppStorage("coverPref.smartShelves") private var coverPrefRaw: String = CoverPreference
-        .preferEbook.rawValue
+        .storytellerDouble.rawValue
     @AppStorage("smartShelves.showBookCountBadge") private var showBookCountBadge: Bool = true
 
     #if os(macOS)
@@ -64,7 +67,7 @@ struct SmartShelvesView: View {
                 id: shelf.id.uuidString,
                 name: shelf.name,
                 books: books,
-                pinId: SidebarPinHelper.pinId(forSmartShelf: shelf.id)
+                pinId: SidebarPinHelper.pinId(forSmartShelf: shelf.id),
             )
         }
     }
@@ -138,20 +141,20 @@ extension SmartShelvesView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: SmartShelfDetailNavigation.self) { nav in
                 shelfDetailView(for: nav.shelfId, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: .ebook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
@@ -174,7 +177,7 @@ extension SmartShelvesView {
                                 iconName: "books.vertical.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             )
                             .contentShape(Rectangle())
                         }
@@ -197,7 +200,7 @@ extension SmartShelvesView {
                 coverPreference: coverPreference,
                 onNavigate: handleNavigation,
                 header: { headerView },
-                contextMenuBuilder: shelfContextMenu
+                contextMenuBuilder: shelfContextMenu,
             )
         } else {
             CategoryGridLayout(
@@ -207,7 +210,7 @@ extension SmartShelvesView {
                 showBookCountBadge: showBookCountBadge,
                 onNavigate: handleNavigation,
                 header: { headerView },
-                contextMenuBuilder: shelfContextMenu
+                contextMenuBuilder: shelfContextMenu,
             )
         }
     }
@@ -256,7 +259,7 @@ extension SmartShelvesView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -271,7 +274,7 @@ extension SmartShelvesView {
                                         books: books,
                                         searchText: searchText,
                                         viewOptionsKey: "smartShelfDetail.\(shelfId)",
-                                        initialSelectedItem: nil
+                                        initialSelectedItem: nil,
                                     )
                                 } else {
                                     Text("Shelf not found").foregroundStyle(.secondary)
@@ -281,23 +284,28 @@ extension SmartShelvesView {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                                Spacer()
-                                Button {
-                                    showCreator = true
-                                } label: {
-                                    Label("Create New Shelf", systemImage: "plus.circle")
-                                }
-                                .buttonStyle(.borderless)
                             },
-                            contextMenuBuilder: shelfContextMenu
+                            headerAccessory: AnyView(
+                                HStack {
+                                    Button {
+                                        showCreator = true
+                                    } label: {
+                                        Label("Create New Shelf", systemImage: "plus.circle")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .fixedSize()
+                                    Spacer()
+                                }
+                            ),
+                            contextMenuBuilder: shelfContextMenu,
                         )
                     case .fan, .grid:
                         fanGridContent
@@ -328,7 +336,7 @@ extension SmartShelvesView {
                 coverPreference: coverPreference,
                 onNavigate: handleNavigation,
                 header: { headerView },
-                contextMenuBuilder: shelfContextMenu
+                contextMenuBuilder: shelfContextMenu,
             )
         } else {
             CategoryGridLayout(
@@ -338,7 +346,7 @@ extension SmartShelvesView {
                 showBookCountBadge: showBookCountBadge,
                 onNavigate: handleNavigation,
                 header: { headerView },
-                contextMenuBuilder: shelfContextMenu
+                contextMenuBuilder: shelfContextMenu,
             )
         }
     }
@@ -356,6 +364,13 @@ extension SmartShelvesView {
             } label: {
                 Label("Delete Shelf", systemImage: "trash")
             }
+            if let onEditMetadata {
+                Divider()
+                CategoryGroupMetadataContextMenuContent(
+                    group: group,
+                    onEditMetadata: onEditMetadata,
+                )
+            }
         }
     }
 }
@@ -365,23 +380,26 @@ extension SmartShelvesView {
     fileprivate var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Smart Shelves")
-                .font(.system(size: 32, weight: .regular, design: .serif))
+                .font(.storytellerTitle(size: 32))
 
             HStack(spacing: 12) {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
 
                 Spacer()
+            }
+            .font(.callout)
 
+            HStack {
                 Button {
                     showCreator = true
                 } label: {
@@ -390,6 +408,7 @@ extension SmartShelvesView {
                 #if os(macOS)
                 .buttonStyle(.borderless)
                 #endif
+                Spacer()
             }
             .font(.callout)
         }
@@ -414,7 +433,7 @@ extension SmartShelvesView {
                 books: books,
                 searchText: "",
                 viewOptionsKey: "smartShelfDetail.\(shelfId)",
-                initialSelectedItem: initialSelectedItem
+                initialSelectedItem: initialSelectedItem,
             )
             .navigationTitle(shelf.name)
         } else {
@@ -436,7 +455,7 @@ struct SmartShelfDetailView: View {
         books: [BookMetadata],
         searchText: String,
         viewOptionsKey: String = "smartShelves",
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) {
         self.shelf = shelf
         self.books = books
@@ -456,7 +475,7 @@ struct SmartShelfDetailView: View {
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
             initialSelectedItem: initialSelectedItem,
-            filteredItems: books
+            filteredItems: books,
         )
     }
 }

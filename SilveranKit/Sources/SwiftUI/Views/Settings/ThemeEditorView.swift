@@ -85,7 +85,7 @@ struct ThemeEditorView: View {
             TextField("Theme Name", text: $draft.name)
                 .textFieldStyle(.roundedBorder)
                 #if os(macOS)
-                .frame(maxWidth: 300)
+            .frame(maxWidth: 300)
                 #endif
         }
     }
@@ -147,7 +147,7 @@ struct ThemeEditorView: View {
                         .foregroundStyle(.secondary)
                     Slider(value: $draft.highlightThickness, in: 0.6...4.0, step: 0.1)
                         #if os(macOS)
-                        .frame(maxWidth: 300)
+                    .frame(maxWidth: 300)
                         #endif
                 }
             }
@@ -191,7 +191,7 @@ struct ThemeEditorView: View {
             TextEditor(
                 text: Binding(
                     get: { draft.customCSS ?? "" },
-                    set: { draft.customCSS = $0.isEmpty ? nil : $0 }
+                    set: { draft.customCSS = $0.isEmpty ? nil : $0 },
                 )
             )
             .font(.system(.body, design: .monospaced))
@@ -237,7 +237,7 @@ struct ThemeEditorView: View {
             userHighlightLabel5: settingsVM.userHighlightLabel5,
             userHighlightLabel6: settingsVM.userHighlightLabel6,
             userHighlightMode: settingsVM.userHighlightMode,
-            customCSS: settingsVM.customCSS
+            customCSS: settingsVM.customCSS,
         )
     }
 
@@ -359,8 +359,8 @@ private struct ThemeColorControl: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     #if os(iOS)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled(true)
                     #endif
                     .frame(maxWidth: 100)
                     .onSubmit {

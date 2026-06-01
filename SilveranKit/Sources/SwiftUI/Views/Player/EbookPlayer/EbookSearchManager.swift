@@ -79,7 +79,7 @@ class EbookSearchManager {
                 query: query,
                 matchCase: matchCase,
                 matchDiacritics: false,
-                matchWholeWords: matchWholeWords
+                matchWholeWords: matchWholeWords,
             )
         } catch {
             isSearching = false
@@ -107,7 +107,7 @@ class EbookSearchManager {
     private func handleSearchResults(_ message: SearchResultsMessage) {
         let section = SearchResultSection(
             sectionLabel: message.sectionLabel,
-            results: message.results
+            results: message.results,
         )
         searchResults.append(section)
         totalResultCount += message.results.count

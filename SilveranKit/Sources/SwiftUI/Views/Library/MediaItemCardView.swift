@@ -32,13 +32,13 @@ struct MediaItemCardMetrics {
     static func make(
         for tileWidth: CGFloat,
         mediaKind: MediaKind,
-        coverPreference: CoverPreference = .preferEbook
+        coverPreference: CoverPreference = .preferEbook,
     ) -> MediaItemCardMetrics {
-        let cardPadding = 4.0
+        let cardPadding = 2.0
         let coverWidth = max(tileWidth - (cardPadding * 2), tileWidth * 0.90)
         let labelLeadingPadding = max(cardPadding + 6, 12)
         let infoIconSize = max(18, tileWidth * 0.12)
-        let contentSpacing = max(8, tileWidth * 0.06)
+        let contentSpacing = max(4, tileWidth * 0.03)
 
         let tallestCoverAspectRatio: CGFloat = 1.0 / coverPreference.preferredContainerAspectRatio
         let tallestCoverHeight = coverWidth * tallestCoverAspectRatio
@@ -51,7 +51,7 @@ struct MediaItemCardMetrics {
         let titleContainerHeight = estimatedLineHeight * maxTitleLines
 
         let authorRowHeight: CGFloat = 20
-        let authorRowBottomPadding: CGFloat = 4
+        let authorRowBottomPadding: CGFloat = 0
         let titleToAuthorGap: CGFloat = 2
 
         let coverContainerHeight = tallestCoverHeight + progressBarTopPadding + progressBarHeight
@@ -74,7 +74,7 @@ struct MediaItemCardMetrics {
             maxCardHeight: maxCardHeight,
             coverContainerHeight: coverContainerHeight,
             titleContainerHeight: titleContainerHeight,
-            titleToAuthorGap: titleToAuthorGap
+            titleToAuthorGap: titleToAuthorGap,
         )
     }
 }
@@ -88,15 +88,19 @@ struct MediaItemCardView: View {
     let sourceLabel: String?
     let seriesPositionBadge: String?
     let coverPreference: CoverPreference
+    let progressStyle: ProgressIndicatorStyle
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
+    var debugContext: String? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
     @State private var isHovered = false
+    @State private var doubleCoverSwapping = false
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @Environment(\.editMetadataAction) private var editMetadataAction
     @State private var pendingDetailsNavigation = false
     @State private var pendingPlayerCategory: LocalMediaCategory?
     #endif
@@ -132,6 +136,14 @@ struct MediaItemCardView: View {
             Label("View Details", systemImage: "info.circle")
         }
 
+        if let editMetadataAction {
+            Button {
+                editMetadataAction([item.uuid])
+            } label: {
+                Label("Edit Metadata...", systemImage: "pencil")
+            }
+        }
+
         Divider()
 
         iOSContextMenuMediaOption(for: .ebook, label: "Ebook")
@@ -146,7 +158,7 @@ struct MediaItemCardView: View {
         let isDownloaded = mediaViewModel.isCategoryDownloaded(category, for: item)
         let isDownloading = mediaViewModel.isCategoryDownloadInProgress(
             for: item,
-            category: category
+            category: category,
         )
         let isAvailable: Bool = {
             switch category {
@@ -219,7 +231,7 @@ struct MediaItemCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
 
@@ -252,7 +264,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.synced,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .synced)
                 } label: {
@@ -261,7 +273,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.ebook,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .ebook)
                 } label: {
@@ -270,7 +282,7 @@ struct MediaItemCardView: View {
 
                 NavigationLink(
                     tag: LocalMediaCategory.audio,
-                    selection: $pendingPlayerCategory
+                    selection: $pendingPlayerCategory,
                 ) {
                     playerDestination(for: .audio)
                 } label: {
@@ -296,6 +308,11 @@ struct MediaItemCardView: View {
     }
     #endif
 
+    private var isDoubleCover: Bool {
+        coverPreference == .storytellerDouble
+            && item.hasAvailableEbook && item.hasAvailableAudiobook
+    }
+
     private var cardContent: some View {
         let placeholderColor = Color(white: 0.2)
         let coverVariant = resolveCoverVariant(for: item)
@@ -305,47 +322,79 @@ struct MediaItemCardView: View {
             ZStack(alignment: .top) {
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    MediaItemCoverImage(
-                        item: item,
-                        placeholderColor: placeholderColor,
-                        variant: coverVariant
-                    )
-                    .frame(width: metrics.coverWidth)
-                    .aspectRatio(containerAspectRatio, contentMode: .fit)
-                    .clipShape(
-                        RoundedRectangle(
+                    if isDoubleCover {
+                        DoubleCoverView(
+                            item: item,
+                            placeholderColor: placeholderColor,
+                            coverWidth: metrics.coverWidth,
+                            containerAspectRatio: containerAspectRatio,
                             cornerRadius: metrics.coverCornerRadius,
-                            style: .continuous
+                            isSwapping: {
+                                #if os(macOS)
+                                return $doubleCoverSwapping
+                                #else
+                                return .constant(false)
+                                #endif
+                            }(),
+                            debugContext: debugContext,
                         )
-                    )
-                    .overlay(alignment: .bottomLeading) {
-                        if let sourceLabel = sourceLabel {
-                            SourceBadge(label: sourceLabel)
-                                .padding(4)
-                        }
+                        .frame(width: metrics.coverWidth)
+                        .aspectRatio(containerAspectRatio, contentMode: .fit)
+                    } else {
+                        MediaItemCoverImage(
+                            item: item,
+                            placeholderColor: placeholderColor,
+                            variant: coverVariant,
+                            debugContext: debugContext,
+                        )
+                        .frame(width: metrics.coverWidth)
+                        .aspectRatio(containerAspectRatio, contentMode: .fit)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: metrics.coverCornerRadius,
+                                style: .continuous,
+                            )
+                        )
+                        .stableCoverRendering()
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        if showAudioIndicator {
-                            AudioIndicatorBadge(item: item, coverVariant: coverVariant)
-                                .padding(.trailing, 2)
+                    Spacer(minLength: 0)
+                }
+                .overlay(alignment: .bottomLeading) {
+                    if let sourceLabel = sourceLabel {
+                        SourceBadge(label: sourceLabel)
+                            .padding(4)
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if showAudioIndicator && !isDoubleCover {
+                        AudioIndicatorBadge(item: item, coverVariant: coverVariant)
+                            .padding(.trailing, 4)
+                            .padding(.top, 4)
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if progressStyle == .circle {
+                        let progress = mediaViewModel.progress(for: item.id)
+                        if progress > 0 {
+                            CircularProgressBadge(progress: progress)
+                                .padding(.trailing, 4)
                                 .padding(.bottom, 4)
                         }
                     }
-                    .overlay(alignment: .topLeading) {
-                        if let badge = seriesPositionBadge {
-                            Text(badge)
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(
-                                    .black.opacity(0.6),
-                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                )
-                                .padding(4)
-                        }
+                }
+                .overlay(alignment: .topLeading) {
+                    if let badge = seriesPositionBadge {
+                        Text(badge)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                .black.opacity(0.6),
+                                in: RoundedRectangle(cornerRadius: 6, style: .continuous),
+                            )
+                            .padding(4)
                     }
-                    Spacer(minLength: 0)
                 }
 
                 #if os(macOS)
@@ -353,17 +402,22 @@ struct MediaItemCardView: View {
                     item: item,
                     coverWidth: metrics.coverWidth,
                     isSelected: isSelected,
-                    isHoveringCard: isHovered
+                    isHoveringCard: isHovered,
                 )
                 .environment(mediaViewModel)
                 #endif
             }
             .frame(height: metrics.coverContainerHeight - 7)
-            .clipped()
+            .overlay(
+                RoundedRectangle(cornerRadius: metrics.coverCornerRadius, style: .continuous)
+                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
 
-            MediaProgressBar(progress: mediaViewModel.progress(for: item.id))
-                .frame(width: metrics.coverWidth)
-                .frame(height: 3)
+            if progressStyle == .line {
+                MediaProgressBar(progress: mediaViewModel.progress(for: item.id))
+                    .frame(width: metrics.coverWidth)
+                    .frame(height: 3)
+            }
 
             Spacer(minLength: metrics.contentSpacing)
                 .frame(height: metrics.contentSpacing)
@@ -388,85 +442,36 @@ struct MediaItemCardView: View {
                 top: metrics.cardPadding,
                 leading: metrics.cardPadding,
                 bottom: metrics.cardPadding,
-                trailing: metrics.cardPadding
+                trailing: metrics.cardPadding,
             )
         )
         .frame(width: metrics.tileWidth, height: metrics.maxCardHeight, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                #if os(macOS)
-            .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08))
-                #else
-            .fill(Color.secondary.opacity(0.08))
-                #endif
-        )
         .contentShape(Rectangle())
         #if os(macOS)
         .onTapGesture {
             onSelect(item)
-            onInfo(item)
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    onInfo(item)
+                }
+        )
         .scaleEffect(isHovered ? 1.05 : 1.0)
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
         .contextMenu {
-            cardContextMenu
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata,
+            )
         }
+        .zIndex(doubleCoverSwapping ? 1000 : 0)
         #endif
     }
-
-    #if os(macOS)
-    @ViewBuilder
-    private var cardContextMenu: some View {
-        let ebookDownloaded = mediaViewModel.isCategoryDownloaded(.ebook, for: item)
-        let audioDownloaded = mediaViewModel.isCategoryDownloaded(.audio, for: item)
-        let syncedDownloaded = mediaViewModel.isCategoryDownloaded(.synced, for: item)
-        let isServerBook = mediaViewModel.isServerBook(item.id)
-
-        if isServerBook {
-            Button {
-                openWindow(
-                    id: "ServerMediaManagement",
-                    value: ServerMediaManagementData(bookId: item.id)
-                )
-            } label: {
-                Label("Manage Server Media...", systemImage: "server.rack")
-            }
-        }
-
-        if ebookDownloaded || audioDownloaded || syncedDownloaded {
-            if isServerBook {
-                Divider()
-            }
-
-            if ebookDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .ebook)
-                } label: {
-                    Label("Local Ebook", systemImage: "trash")
-                }
-            }
-
-            if audioDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .audio)
-                } label: {
-                    Label("Local Audiobook", systemImage: "trash")
-                }
-            }
-
-            if syncedDownloaded {
-                Button(role: .destructive) {
-                    mediaViewModel.deleteDownload(for: item, category: .synced)
-                } label: {
-                    Label("Local Readaloud", systemImage: "trash")
-                }
-            }
-        }
-    }
-    #endif
 
     private var authorRow: some View {
         HStack(spacing: 2) {
@@ -484,7 +489,7 @@ struct MediaItemCardView: View {
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }
@@ -498,6 +503,23 @@ struct MediaItemCardView: View {
     }
 }
 
+struct CircularProgressBadge: View {
+    let progress: Double
+
+    var body: some View {
+        let clamped = min(max(progress, 0), 1)
+        ZStack {
+            Circle()
+                .stroke(.tint.opacity(0.3), lineWidth: 2.5)
+            Circle()
+                .trim(from: 0, to: clamped)
+                .stroke(.tint, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: 18, height: 18)
+    }
+}
+
 private struct MediaProgressBar: View {
     let progress: Double
 
@@ -506,9 +528,9 @@ private struct MediaProgressBar: View {
             let clamped = min(max(progress, 0), 1)
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.accentColor.opacity(0.1))
+                    .fill(.tint.opacity(0.1))
                 Capsule()
-                    .fill(Color.accentColor)
+                    .fill(.tint)
                     .frame(width: geometry.size.width * CGFloat(clamped))
             }
         }
@@ -520,16 +542,19 @@ private struct MediaItemCoverImage: View {
     let item: BookMetadata
     let placeholderColor: Color
     let variant: MediaViewModel.CoverVariant
+    let debugContext: String?
 
     var body: some View {
         let coverState = mediaViewModel.coverState(for: item, variant: variant)
 
         ZStack {
-            placeholderColor
+            if coverState.image == nil {
+                placeholderColor
+            }
             if let image = coverState.image {
                 image
                     .resizable()
-                    .interpolation(.medium)
+                    .interpolation(.high)
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity.combined(with: .scale))
@@ -537,8 +562,30 @@ private struct MediaItemCoverImage: View {
         }
         .animation(.easeInOut(duration: 0.2), value: coverState.image != nil)
         .task(id: taskIdentifier) {
-            mediaViewModel.ensureCoverLoaded(for: item, variant: variant)
+            debugCoverLog("task imageLoaded=\(coverState.image != nil)")
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: variant,
+                debugSource: debugContext,
+            )
         }
+        .onAppear {
+            debugCoverLog("appear imageLoaded=\(coverState.image != nil)")
+        }
+        .onChange(of: coverState.image != nil) { _, loaded in
+            debugCoverLog("imageLoaded changed=\(loaded)")
+        }
+        .onDisappear {
+            debugCoverLog("disappear imageLoaded=\(coverState.image != nil)")
+            mediaViewModel.cancelCoverLoad(for: item, variant: variant)
+        }
+    }
+
+    private func debugCoverLog(_ message: String) {
+        guard let debugContext else { return }
+        debugLog(
+            "[CoverPerf][\(debugContext)] view \(message) title='\(item.title)' id=\(item.id) variant=\(variant)"
+        )
     }
 
     private var taskIdentifier: String {
@@ -551,6 +598,197 @@ private struct MediaItemCoverImage: View {
                 return "standard"
             case .audioSquare:
                 return "audio"
+        }
+    }
+}
+
+struct DoubleCoverView: View {
+    @Environment(MediaViewModel.self) private var mediaViewModel
+    let item: BookMetadata
+    let placeholderColor: Color
+    let coverWidth: CGFloat
+    let containerAspectRatio: CGFloat
+    let cornerRadius: CGFloat
+    @Binding var isSwapping: Bool
+    var debugContext: String? = nil
+
+    #if os(macOS)
+    @State private var isHovered = false
+    @State private var swapPhase: SwapPhase = .idle
+    @State private var audioHoverTask: Task<Void, Never>?
+
+    enum SwapPhase {
+        case idle
+        case slidingOut
+        case swapped
+    }
+    #endif
+
+    var body: some View {
+        let containerHeight = coverWidth / containerAspectRatio
+        let scale: CGFloat = {
+            #if os(macOS)
+            return isHovered ? 0.70 : 0.80
+            #else
+            return 0.80
+            #endif
+        }()
+        let scaledWidth = coverWidth * scale
+        let ebookHeight = scaledWidth / 0.67
+        let audioSize = scaledWidth
+        let xSpread: CGFloat = {
+            #if os(macOS)
+            return isHovered ? 0.15 : 0.10
+            #else
+            return 0.10
+            #endif
+        }()
+        let xShift = coverWidth * xSpread
+
+        let ebookState = mediaViewModel.coverState(for: item, variant: .standard)
+        let audioState = mediaViewModel.coverState(for: item, variant: .audioSquare)
+
+        #if os(macOS)
+        let audioXOffset: CGFloat =
+            switch swapPhase {
+                case .idle: xShift
+                case .slidingOut: coverWidth * 0.35
+                case .swapped: xShift
+            }
+        let audioScale: CGFloat =
+            switch swapPhase {
+                case .idle: 1.0
+                case .slidingOut: 1.1
+                case .swapped: 1.1
+            }
+        let audioZ: Double =
+            switch swapPhase {
+                case .idle: 10
+                case .slidingOut: 30
+                case .swapped: 30
+            }
+        let ebookXOffset: CGFloat =
+            switch swapPhase {
+                case .idle: -xShift
+                case .slidingOut: -coverWidth * 0.25
+                case .swapped: -xShift
+            }
+        let ebookZ: Double =
+            switch swapPhase {
+                case .idle: 20
+                case .slidingOut: 5
+                case .swapped: 5
+            }
+        #else
+        let audioXOffset = xShift
+        let audioScale: CGFloat = 1.0
+        let audioZ: Double = 10
+        let ebookXOffset = -xShift
+        let ebookZ: Double = 20
+        #endif
+
+        ZStack {
+            coverImage(state: audioState)
+                .frame(width: audioSize, height: audioSize)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+                .stableCoverRendering()
+                .scaleEffect(audioScale)
+                .offset(x: audioXOffset)
+                .zIndex(audioZ)
+                #if os(macOS)
+            .onHover { hovering in
+                audioHoverTask?.cancel()
+                if hovering {
+                    audioHoverTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            swapPhase = .slidingOut
+                            isSwapping = true
+                        }
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            swapPhase = .swapped
+                        }
+                    }
+                }
+            }
+                #endif
+
+            coverImage(state: ebookState)
+                .frame(width: scaledWidth, height: ebookHeight)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.8, style: .continuous))
+                .stableCoverRendering()
+                .offset(x: ebookXOffset)
+                .zIndex(ebookZ)
+        }
+        .frame(width: coverWidth, height: containerHeight)
+        #if os(macOS)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isHovered = hovering
+            }
+            if !hovering {
+                audioHoverTask?.cancel()
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    swapPhase = .idle
+                    isSwapping = false
+                }
+            }
+        }
+        #endif
+        .task {
+            debugCoverLog(
+                "task ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: .standard,
+                debugSource: debugContext,
+            )
+            mediaViewModel.ensureCoverLoaded(
+                for: item,
+                variant: .audioSquare,
+                debugSource: debugContext,
+            )
+        }
+        .onAppear {
+            debugCoverLog(
+                "appear ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+        }
+        .onChange(of: ebookState.image != nil) { _, loaded in
+            debugCoverLog("ebookLoaded changed=\(loaded)")
+        }
+        .onChange(of: audioState.image != nil) { _, loaded in
+            debugCoverLog("audioLoaded changed=\(loaded)")
+        }
+        .onDisappear {
+            debugCoverLog(
+                "disappear ebookLoaded=\(ebookState.image != nil) audioLoaded=\(audioState.image != nil)"
+            )
+            mediaViewModel.cancelCoverLoad(for: item, variant: .standard)
+            mediaViewModel.cancelCoverLoad(for: item, variant: .audioSquare)
+        }
+    }
+
+    private func debugCoverLog(_ message: String) {
+        guard let debugContext else { return }
+        debugLog(
+            "[CoverPerf][\(debugContext)] doubleView \(message) title='\(item.title)' id=\(item.id)"
+        )
+    }
+
+    @ViewBuilder
+    private func coverImage(state: MediaViewModel.CoverImageState) -> some View {
+        if let image = state.image {
+            image
+                .resizable()
+                .interpolation(.high)
+                .scaledToFill()
+        } else {
+            placeholderColor
         }
     }
 }

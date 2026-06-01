@@ -91,7 +91,7 @@ public final class WatchViewModel {
             for book in storytellerBooks {
                 let path = await LocalMediaActor.shared.mediaFilePath(
                     for: book.uuid,
-                    category: .synced
+                    category: .synced,
                 )
                 if path != nil {
                     booksWithFiles.append(book)

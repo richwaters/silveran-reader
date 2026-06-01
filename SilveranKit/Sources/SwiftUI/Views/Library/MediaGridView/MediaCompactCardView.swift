@@ -8,9 +8,11 @@ struct MediaCompactCardView: View {
     let showAudioIndicator: Bool
     let sourceLabel: String?
     let seriesPositionBadge: String?
+    let progressStyle: ProgressIndicatorStyle
     let isSelected: Bool
     let onSelect: (BookMetadata) -> Void
     let onInfo: (BookMetadata) -> Void
+    var onEditMetadata: (([String]) -> Void)? = nil
     @Environment(MediaViewModel.self) private var mediaViewModel
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
@@ -19,6 +21,7 @@ struct MediaCompactCardView: View {
     #endif
     #if os(iOS)
     @Environment(\.mediaNavigationPath) private var mediaNavigationPath
+    @Environment(\.editMetadataAction) private var editMetadataAction
     @State private var pendingDetailsNavigation = false
     #endif
 
@@ -44,6 +47,11 @@ struct MediaCompactCardView: View {
         #endif
     }
 
+    private var isDoubleCover: Bool {
+        coverPreference == .storytellerDouble
+            && item.hasAvailableEbook && item.hasAvailableAudiobook
+    }
+
     private var cardContent: some View {
         let coverVariant = resolveCoverVariant(for: item)
         let aspectRatio = coverPreference.preferredContainerAspectRatio
@@ -52,30 +60,55 @@ struct MediaCompactCardView: View {
         let progress = mediaViewModel.progress(for: item.id)
 
         return VStack(spacing: 0) {
-            ZStack {
-                placeholderColor
-                if let image = coverState.image {
-                    image
-                        .resizable()
-                        .interpolation(.medium)
-                        .scaledToFit()
+            Group {
+                if isDoubleCover {
+                    DoubleCoverView(
+                        item: item,
+                        placeholderColor: placeholderColor,
+                        coverWidth: tileSize,
+                        containerAspectRatio: aspectRatio,
+                        cornerRadius: 6,
+                        isSwapping: .constant(false),
+                    )
+                    .frame(width: tileSize, height: tileSize / aspectRatio)
+                } else {
+                    ZStack {
+                        if coverState.image == nil {
+                            placeholderColor
+                        }
+                        if let image = coverState.image {
+                            image
+                                .resizable()
+                                .interpolation(.high)
+                                .scaledToFit()
+                        }
+                    }
+                    .frame(width: tileSize, height: tileSize / aspectRatio)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .stableCoverRendering()
                 }
             }
-            .frame(width: tileSize, height: tileSize / aspectRatio)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .stableCoverRendering()
             .overlay(alignment: .bottom) {
-                if progress > 0 {
+                if progressStyle == .line && progress > 0 {
                     GeometryReader { geometry in
                         let clamped = min(max(progress, 0), 1)
                         ZStack(alignment: .leading) {
                             Rectangle()
-                                .fill(Color.accentColor.opacity(0.3))
+                                .fill(.tint.opacity(0.3))
                             Rectangle()
-                                .fill(Color.accentColor)
+                                .fill(.tint)
                                 .frame(width: geometry.size.width * CGFloat(clamped))
                         }
                     }
                     .frame(height: 3)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if progressStyle == .circle && progress > 0 {
+                    CircularProgressBadge(progress: progress)
+                        .padding(.trailing, 3)
+                        .padding(.bottom, 3)
                 }
             }
             .overlay(alignment: .bottomLeading) {
@@ -84,11 +117,11 @@ struct MediaCompactCardView: View {
                         .padding(2)
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
+            .overlay(alignment: .topTrailing) {
                 if showAudioIndicator {
                     AudioIndicatorBadge(item: item, coverVariant: coverVariant)
                         .padding(.trailing, 2)
-                        .padding(.bottom, 2)
+                        .padding(.top, 2)
                 }
             }
             .overlay(alignment: .topLeading) {
@@ -100,7 +133,7 @@ struct MediaCompactCardView: View {
                         .padding(.vertical, 2)
                         .background(
                             .black.opacity(0.6),
-                            in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: 4, style: .continuous),
                         )
                         .padding(2)
                 }
@@ -123,14 +156,29 @@ struct MediaCompactCardView: View {
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onTapGesture {
             onSelect(item)
-            onInfo(item)
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    onInfo(item)
+                }
+        )
         .onHover { hovering in
             isHovered = hovering
+        }
+        .contextMenu {
+            BookContextMenuContent(
+                item: item,
+                onInfo: onInfo,
+                onEditMetadata: onEditMetadata,
+            )
         }
         #endif
         .task(id: coverVariant) {
             mediaViewModel.ensureCoverLoaded(for: item, variant: coverVariant)
+        }
+        .onDisappear {
+            mediaViewModel.cancelCoverLoad(for: item, variant: coverVariant)
         }
     }
 
@@ -141,6 +189,14 @@ struct MediaCompactCardView: View {
             handleDetailsNavigation()
         } label: {
             Label("View Details", systemImage: "info.circle")
+        }
+
+        if let editMetadataAction {
+            Button {
+                editMetadataAction([item.uuid])
+            } label: {
+                Label("Edit Metadata...", systemImage: "pencil")
+            }
         }
     }
 
@@ -201,14 +257,14 @@ struct MediaCompactCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
     }
     #endif
 
     private func resolveCoverVariant(for item: BookMetadata) -> MediaViewModel.CoverVariant {
         switch coverPreference {
-            case .preferEbook:
+            case .preferEbook, .storytellerDouble:
                 if item.hasAvailableEbook {
                     return .standard
                 }
@@ -263,7 +319,10 @@ struct MediaCompactCardView: View {
 
     private func tabStatus(for tab: TabCategory) -> TabStatus {
         let category = tab.localCategory
-        let downloading = mediaViewModel.isCategoryDownloadInProgress(for: item, category: category)
+        let downloading = mediaViewModel.isCategoryDownloadInProgress(
+            for: item,
+            category: category,
+        )
         if downloading {
             let progress = mediaViewModel.downloadProgressFraction(for: item, category: category)
             return .downloading(progress: progress)
@@ -387,7 +446,7 @@ struct MediaCompactCardView: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
     }

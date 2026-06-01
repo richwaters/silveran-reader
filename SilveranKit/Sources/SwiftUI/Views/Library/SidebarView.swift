@@ -1,5 +1,50 @@
 import SwiftUI
 
+#if os(macOS)
+private struct DebouncedSearchField: View {
+    @Binding var searchText: String
+    @State private var localText: String = ""
+    @State private var debounceTask: Task<Void, Never>?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+            TextField("Search", text: $localText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .onChange(of: localText) { _, newValue in
+                    debounceTask?.cancel()
+                    debounceTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        searchText = newValue
+                    }
+                }
+            if !localText.isEmpty {
+                Button {
+                    localText = ""
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
+        .onAppear { localText = searchText }
+    }
+}
+#endif
+
 struct SidebarView: View {
     let sections: [SidebarSectionDescription]
     @Binding var selectedItem: SidebarItemDescription?
@@ -64,7 +109,7 @@ struct SidebarView: View {
             name: shelf.name,
             systemImage: "sparkles.rectangle.stack",
             badge: -1,
-            content: .smartShelfDetail(uuid)
+            content: .smartShelfDetail(uuid),
         )
     }
 
@@ -91,9 +136,9 @@ struct SidebarView: View {
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
                         seriesFilter: name,
-                        defaultSort: "seriesPosition"
+                        defaultSort: "seriesPosition",
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.collection:") {
@@ -109,9 +154,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        collectionFilter: name
+                        collectionFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.author:") {
@@ -127,9 +172,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        authorFilter: name
+                        authorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.narrator:") {
@@ -145,9 +190,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        narratorFilter: name
+                        narratorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.translator:") {
@@ -163,9 +208,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        translatorFilter: name
+                        translatorFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.tag:") {
@@ -181,9 +226,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        tagFilter: name
+                        tagFilter: name,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.year:") {
@@ -199,9 +244,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        publicationYearFilter: year
+                        publicationYearFilter: year,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.rating:") {
@@ -218,9 +263,9 @@ struct SidebarView: View {
                         mediaKind: .ebook,
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
-                        ratingFilter: rating
+                        ratingFilter: rating,
                     )
-                )
+                ),
             )
         }
         if id.hasPrefix("pin.status:") {
@@ -244,9 +289,9 @@ struct SidebarView: View {
                         preferredTileWidth: 120,
                         minimumTileWidth: 50,
                         statusFilter: status,
-                        defaultSort: "recentlyRead"
+                        defaultSort: "recentlyRead",
                     )
-                )
+                ),
             )
         }
         return nil
@@ -255,6 +300,43 @@ struct SidebarView: View {
     var body: some View {
         let _ = mediaViewModel.smartShelves
         let config = sidebarConfig
+        #if os(macOS)
+        VStack(spacing: 0) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 50, height: 50)
+                    Text("Storyteller")
+                        .font(.storytellerTitle(size: 18))
+                    Spacer()
+                }
+                HStack {
+                    Spacer()
+                    Image("StorytellerLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 40, height: 40)
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, -8)
+            .padding(.bottom, 6)
+
+            DebouncedSearchField(searchText: $searchText)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+            sidebarList(config: config)
+        }
+        #else
+        sidebarList(config: config)
+        #endif
+    }
+
+    private func sidebarList(config: [SidebarConfigGroup]) -> some View {
         List(selection: $selectedId) {
             ForEach(config) { group in
                 sidebarSection(for: group, config: config)
@@ -282,18 +364,25 @@ struct SidebarView: View {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfigJSON =
                 UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            registerSidebarContents(config: config)
         }
         .onChange(of: sidebarConfigJSON) {
             HomeSectionConfigHelper.syncWithPinnedItems(SidebarPinHelper.pinnedItemIds)
             homeSectionConfigJSON =
                 UserDefaults.standard.string(forKey: "home.sectionConfig") ?? "[]"
+            registerSidebarContents(config: config)
         }
+        .onChange(of: mediaViewModel.smartShelves) {
+            registerSidebarContents(config: config)
+        }
+        #if !os(macOS)
         .searchable(
             text: $searchText,
             isPresented: $isSearchFocused,
             placement: .sidebar,
-            prompt: "Search"
+            prompt: "Search",
         )
+        #endif
         .navigationSplitViewColumnWidth(min: 180, ideal: 250)
         #if os(macOS)
         .toolbar {
@@ -302,8 +391,25 @@ struct SidebarView: View {
                     Button("Customize Sidebar...") {
                         showCustomizeSidebar = true
                     }
+                    Divider()
+                    Button {
+                        Task {
+                            let didDelete = await mediaViewModel.deleteLocalCoverCache()
+                            mediaViewModel.showSyncNotification(
+                                SyncNotification(
+                                    message: didDelete
+                                        ? "Local cover cache cleared"
+                                        : "Failed to clear local cover cache",
+                                    type: didDelete ? .success : .error,
+                                )
+                            )
+                        }
+                    } label: {
+                        Label("Clear Local Cover Cache", systemImage: "trash")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(.secondary)
                 }
             }
         }
@@ -319,6 +425,13 @@ struct SidebarView: View {
             CustomizeSidebarView(showHomeSectionsOnAppear: true)
         }
         #endif
+    }
+
+    private func registerSidebarContents(config: [SidebarConfigGroup]) {
+        let contents = config.flatMap { group in
+            group.items.compactMap { resolveConfigItem($0)?.content }
+        }
+        mediaViewModel.updateVisibleSidebarContents(contents)
     }
 
     // MARK: - Data-driven section rendering
@@ -372,7 +485,7 @@ struct SidebarView: View {
             get: {
                 sidebarConfig.first(where: { $0.id == groupId })?.expanded ?? true
             },
-            set: { _ in toggleExpanded(groupId) }
+            set: { _ in toggleExpanded(groupId) },
         )
     }
 
@@ -526,7 +639,7 @@ struct SidebarView: View {
                 withTransaction(t) {
                     binding.wrappedValue = newValue
                 }
-            }
+            },
         )
     }
 

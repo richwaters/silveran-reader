@@ -59,6 +59,7 @@ public final class SettingsViewModel {
     public var tapToPlayPreferredPlayer: Bool = kDefaultTapToPlayPreferredPlayer
     public var preferAudioOverEbook: Bool = kDefaultPreferAudioOverEbook
     #endif
+    public var accentColorHex: String = kDefaultAccentColorHex
 
     public var userHighlightColor1: String = kDefaultUserHighlightColor1
     public var userHighlightColor2: String = kDefaultUserHighlightColor2
@@ -93,7 +94,7 @@ public final class SettingsViewModel {
             showTimeRemainingInBook: showTimeRemainingInBook,
             showTimeRemainingInChapter: showTimeRemainingInChapter,
             showPageNumber: showPageNumber,
-            overlayTransparency: overlayTransparency
+            overlayTransparency: overlayTransparency,
         )
     }
 
@@ -187,6 +188,7 @@ public final class SettingsViewModel {
         tapToPlayPreferredPlayer = config.library.tapToPlayPreferredPlayer
         preferAudioOverEbook = config.library.preferAudioOverEbook
         #endif
+        accentColorHex = config.library.accentColorHex
 
         userHighlightColor1 = config.reading.userHighlightColor1
         userHighlightColor2 = config.reading.userHighlightColor2
@@ -245,8 +247,11 @@ public final class SettingsViewModel {
     public func applyActiveTheme(for colorScheme: ColorScheme) {
         let themeId = activeThemeId(for: colorScheme)
         guard let theme = resolveTheme(id: themeId) else {
-            debugLog("[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in")
-            let fallback = colorScheme == .dark
+            debugLog(
+                "[SettingsViewModel] Could not resolve theme \(themeId), falling back to built-in"
+            )
+            let fallback =
+                colorScheme == .dark
                 ? ReaderTheme.builtInDark
                 : ReaderTheme.builtInLight
             applyThemeValues(fallback)
@@ -326,7 +331,7 @@ public final class SettingsViewModel {
             userHighlightLabel5: source.userHighlightLabel5,
             userHighlightLabel6: source.userHighlightLabel6,
             userHighlightMode: source.userHighlightMode,
-            customCSS: source.customCSS
+            customCSS: source.customCSS,
         )
         addCustomTheme(newTheme)
         return newTheme
@@ -392,13 +397,14 @@ public final class SettingsViewModel {
             showAudioIndicator: showAudioIndicator,
             tapToPlayPreferredPlayer: tapToPlayPreferredPlayerValue,
             preferAudioOverEbook: preferAudioOverEbookValue,
+            accentColorHex: accentColorHex,
             userHighlightMode: userHighlightMode,
             readaloudHighlightMode: readaloudHighlightMode,
             tabBarSlot1: tabBarSlot1Value,
             tabBarSlot2: tabBarSlot2Value,
             selectedLightThemeId: selectedLightThemeId,
             selectedDarkThemeId: selectedDarkThemeId,
-            customThemes: customThemes
+            customThemes: customThemes,
         )
     }
 

@@ -49,7 +49,7 @@ struct WatchSettingsView: View {
             .confirmationDialog(
                 "Remove Server?",
                 isPresented: $showRemoveConfirmation,
-                titleVisibility: .visible
+                titleVisibility: .visible,
             ) {
                 Button("Remove", role: .destructive) {
                     Task {
@@ -329,13 +329,13 @@ struct WatchSettingsView: View {
             try await AuthenticationActor.shared.saveCredentials(
                 url: serverURL,
                 username: username,
-                password: password
+                password: password,
             )
 
             let success = await StorytellerActor.shared.setLogin(
                 baseURL: serverURL,
                 username: username,
-                password: password
+                password: password,
             )
 
             if success {

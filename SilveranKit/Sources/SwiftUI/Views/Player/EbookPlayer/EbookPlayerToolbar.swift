@@ -97,7 +97,7 @@ struct EbookPlayerToolbar: ToolbarContent {
                         let hex = viewModel.settingsVM.hexColor(for: color)
                         return Color(hex: hex) ?? color.color
                     },
-                    initialTab: viewModel.bookmarksPanelInitialTab
+                    initialTab: viewModel.bookmarksPanelInitialTab,
                 )
             }
         }
@@ -117,7 +117,7 @@ struct EbookPlayerToolbar: ToolbarContent {
                         onDismiss: { viewModel.showSearchPanel = false },
                         onResultSelected: { result in
                             viewModel.handleSearchResultNavigation(result)
-                        }
+                        },
                     )
                     .frame(width: 350, height: 450)
                 }

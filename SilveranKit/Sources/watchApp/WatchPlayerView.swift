@@ -32,7 +32,7 @@ struct WatchPlayerView: View {
                         AudioControlsPage(
                             viewModel: viewModel,
                             onChapters: { currentPage = .chapters },
-                            onText: { currentPage = .text }
+                            onText: { currentPage = .text },
                         )
                     case .text:
                         TextReaderPage(viewModel: viewModel, onBack: { currentPage = .controls })
@@ -47,7 +47,7 @@ struct WatchPlayerView: View {
         }
         .alert(
             "Server Has Newer Position",
-            isPresented: $viewModel.showServerPositionDialog
+            isPresented: $viewModel.showServerPositionDialog,
         ) {
             Button("Go to New Position") {
                 viewModel.acceptServerPosition()
@@ -141,7 +141,7 @@ private struct AudioControlsPage: View {
             LinearGradient(
                 colors: [Color.accentColor.opacity(0.3), Color.accentColor.opacity(0.1)],
                 startPoint: .top,
-                endPoint: .bottom
+                endPoint: .bottom,
             )
         )
         .overlay {
@@ -158,7 +158,7 @@ private struct AudioControlsPage: View {
             by: 0.02,
             sensitivity: .low,
             isContinuous: false,
-            isHapticFeedbackEnabled: true
+            isHapticFeedbackEnabled: true,
         )
         .onChange(of: crownVolume) { _, newValue in
             viewModel.setVolume(newValue)

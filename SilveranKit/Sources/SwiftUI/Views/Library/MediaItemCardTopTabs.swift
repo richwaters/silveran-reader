@@ -313,7 +313,7 @@ struct MediaItemCardTopTabsButtonOverlay: View {
             localMediaPath: path,
             category: category,
             coverArt: cover,
-            ebookCoverArt: ebookCover
+            ebookCoverArt: ebookCover,
         )
         openWindow(id: windowID, value: bookData)
         #endif

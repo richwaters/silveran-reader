@@ -10,6 +10,7 @@ struct TVPlayerView: View {
     @State private var showControls = true
     @State private var showChapterList = false
     @State private var showSpeedPicker = false
+    @State private var showDisplaySettings = false
     @State private var controlsHideTask: Task<Void, Never>?
     @State private var isScrubbing = false
     @State private var scrubProgress: Double = 0
@@ -20,8 +21,9 @@ struct TVPlayerView: View {
     @FocusState private var focusedControl: FocusedControl?
     @FocusState private var isBackgroundFocused: Bool
     @State private var lastFocusedControl: FocusedControl = .progressBar
-    @State private var fontFamily: String = kDefaultFontFamily
+    @State private var fontFamily: String = kDefaultTVFontFamily
     @State private var subtitleFontSize: Double = kDefaultTVSubtitleFontSize
+    @State private var tvReaderAppearance = SilveranGlobalConfig.Reading.TVReaderAppearance()
     @State private var forceInstantScroll = false
     @State private var scrollDebounceTask: Task<Void, Never>?
 
@@ -33,10 +35,11 @@ struct TVPlayerView: View {
             .onAppear {
                 viewModel.usesFullChapterCache = true
                 Task {
-                    await viewModel.loadBook(book)
                     let config = await SettingsActor.shared.config
-                    fontFamily = config.reading.fontFamily
                     subtitleFontSize = config.reading.tvSubtitleFontSize
+                    tvReaderAppearance = config.reading.tvReaderAppearance
+                    fontFamily = tvReaderAppearance.fontFamily
+                    await viewModel.loadBook(book)
                 }
                 resetControlsTimer()
                 loadCoverImage()
@@ -68,7 +71,7 @@ struct TVPlayerView: View {
             .onChange(
                 of: mediaViewModel.coverState(
                     for: book,
-                    variant: mediaViewModel.coverVariant(for: book)
+                    variant: mediaViewModel.coverVariant(for: book),
                 ).image
             ) { _, newImage in
                 if let newImage, cachedCoverImage == nil {
@@ -91,9 +94,10 @@ struct TVPlayerView: View {
                 showControlsTemporarily()
             }
             .onExitCommand {
-                if showChapterList || showSpeedPicker {
+                if showChapterList || showSpeedPicker || showDisplaySettings {
                     showChapterList = false
                     showSpeedPicker = false
+                    showDisplaySettings = false
                 } else {
                     dismiss()
                 }
@@ -105,9 +109,16 @@ struct TVPlayerView: View {
             .sheet(isPresented: $showSpeedPicker) {
                 TVSpeedPickerView(viewModel: viewModel)
             }
+            .sheet(isPresented: $showDisplaySettings) {
+                TVReaderDisplayView(
+                    fontFamily: $fontFamily,
+                    subtitleFontSize: $subtitleFontSize,
+                    tvReaderAppearance: $tvReaderAppearance,
+                )
+            }
             .alert(
                 "Server Has Newer Position",
-                isPresented: $viewModel.showServerPositionDialog
+                isPresented: $viewModel.showServerPositionDialog,
             ) {
                 Button("Go to New Position") {
                     viewModel.acceptServerPosition()
@@ -130,13 +141,13 @@ struct TVPlayerView: View {
                     .frame(
                         width: geometry.size.width,
                         height: geometry.size.height,
-                        alignment: .center
+                        alignment: .center,
                     )
 
                 if viewModel.isLoadingPosition || viewModel.chapterParagraphs.isEmpty {
                     ProgressView()
                         .scaleEffect(2)
-                        .tint(.white)
+                        .tint(readerTextColor)
                 }
 
                 statsOverlay
@@ -145,9 +156,13 @@ struct TVPlayerView: View {
 
                 VStack(spacing: 0) {
                     LinearGradient(
-                        colors: [.black, .black.opacity(0.8), .clear],
+                        colors: [
+                            .black,
+                            .black.opacity(0.86),
+                            .clear,
+                        ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .frame(height: 350)
                     .allowsHitTesting(false)
@@ -155,9 +170,13 @@ struct TVPlayerView: View {
                     Spacer()
 
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.8), .black],
+                        colors: [
+                            .clear,
+                            .black.opacity(0.86),
+                            .black,
+                        ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: .bottom,
                     )
                     .frame(height: 300)
                     .allowsHitTesting(false)
@@ -176,7 +195,7 @@ struct TVPlayerView: View {
                         onMove: { direction in
                             print("[TVDBG] background onMove: \(direction)")
                             handleBackgroundMove(direction)
-                        }
+                        },
                     ) {
                         Color.clear
                     }
@@ -196,15 +215,20 @@ struct TVPlayerView: View {
             headerView
                 .padding(60)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .allowsHitTesting(false)
 
-            coverView
-                .padding(.trailing, 60)
-                .offset(y: -60)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            VStack(spacing: 28) {
+                coverView
+                    .allowsHitTesting(false)
+
+                navigationControlsView
+            }
+            .padding(.trailing, 60)
+            .offset(y: -22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
         }
         .opacity(showControls ? 1 : 0)
         .animation(.easeInOut(duration: 0.3), value: showControls)
-        .allowsHitTesting(false)
     }
 
     private var controlsOverlay: some View {
@@ -218,12 +242,13 @@ struct TVPlayerView: View {
 
     private var backgroundView: some View {
         ZStack {
-            Color.black
+            backgroundColor
 
-            if let image = cachedCoverImage {
+            if tvReaderAppearance.backgroundStyle == "cover", let image = cachedCoverImage {
                 GeometryReader { geometry in
                     image
                         .resizable()
+                        .interpolation(.high)
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
@@ -237,16 +262,44 @@ struct TVPlayerView: View {
         .ignoresSafeArea()
     }
 
+    private var backgroundColor: Color {
+        switch tvReaderAppearance.backgroundStyle {
+            case "white":
+                return .white
+            case "paper":
+                return Color(red: 0.94, green: 0.91, blue: 0.84)
+            case "warmGray":
+                return Color(red: 0.12, green: 0.11, blue: 0.10)
+            case "sepia":
+                return Color(red: 0.16, green: 0.13, blue: 0.09)
+            case "highContrast", "oledBlack":
+                return .black
+            case "dimBlue":
+                return Color(red: 0.04, green: 0.07, blue: 0.12)
+            default:
+                return .black
+        }
+    }
+
+    private var isLightBackground: Bool {
+        switch tvReaderAppearance.backgroundStyle {
+            case "white", "paper":
+                return true
+            default:
+                return false
+        }
+    }
+
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(viewModel.bookTitle)
                 .font(.title)
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(chromeTextColor)
 
             Text(viewModel.chapterTitle)
                 .font(.title3)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(chromeTextColor.opacity(0.8))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .transition(.opacity)
@@ -255,13 +308,9 @@ struct TVPlayerView: View {
     private var subtitleView: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 24) {
+                LazyVStack(alignment: .leading, spacing: paragraphSpacing) {
                     ForEach(viewModel.chapterParagraphs) { paragraph in
-                        paragraphText(paragraph)
-                            .font(.system(size: subtitleFontSize))
-                            .fontDesign(fontDesign)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        paragraphView(paragraph)
                             .id(paragraph.index)
                     }
                 }
@@ -284,22 +333,338 @@ struct TVPlayerView: View {
                 }
             }
         }
-        .frame(maxWidth: 1200)
+        .frame(maxWidth: textMaxWidth)
         .padding(.horizontal, 80)
         .offset(x: showControls ? -160 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.3), value: showControls)
     }
 
+    @ViewBuilder
+    private func paragraphView(
+        _ paragraph: SMILTextPlaybackViewModel.ChapterParagraph
+    ) -> some View {
+        if tvReaderAppearance.textAlignment == "justified" {
+            JustifiedTVParagraphView(
+                attributedText: attributedParagraph(paragraph),
+                font: uiFont,
+                lineSpacing: lineSpacing,
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            paragraphText(paragraph)
+                .font(.system(size: subtitleFontSize))
+                .fontDesign(fontDesign)
+                .lineSpacing(lineSpacing)
+                .multilineTextAlignment(multilineTextAlignment)
+                .frame(maxWidth: .infinity, alignment: textFrameAlignment)
+        }
+    }
+
     private func paragraphText(_ paragraph: SMILTextPlaybackViewModel.ChapterParagraph) -> Text {
         var text = Text("")
         for segment in paragraph.segments {
             let isActive = segment.entryIndex == viewModel.currentEntryIndex
-            let segmentText = Text(segment.text + segment.separator)
-                .foregroundStyle(.white.opacity(isActive ? 1 : 0.35))
-            text = text + segmentText
+            text = text + Text(styledSegment(segment, isActive: isActive))
         }
         return text
+    }
+
+    private func attributedParagraph(
+        _ paragraph: SMILTextPlaybackViewModel.ChapterParagraph
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        for segment in paragraph.segments {
+            let isActive = segment.entryIndex == viewModel.currentEntryIndex
+            result.append(nsStyledSegment(segment, isActive: isActive))
+        }
+        return result
+    }
+
+    private func nsStyledSegment(
+        _ segment: SMILTextPlaybackViewModel.ChapterSegment,
+        isActive: Bool,
+    ) -> NSAttributedString {
+        var attributes: [NSAttributedString.Key: Any] = [:]
+        if isActive {
+            switch tvReaderAppearance.activeSentenceStyle {
+                case "highlightBackground":
+                    attributes[.foregroundColor] = readerTextUIColor
+                    attributes[.backgroundColor] = highlightUIColor
+                case "underline":
+                    attributes[.foregroundColor] = readerTextUIColor
+                    attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                case "colorText":
+                    attributes[.foregroundColor] = highlightUIColor
+                default:
+                    attributes[.foregroundColor] = readerTextUIColor
+            }
+        } else {
+            attributes[.foregroundColor] = readerTextUIColor.withAlphaComponent(
+                inactiveTextOpacity
+            )
+        }
+        return NSAttributedString(
+            string: segment.text + segment.separator,
+            attributes: attributes,
+        )
+    }
+
+    private func styledSegment(
+        _ segment: SMILTextPlaybackViewModel.ChapterSegment,
+        isActive: Bool,
+    ) -> AttributedString {
+        var attributed = AttributedString(segment.text + segment.separator)
+        if isActive {
+            switch tvReaderAppearance.activeSentenceStyle {
+                case "highlightBackground":
+                    attributed.foregroundColor = readerTextColor
+                    attributed.backgroundColor = highlightColor
+                case "underline":
+                    attributed.foregroundColor = readerTextColor
+                    attributed.underlineStyle = .single
+                case "colorText":
+                    attributed.foregroundColor = highlightColor
+                default:
+                    attributed.foregroundColor = readerTextColor
+            }
+        } else {
+            attributed.foregroundColor = readerTextColor.opacity(inactiveTextOpacity)
+        }
+        return attributed
+    }
+
+    private var readerTextColor: Color {
+        isLightBackground ? .black : .white
+    }
+
+    private var chromeTextColor: Color {
+        .white
+    }
+
+    private var controlBackgroundColor: Color {
+        isLightBackground ? .black.opacity(0.34) : .white.opacity(0.2)
+    }
+
+    private var readerTextUIColor: UIColor {
+        isLightBackground ? .black : .white
+    }
+
+    private var highlightColor: Color {
+        if tvReaderAppearance.activeSentenceStyle == "highlightBackground" {
+            return highlightBackgroundColor
+        }
+        return highlightTextColor
+    }
+
+    private var highlightTextColor: Color {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return Color(red: 1.0, green: 0.64, blue: 0.18)
+            case "blue":
+                return Color(red: 0.38, green: 0.68, blue: 1.0)
+            case "green":
+                return Color(red: 0.42, green: 0.86, blue: 0.48)
+            case "pink":
+                return Color(red: 1.0, green: 0.46, blue: 0.72)
+            case "gray":
+                return isLightBackground
+                    ? Color(red: 0.22, green: 0.22, blue: 0.24)
+                    : Color(red: 0.78, green: 0.78, blue: 0.82)
+            case "white":
+                return .white
+            default:
+                return Color(red: 1.0, green: 0.86, blue: 0.25)
+        }
+    }
+
+    private var highlightBackgroundColor: Color {
+        if isLightBackground {
+            return lightHighlightBackgroundColor
+        }
+        return darkHighlightBackgroundColor
+    }
+
+    private var darkHighlightBackgroundColor: Color {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return Color(red: 0.52, green: 0.27, blue: 0.05)
+            case "blue":
+                return Color(red: 0.05, green: 0.20, blue: 0.42)
+            case "green":
+                return Color(red: 0.07, green: 0.30, blue: 0.13)
+            case "pink":
+                return Color(red: 0.46, green: 0.10, blue: 0.28)
+            case "gray", "white":
+                return Color(red: 0.18, green: 0.18, blue: 0.20)
+            default:
+                return Color(red: 0.48, green: 0.38, blue: 0.04)
+        }
+    }
+
+    private var lightHighlightBackgroundColor: Color {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return Color(red: 0.98, green: 0.79, blue: 0.50)
+            case "blue":
+                return Color(red: 0.72, green: 0.84, blue: 1.0)
+            case "green":
+                return Color(red: 0.70, green: 0.89, blue: 0.72)
+            case "pink":
+                return Color(red: 1.0, green: 0.74, blue: 0.86)
+            case "gray", "white":
+                return Color(red: 0.78, green: 0.78, blue: 0.72)
+            default:
+                return Color(red: 0.95, green: 0.86, blue: 0.42)
+        }
+    }
+
+    private var highlightUIColor: UIColor {
+        if tvReaderAppearance.activeSentenceStyle == "highlightBackground" {
+            return highlightBackgroundUIColor
+        }
+        return highlightTextUIColor
+    }
+
+    private var highlightTextUIColor: UIColor {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return UIColor(red: 1.0, green: 0.64, blue: 0.18, alpha: 1)
+            case "blue":
+                return UIColor(red: 0.38, green: 0.68, blue: 1.0, alpha: 1)
+            case "green":
+                return UIColor(red: 0.42, green: 0.86, blue: 0.48, alpha: 1)
+            case "pink":
+                return UIColor(red: 1.0, green: 0.46, blue: 0.72, alpha: 1)
+            case "gray":
+                if isLightBackground {
+                    return UIColor(red: 0.22, green: 0.22, blue: 0.24, alpha: 1)
+                }
+                return UIColor(red: 0.78, green: 0.78, blue: 0.82, alpha: 1)
+            case "white":
+                return .white
+            default:
+                return UIColor(red: 1.0, green: 0.86, blue: 0.25, alpha: 1)
+        }
+    }
+
+    private var highlightBackgroundUIColor: UIColor {
+        if isLightBackground {
+            return lightHighlightBackgroundUIColor
+        }
+        return darkHighlightBackgroundUIColor
+    }
+
+    private var darkHighlightBackgroundUIColor: UIColor {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return UIColor(red: 0.52, green: 0.27, blue: 0.05, alpha: 1)
+            case "blue":
+                return UIColor(red: 0.05, green: 0.20, blue: 0.42, alpha: 1)
+            case "green":
+                return UIColor(red: 0.07, green: 0.30, blue: 0.13, alpha: 1)
+            case "pink":
+                return UIColor(red: 0.46, green: 0.10, blue: 0.28, alpha: 1)
+            case "gray", "white":
+                return UIColor(red: 0.18, green: 0.18, blue: 0.20, alpha: 1)
+            default:
+                return UIColor(red: 0.48, green: 0.38, blue: 0.04, alpha: 1)
+        }
+    }
+
+    private var lightHighlightBackgroundUIColor: UIColor {
+        switch tvReaderAppearance.highlightColor {
+            case "amber":
+                return UIColor(red: 0.98, green: 0.79, blue: 0.50, alpha: 1)
+            case "blue":
+                return UIColor(red: 0.72, green: 0.84, blue: 1.0, alpha: 1)
+            case "green":
+                return UIColor(red: 0.70, green: 0.89, blue: 0.72, alpha: 1)
+            case "pink":
+                return UIColor(red: 1.0, green: 0.74, blue: 0.86, alpha: 1)
+            case "gray", "white":
+                return UIColor(red: 0.78, green: 0.78, blue: 0.72, alpha: 1)
+            default:
+                return UIColor(red: 0.95, green: 0.86, blue: 0.42, alpha: 1)
+        }
+    }
+
+    private var inactiveTextOpacity: Double {
+        if isLightBackground {
+            switch tvReaderAppearance.inactiveTextIntensity {
+                case "medium":
+                    return 0.68
+                case "bright":
+                    return 0.82
+                default:
+                    return 0.55
+            }
+        } else {
+            switch tvReaderAppearance.inactiveTextIntensity {
+                case "medium":
+                    return 0.52
+                case "bright":
+                    return 0.72
+                default:
+                    return 0.35
+            }
+        }
+    }
+
+    private var textMaxWidth: CGFloat {
+        switch tvReaderAppearance.textWidth {
+            case "narrow":
+                return 980
+            case "wide":
+                return 1420
+            default:
+                return 1200
+        }
+    }
+
+    private var paragraphSpacing: CGFloat {
+        switch tvReaderAppearance.lineSpacing {
+            case "compact":
+                return 18
+            case "relaxed":
+                return 34
+            default:
+                return 24
+        }
+    }
+
+    private var lineSpacing: CGFloat {
+        switch tvReaderAppearance.lineSpacing {
+            case "compact":
+                return 4
+            case "relaxed":
+                return 16
+            default:
+                return 10
+        }
+    }
+
+    private var multilineTextAlignment: TextAlignment {
+        tvReaderAppearance.textAlignment == "center" ? .center : .leading
+    }
+
+    private var textFrameAlignment: Alignment {
+        tvReaderAppearance.textAlignment == "center" ? .center : .leading
+    }
+
+    private var uiFont: UIFont {
+        let baseDescriptor = UIFont.systemFont(ofSize: subtitleFontSize, weight: .regular)
+            .fontDescriptor
+        let descriptor: UIFontDescriptor
+        switch fontFamily {
+            case "serif":
+                descriptor = baseDescriptor.withDesign(.serif) ?? baseDescriptor
+            case "monospace":
+                descriptor = baseDescriptor.withDesign(.monospaced) ?? baseDescriptor
+            default:
+                descriptor = baseDescriptor
+        }
+        return UIFont(descriptor: descriptor, size: subtitleFontSize)
     }
 
     private var fontDesign: Font.Design? {
@@ -327,7 +692,7 @@ struct TVPlayerView: View {
                     )
                     .font(.title3)
                 }
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(chromeTextColor.opacity(0.7))
 
                 Spacer()
 
@@ -337,7 +702,7 @@ struct TVPlayerView: View {
                     Image(systemName: "book.fill")
                         .font(.title3)
                 }
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(chromeTextColor.opacity(0.7))
             }
             .padding(.horizontal, 80)
             .padding(.bottom, 60)
@@ -350,14 +715,15 @@ struct TVPlayerView: View {
             if let image = cachedCoverImage {
                 image
                     .resizable()
+                    .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
             } else {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.white.opacity(0.1))
+                    .fill(chromeTextColor.opacity(0.1))
                     .overlay {
                         Image(systemName: "book.closed")
                             .font(.system(size: 60))
-                            .foregroundStyle(.white.opacity(0.3))
+                            .foregroundStyle(chromeTextColor.opacity(0.3))
                     }
             }
         }
@@ -368,52 +734,88 @@ struct TVPlayerView: View {
 
     private var controlsView: some View {
         VStack(spacing: 12) {
-            HStack {
-                Spacer()
-
-                HStack(spacing: 20) {
-                    controlButton(
-                        systemName: "backward.end.fill",
-                        caption: nil,
-                        focused: .previousChapter
-                    ) {
-                        viewModel.previousChapter()
-                        showControlsTemporarily()
-                    }
-
-                    controlButton(
-                        systemName: "list.bullet",
-                        caption: nil,
-                        focused: .chapterList
-                    ) {
-                        showChapterList = true
-                        showControlsTemporarily()
-                    }
-
-                    controlButton(
-                        systemName: "speedometer",
-                        caption: nil,
-                        focused: .speed
-                    ) {
-                        showSpeedPicker = true
-                        showControlsTemporarily()
-                    }
-
-                    controlButton(
-                        systemName: "forward.end.fill",
-                        caption: nil,
-                        focused: .nextChapter
-                    ) {
-                        viewModel.nextChapter()
-                        showControlsTemporarily()
-                    }
-                }
-                .padding(.horizontal, 24)
-            }
+            menuControlsView
 
             progressBar
         }
         .transition(.opacity)
+    }
+
+    private var menuControlsView: some View {
+        HStack {
+            Spacer()
+
+            HStack(spacing: 20) {
+                controlButton(
+                    systemName: "list.bullet",
+                    caption: nil,
+                    focused: .chapterList,
+                ) {
+                    showChapterList = true
+                    showControlsTemporarily()
+                }
+
+                controlButton(
+                    systemName: "textformat.size",
+                    caption: nil,
+                    focused: .display,
+                ) {
+                    showDisplaySettings = true
+                    showControlsTemporarily()
+                }
+
+                controlButton(
+                    systemName: "speedometer",
+                    caption: nil,
+                    focused: .speed,
+                ) {
+                    showSpeedPicker = true
+                    showControlsTemporarily()
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .offset(x: -92, y: 14)
+    }
+
+    private var navigationControlsView: some View {
+        HStack(spacing: 14) {
+            controlButton(
+                systemName: "backward.end.fill",
+                caption: nil,
+                focused: .previousChapter,
+            ) {
+                viewModel.previousChapter()
+                showControlsTemporarily()
+            }
+
+            controlButton(
+                systemName: "gobackward",
+                caption: nil,
+                focused: .previousSentence,
+            ) {
+                viewModel.previousSentence()
+                showControlsTemporarily()
+            }
+
+            controlButton(
+                systemName: "goforward",
+                caption: nil,
+                focused: .nextSentence,
+            ) {
+                viewModel.nextSentence()
+                showControlsTemporarily()
+            }
+
+            controlButton(
+                systemName: "forward.end.fill",
+                caption: nil,
+                focused: .nextChapter,
+            ) {
+                viewModel.nextChapter()
+                showControlsTemporarily()
+            }
+        }
     }
 
     private var progressBar: some View {
@@ -435,13 +837,14 @@ struct TVPlayerView: View {
             },
             currentProgress: displayProgress,
             scrubScale: 0.52,
-            scrubActivationProgress: 0.10
+            scrubActivationProgress: 0.10,
         ) {
             ProgressBarContent(
                 progress: displayProgress,
                 currentTime: viewModel.currentTimeFormatted,
                 duration: viewModel.chapterDurationFormatted,
-                isFocused: isFocused
+                isFocused: isFocused,
+                tintColor: chromeTextColor,
             )
         }
         .focused($focusedControl, equals: .progressBar)
@@ -489,7 +892,7 @@ struct TVPlayerView: View {
 
     private func handleProgressBarScrub(
         _ progress: Double,
-        state: UIGestureRecognizer.State
+        state: UIGestureRecognizer.State,
     ) {
         let clamped = min(max(progress, 0), 1)
         switch state {
@@ -570,7 +973,7 @@ struct TVPlayerView: View {
     private func scrollToCurrent(
         _ proxy: ScrollViewProxy,
         animated: Bool = true,
-        consumeForce: Bool = true
+        consumeForce: Bool = true,
     ) {
         guard
             let targetIndex = viewModel.scrollTargetIndex(
@@ -601,7 +1004,7 @@ struct TVPlayerView: View {
         systemName: String,
         caption: String?,
         focused: FocusedControl,
-        action: @escaping () -> Void
+        action: @escaping () -> Void,
     ) -> some View {
         let isFocused = focusedControl == focused
         return VStack(spacing: 6) {
@@ -609,7 +1012,13 @@ struct TVPlayerView: View {
                 Image(systemName: systemName)
                     .font(.system(size: 20))
             }
-            .buttonStyle(PlayerControlButtonStyle())
+            .buttonStyle(
+                PlayerControlButtonStyle(
+                    tintColor: chromeTextColor,
+                    unfocusedBackgroundColor: controlBackgroundColor,
+                    focusedForegroundColor: .black,
+                )
+            )
             .focused($focusedControl, equals: focused)
 
             Text(caption ?? " ")
@@ -617,7 +1026,7 @@ struct TVPlayerView: View {
                 .foregroundStyle(
                     caption == nil
                         ? Color.clear
-                        : Color.white.opacity(isFocused ? 0.9 : 0.7)
+                        : chromeTextColor.opacity(isFocused ? 0.9 : 0.7)
                 )
         }
     }
@@ -629,20 +1038,26 @@ private enum FocusedControl: Hashable {
     case chapterList
     case previousChapter
     case nextChapter
+    case previousSentence
+    case nextSentence
+    case display
     case speed
 }
 
 private struct PlayerControlButtonStyle: ButtonStyle {
     @Environment(\.isFocused) private var isFocused
+    let tintColor: Color
+    let unfocusedBackgroundColor: Color
+    let focusedForegroundColor: Color
     var isLarge = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(isFocused ? .black : .white)
+            .foregroundStyle(isFocused ? focusedForegroundColor : tintColor)
             .frame(width: isLarge ? 86 : 60, height: isLarge ? 86 : 60)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isFocused ? .white : .white.opacity(0.2))
+                    .fill(isFocused ? tintColor : unfocusedBackgroundColor)
             )
             .scaleEffect(isFocused ? 1.1 : 1.0)
             .animation(.easeInOut(duration: 0.15), value: isFocused)
@@ -654,6 +1069,7 @@ private struct ProgressBarContent: View {
     let currentTime: String
     let duration: String
     let isFocused: Bool
+    let tintColor: Color
 
     var body: some View {
         let barHeight: CGFloat = isFocused ? 12 : 8
@@ -661,11 +1077,11 @@ private struct ProgressBarContent: View {
 
         VStack(spacing: 8) {
             Capsule()
-                .fill(.white.opacity(0.3))
+                .fill(tintColor.opacity(0.3))
                 .frame(height: barHeight)
                 .overlay(alignment: .leading) {
                     Capsule()
-                        .fill(.white)
+                        .fill(tintColor)
                         .scaleEffect(x: max(0.001, progress), y: 1, anchor: .leading)
                 }
                 .clipShape(Capsule())
@@ -676,11 +1092,11 @@ private struct ProgressBarContent: View {
                             handleSize / 2,
                             min(
                                 proxy.size.width - handleSize / 2,
-                                proxy.size.width * clampedProgress
-                            )
+                                proxy.size.width * clampedProgress,
+                            ),
                         )
                         Circle()
-                            .fill(.white)
+                            .fill(tintColor)
                             .frame(width: handleSize, height: handleSize)
                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                             .position(x: xPosition, y: proxy.size.height / 2)
@@ -696,10 +1112,52 @@ private struct ProgressBarContent: View {
                 Text(duration)
             }
             .font(.caption)
-            .foregroundStyle(.white.opacity(0.7))
+            .foregroundStyle(tintColor.opacity(0.7))
         }
         .padding(.vertical, 16)
         .padding(.horizontal, 24)
+    }
+}
+
+private struct JustifiedTVParagraphView: UIViewRepresentable {
+    let attributedText: NSAttributedString
+    let font: UIFont
+    let lineSpacing: CGFloat
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.backgroundColor = .clear
+        label.adjustsFontForContentSizeCategory = false
+        return label
+    }
+
+    func updateUIView(_ uiView: UILabel, context: Context) {
+        let text = NSMutableAttributedString(attributedString: attributedText)
+        let fullRange = NSRange(location: 0, length: text.length)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .justified
+        paragraphStyle.lineSpacing = lineSpacing
+        text.addAttributes(
+            [
+                .font: font,
+                .paragraphStyle: paragraphStyle,
+            ],
+            range: fullRange,
+        )
+        uiView.attributedText = text
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: UILabel,
+        context: Context,
+    ) -> CGSize? {
+        guard let width = proposal.width else { return nil }
+        let size = uiView.sizeThatFits(
+            CGSize(width: width, height: .greatestFiniteMagnitude)
+        )
+        return CGSize(width: width, height: size.height)
     }
 }
 
@@ -724,7 +1182,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
         currentProgress: Double = 0,
         scrubScale: CGFloat = 0.4,
         scrubActivationProgress: Double = 0.1,
-        @ViewBuilder label: () -> Label
+        @ViewBuilder label: () -> Label,
     ) {
         self.onSelect = onSelect
         self.onMove = onMove
@@ -752,7 +1210,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
         button.addTarget(
             button,
             action: #selector(PressButton.handlePrimaryAction),
-            for: .primaryActionTriggered
+            for: .primaryActionTriggered,
         )
 
         let host = UIHostingController(rootView: label)
@@ -786,7 +1244,7 @@ private struct DirectionalPressButton<Label: View>: UIViewRepresentable {
     func sizeThatFits(
         _ proposal: ProposedViewSize,
         uiView: PressButton,
-        context: Context
+        context: Context,
     ) -> CGSize? {
         guard let host = context.coordinator.host else { return nil }
         let targetWidth = proposal.width ?? UIScreen.main.bounds.width

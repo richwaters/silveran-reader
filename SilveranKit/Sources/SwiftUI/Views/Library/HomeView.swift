@@ -7,6 +7,9 @@ struct HomeView: View {
     let searchText: String
     #endif
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
     @Binding var sidebarSections: [SidebarSectionDescription]
     @Binding var selectedSidebarItem: SidebarItemDescription?
     @Binding var showSettings: Bool
@@ -14,7 +17,6 @@ struct HomeView: View {
     var showOfflineSheet: Binding<Bool>?
     #endif
     fileprivate struct HomeSection: Identifiable {
-        let id = UUID()
         let title: String
         let mediaKind: MediaKind
         let items: [BookMetadata]
@@ -22,6 +24,17 @@ struct HomeView: View {
         let tagFilter: String?
         let statusFilter: String?
         let sortOrder: MediaViewModel.StatusSortOrder?
+
+        var id: String {
+            [
+                title,
+                String(describing: mediaKind),
+                destination,
+                tagFilter ?? "",
+                statusFilter ?? "",
+                sortOrder.map(String.init(describing:)) ?? "",
+            ].joined(separator: "|")
+        }
     }
 
     struct Selection: Equatable {
@@ -44,20 +57,29 @@ struct HomeView: View {
     @State private var allowEmptyStateDisplay: Bool = false
     #if os(macOS)
     @State private var cardTapInProgress: Bool = false
+    @State private var showPermissionError: Bool = false
+    @State private var permissionErrorMessage: String = ""
     #endif
     @State private var navigationPath = NavigationPath()
     @State private var showViewOptions: Bool = false
-    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.home") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("coverSize.home") private var coverSizeValue: Double = CoverSizeRange.defaultValue
     @AppStorage("showAudioIndicator.home") private var showAudioIndicator: Bool = true
     @AppStorage("showSourceBadge.home") private var showSourceBadge: Bool = false
     @AppStorage("showSeriesPositionBadge.home") private var showSeriesPositionBadge: Bool = false
+    @AppStorage("progressStyle.home") private var progressStyleRaw: String = ProgressIndicatorStyle
+        .circle.rawValue
     @AppStorage("home.sectionConfig") private var homeSectionConfigJSON: String = "[]"
     @AppStorage("sidebar.config") private var sidebarConfigJSON: String = ""
 
     private var coverPreference: CoverPreference {
         CoverPreference(rawValue: coverPrefRaw) ?? .preferEbook
+    }
+
+    private var progressStyle: ProgressIndicatorStyle {
+        ProgressIndicatorStyle(rawValue: progressStyleRaw) ?? .circle
     }
 
     private var coverSize: CGFloat {
@@ -127,20 +149,20 @@ struct HomeView: View {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: SectionFilter.self) { filter in
                 sectionFilterView(for: filter)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: .ebook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in
@@ -178,7 +200,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: sectionSpacing) {
                             HStack {
                                 Text("Home")
-                                    .font(.system(size: 32, weight: .regular, design: .serif))
+                                    .font(.storytellerTitle(size: 32))
                                 Spacer()
                                 #if os(macOS)
                                 viewOptionsButton
@@ -208,7 +230,7 @@ struct HomeView: View {
                                                 return .handled
                                             }
                                             return .systemAction
-                                        }
+                                        },
                                     )
                                     #else
                                     Text(
@@ -239,8 +261,9 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
-                                        onNavigateToSection: { navigateToSection($0) }
+                                        onNavigateToSection: { navigateToSection($0) },
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -256,9 +279,11 @@ struct HomeView: View {
                                         showSourceBadge: showSourceBadge,
                                         showSeriesPositionBadge: showSeriesPositionBadge,
                                         coverPreference: coverPreference,
+                                        progressStyle: progressStyle,
                                         coverSize: coverSize,
                                         cardTapInProgress: $cardTapInProgress,
-                                        onNavigateToSection: { navigateToSection($0) }
+                                        onEditMetadata: handleEditMetadata,
+                                        onNavigateToSection: { navigateToSection($0) },
                                     )
                                     .id(section.id)
                                     .padding(.horizontal, horizontalPadding)
@@ -301,7 +326,7 @@ struct HomeView: View {
                             onSeriesSelected: { seriesName in
                                 dismissSidebar()
                                 navigationPath.append(SeriesNavIdentifier(name: seriesName))
-                            }
+                            },
                         )
                         .frame(width: sidebarWidth)
                     }
@@ -324,8 +349,16 @@ struct HomeView: View {
             }
             return .ignored
         }
+        .alert("Edit Metadata", isPresented: $showPermissionError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(permissionErrorMessage)
+        }
         #endif
         .onAppear {
+            debugLog(
+                "[PerfTrace][HomeLoad] onAppear isReady=\(mediaViewModel.isReady) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onAppear")
             }
@@ -338,11 +371,17 @@ struct HomeView: View {
             reconcileSidebarVisibility()
         }
         .onChange(of: mediaViewModel.isReady) {
+            debugLog(
+                "[PerfTrace][HomeLoad] onChange isReady=\(mediaViewModel.isReady) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onChange(isReady)")
             }
         }
         .onChange(of: mediaViewModel.libraryVersion) {
+            debugLog(
+                "[PerfTrace][HomeLoad] onChange libraryVersion=\(mediaViewModel.libraryVersion) isReady=\(mediaViewModel.isReady) books=\(mediaViewModel.library.bookMetaData.count)"
+            )
             if mediaViewModel.isReady {
                 loadSections(source: "onChange(libraryVersion)")
             }
@@ -365,6 +404,10 @@ struct HomeView: View {
     }
 
     private func loadSections(source: String) {
+        let started = CFAbsoluteTimeGetCurrent()
+        debugLog(
+            "[PerfTrace][HomeLoad] loadSections start source=\(source) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
+        )
         let config = HomeSectionConfigHelper.config
 
         let sectionBuilders: [String: () -> HomeSection] = [
@@ -374,7 +417,7 @@ struct HomeView: View {
                     statusName: "Reading",
                     sortBy: .recentPositionUpdate,
                     limit: 12,
-                    destination: "Currently Reading"
+                    destination: "Currently Reading",
                 )
             },
             "startReading": {
@@ -383,14 +426,14 @@ struct HomeView: View {
                     statusName: "To read",
                     sortBy: .recentlyAdded,
                     limit: 12,
-                    destination: "Start Reading"
+                    destination: "Start Reading",
                 )
             },
             "recentlyAdded": {
                 makeRecentlyAddedSection(
                     title: "Recently Added",
                     limit: 12,
-                    destination: "Recently Added"
+                    destination: "Recently Added",
                 )
             },
             "completed": {
@@ -399,7 +442,7 @@ struct HomeView: View {
                     statusName: "Read",
                     sortBy: .recentPositionUpdate,
                     limit: 12,
-                    destination: "Completed"
+                    destination: "Completed",
                 )
             },
         ]
@@ -408,11 +451,24 @@ struct HomeView: View {
             config
             .filter { $0.visible }
             .compactMap { item in
+                let sectionStarted = CFAbsoluteTimeGetCurrent()
+                let section: HomeSection?
                 if let builder = sectionBuilders[item.id] {
-                    return builder()
+                    section = builder()
+                } else {
+                    section = makePinnedSection(pinId: item.id)
                 }
-                return makePinnedSection(pinId: item.id)
+                let sectionElapsed = (CFAbsoluteTimeGetCurrent() - sectionStarted) * 1000
+                debugLog(
+                    "[PerfTrace][HomeLoad] section source=\(source) id=\(item.id) result=\(section?.items.count ?? 0) elapsedMs=\(String(format: "%.1f", sectionElapsed))"
+                )
+                return section
             }
+        let elapsed = (CFAbsoluteTimeGetCurrent() - started) * 1000
+        let summary = sections.map { "\($0.title)=\($0.items.count)" }.joined(separator: ", ")
+        debugLog(
+            "[PerfTrace][HomeLoad] loadSections end source=\(source) elapsedMs=\(String(format: "%.1f", elapsed)) sections=[\(summary)]"
+        )
     }
 
     private var selectedItem: BookMetadata? {
@@ -452,6 +508,36 @@ struct HomeView: View {
         #endif
     }
 
+    #if os(macOS)
+    private func handleEditMetadata(bookIds: [String]) {
+        if bookIds.contains(where: { mediaViewModel.isLocalStandaloneBook($0) }) {
+            permissionErrorMessage = "Editing metadata for local books is not supported yet."
+            showPermissionError = true
+            return
+        }
+        Task {
+            let result = await StorytellerActor.shared.checkBookUpdatePermission()
+            switch result {
+                case .allowed:
+                    if MetadataEditorWindowRegistry.addToExistingWindow(bookIds) {
+                        return
+                    }
+                    openWindow(
+                        id: "MetadataEditor",
+                        value: MetadataEditorData(bookIds: bookIds),
+                    )
+                case .denied:
+                    permissionErrorMessage =
+                        "Your account does not have permission to edit metadata on this server."
+                    showPermissionError = true
+                case .error(let message):
+                    permissionErrorMessage = "Could not verify server permissions: \(message)"
+                    showPermissionError = true
+            }
+        }
+    }
+    #endif
+
     private func firstAvailableSelection() -> Selection? {
         for (index, section) in sections.enumerated() {
             if let first = section.items.first {
@@ -483,7 +569,7 @@ struct HomeView: View {
         guard let currentSelection = selection,
             let currentItemIndex = indexOfItem(
                 in: currentSelection.sectionIndex,
-                id: currentSelection.itemID
+                id: currentSelection.itemID,
             )
         else {
             return
@@ -542,12 +628,12 @@ struct HomeView: View {
         mediaKind: MediaKind,
         tagFilter: String?,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.items(
             for: mediaKind,
             narrationFilter: .both,
-            tagFilter: tagFilter
+            tagFilter: tagFilter,
         )
         let filtered = baseItems.filter { matchesSearchText($0) }
         let limited = Array(filtered.prefix(limit))
@@ -558,7 +644,7 @@ struct HomeView: View {
             destination: destination,
             tagFilter: tagFilter,
             statusFilter: nil,
-            sortOrder: nil
+            sortOrder: nil,
         )
     }
 
@@ -567,7 +653,7 @@ struct HomeView: View {
         statusName: String,
         sortBy: MediaViewModel.StatusSortOrder,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.itemsByStatus(statusName, sortBy: sortBy, limit: limit)
         let filtered = baseItems.filter { matchesSearchText($0) }
@@ -578,14 +664,14 @@ struct HomeView: View {
             destination: destination,
             tagFilter: nil,
             statusFilter: statusName,
-            sortOrder: sortBy
+            sortOrder: sortBy,
         )
     }
 
     private func makeRecentlyAddedSection(
         title: String,
         limit: Int,
-        destination: String
+        destination: String,
     ) -> HomeSection {
         let baseItems = mediaViewModel.recentlyAddedItems(limit: limit)
         let filtered = baseItems.filter { matchesSearchText($0) }
@@ -596,7 +682,7 @@ struct HomeView: View {
             destination: destination,
             tagFilter: nil,
             statusFilter: nil,
-            sortOrder: .recentlyAdded
+            sortOrder: .recentlyAdded,
         )
     }
 
@@ -651,36 +737,36 @@ struct HomeView: View {
             guard let item = SidebarConfigHelper.defaultItemLookup[stableId] else { return nil }
             title = item.name
             switch item.content {
-            case .mediaGrid(let config):
-                matched = allBooks
-                if let tag = config.tagFilter {
-                    matched = matched.filter { $0.matchesTag(tag) }
-                }
-                if let series = config.seriesFilter {
-                    matched = matched.filter { $0.matchesSeries(series) }
-                }
-                if let author = config.authorFilter {
-                    matched = matched.filter { $0.matchesAuthor(author) }
-                }
-                if let narrator = config.narratorFilter {
-                    matched = matched.filter { $0.matchesNarrator(narrator) }
-                }
-                if let status = config.statusFilter {
-                    matched = matched.filter { $0.matchesStatus(status) }
-                }
-                if config.locationFilter == .downloaded {
-                    matched = matched.filter {
+                case .mediaGrid(let config):
+                    matched = allBooks
+                    if let tag = config.tagFilter {
+                        matched = matched.filter { $0.matchesTag(tag) }
+                    }
+                    if let series = config.seriesFilter {
+                        matched = matched.filter { $0.matchesSeries(series) }
+                    }
+                    if let author = config.authorFilter {
+                        matched = matched.filter { $0.matchesAuthor(author) }
+                    }
+                    if let narrator = config.narratorFilter {
+                        matched = matched.filter { $0.matchesNarrator(narrator) }
+                    }
+                    if let status = config.statusFilter {
+                        matched = matched.filter { $0.matchesStatus(status) }
+                    }
+                    if config.locationFilter == .downloaded {
+                        matched = matched.filter {
+                            mediaViewModel.isCategoryDownloaded(.synced, for: $0)
+                                || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
+                        }
+                    }
+                case .downloaded:
+                    matched = allBooks.filter {
                         mediaViewModel.isCategoryDownloaded(.synced, for: $0)
                             || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
                     }
-                }
-            case .downloaded:
-                matched = allBooks.filter {
-                    mediaViewModel.isCategoryDownloaded(.synced, for: $0)
-                        || mediaViewModel.isCategoryDownloaded(.audio, for: $0)
-                }
-            default:
-                matched = allBooks
+                default:
+                    matched = allBooks
             }
         } else {
             return nil
@@ -695,7 +781,7 @@ struct HomeView: View {
             destination: pinId,
             tagFilter: nil,
             statusFilter: nil,
-            sortOrder: nil
+            sortOrder: nil,
         )
     }
 
@@ -726,7 +812,7 @@ struct HomeView: View {
             mediaKind: section.mediaKind,
             tagFilter: section.tagFilter,
             statusFilter: section.statusFilter,
-            sortOrder: section.sortOrder
+            sortOrder: section.sortOrder,
         )
         navigationPath.append(filter)
     }
@@ -749,7 +835,7 @@ struct HomeView: View {
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
         )
         .navigationTitle(filter.title)
         #else
@@ -765,7 +851,7 @@ struct HomeView: View {
             preferredTileWidth: 120,
             minimumTileWidth: 50,
             initialNarrationFilterOption: .both,
-            scrollPosition: nil
+            scrollPosition: nil,
         )
         .navigationTitle(filter.title)
         #endif
@@ -809,7 +895,7 @@ struct HomeView: View {
             columnBreakpoints: [
                 MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)
             ],
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .background(Color(uiColor: .systemBackground))
     }
@@ -828,7 +914,7 @@ struct HomeView: View {
             defaultSort: "titleAZ",
             preferredTileWidth: 120,
             minimumTileWidth: 50,
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .background(Color(nsColor: .windowBackgroundColor))
     }
@@ -849,7 +935,7 @@ struct HomeView: View {
             onSeriesSelected: { newSeriesName in
                 navigationPath.append(SeriesNavIdentifier(name: newSeriesName))
             },
-            initialNarrationFilterOption: .both
+            initialNarrationFilterOption: .both,
         )
         .navigationTitle(seriesName)
     }
@@ -909,6 +995,19 @@ struct HomeView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(coverPreference == .preferAudiobook ? .accentColor : .secondary)
+
+                    Button {
+                        coverPrefRaw = CoverPreference.storytellerDouble.rawValue
+                    } label: {
+                        Image("readalong")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 18, height: 18)
+                            .frame(width: 32, height: 28)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(coverPreference == .storytellerDouble ? .accentColor : .secondary)
                 }
             }
 
@@ -923,7 +1022,7 @@ struct HomeView: View {
                     Slider(
                         value: $coverSizeValue,
                         in: Double(CoverSizeRange.min)...Double(CoverSizeRange.max),
-                        step: 5
+                        step: 5,
                     )
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 14))
@@ -938,16 +1037,34 @@ struct HomeView: View {
                 Toggle("Audio Indicator", isOn: $showAudioIndicator)
                 Toggle("Source Badge", isOn: $showSourceBadge)
                 Toggle("Series Position", isOn: $showSeriesPositionBadge)
+
+                Text("Progress")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                HStack(spacing: 8) {
+                    ForEach(ProgressIndicatorStyle.allCases) { style in
+                        Button {
+                            progressStyleRaw = style.rawValue
+                        } label: {
+                            Image(systemName: style.iconName)
+                                .frame(width: 32, height: 28)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(progressStyle == style ? .accentColor : .secondary)
+                    }
+                }
             }
 
             Divider()
 
             Button("Reset to Defaults") {
-                coverPrefRaw = CoverPreference.preferEbook.rawValue
+                coverPrefRaw = CoverPreference.storytellerDouble.rawValue
                 coverSizeValue = CoverSizeRange.defaultValue
                 showAudioIndicator = true
                 showSourceBadge = false
                 showSeriesPositionBadge = false
+                progressStyleRaw = ProgressIndicatorStyle.circle.rawValue
             }
             .font(.subheadline)
         }
@@ -971,9 +1088,11 @@ private struct HomeSectionRow: View {
     let showSourceBadge: Bool
     let showSeriesPositionBadge: Bool
     let coverPreference: CoverPreference
+    let progressStyle: ProgressIndicatorStyle
     let coverSize: CGFloat
     #if os(macOS)
     @Binding var cardTapInProgress: Bool
+    let onEditMetadata: ([String]) -> Void
     #endif
     let onNavigateToSection: (HomeView.HomeSection) -> Void
 
@@ -990,7 +1109,7 @@ private struct HomeSectionRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(section.title)
-                    .font(.title2.weight(.semibold))
+                    .font(.storytellerTitle(size: 22))
 
                 #if os(macOS)
                 if !section.items.isEmpty {
@@ -1030,13 +1149,13 @@ private struct HomeSectionRow: View {
                 }
                 .buttonStyle(.plain)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             }
 
             let metrics = MediaItemCardMetrics.make(
                 for: tileWidth,
                 mediaKind: section.mediaKind,
-                coverPreference: coverPreference
+                coverPreference: coverPreference,
             )
 
             if section.items.isEmpty {
@@ -1096,19 +1215,30 @@ private struct HomeSectionRow: View {
             metrics: metrics,
             isSelected: isItemSelected(item.id),
             showAudioIndicator: showAudioIndicator,
-            sourceLabel: showSourceBadge ? mediaViewModel.sourceLabel(for: item.id) : nil,
+            sourceLabel: showSourceBadge ? item.source : nil,
             seriesPositionBadge: seriesPositionBadge(for: item),
             coverPreference: coverPreference,
+            progressStyle: progressStyle,
             onSelect: { selected in
                 select(selected)
             },
             onInfo: { selected in
                 openInfo(for: selected)
-            }
+            },
+            onEditMetadata: editMetadataHandler,
+            debugContext: "Home:\(section.title)",
         )
     }
 
     @Environment(MediaViewModel.self) private var mediaViewModel
+
+    private var editMetadataHandler: (([String]) -> Void)? {
+        #if os(macOS)
+        onEditMetadata
+        #else
+        nil
+        #endif
+    }
 
     private func isItemSelected(_ id: BookMetadata.ID) -> Bool {
         guard let selection else { return false }
@@ -1176,14 +1306,14 @@ private struct StatePreviewWrapper: View {
             searchText: $searchText,
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
-            showSettings: $showSettings
+            showSettings: $showSettings,
         )
         #else
         HomeView(
             searchText: "",
             sidebarSections: $sections,
             selectedSidebarItem: $selectedItem,
-            showSettings: $showSettings
+            showSettings: $showSettings,
         )
         #endif
     }

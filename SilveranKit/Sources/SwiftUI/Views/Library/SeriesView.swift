@@ -13,11 +13,15 @@ struct SeriesView: View {
     #if os(iOS)
     var showOfflineSheet: Binding<Bool>?
     #endif
+    #if os(macOS)
+    var onEditMetadata: (([String]) -> Void)? = nil
+    #endif
     @Environment(MediaViewModel.self) private var mediaViewModel
     @State private var navigationPath = NavigationPath()
     @AppStorage("viewLayout.series") private var layoutStyleRaw: String = CategoryLayoutStyle.fan
         .rawValue
-    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference.preferEbook
+    @AppStorage("coverPref.series") private var coverPrefRaw: String = CoverPreference
+        .storytellerDouble
         .rawValue
     @AppStorage("series.showBookCountBadge") private var showBookCountBadge: Bool = true
 
@@ -58,7 +62,7 @@ struct SeriesView: View {
                 id: id,
                 name: name,
                 books: group.books,
-                pinId: group.series?.name != nil ? SidebarPinHelper.pinId(forSeries: name) : nil
+                pinId: group.series?.name != nil ? SidebarPinHelper.pinId(forSeries: name) : nil,
             )
         }
     }
@@ -129,19 +133,19 @@ extension SeriesView {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search"
+                prompt: "Search",
             )
             .navigationDestination(for: SeriesDetailNavigation.self) { nav in
                 seriesDetailView(for: nav.seriesName, initialSelectedItem: nav.initialSelectedBook)
                     .iOSLibraryToolbar(
                         showSettings: $showSettings,
-                        showOfflineSheet: showOfflineSheet ?? .constant(false)
+                        showOfflineSheet: showOfflineSheet ?? .constant(false),
                     )
             }
             .navigationDestination(for: BookMetadata.self) { item in
                 iOSBookDetailView(item: item, mediaKind: mediaKind).iOSLibraryToolbar(
                     showSettings: $showSettings,
-                    showOfflineSheet: showOfflineSheet ?? .constant(false)
+                    showOfflineSheet: showOfflineSheet ?? .constant(false),
                 )
             }
             .navigationDestination(for: PlayerBookData.self) { bookData in playerView(for: bookData)
@@ -162,7 +166,7 @@ extension SeriesView {
                                 iconName: "books.vertical.fill",
                                 name: group.name,
                                 bookCount: group.books.count,
-                                isSelected: false
+                                isSelected: false,
                             ).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Divider().padding(.leading, 48)
@@ -179,7 +183,7 @@ extension SeriesView {
                 groups: categoryGroups,
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         } else {
             CategoryGridLayout(
@@ -187,25 +191,25 @@ extension SeriesView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) { headerView }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             HStack {
                 CategoryViewOptionsMenu(
                     layoutStyle: Binding(
                         get: { layoutStyle },
-                        set: { layoutStyleRaw = $0.rawValue }
+                        set: { layoutStyleRaw = $0.rawValue },
                     ),
                     coverPreference: Binding(
                         get: { coverPreference },
-                        set: { coverPrefRaw = $0.rawValue }
+                        set: { coverPrefRaw = $0.rawValue },
                     ),
-                    showBookCountBadge: $showBookCountBadge
+                    showBookCountBadge: $showBookCountBadge,
                 )
                 Spacer()
             }.font(.callout)
@@ -243,7 +247,7 @@ extension SeriesView {
                                     isSelected: isSelected,
                                     showBookCount: showBookCountBadge,
                                     pinId: group.pinId,
-                                    isHovered: isHovered
+                                    isHovered: isHovered,
                                 )
                             },
                             detailContent: { group in
@@ -263,27 +267,28 @@ extension SeriesView {
                                         navigationPath.append(
                                             SeriesDetailNavigation(
                                                 seriesName: newSeriesName,
-                                                initialSelectedBook: nil
+                                                initialSelectedBook: nil,
                                             )
                                         )
                                     },
                                     initialNarrationFilterOption: .both,
-                                    scrollPosition: nil
+                                    scrollPosition: nil,
                                 )
                             },
                             toolbarContent: {
                                 CategoryViewOptionsMenu(
                                     layoutStyle: Binding(
                                         get: { layoutStyle },
-                                        set: { layoutStyleRaw = $0.rawValue }
+                                        set: { layoutStyleRaw = $0.rawValue },
                                     ),
                                     coverPreference: Binding(
                                         get: { coverPreference },
-                                        set: { coverPrefRaw = $0.rawValue }
+                                        set: { coverPrefRaw = $0.rawValue },
                                     ),
-                                    showBookCountBadge: $showBookCountBadge
+                                    showBookCountBadge: $showBookCountBadge,
                                 )
-                            }
+                            },
+                            contextMenuBuilder: categoryContextMenu,
                         )
                     case .fan, .grid: fanGridContent
                 }
@@ -301,11 +306,13 @@ extension SeriesView {
                 mediaKind: mediaKind,
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         } else {
             CategoryGridLayout(
@@ -314,18 +321,20 @@ extension SeriesView {
                 coverPreference: coverPreference,
                 sortByCount: sortByCount,
                 showBookCountBadge: showBookCountBadge,
-                onNavigate: handleNavigation
+                onNavigate: handleNavigation,
             ) {
                 headerView
             } stickyHeader: {
                 stickyHeaderView
+            } contextMenuBuilder: {
+                categoryContextMenu(for: $0)
             }
         }
     }
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Series").font(.system(size: 32, weight: .regular, design: .serif))
+            Text("Series").font(.storytellerTitle(size: 32))
             stickyHeaderView
         }
     }
@@ -337,12 +346,22 @@ extension SeriesView {
                 layoutStyle: Binding(get: { layoutStyle }, set: { layoutStyleRaw = $0.rawValue }),
                 coverPreference: Binding(
                     get: { coverPreference },
-                    set: { coverPrefRaw = $0.rawValue }
+                    set: { coverPrefRaw = $0.rawValue },
                 ),
-                showBookCountBadge: $showBookCountBadge
+                showBookCountBadge: $showBookCountBadge,
             )
             Spacer()
         }.font(.callout)
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for group: CategoryGroup) -> some View {
+        if let onEditMetadata {
+            CategoryGroupMetadataContextMenuContent(
+                group: group,
+                onEditMetadata: onEditMetadata,
+            )
+        }
     }
 }
 #endif
@@ -350,7 +369,7 @@ extension SeriesView {
 extension SeriesView {
     @ViewBuilder fileprivate func seriesDetailView(
         for seriesName: String,
-        initialSelectedItem: BookMetadata? = nil
+        initialSelectedItem: BookMetadata? = nil,
     ) -> some View {
         let isNoSeries = seriesName == Self.noSeriesFilterKey
         let displayTitle = isNoSeries ? "No Series" : seriesName
@@ -368,7 +387,7 @@ extension SeriesView {
             columnBreakpoints: [MediaGridView.ColumnBreakpoint(columns: 3, minWidth: 0)],
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(displayTitle)
         #else
         MediaGridView(
@@ -387,7 +406,7 @@ extension SeriesView {
             },
             initialNarrationFilterOption: .both,
             scrollPosition: nil,
-            initialSelectedItem: initialSelectedItem
+            initialSelectedItem: initialSelectedItem,
         ).navigationTitle(displayTitle)
         #endif
     }
