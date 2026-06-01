@@ -8,6 +8,36 @@ public enum LastOpenBookStore {
         public let openedAt: Date
         public let metadata: BookMetadata?
         public let localMediaPath: URL?
+        public let localMediaRelativePath: String?
+
+        public init(
+            bookId: String,
+            category: LocalMediaCategory,
+            openedAt: Date,
+            metadata: BookMetadata?,
+            localMediaPath: URL?,
+            localMediaRelativePath: String?,
+        ) {
+            self.bookId = bookId
+            self.category = category
+            self.openedAt = openedAt
+            self.metadata = metadata
+            self.localMediaPath = localMediaPath
+            self.localMediaRelativePath = localMediaRelativePath
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            bookId = try container.decode(String.self, forKey: .bookId)
+            category = try container.decode(LocalMediaCategory.self, forKey: .category)
+            openedAt = try container.decode(Date.self, forKey: .openedAt)
+            metadata = try container.decodeIfPresent(BookMetadata.self, forKey: .metadata)
+            localMediaPath = try container.decodeIfPresent(URL.self, forKey: .localMediaPath)
+            localMediaRelativePath = try container.decodeIfPresent(
+                String.self,
+                forKey: .localMediaRelativePath,
+            )
+        }
     }
 
     private static let key = "iOSLastOpenBookRoute"
@@ -16,18 +46,28 @@ public enum LastOpenBookStore {
         UserDefaults.standard.data(forKey: key) != nil
     }
 
-    static func save(bookData: PlayerBookData) {
+    static func save(bookData: PlayerBookData) async {
+        let relativePath: String?
+        if let localMediaPath = bookData.localMediaPath {
+            relativePath = await FilesystemActor.shared.applicationSupportRelativePath(
+                for: localMediaPath
+            )
+        } else {
+            relativePath = nil
+        }
+
         let route = Route(
             bookId: bookData.metadata.uuid,
             category: bookData.category,
             openedAt: Date(),
             metadata: bookData.metadata,
             localMediaPath: bookData.localMediaPath,
+            localMediaRelativePath: relativePath,
         )
         guard let data = try? JSONEncoder().encode(route) else { return }
         UserDefaults.standard.set(data, forKey: key)
         debugLog(
-            "[LastOpenBookStore] saved bookId=\(bookData.metadata.uuid) category=\(bookData.category.rawValue) path=\(bookData.localMediaPath?.path ?? "nil")"
+            "[LastOpenBookStore] saved bookId=\(bookData.metadata.uuid) category=\(bookData.category.rawValue) relativePath=\(relativePath ?? "nil") path=\(bookData.localMediaPath?.path ?? "nil")"
         )
     }
 
@@ -41,15 +81,21 @@ public enum LastOpenBookStore {
             return nil
         }
         debugLog(
-            "[LastOpenBookStore] load: bookId=\(route.bookId) category=\(route.category.rawValue) openedAt=\(route.openedAt) hasMetadata=\(route.metadata != nil) path=\(route.localMediaPath?.path ?? "nil")"
+            "[LastOpenBookStore] load: bookId=\(route.bookId) category=\(route.category.rawValue) openedAt=\(route.openedAt) hasMetadata=\(route.metadata != nil) relativePath=\(route.localMediaRelativePath ?? "nil") path=\(route.localMediaPath?.path ?? "nil")"
         )
         return route
     }
 
-    public static func loadPlayerBookData() -> PlayerBookData? {
+    public static func loadPlayerBookData() async -> PlayerBookData? {
         guard let route = load(),
-            let metadata = route.metadata,
-            let localMediaPath = route.localMediaPath
+            let metadata = route.metadata
+        else { return nil }
+
+        guard
+            let localMediaPath = await FilesystemActor.shared.resolvePersistedApplicationSupportURL(
+                relativePath: route.localMediaRelativePath,
+                legacyAbsoluteURL: route.localMediaPath,
+            )
         else { return nil }
 
         return PlayerBookData(

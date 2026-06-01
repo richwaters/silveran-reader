@@ -140,7 +140,7 @@ private struct iOSRootView: View {
         .task {
             guard !restoreStartupFinished else { return }
             await startupTask.value
-            restoredPlayer = LastOpenBookStore.loadPlayerBookData()
+            restoredPlayer = await LastOpenBookStore.loadPlayerBookData()
             restoreStartupFinished = true
         }
     }

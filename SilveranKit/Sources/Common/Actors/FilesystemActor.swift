@@ -1153,6 +1153,46 @@ public actor FilesystemActor {
         }
     }
 
+    public func applicationSupportRelativePath(for url: URL) -> String? {
+        let basePath = applicationSupportBaseDirectory().standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        guard path == basePath || path.hasPrefix(basePath + "/") else {
+            return nil
+        }
+        return String(path.dropFirst(basePath.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    public func applicationSupportURL(relativePath: String) -> URL {
+        applicationSupportBaseDirectory()
+            .appendingPathComponent(relativePath, isDirectory: false)
+    }
+
+    public func resolvePersistedApplicationSupportURL(
+        relativePath: String?,
+        legacyAbsoluteURL: URL?,
+    ) -> URL? {
+        if let relativePath, !relativePath.isEmpty {
+            return applicationSupportURL(relativePath: relativePath)
+        }
+
+        guard let legacyAbsoluteURL else { return nil }
+        if let relativePath = applicationSupportRelativePath(for: legacyAbsoluteURL) {
+            return applicationSupportURL(relativePath: relativePath)
+        }
+
+        let marker = "/Library/Application Support/"
+        let path = legacyAbsoluteURL.standardizedFileURL.path
+        guard let range = path.range(of: marker) else {
+            return legacyAbsoluteURL
+        }
+
+        let relativePath = String(path[range.upperBound...])
+        guard !relativePath.isEmpty else {
+            return applicationSupportBaseDirectory()
+        }
+        return applicationSupportURL(relativePath: relativePath)
+    }
+
     private func applicationSupportBaseDirectory() -> URL {
         let fm = FileManager.default
         let bundleID = Bundle.main.bundleIdentifier ?? "SilveranReader"

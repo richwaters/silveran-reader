@@ -123,7 +123,9 @@ public struct EbookPlayerView: View {
                 "[LastOpenBookStore] EbookPlayerView onAppear scenePhase=\(scenePhase) bookId=\(viewModel.bookData?.metadata.uuid ?? "nil")"
             )
             if let bookData = viewModel.bookData {
-                LastOpenBookStore.save(bookData: bookData)
+                Task {
+                    await LastOpenBookStore.save(bookData: bookData)
+                }
             }
             #endif
         }
