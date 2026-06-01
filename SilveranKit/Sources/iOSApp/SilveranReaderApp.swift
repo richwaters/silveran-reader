@@ -76,7 +76,7 @@ struct SilveranReaderApp: App {
 
     var body: some Scene {
         WindowGroup("Library", id: "MyLibrary") {
-            iOSLibraryView()
+            iOSRootView()
                 .environment(mediaViewModel)
                 .onReceive(
                     NotificationCenter.default.publisher(
@@ -114,6 +114,36 @@ struct SilveranReaderApp: App {
         debugLog("[SilveranReaderApp] App becoming active")
         Task {
             await BookServiceActor.shared.setActive(true, source: .app)
+        }
+    }
+}
+
+private struct iOSRootView: View {
+    @State private var restoredPlayer = LastOpenBookStore.loadPlayerBookData()
+
+    var body: some View {
+        Group {
+            if let restoredPlayer {
+                NavigationStack {
+                    restoredPlayerView(for: restoredPlayer)
+                }
+            } else {
+                iOSLibraryView()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func restoredPlayerView(for bookData: PlayerBookData) -> some View {
+        switch bookData.category {
+            case .audio:
+                AudiobookPlayerView(bookData: bookData, onClose: {
+                    restoredPlayer = nil
+                })
+            case .ebook, .synced:
+                EbookPlayerView(bookData: bookData, onClose: {
+                    restoredPlayer = nil
+                })
         }
     }
 }

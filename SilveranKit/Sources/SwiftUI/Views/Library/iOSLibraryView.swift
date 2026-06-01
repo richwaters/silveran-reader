@@ -64,7 +64,6 @@ public struct iOSLibraryView: View {
     @State private var showMetadataPermissionError = false
     @State private var metadataPermissionErrorMessage = ""
     @State private var settingsViewModel = SettingsViewModel()
-    @State private var didAttemptLastOpenBookRestore = false
     @AppStorage("coverPref.iOSLibrary") private var coverPrefRaw: String = CoverPreference
         .preferEbook.rawValue
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
@@ -163,15 +162,6 @@ public struct iOSLibraryView: View {
         }
         .environment(\.editMetadataAction, handleEditMetadata)
         .id("\(settingsViewModel.tabBarSlot1)-\(settingsViewModel.tabBarSlot2)")
-        .task {
-            restoreLastOpenBookIfAvailable()
-        }
-        .onChange(of: mediaViewModel.isReady) { _, _ in
-            restoreLastOpenBookIfAvailable()
-        }
-        .onChange(of: mediaViewModel.libraryVersion) { _, _ in
-            restoreLastOpenBookIfAvailable()
-        }
         .onChange(of: selectedTab) { _, _ in
             searchText = ""
         }
@@ -360,70 +350,6 @@ public struct iOSLibraryView: View {
             return result
         }
         return .allowed
-    }
-
-    private func restoreLastOpenBookIfAvailable() {
-        debugLog(
-            "[LastOpenBookStore] restore check attempted=\(didAttemptLastOpenBookRestore) isReady=\(mediaViewModel.isReady) libraryVersion=\(mediaViewModel.libraryVersion) books=\(mediaViewModel.library.bookMetaData.count)"
-        )
-        guard !didAttemptLastOpenBookRestore,
-            mediaViewModel.isReady,
-            let route = LastOpenBookStore.load()
-        else { return }
-
-        guard
-            let book =
-                mediaViewModel.library.bookMetaData.first(where: { $0.uuid == route.bookId })
-                ?? route.metadata
-        else {
-            debugLog(
-                "[LastOpenBookStore] restore deferred: missing bookId=\(route.bookId) and no saved metadata"
-            )
-            return
-        }
-
-        guard
-            let path =
-                mediaViewModel.localMediaPath(for: route.bookId, category: route.category)
-                ?? route.localMediaPath
-        else {
-            debugLog(
-                "[LastOpenBookStore] restore deferred: missing local path bookId=\(route.bookId) category=\(route.category.rawValue)"
-            )
-            return
-        }
-
-        let variant: MediaViewModel.CoverVariant =
-            book.hasAvailableAudiobook ? .audioSquare : .standard
-        let cover = mediaViewModel.coverImage(for: book, variant: variant)
-        let ebookCover =
-            book.hasAvailableAudiobook
-            ? mediaViewModel.coverImage(for: book, variant: .standard)
-            : nil
-
-        let bookData = PlayerBookData(
-            metadata: book,
-            localMediaPath: path,
-            category: route.category,
-            coverArt: cover,
-            ebookCoverArt: ebookCover,
-        )
-
-        if slot1Tab == .books {
-            debugLog("[LastOpenBookStore] restore append: slot1 books bookId=\(route.bookId)")
-            selectedTab = .slot1
-            booksNavigationPath.append(bookData)
-        } else if slot2Tab == .books {
-            debugLog("[LastOpenBookStore] restore append: slot2 books bookId=\(route.bookId)")
-            selectedTab = .slot2
-            booksNavigationPath.append(bookData)
-        } else {
-            debugLog("[LastOpenBookStore] restore append: more books bookId=\(route.bookId)")
-            selectedTab = .more
-            moreNavigationPath.append(MoreMenuView.MoreDestination.books)
-            moreNavigationPath.append(bookData)
-        }
-        didAttemptLastOpenBookRestore = true
     }
 
     private var homeTab: some View {

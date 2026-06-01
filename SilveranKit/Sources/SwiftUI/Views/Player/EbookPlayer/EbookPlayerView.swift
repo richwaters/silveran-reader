@@ -30,9 +30,11 @@ public struct EbookPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     #endif
     @State private var viewModel: EbookPlayerViewModel
+    private let onClose: (() -> Void)?
 
-    public init(bookData: PlayerBookData?) {
+    public init(bookData: PlayerBookData?, onClose: (() -> Void)? = nil) {
         self.viewModel = EbookPlayerViewModel(bookData: bookData)
+        self.onClose = onClose
     }
 
     public var body: some View {
@@ -126,18 +128,16 @@ public struct EbookPlayerView: View {
             #endif
         }
         .onDisappear {
-            viewModel.handleOnDisappear()
             #if os(iOS)
             debugLog(
                 "[LastOpenBookStore] EbookPlayerView onDisappear scenePhase=\(scenePhase) bookId=\(viewModel.bookData?.metadata.uuid ?? "nil")"
             )
-            CarPlayCoordinator.shared.isPlayerViewActive = false
-            if scenePhase == .active, let bookData = viewModel.bookData {
-                LastOpenBookStore.clearIfMatching(
-                    bookId: bookData.metadata.uuid,
-                    category: bookData.category,
-                )
+            viewModel.handleOnDisappear(cleanupPlayback: scenePhase == .active)
+            if scenePhase == .active {
+                CarPlayCoordinator.shared.isPlayerViewActive = false
             }
+            #else
+            viewModel.handleOnDisappear()
             #endif
         }
         .onChange(of: colorScheme) { _, newScheme in
@@ -445,7 +445,19 @@ public struct EbookPlayerView: View {
                     showSearchSheet: $viewModel.showSearchPanel,
                     showBookmarksPanel: $viewModel.showBookmarksPanel,
                     searchManager: viewModel.searchManager,
-                    onDismiss: { dismiss() },
+                    onDismiss: {
+                        if let bookData = viewModel.bookData {
+                            LastOpenBookStore.clearIfMatching(
+                                bookId: bookData.metadata.uuid,
+                                category: bookData.category,
+                            )
+                        }
+                        if let onClose {
+                            onClose()
+                        } else {
+                            dismiss()
+                        }
+                    },
                     onChapterSelected: viewModel.handleChapterSelection,
                     onSyncToggle: { enabled in
                         viewModel.settingsVM.lockViewToAudio = enabled

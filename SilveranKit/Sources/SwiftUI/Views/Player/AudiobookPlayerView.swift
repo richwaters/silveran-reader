@@ -8,6 +8,7 @@ import UIKit
 
 public struct AudiobookPlayerView: View {
     private let bookData: PlayerBookData?
+    private let onClose: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var chapterProgress: Double = 0.0
@@ -39,8 +40,9 @@ public struct AudiobookPlayerView: View {
     @State private var incomingPositionObserverId: UUID? = nil
     @State private var positionObserverRegistrationTask: Task<Void, Never>? = nil
 
-    public init(bookData: PlayerBookData?) {
+    public init(bookData: PlayerBookData?, onClose: (() -> Void)? = nil) {
         self.bookData = bookData
+        self.onClose = onClose
     }
 
     public var body: some View {
@@ -100,12 +102,12 @@ public struct AudiobookPlayerView: View {
                 debugLog(
                     "[LastOpenBookStore] AudiobookPlayerView onDisappear scenePhase=\(scenePhase) bookId=\(bookData?.metadata.uuid ?? "nil")"
                 )
-                CarPlayCoordinator.shared.isPlayerViewActive = false
-                if scenePhase == .active, let bookData {
-                    LastOpenBookStore.clearIfMatching(
-                        bookId: bookData.metadata.uuid,
-                        category: bookData.category,
-                    )
+                if scenePhase == .active {
+                    CarPlayCoordinator.shared.isPlayerViewActive = false
+                }
+                guard scenePhase == .active else {
+                    debugLog("[AudiobookPlayerView] Background disappear - preserving audio playback")
+                    return
                 }
                 #endif
 
@@ -162,6 +164,25 @@ public struct AudiobookPlayerView: View {
                     }
                 }
             }
+            #if os(iOS)
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            if let bookData {
+                                LastOpenBookStore.clearIfMatching(
+                                    bookId: bookData.metadata.uuid,
+                                    category: bookData.category,
+                                )
+                            }
+                            onClose()
+                        } label: {
+                            Label("Library", systemImage: "chevron.left")
+                        }
+                    }
+                }
+            }
+            #endif
     }
 
     private var readingSidebarView: some View {

@@ -591,7 +591,7 @@ class EbookPlayerViewModel {
         }
     }
 
-    func handleOnDisappear() {
+    func handleOnDisappear(cleanupPlayback: Bool = true) {
         debugLog("[EbookPlayerViewModel] View disappearing")
         debugLog("[EbookPlayerViewModel] Window closing")
 
@@ -600,6 +600,11 @@ class EbookPlayerViewModel {
                 await ProgressSyncActor.shared.removeIncomingPositionObserver(id: id)
             }
             incomingPositionObserverId = nil
+        }
+
+        guard cleanupPlayback else {
+            debugLog("[EbookPlayerViewModel] Background disappear - preserving SMIL playback")
+            return
         }
 
         Task { @MainActor in

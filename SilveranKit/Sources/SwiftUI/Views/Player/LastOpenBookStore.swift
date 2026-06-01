@@ -2,12 +2,12 @@
 import Foundation
 
 public enum LastOpenBookStore {
-    struct Route: Codable, Equatable {
-        let bookId: String
-        let category: LocalMediaCategory
-        let openedAt: Date
-        let metadata: BookMetadata?
-        let localMediaPath: URL?
+    public struct Route: Codable, Equatable {
+        public let bookId: String
+        public let category: LocalMediaCategory
+        public let openedAt: Date
+        public let metadata: BookMetadata?
+        public let localMediaPath: URL?
     }
 
     private static let key = "iOSLastOpenBookRoute"
@@ -31,7 +31,7 @@ public enum LastOpenBookStore {
         )
     }
 
-    static func load() -> Route? {
+    public static func load() -> Route? {
         guard let data = UserDefaults.standard.data(forKey: key) else {
             debugLog("[LastOpenBookStore] load: no saved route")
             return nil
@@ -44,6 +44,19 @@ public enum LastOpenBookStore {
             "[LastOpenBookStore] load: bookId=\(route.bookId) category=\(route.category.rawValue) openedAt=\(route.openedAt) hasMetadata=\(route.metadata != nil) path=\(route.localMediaPath?.path ?? "nil")"
         )
         return route
+    }
+
+    public static func loadPlayerBookData() -> PlayerBookData? {
+        guard let route = load(),
+            let metadata = route.metadata,
+            let localMediaPath = route.localMediaPath
+        else { return nil }
+
+        return PlayerBookData(
+            metadata: metadata,
+            localMediaPath: localMediaPath,
+            category: route.category,
+        )
     }
 
     static func clearIfMatching(bookId: String, category: LocalMediaCategory) {

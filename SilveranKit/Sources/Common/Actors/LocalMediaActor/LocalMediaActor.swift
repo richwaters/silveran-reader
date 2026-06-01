@@ -220,6 +220,22 @@ public actor LocalMediaActor: GlobalActor {
                 updatedMetadata.source = existing.source
                 sourceCacheMetadata[index] = updatedMetadata
                 debugLog("[LocalMediaActor] updateBookProgress: updated source-cache metadata")
+                if let sourceID = updatedMetadata.sourceID {
+                    let sourceMetadata = sourceCacheMetadata.filter { $0.sourceID == sourceID }
+                    do {
+                        try await filesystem.saveSourceCacheLibraryMetadata(
+                            sourceMetadata,
+                            sourceID: sourceID,
+                        )
+                        debugLog(
+                            "[LocalMediaActor] updateBookProgress: persisted source-cache metadata"
+                        )
+                    } catch {
+                        debugLog(
+                            "[LocalMediaActor] updateBookProgress: failed to persist source-cache metadata: \(error)"
+                        )
+                    }
+                }
             }
         }
 
