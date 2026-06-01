@@ -61,6 +61,76 @@ private let consoleOverrideScript = WKUserScript(
 )
 
 @available(macOS 14.0, iOS 17.0, *)
+private func javaScriptStringLiteral(_ string: String) -> String {
+    guard
+        let data = try? JSONSerialization.data(withJSONObject: [string]),
+        let arrayLiteral = String(data: data, encoding: .utf8)
+    else {
+        return "''"
+    }
+
+    return String(arrayLiteral.dropFirst().dropLast())
+}
+
+@available(macOS 14.0, iOS 17.0, *)
+@MainActor
+private func makeBookOpenScript(ebookPath: URL?) -> WKUserScript {
+    let pathLiteral = ebookPath.map { javaScriptStringLiteral($0.path) } ?? "null"
+    let isDirectory = ebookPath?.hasDirectoryPath == true ? "true" : "false"
+
+    return WKUserScript(
+        source: """
+            (function() {
+                window.silveranBookPath = \(pathLiteral);
+                window.silveranBookIsDirectory = \(isDirectory);
+                window.nativeReady = window.silveranBookPath !== null;
+                window.jsReady = window.jsReady || false;
+                window.silveranOpenedBookPath = window.silveranOpenedBookPath || null;
+                window.silveranOpeningBookPath = window.silveranOpeningBookPath || null;
+
+                window.tryOpenSilveranBook = function(reason) {
+                    if (!window.nativeReady || !window.jsReady || !window.silveranBookPath) {
+                        return false;
+                    }
+
+                    const loader = window.bookLoader;
+                    if (!loader) {
+                        window.jsReady = false;
+                        return false;
+                    }
+
+                    if (window.silveranOpenedBookPath === window.silveranBookPath ||
+                        window.silveranOpeningBookPath === window.silveranBookPath) {
+                        return true;
+                    }
+
+                    window.silveranOpeningBookPath = window.silveranBookPath;
+                    console.log('[SilveranBookOpen] opening book', reason, window.silveranBookPath);
+
+                    const openPromise = window.silveranBookIsDirectory
+                        ? loader.openBookFromDirectory(window.silveranBookPath)
+                        : loader.openBook(window.silveranBookPath);
+
+                    Promise.resolve(openPromise).then(function() {
+                        window.silveranOpenedBookPath = window.silveranBookPath;
+                        window.silveranOpeningBookPath = null;
+                    }).catch(function(error) {
+                        window.silveranOpeningBookPath = null;
+                        console.error('[SilveranBookOpen] failed to open book', error);
+                    });
+
+                    return true;
+                };
+
+                window.tryOpenSilveranBook('nativeReady');
+            })();
+            """,
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true,
+    )
+}
+
+@available(macOS 14.0, iOS 17.0, *)
 private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     let onNavigationFinished: () -> Void
     var commsBridge: WebViewCommsBridge?
@@ -248,28 +318,6 @@ private class WebViewCoordinator2: NSObject, WKNavigationDelegate, WKScriptMessa
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         debugLog("[EbookPlayerWebView] Navigation finished successfully")
         onNavigationFinished()
-        Task { @MainActor in
-            for attempt in 1...20 {
-                do {
-                    let ready =
-                        try await webView.evaluateJavaScript(
-                            "window.bookLoader !== undefined"
-                        ) as? Bool ?? false
-                    if ready {
-                        debugLog(
-                            "[EbookPlayerWebView] Reader ready detected after navigation (attempt \(attempt))"
-                        )
-                        onReaderReady?()
-                        return
-                    }
-                } catch {
-                    // JS context may still be settling immediately after didFinish.
-                }
-
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-            debugLog("[EbookPlayerWebView] Reader ready fallback timed out")
-        }
     }
 
     func webView(
@@ -332,7 +380,10 @@ class HighlightableWebView: WKWebView {
 
 @available(macOS 14.0, iOS 17.0, *)
 @MainActor
-private func makeWebViewConfiguration2(coordinator: WebViewCoordinator2) -> WKWebViewConfiguration {
+private func makeWebViewConfiguration2(
+    coordinator: WebViewCoordinator2,
+    ebookPath: URL?,
+) -> WKWebViewConfiguration {
     let config = WKWebViewConfiguration()
     config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
 
@@ -361,6 +412,7 @@ private func makeWebViewConfiguration2(coordinator: WebViewCoordinator2) -> WKWe
     contentController.add(coordinator, name: "ReaderReady")
 
     contentController.addUserScript(consoleOverrideScript)
+    contentController.addUserScript(makeBookOpenScript(ebookPath: ebookPath))
     config.userContentController = contentController
 
     return config
@@ -404,7 +456,6 @@ private struct WebViewWrapper2: View {
     let onBridgeReady: ((WebViewCommsBridge) -> Void)?
     let onContentPurged: (() -> Void)?
     @State private var webView: WKWebView?
-    @State private var epubLoaded = false
 
     var body: some View {
         WebViewRepresentable2(
@@ -413,10 +464,7 @@ private struct WebViewWrapper2: View {
             ebookPath: ebookPath,
             onBridgeReady: onBridgeReady,
             onReaderReady: {
-                if !epubLoaded {
-                    epubLoaded = true
-                    loadEpub()
-                }
+                markJsReady(reason: "ReaderReady")
             },
             onContentPurged: onContentPurged,
         )
@@ -455,30 +503,20 @@ private struct WebViewWrapper2: View {
         }
     }
 
-    private func loadEpub() {
-        guard let webView = webView, let ebookPath = ebookPath else {
-            debugLog("[EbookPlayerWebView] Cannot load EPUB - webView or ebookPath is nil")
+    private func markJsReady(reason: String) {
+        guard let webView = webView else {
+            debugLog("[EbookPlayerWebView] Cannot mark JS ready - webView is nil")
             return
         }
 
         Task { @MainActor in
-            let escapedPath = ebookPath.path.replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-
-            let script: String
-            if ebookPath.hasDirectoryPath {
-                debugLog("[EbookPlayerWebView] Loading EPUB from directory: \(ebookPath.path)")
-                script = "window.bookLoader.openBookFromDirectory('\(escapedPath)')"
-            } else {
-                debugLog("[EbookPlayerWebView] Loading EPUB from file: \(ebookPath.path)")
-                script = "window.bookLoader.openBook('\(escapedPath)')"
-            }
-
             do {
-                _ = try await webView.evaluateJavaScript(script)
-                debugLog("[EbookPlayerWebView] EPUB load initiated successfully")
+                let reasonLiteral = javaScriptStringLiteral(reason)
+                _ = try await webView.evaluateJavaScript(
+                    "window.jsReady = true; window.tryOpenSilveranBook?.(\(reasonLiteral))"
+                )
             } catch {
-                debugLog("[EbookPlayerWebView] Failed to call bookLoader: \(error)")
+                debugLog("[EbookPlayerWebView] Failed to mark JS ready: \(error)")
             }
         }
     }
@@ -510,7 +548,10 @@ private struct WebViewRepresentable2: PlatformViewRepresentable {
     #endif
 
     private func makeWebView(context: Context) -> WKWebView {
-        let config = makeWebViewConfiguration2(coordinator: context.coordinator)
+        let config = makeWebViewConfiguration2(
+            coordinator: context.coordinator,
+            ebookPath: ebookPath,
+        )
 
         #if os(macOS)
         let wkWebView = WKWebView(frame: .zero, configuration: config)
@@ -546,20 +587,6 @@ private struct WebViewRepresentable2: PlatformViewRepresentable {
             }
             #endif
 
-            Task { @MainActor in
-                do {
-                    let ready =
-                        try await wkWebView.evaluateJavaScript(
-                            "window.bookLoader !== undefined"
-                        ) as? Bool ?? false
-                    if ready {
-                        debugLog("[EbookPlayerWebView] JS already ready on bridge setup")
-                        self.onReaderReady()
-                    }
-                } catch {
-                    // JS not ready yet, will wait for ReaderReady message
-                }
-            }
         }
 
         return wkWebView

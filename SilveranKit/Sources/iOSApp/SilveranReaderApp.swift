@@ -44,13 +44,14 @@ class SilveranAppDelegate: NSObject, UIApplicationDelegate {
 struct SilveranReaderApp: App {
     @UIApplicationDelegateAdaptor(SilveranAppDelegate.self) var appDelegate
     @State private var mediaViewModel: MediaViewModel
+    private let startupTask: Task<Void, Never>
 
     init() {
         StorytellerFontRegistration.registerBundledFonts()
         let vm = MediaViewModel()
         _mediaViewModel = State(initialValue: vm)
 
-        Task {
+        startupTask = Task {
             await SilveranMigrations.runMigrations()
             await BookServiceActor.shared.reloadSourceRegistry()
 
@@ -76,7 +77,7 @@ struct SilveranReaderApp: App {
 
     var body: some Scene {
         WindowGroup("Library", id: "MyLibrary") {
-            iOSRootView()
+            iOSRootView(startupTask: startupTask)
                 .environment(mediaViewModel)
                 .onReceive(
                     NotificationCenter.default.publisher(
@@ -119,17 +120,28 @@ struct SilveranReaderApp: App {
 }
 
 private struct iOSRootView: View {
-    @State private var restoredPlayer = LastOpenBookStore.loadPlayerBookData()
+    let startupTask: Task<Void, Never>
+    @State private var restoreStartupFinished = !LastOpenBookStore.hasSavedRoute
+    @State private var restoredPlayer: PlayerBookData?
 
     var body: some View {
         Group {
-            if let restoredPlayer {
+            if !restoreStartupFinished {
+                ProgressView("Loading book...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let restoredPlayer {
                 NavigationStack {
                     restoredPlayerView(for: restoredPlayer)
                 }
             } else {
                 iOSLibraryView()
             }
+        }
+        .task {
+            guard !restoreStartupFinished else { return }
+            await startupTask.value
+            restoredPlayer = LastOpenBookStore.loadPlayerBookData()
+            restoreStartupFinished = true
         }
     }
 

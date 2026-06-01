@@ -6,6 +6,8 @@ debugLog("Main", "Initializing FoliateManager");
 
 window.foliateManager = new FoliateManager();
 window.bookLoader = new BookLoader(window.foliateManager);
+window.jsReady = true;
+window.tryOpenSilveranBook?.("jsReady");
 
 debugLog("Main", "Initialization complete");
 window.webkit?.messageHandlers?.ReaderReady?.postMessage({});
