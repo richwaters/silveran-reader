@@ -5,6 +5,7 @@ struct BookStatusSection: View {
     @Environment(MediaViewModel.self) private var mediaViewModel: MediaViewModel
 
     @State private var selectedStatusName: String?
+    @State private var availableStatuses: [BookStatus] = []
     @State private var isUpdating = false
     @State private var showOfflineError = false
 
@@ -13,7 +14,7 @@ struct BookStatusSection: View {
     }
 
     private var sortedStatuses: [BookStatus] {
-        mediaViewModel.availableStatuses.sorted {
+        availableStatuses.sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
@@ -35,6 +36,9 @@ struct BookStatusSection: View {
         }
         .onAppear {
             selectedStatusName = currentItem.status?.name
+        }
+        .task(id: currentItem.sourceID) {
+            await loadAvailableStatuses()
         }
         .onChange(of: currentItem.status?.name) { _, newValue in
             selectedStatusName = newValue
@@ -69,7 +73,10 @@ struct BookStatusSection: View {
     }
 
     private func updateStatus(to statusName: String) async {
-        guard mediaViewModel.connectionStatus == .connected else {
+        let sourceID = currentItem.sourceID
+        guard
+            await BookServiceActor.shared.connectionStatus(sourceID: sourceID) == .connected
+        else {
             showOfflineError = true
             selectedStatusName = currentItem.status?.name
             return
@@ -80,12 +87,12 @@ struct BookStatusSection: View {
 
         let success = await BookServiceActor.shared.updateStatus(
             forBooks: [item.uuid],
-            sourceID: item.sourceID,
+            sourceID: sourceID,
             toStatusNamed: statusName,
         )
 
         if success {
-            if let newStatus = mediaViewModel.availableStatuses.first(where: {
+            if let newStatus = availableStatuses.first(where: {
                 $0.name == statusName
             }) {
                 await LocalMediaActor.shared.updateBookStatus(
@@ -96,5 +103,13 @@ struct BookStatusSection: View {
         } else {
             selectedStatusName = currentItem.status?.name
         }
+    }
+
+    private func loadAvailableStatuses() async {
+        guard let sourceID = currentItem.sourceID else {
+            availableStatuses = []
+            return
+        }
+        availableStatuses = await BookServiceActor.shared.getAvailableStatuses(sourceID: sourceID)
     }
 }
