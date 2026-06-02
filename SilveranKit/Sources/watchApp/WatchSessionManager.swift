@@ -253,7 +253,7 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
 
         let category: LocalMediaCategory = manifest.category == "synced" ? .synced : .ebook
 
-        let bookMetadata: BookMetadata
+        var bookMetadata: BookMetadata
         if let transferredMetadata = manifest.bookMetadata {
             bookMetadata = transferredMetadata
         } else {
@@ -293,6 +293,18 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
         }
 
         do {
+            guard let sourceAwareMetadata = await metadataWithResolvedSourceID(
+                bookMetadata,
+                manifestSourceID: manifest.sourceID,
+            ) else {
+                print(
+                    "[WatchSessionManager] Refusing transferred book without sourceID: \(manifest.title)"
+                )
+                try? FileManager.default.removeItem(at: tempURL)
+                return false
+            }
+            bookMetadata = sourceAwareMetadata
+
             await mergeBookMetadataIntoLMA(bookMetadata)
 
             try await LocalMediaActor.shared.importDownloadedFile(
@@ -312,14 +324,18 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
     }
 
     private func mergeBookMetadataIntoLMA(_ book: BookMetadata) async {
+        guard let resolvedBook = await metadataWithResolvedSourceID(book) else {
+            print("[WatchSessionManager] Skipping source-less metadata merge for \(book.title)")
+            return
+        }
         var current = await LocalMediaActor.shared.sourceCacheMetadata
 
-        if let idx = current.firstIndex(where: { $0.uuid == book.uuid }) {
-            if isNewer(book, than: current[idx]) {
-                current[idx] = book
+        if let idx = current.firstIndex(where: { $0.uuid == resolvedBook.uuid }) {
+            if isNewer(resolvedBook, than: current[idx]) {
+                current[idx] = resolvedBook
             }
         } else {
-            current.append(book)
+            current.append(resolvedBook)
         }
 
         try? await LocalMediaActor.shared.updateSourceCacheMetadata(current)
@@ -392,16 +408,55 @@ public final class WatchSessionManager: NSObject, WCSessionDelegate, @unchecked 
         var current = await LocalMediaActor.shared.sourceCacheMetadata
 
         for phoneBook in phoneBooks {
-            if let idx = current.firstIndex(where: { $0.uuid == phoneBook.uuid }) {
-                if isNewer(phoneBook, than: current[idx]) {
-                    current[idx] = phoneBook
+            guard let resolvedPhoneBook = await metadataWithResolvedSourceID(
+                phoneBook,
+                existingMetadata: current,
+            ) else {
+                print(
+                    "[WatchSessionManager] Skipping source-less phone metadata for \(phoneBook.title)"
+                )
+                continue
+            }
+            if let idx = current.firstIndex(where: { $0.uuid == resolvedPhoneBook.uuid }) {
+                if isNewer(resolvedPhoneBook, than: current[idx]) {
+                    current[idx] = resolvedPhoneBook
                 }
             } else {
-                current.append(phoneBook)
+                current.append(resolvedPhoneBook)
             }
         }
 
         try? await LocalMediaActor.shared.updateSourceCacheMetadata(current)
+    }
+
+    private func metadataWithResolvedSourceID(
+        _ metadata: BookMetadata,
+        manifestSourceID: BookSourceID? = nil,
+        existingMetadata: [BookMetadata]? = nil,
+    ) async -> BookMetadata? {
+        var resolved = metadata
+        if let sourceID = resolved.sourceID ?? manifestSourceID {
+            resolved.sourceID = sourceID
+            return resolved
+        }
+
+        let current: [BookMetadata]
+        if let existingMetadata {
+            current = existingMetadata
+        } else {
+            current = await LocalMediaActor.shared.sourceCacheMetadata
+        }
+        if let sourceID = current.first(where: { $0.uuid == metadata.uuid })?.sourceID {
+            resolved.sourceID = sourceID
+            return resolved
+        }
+
+        let sources = await BookServiceActor.shared.bookSources
+        guard sources.count == 1, let sourceID = sources.first?.id else {
+            return nil
+        }
+        resolved.sourceID = sourceID
+        return resolved
     }
 
     private func notifyPhone(bookUUID: String, category: String) {

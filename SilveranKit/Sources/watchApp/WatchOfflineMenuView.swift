@@ -32,7 +32,7 @@ struct WatchOfflineMenuView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Download Books")
                             .font(.caption)
-                        Text("From Storyteller")
+                        Text("From book sources")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -141,7 +141,7 @@ struct WatchDownloadMenuView: View {
                 } label: {
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Server Collections")
+                            Text("Collections")
                                 .font(.caption)
                             Text("Curated sets")
                                 .font(.caption2)

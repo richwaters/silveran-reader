@@ -86,13 +86,13 @@ struct WatchLibraryView: View {
 
         let result = await ProgressSyncActor.shared.syncPendingQueue()
 
-        var gotServerMetadata = false
+        var gotSourceMetadata = false
         if let library = await BookServiceActor.shared.fetchLibraryInformation() {
             try? await LocalMediaActor.shared.updateSourceCacheMetadata(library)
-            gotServerMetadata = true
+            gotSourceMetadata = true
         }
 
-        if !gotServerMetadata {
+        if !gotSourceMetadata {
             let _ = await WatchSessionManager.shared.requestLibraryMetadataFromPhone()
         }
 
@@ -122,7 +122,7 @@ struct WatchLibraryView: View {
             Text("No Books")
                 .font(.caption)
 
-            Text("Download from server\nor transfer from iPhone")
+            Text("Download from sources\nor transfer from iPhone")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

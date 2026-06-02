@@ -84,6 +84,9 @@ public final class WatchStorageManager: Sendable {
             if manifest.bookMetadata == nil, let bookMeta = metadata.bookMetadata {
                 manifest.bookMetadata = bookMeta
             }
+            if manifest.sourceID == nil, let sourceID = metadata.sourceID {
+                manifest.sourceID = sourceID
+            }
             return manifest
         }
 
@@ -91,6 +94,7 @@ public final class WatchStorageManager: Sendable {
             uuid: metadata.uuid,
             title: metadata.title,
             authors: metadata.authors,
+            sourceID: metadata.sourceID,
             category: metadata.category,
             totalChunks: metadata.totalChunks,
             totalFileSize: metadata.totalFileSize,
@@ -155,6 +159,7 @@ public struct TransferManifest: Codable {
     public let uuid: String
     public let title: String
     public let authors: [String]
+    public var sourceID: BookSourceID?
     public let category: String
     public let totalChunks: Int
     public let totalFileSize: Int64
@@ -167,6 +172,7 @@ public struct ChunkTransferMetadata: Codable, Sendable {
     public let uuid: String
     public let title: String
     public let authors: [String]
+    public let sourceID: BookSourceID?
     public let category: String
     public let chunkIndex: Int
     public let totalChunks: Int

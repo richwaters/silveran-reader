@@ -68,9 +68,9 @@ struct WatchCurrentlyReadingView: View {
             Image(systemName: "server.rack")
                 .font(.title)
                 .foregroundStyle(.secondary)
-            Text("Server Not Configured")
+            Text("Source Not Configured")
                 .font(.caption)
-            Text("Set up your Storyteller server to download books")
+            Text("Set up a book source to download books")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -206,7 +206,7 @@ struct WatchCurrentlyReadingView: View {
         if status != .connected {
             guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
                 isLoading = false
-                errorMessage = "Cannot connect to server"
+                errorMessage = "Cannot connect to book sources"
                 return
             }
             books = filterAndSortBooks(library)

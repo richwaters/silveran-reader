@@ -162,7 +162,7 @@ struct WatchCollectionBooksView: View {
 
         guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
             isLoading = false
-            errorMessage = "Cannot connect to server"
+            errorMessage = "Cannot connect to book sources"
             return
         }
 

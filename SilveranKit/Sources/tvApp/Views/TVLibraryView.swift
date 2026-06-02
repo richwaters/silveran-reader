@@ -33,7 +33,7 @@ struct TVLibraryView: View {
                 .foregroundStyle(.secondary)
             Text("Not Connected")
                 .font(.title)
-            Text("Configure server connection in Settings")
+            Text("Configure book sources in Settings")
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -42,7 +42,7 @@ struct TVLibraryView: View {
     private var loadingView: some View {
         VStack(spacing: 20) {
             ProgressView()
-            Text("Loading server library...")
+            Text("Loading library...")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

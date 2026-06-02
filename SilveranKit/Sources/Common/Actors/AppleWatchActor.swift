@@ -305,6 +305,7 @@ public actor AppleWatchActor: NSObject {
                 uuid: book.uuid,
                 title: book.title,
                 authors: book.authors?.compactMap { $0.name } ?? [],
+                sourceID: book.sourceID,
                 category: category.rawValue,
                 chunkIndex: chunkIndex,
                 totalChunks: actualChunkCount,
@@ -920,6 +921,7 @@ struct ChunkTransferMetadata: Codable, Sendable {
     let uuid: String
     let title: String
     let authors: [String]
+    let sourceID: BookSourceID?
     let category: String
     let chunkIndex: Int
     let totalChunks: Int

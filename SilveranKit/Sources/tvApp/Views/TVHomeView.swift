@@ -78,7 +78,7 @@ struct TVHomeView: View {
                 .foregroundStyle(.secondary)
             Text("Not Connected")
                 .font(.title)
-            Text("Configure server connection in Settings")
+            Text("Configure book sources in Settings")
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

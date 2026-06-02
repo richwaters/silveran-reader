@@ -59,9 +59,9 @@ struct WatchCollectionsView: View {
                 Image(systemName: "server.rack")
                     .font(.title)
                     .foregroundStyle(.secondary)
-                Text("Server Not Configured")
+                Text("Source Not Configured")
                     .font(.caption)
-                Text("Set up your Storyteller server to browse collections")
+                Text("Set up a book source to browse collections")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -119,7 +119,7 @@ struct WatchCollectionsView: View {
                 Text("No collections found")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Create collections on Storyteller to organize your library")
+                Text("Create collections in a book source to organize your library")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
@@ -163,7 +163,7 @@ struct WatchCollectionsView: View {
 
         guard let library = await BookServiceActor.shared.fetchLibraryInformation() else {
             isLoading = false
-            errorMessage = "Cannot connect to server"
+            errorMessage = "Cannot connect to book sources"
             return
         }
 
