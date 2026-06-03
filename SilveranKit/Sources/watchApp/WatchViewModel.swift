@@ -86,7 +86,7 @@ public final class WatchViewModel {
 
     func loadBooks() {
         Task {
-            let sourceBooks = await LocalMediaActor.shared.sourceCacheMetadata
+            let sourceBooks = await LocalMediaActor.shared.libraryMetadata()
             var booksWithFiles: [BookMetadata] = []
             for book in sourceBooks {
                 let path = await LocalMediaActor.shared.mediaFilePath(

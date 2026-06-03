@@ -414,7 +414,7 @@ public final class MediaViewModel {
             await loadSmartShelves()
         }
         logPerfCheckpoint("refreshMetadata smartShelves", source: source, checkpoint: &checkpoint)
-        let libraryMetadata = await BookServiceActor.shared.cachedLibraryInformation()
+        let libraryMetadata = await LocalMediaActor.shared.libraryMetadata()
         let status = await BookServiceActor.shared.connectionStatus
         let paths = await LocalMediaActor.shared.cachedMediaPaths(for: libraryMetadata)
         let pendingSyncs = await ProgressSyncActor.shared.getPendingProgressSyncs()
@@ -686,11 +686,14 @@ public final class MediaViewModel {
             }
 
             await self.refreshMetadata(source: "init")
+            if await BookServiceActor.shared.hasConnectedSource() {
+                let _ = await BookServiceActor.shared.fetchLibraryInformation()
+            }
         }
     }
 
     private func syncPathCache() async {
-        let metadata = await BookServiceActor.shared.libraryMetadata
+        let metadata = await LocalMediaActor.shared.libraryMetadata()
         cachedBookPaths = await LocalMediaActor.shared.cachedMediaPaths(for: metadata)
     }
 

@@ -326,7 +326,7 @@ public actor ProgressSyncActor {
             )
         }
 
-        let allMetadata = await BookServiceActor.shared.libraryMetadata
+        let allMetadata = await LocalMediaActor.shared.libraryMetadata()
 
         guard let book = allMetadata.first(where: { $0.uuid == bookId }) else {
             debugLog("[PSA] fetchCurrentPosition: book not found in source library")
@@ -627,7 +627,7 @@ public actor ProgressSyncActor {
     }
 
     private func pollServerPositions() async {
-        let sourceMetadata = await BookServiceActor.shared.libraryMetadata
+        let sourceMetadata = await LocalMediaActor.shared.libraryMetadata()
         let allPaths = await LocalMediaActor.shared.cachedMediaPaths(for: sourceMetadata)
         let downloadedBookIds = Set(
             allPaths.filter { _, paths in

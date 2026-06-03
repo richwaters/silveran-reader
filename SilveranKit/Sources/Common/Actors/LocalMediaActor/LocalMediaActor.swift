@@ -28,7 +28,7 @@ public enum LocalMediaImportEvent: Sendable {
 @globalActor
 public actor LocalMediaActor: GlobalActor {
     public static let shared = LocalMediaActor()
-    private(set) public var sourceCacheMetadata: [BookMetadata] = []
+    private var sourceCacheMetadata: [BookMetadata] = []
     private(set) public var sourceCacheBookPaths: [String: MediaPaths] = [:]
     private let filesystem: FilesystemActor
     private let localLibrary: LocalLibraryManager
@@ -44,6 +44,7 @@ public actor LocalMediaActor: GlobalActor {
     }
 
     private var observers: [UUID: @Sendable @MainActor () -> Void] = [:]
+    private var sourceCacheLoaded = false
 
     public init(
         filesystem: FilesystemActor = .shared,
@@ -128,6 +129,7 @@ public actor LocalMediaActor: GlobalActor {
             nextMetadata = preserved + incomingBySourceID.values.flatMap { $0 }
         }
         sourceCacheMetadata = nextMetadata
+        sourceCacheLoaded = true
         let grouped = metadataBySourceID(nextMetadata)
         if let sourceID, grouped[sourceID] == nil {
             try await filesystem.saveSourceCacheLibraryMetadata([], sourceID: sourceID)
@@ -159,6 +161,21 @@ public actor LocalMediaActor: GlobalActor {
         await ProgressSyncActor.shared.updateServerPositions(positions)
 
         await notifyObservers()
+    }
+
+    public func libraryMetadata() async -> [BookMetadata] {
+        await ensureSourceCacheLoaded()
+        return sourceCacheMetadata
+    }
+
+    private func ensureSourceCacheLoaded() async {
+        await SilveranMigrations.ensureMigrationsRan()
+        guard !sourceCacheLoaded else { return }
+        do {
+            try await scanForMedia()
+        } catch {
+            debugLog("[LocalMediaActor] ensureSourceCacheLoaded failed: \(error)")
+        }
     }
 
     private func metadataBySourceID(_ metadata: [BookMetadata])
@@ -299,6 +316,7 @@ public actor LocalMediaActor: GlobalActor {
         }
 
         sourceCacheMetadata = cachedMetadata
+        sourceCacheLoaded = true
 
         var cachedPaths: [String: MediaPaths] = [:]
         for book in sourceCacheMetadata {
@@ -859,11 +877,13 @@ public actor LocalMediaActor: GlobalActor {
 
         sourceCacheMetadata = []
         sourceCacheBookPaths = [:]
+        sourceCacheLoaded = true
 
         await notifyObservers()
     }
 
     public func removeSourceCacheData(sourceID: BookSourceID) async throws {
+        await ensureSourceCacheLoaded()
         let booksToRemove = sourceCacheMetadata.filter {
             $0.sourceID == sourceID
         }

@@ -161,7 +161,7 @@ public final class CarPlayCoordinator {
     // MARK: - Public API for CarPlay
 
     public func getDownloadedBooks(category: LocalMediaCategory) async -> [BookMetadata] {
-        let allMetadata = await LocalMediaActor.shared.sourceCacheMetadata
+        let allMetadata = await LocalMediaActor.shared.libraryMetadata()
 
         var result: [BookMetadata] = []
         for book in allMetadata {

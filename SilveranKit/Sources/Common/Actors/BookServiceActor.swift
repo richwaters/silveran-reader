@@ -11,7 +11,6 @@ public actor BookServiceActor {
     private var sourceRecords: [BookSourceRecord]
     private var sourcesByID: [BookSourceID: any BookSourceActor]
     private var sourceRegistryLoaded = false
-    private var cachedLibraryMetadata: [BookMetadata] = []
     private var lastUpdateErrorsBySourceID: [BookSourceID: String] = [:]
 
     public init() {
@@ -39,23 +38,6 @@ public actor BookServiceActor {
             return sourceID
         }
         return sourceID
-    }
-
-    public var libraryMetadata: [BookMetadata] {
-        get async {
-            await SilveranMigrations.ensureMigrationsRan()
-            return cachedLibraryMetadata
-        }
-    }
-
-    public func cachedLibraryInformation() async -> [BookMetadata] {
-        await ensureSourceRegistryLoaded()
-
-        if !cachedLibraryMetadata.isEmpty {
-            return cachedLibraryMetadata
-        }
-
-        return await fetchLibraryInformation() ?? []
     }
 
     public var bookSources: [BookSourceRecord] {
@@ -362,7 +344,6 @@ public actor BookServiceActor {
                         stamped,
                         replacingSourceID: sourceID,
                     )
-                    mergeCachedLibraryMetadata(stamped, replacingSourceID: sourceID)
                 }
             case .localFolder:
                 guard updatedRecord.storagePath != nil else { return false }
@@ -381,7 +362,10 @@ public actor BookServiceActor {
                 sourcesByID[sourceID] = FolderSourceActor(sourceRecord: updatedRecord)
                 await upsertSourceRecord(updatedRecord)
                 if let metadata = await sourcesByID[sourceID]?.fetchLibraryInformation() {
-                    mergeCachedLibraryMetadata(metadata, replacingSourceID: sourceID)
+                    try? await LocalMediaActor.shared.updateSourceCacheMetadata(
+                        metadata,
+                        replacingSourceID: sourceID,
+                    )
                 }
         }
         return true
@@ -411,10 +395,6 @@ public actor BookServiceActor {
 
         sourceRecords.removeAll { $0.id == sourceID }
         sourcesByID[sourceID] = nil
-
-        cachedLibraryMetadata.removeAll {
-            $0.sourceID == sourceID
-        }
 
         try? await FilesystemActor.shared.saveBookSources(sourceRecords)
         return true
@@ -462,18 +442,20 @@ public actor BookServiceActor {
                 continue
             }
 
-            metadata.append(
-                contentsOf: sourceMetadata.map { book in
-                    var stamped = book
-                    stamped.sourceID = stamped.sourceID ?? record.id
-                    stamped.source = stamped.source ?? record.name
-                    return stamped
-                },
+            let stamped = sourceMetadata.map { book in
+                var stamped = book
+                stamped.sourceID = stamped.sourceID ?? record.id
+                stamped.source = stamped.source ?? record.name
+                return stamped
+            }
+            metadata.append(contentsOf: stamped)
+            try? await LocalMediaActor.shared.updateSourceCacheMetadata(
+                stamped,
+                replacingSourceID: record.id,
             )
         }
 
         guard sawSource else { return nil }
-        cachedLibraryMetadata = metadata
         return metadata
     }
 
@@ -489,7 +471,10 @@ public actor BookServiceActor {
             stamped.source = stamped.source ?? sourceRecord?.name
             return stamped
         }
-        mergeCachedLibraryMetadata(stamped, replacingSourceID: sourceID)
+        try? await LocalMediaActor.shared.updateSourceCacheMetadata(
+            stamped,
+            replacingSourceID: sourceID,
+        )
         return stamped
     }
 
@@ -592,8 +577,11 @@ public actor BookServiceActor {
                 guard let folder = source as? FolderSourceActor else { return false }
                 do {
                     try await folder.deleteBook(bookId)
-                    cachedLibraryMetadata.removeAll {
-                        $0.id == bookId && $0.sourceID == resolvedSourceID
+                    if let metadata = await folder.fetchLibraryInformation() {
+                        try? await LocalMediaActor.shared.updateSourceCacheMetadata(
+                            metadata,
+                            replacingSourceID: resolvedSourceID,
+                        )
                     }
                     return true
                 } catch {
@@ -886,16 +874,6 @@ public actor BookServiceActor {
             case .localFolder:
                 return configuration.storageBookmarkData ?? existing.storageBookmarkData
         }
-    }
-
-    private func mergeCachedLibraryMetadata(
-        _ metadata: [BookMetadata],
-        replacingSourceID sourceID: BookSourceID,
-    ) {
-        cachedLibraryMetadata.removeAll {
-            $0.sourceID == sourceID
-        }
-        cachedLibraryMetadata.append(contentsOf: metadata)
     }
 
     public func sourceKind(for sourceID: BookSourceID?) async -> BookSourceKind? {
