@@ -5,7 +5,7 @@ import { CSSHighlighter } from "./CSSHighlighter.js";
 
 import { debugLog } from "./DebugConfig.js";
 import BookmarkManager from "./BookmarkManager.js";
-import { TextFragmentResolver } from "./TextFragments.js";
+
 const getCSS = ({
   lineSpacing = 1.4,
   justify,
@@ -162,7 +162,6 @@ class FoliateManager {
     console.log("[FoliateManager] Creating BookmarkManager instance");
     return new BookmarkManager();
   })();
-  #textFragmentResolver = new TextFragmentResolver();
 
   async open(file) {
     debugLog("FoliateManager", "open() called with file:", file.name);
@@ -692,9 +691,8 @@ class FoliateManager {
       return;
     }
 
-    if (this.#textFragmentResolver.hasTextFragmentLocators(sectionIndex)) {
-      const locator = this.#textFragmentResolver
-        .findFirstCachedLocatorContainingRange(doc, sectionIndex, range);
+    if (this.#view.hasTextFragmentLocators(sectionIndex)) {
+      const locator = this.#view.findFirstCachedLocatorContainingRange(doc, sectionIndex, range);
 
       if (locator) {
         debugLog("FoliateManager", `Sending seek event from locator: ${locator}`);
@@ -994,101 +992,73 @@ class FoliateManager {
     const contents = renderer.getContents?.();
     const sectionHref = this.#view.book?.sections?.[sectionIndex]?.id;
 
-    const isTextFragment = this.#textFragmentResolver.isTextFragmentLocator(textId);
-    const navTarget = isTextFragment ? sectionHref : `${sectionHref}#${textId}`;
-
     if (!contents || !contents.length) {
       debugLog("FoliateManager", "No contents loaded, storing pending highlight and navigating");
       this.#pendingHighlight = { sectionIndex, textId };
-      if (sectionHref) this.#view.goTo(navTarget);
+      if (sectionHref) this.#view.goTo(`${sectionHref}#${textId}`);
       return;
     }
 
     const content = contents.find(c => c.index === sectionIndex);
-    const doc = content?.doc;
-    const isDocReady = doc &&
-        doc.URL !== "about:blank" &&
-        doc.readyState !== "loading" &&
-        doc.body?.hasChildNodes();
-
-    if (!isDocReady) {
-      debugLog("FoliateManager", `Section ${sectionIndex} document not ready`, {
-        url: doc?.URL,
-        readyState: doc?.readyState,
-        hasBody: !!doc?.body?.hasChildNodes(),
-      });
-
+    if (!content?.doc) {
+      debugLog("FoliateManager", `Section ${sectionIndex} not currently loaded, storing pending highlight and navigating`);
       this.#pendingHighlight = { sectionIndex, textId };
-      if (sectionHref) this.#view.goTo(navTarget);
+      if (sectionHref) this.#view.goTo(`${sectionHref}#${textId}`);
       return;
     }
 
-    let range = null;
-    let el = null;
+    const doc = content.doc;
+    const isTextFragment = this.#view.isTextFragmentLocator(textId);
+    const range = isTextFragment
+      ? this.#view.resolveTextFragmentRange(doc, sectionIndex, textId)
+      : null;
+    const el = isTextFragment
+      ? null
+      : doc.getElementById(textId);
+    const target = range ?? el;
 
-    if (isTextFragment) {
-      range = this.#textFragmentResolver.resolveTextFragmentRange(doc, sectionIndex, textId);
-      if (seekToLocation && sectionHref && !(range && this.#isTargetEndVisible(range, doc, renderer))) {
-        debugLog("FoliateManager", `seekToLocation enabled, navigating to ${sectionHref}#${textId}`);
-        this.#pendingHighlight = { sectionIndex, textId };
-        this.#textFragmentResolver.goToResolvedTextFragment(doc, sectionIndex, textId, this.#view);
-        return;
-      }
-      // for when seekToLocation is false
-      if (!range) {
-        debugLog("FoliateManager", `Text fragment not resolved yet in section ${sectionIndex}, storing as pending`);
-        this.#pendingHighlight = { sectionIndex, textId };
-        return;
-      }
-    }
-
-    el = doc.getElementById(textId);
-    if (!el && !isTextFragment) {
-      debugLog("FoliateManager", `Element ${textId} not found yet in section ${sectionIndex}, storing as pending`);
+    if (seekToLocation && sectionHref && !(target && this.#isTargetEndVisible(target, doc, renderer))) {
+      debugLog("FoliateManager", `seekToLocation enabled, navigating to ${sectionHref}#${textId}`);
       this.#pendingHighlight = { sectionIndex, textId };
-      if (seekToLocation && sectionHref) this.#view.goTo(navTarget);
+      this.#view.goTo(`${sectionHref}#${textId}`);
       return;
     }
 
-    if (seekToLocation && sectionHref && !isTextFragment) {
-      if (el && this.#isTargetEndVisible(el, doc, renderer)) {
-        debugLog("FoliateManager", `Target end already visible, skipping navigation`);
-      }
-      else {
-        debugLog("FoliateManager", `seekToLocation enabled, navigating to ${navTarget}`);
-        this.#pendingHighlight = { sectionIndex, textId };
-        this.#view.goTo(navTarget);
-        return;
-      }
+    if (!target) {
+      debugLog("FoliateManager", `Target ${textId} not found yet in section ${sectionIndex}, storing as pending`);
+      this.#pendingHighlight = { sectionIndex, textId };
+      return;
     }
 
     this.#pendingHighlight = null;
 
     const activeClass = this.#view?.book?.media?.activeClass || "epub-media-overlay-active";
-    this.#highlightedSectionIndex = sectionIndex;
-    if (isTextFragment) {
-      if (prevHighlightEl) {
-        prevHighlightEl.classList.remove(activeClass);
-      }
-      this.#highlightedElement = null;
-      this.#highlightedRange = range.cloneRange();
-      this.#renderReadaloudHighlight(sectionIndex, range, doc);
-    }
-    else {
+
+    if (el) {
       el.classList.add(activeClass);
       if (prevHighlightEl && prevHighlightEl !== el) {
         prevHighlightEl.classList.remove(activeClass);
       }
       this.#highlightedElement = new WeakRef(el);
       this.#highlightedRange = null;
-      this.#renderReadaloudHighlight(sectionIndex, el, doc);
     }
+    else {
+      if (prevHighlightEl) {
+        prevHighlightEl.classList.remove(activeClass);
+      }
+      this.#highlightedElement = null;
+      this.#highlightedRange = range.cloneRange();
+    }
+
+    this.#highlightedSectionIndex = sectionIndex;
+    this.#renderReadaloudHighlight(sectionIndex, target, doc);
 
     const playbackActiveClass = this.#view?.book?.media?.playbackActiveClass;
     if (playbackActiveClass) {
       doc.documentElement.classList.add(playbackActiveClass);
     }
-    const splitInfo = this.#getSplitInfo(isTextFragment ? range : el, doc, renderer);
+
+    const splitInfo = this.#getSplitInfo(target, doc, renderer);
     const visibleRatio = splitInfo?.visibleRatio ?? 1.0;
     const offScreenRatio = splitInfo?.offScreenRatio ?? 0.0;
 
@@ -1304,14 +1274,9 @@ class FoliateManager {
 
 
   // MARK: - Text Fragment Locator methods
-
   registerTextFragmentLocators(sectionIndex, jsonString) {
-    debugLog("TextFragments", `Register locators for ${sectionIndex}` );
-    const contents = this.#view?.renderer?.getContents?.() || [];
-    const content = contents.find(c => c.index === sectionIndex);
-    this.#textFragmentResolver.registerTextFragmentLocators(content?.doc, sectionIndex, jsonString);
+    this.#view?.registerTextFragmentLocators(sectionIndex, jsonString);
   }
-
 }
 
 export default FoliateManager;
