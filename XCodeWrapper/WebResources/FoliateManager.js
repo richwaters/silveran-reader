@@ -752,6 +752,16 @@ class FoliateManager {
       return [];
     }
 
+    const contents = this.#view?.renderer?.getContents?.() ?? [];
+    const content = contents.find(c => c.doc === doc);
+    const sectionIndex = content?.index;
+    if (sectionIndex != null && this.#view.hasTextFragmentLocators(sectionIndex)) {
+      const locator = this.#view.findFirstCachedLocatorContainingRange( doc, sectionIndex, range );
+      if (locator) {
+        return [locator];
+      }
+    }
+
     const ids = [];
     try {
       const allElements = doc.querySelectorAll('[id]');
